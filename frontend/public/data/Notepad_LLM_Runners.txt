@@ -1,0 +1,36 @@
+﻿================================================================================
+LOCAL LLM RUNNERS & INFERENCE ENGINES — FREE / PREMIUM COMPARISON TABLE
+================================================================================
+
+Name                    | Type              | Cost           | Platform           | Description                                      | Best For                | Quant   | API Compat   | GPU Support       | Context | License
+────────────────────────┼───────────────────┼────────────────┼────────────────────┼──────────────────────────────────────────────────┼─────────────────────────┼─────────┼──────────────┼──────────────────┼─────────┼────────────────
+Ollama                  | Local Runner      | Free           | Win/Mac/Linux      | Run Llama, Phi, Mistral, Qwen locally            | Quick prototyping        | GGUF    | OpenAI-like  | CPU+NVIDIA+AMD    | 128K    | MIT
+LM Studio               | Local Runner      | Free           | Win/Mac/Linux      | GUI for downloading & running local LLMs         | Beginners / Chat         | GGUF    | OpenAI-like  | CPU+NVIDIA+AMD    | 128K    | Proprietary
+llama.cpp               | Inference Engine  | Free (MIT)     | Cross-platform     | C++ inference engine for Llama/GPT models        | Performance              | GGUF    | OpenAI-like  | CPU+NVIDIA+AMD    | 128K    | MIT
+GPT4All                 | Local Runner      | Free           | Win/Mac/Linux      | Local LLM desktop app by Nomic AI                | Privacy-focused users    | GGUF    | None         | CPU only          | 8K      | MIT
+Text Generation WebUI   | Local Runner      | Free (AGPL)    | Win/Linux          | Gradio web UI for local LLM inference            | Power users              | All     | OpenAI-like  | CPU+NVIDIA+AMD    | 128K    | AGPL-3.0
+vLLM                    | Inference Engine  | Free (Apache)  | Linux/GPU          | High-throughput LLM serving engine               | Production serving       | None    | OpenAI-like  | NVIDIA only       | 128K    | Apache 2.0
+LocalAI                 | Local Runner      | Free (MIT)     | Docker (all)       | OpenAI API-compatible local inference            | API compatibility        | All     | OpenAI-like  | CPU+NVIDIA+AMD    | 128K    | MIT
+llama-cpp-python        | Library           | Free (MIT)     | Python (all)       | Python bindings for llama.cpp                    | Python integration       | GGUF    | OpenAI-like  | CPU+NVIDIA+AMD    | 128K    | MIT
+TensorRT-LLM            | Inference Engine  | Free (NVIDIA)  | Linux/GPU          | NVIDIA-optimized LLM inference engine            | Max perf on NVIDIA       | None    | Custom       | NVIDIA only       | 128K    | NVIDIA EULA
+TGI (HuggingFace)       | Inference Engine  | Free (Apache)  | Linux/GPU          | HF Text Generation Inference server              | HuggingFace ecosystem    | None    | OpenAI-like  | NVIDIA+AMD        | 128K    | Apache 2.0
+OpenLLM (BentoML)       | Local Runner      | Free (Apache)  | Win/Mac/Linux      | BentoML LLM serving platform                     | Enterprise serving       | All     | OpenAI-like  | CPU+NVIDIA+AMD    | 128K    | Apache 2.0
+llamafile (Mozilla)     | Local Runner      | Free (Apache)  | Win/Mac/Linux      | Single-file executable LLM (Mozilla)             | Portability              | GGUF    | None         | CPU+NVIDIA+AMD    | 32K     | Apache 2.0
+ExLlamaV2               | Inference Engine  | Free (MIT)     | Linux/GPU          | Fast HF model inference (EXL2 quant format)      | Quantized speed          | EXL2    | Custom       | NVIDIA only       | 128K    | MIT
+KoboldCPP               | Local Runner      | Free (AGPL)    | Win/Mac/Linux      | Storytelling-focused llama.cpp fork              | Creative writing / RP    | GGUF    | Kobold API   | CPU+NVIDIA+AMD    | 128K    | AGPL-3.0
+SkyPilot                | Orchestrator      | Free (Apache)  | Cross-platform     | Run LLMs on any cloud or on-prem                 | Multi-cloud deployment   | N/A     | Custom       | Any cloud GPU     | N/A     | Apache 2.0
+Ollama + Open WebUI     | Full Stack        | Free (MIT)     | Win/Mac/Linux      | Ollama backend + ChatGPT-like web frontend       | Production-like local    | GGUF    | OpenAI-like  | CPU+NVIDIA+AMD    | 128K    | MIT
+TabbyAPI                | Local Runner      | Free (MIT)     | Linux/GPU          | FastAPI wrapper for ExLlamaV2 inference          | ExLlama API access       | EXL2    | OpenAI-like  | NVIDIA only       | 128K    | MIT
+SGLang                  | Inference Engine  | Free (Apache)  | Linux/GPU          | Structured Generation + LLM serving              | Structured output / JSON | None    | OpenAI-like  | NVIDIA+AMD        | 128K    | Apache 2.0
+Aphrodite Engine        | Inference Engine  | Free (MIT)     | Linux/GPU          | Fork of vLLM with extra features (AWQ, LoRA)    | Advanced features        | AWQ     | OpenAI-like  | NVIDIA only       | 128K    | MIT
+llm (Jakob CLI)         | CLI Tool          | Free (Apache)  | Win/Mac/Linux      | Simple CLI to run LLMs via API or local          | CLI automation / piping  | N/A     | Many APIs    | N/A               | 128K    | Apache 2.0
+Candle (HuggingFace)    | Inference Engine  | Free (Apache)  | Cross-platform     | Rust-based minimalist ML framework               | Rust integration         | No      | Custom       | CPU+NVIDIA+AMD    | 128K    | Apache 2.0
+
+================================================================================
+NOTES:
+— All listed tools are FREE to use (some with optional paid tiers for cloud/managed)
+— "Quant" = Quantization formats supported: GGUF, EXL2, AWQ, or All
+— "API Compat" = API protocol compatible with: OpenAI Chat/Completion format
+— GPU column shows: CPU only / CPU+NVIDIA+AMD / NVIDIA only / Any cloud
+— Context = Maximum context window length supported (varies by model loaded)
+================================================================================

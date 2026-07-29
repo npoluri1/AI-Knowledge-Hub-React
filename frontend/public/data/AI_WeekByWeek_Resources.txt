@@ -1,0 +1,812 @@
+====================================================================================================================================================================
+  WEEK-BY-WEEK RESOURCE MAP — For AI CAREER SURVIVAL PLAN (Every topic → blogs, papers, courses, tutorials)
+====================================================================================================================================================================
+  How to use: Each week has the exact resources you need for that specific topic. Open links while studying.
+  Legend: [B] Blog | [P] Paper | [C] Course | [D] Docs | [V] Video | [G] GitHub | [Bk] Book
+====================================================================================================================================================================
+
+
+====================================================================================================================================================================
+PHASE 1 — FOUNDATION (Months 0–3)
+====================================================================================================================================================================
+
+--- WEEK 1: Python for AI + FastAPI basics ---
+Topic                    | Resources (Blogs, Papers, Courses, Docs)
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Python 3.12+ async       | [C] Real Python Async IO — realpython.com/async-io-python
+                         | [D] Python Official Async Docs — docs.python.org/3/library/asyncio.html
+                         | [V] "Python Async Programming" — YouTube (TechWithTim)
+                         | [B] "Understanding Asyncio" — pythontutorial.net
+Python type hints        | [D] Python Typing Docs — docs.python.org/3/library/typing.html
+                         | [B] "Python Type Checking (Guide)" — realpython.com/python-type-checking
+                         | [C] mypy official docs — mypy.readthedocs.io
+Python generators        | [B] "Python Generators" — realpython.com/introduction-to-python-generators
+                         | [B] "Yield and Generators" — geeksforgeeks.org
+FastAPI + Uvicorn        | [D] FastAPI Official — fastapi.tiangolo.com/tutorial/first-steps
+                         | [C] FastAPI Full Tutorial — fastapi.tiangolo.com/learn
+                         | [V] "FastAPI Crash Course" — YouTube (Traversy Media)
+                         | [G] FastAPI Official Examples — github.com/fastapi/fastapi
+Async CLI tool (build)   | [B] "Building CLI Tools with Python" — realpython.com
+                         | [B] "Click + Asyncio" — click.palletsprojects.com
+
+
+--- WEEK 2: Pydantic v2 + Flask alternative ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Pydantic v2              | [D] Pydantic Official — docs.pydantic.dev/latest
+                         | [C] Pydantic V2 Migration Guide — docs.pydantic.dev/latest/migration
+                         | [B] "Pydantic V2 Explained" — towardsdatascience.com
+                         | [B] "FastAPI + Pydantic" — fastapi.tiangolo.com/tutorial/body
+Data validation layer    | [B] "Pydantic Validation" — docs.pydantic.dev/latest/concepts/validators
+                         | [G] Pydantic Examples — github.com/pydantic/pydantic
+Flask + Gunicorn         | [D] Flask Official — flask.palletsprojects.com
+                         | [C] Flask Mega Tutorial — blog.miguelgrinberg.com/post/the-flask-mega-tutorial
+                         | [B] "Flask vs FastAPI Comparison" — testdriven.io
+                         | [D] Gunicorn Docs — docs.gunicorn.org
+Compare FastAPI vs Flask | [B] "FastAPI vs Flask: The Definitive Guide" — scaleupally.com
+                         | [V] "FastAPI vs Flask" — YouTube (TechWithTim)
+
+
+--- WEEK 3: LLM Fundamentals + Prompt Patterns ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Tokens, tokenization     | [B] "What Are Tokens?" — huggingface.co/docs/tokenizers
+                         | [B] "OpenAI Tokenizer" — platform.openai.com/tokenizer
+                         | [D] tiktoken docs — github.com/openai/tiktoken
+                         | [P] "Neural Machine Translation" (original seq2seq) — arxiv.org/abs/1409.3215
+Embeddings explained     | [B] "Text Embeddings" — huggingface.co/blog/getting-started-with-embeddings
+                         | [B] "What Are Vector Embeddings" — pinecone.io/learn/vector-embeddings
+                         | [C] HuggingFace NLP Course Ch.5 — huggingface.co/learn/nlp-course
+Context windows          | [B] "Understanding Context Windows" — lilianweng.github.io (LLM survey)
+                         | [B] "LLM Context Windows Explained" — simonwillison.net
+Inference, temperature   | [B] "LLM Parameters (Temperature, Top-P)" — huggingface.co/blog
+                         | [B] "How LLMs Generate Text" — gptechblog.com
+Temperature and sampling | [P] "The Curious Case of Neural Text Degeneration" — arxiv.org/abs/1904.09751
+OpenAI SDK               | [D] OpenAI Python SDK — platform.openai.com/docs/libraries
+                         | [C] OpenAI Cookbook — github.com/openai/openai-cookbook
+Anthropic SDK            | [D] Anthropic Python SDK — docs.anthropic.com/en/docs
+                         | [G] Anthropic Cookbook — github.com/anthropics/anthropic-cookbook
+Token counter + calc     | [G] tiktoken (count tokens) — github.com/openai/tiktoken
+                         | [B] "Building a Token Cost Calculator" — community.openai.com
+Prompt patterns          | [B] "Prompt Engineering Guide" — promptingguide.ai
+                         | [B] "Best Practices for Prompt Engineering (OpenAI)" — platform.openai.com/docs/guides/prompt-engineering
+                         | [C] DeepLearning.AI Prompt Engineering — deeplearning.ai/short-courses
+                         | [B] "Anthropic Prompt Engineering" — docs.anthropic.com/en/docs/prompt-engineering
+                         | [P] "Chain-of-Thought Prompting Elicits Reasoning" — arxiv.org/abs/2201.11903
+
+
+--- WEEK 4: Embeddings + VectorDB Intro ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+sentence-transformers    | [D] sentence-transformers docs — sbert.net
+                         | [G] sentence-transformers — github.com/UKPLab/sentence-transformers
+                         | [B] "SBERT Explained" — towardsdatascience.com
+                         | [C] "Sentence Embeddings" — huggingface.co/learn/nlp-course
+Cosine similarity        | [B] "Cosine Similarity Intuition" — pinecone.io/learn/vector-similarity
+                         | [D] sklearn.metrics.pairwise — scikit-learn.org
+Embedding models guide   | [B] "MTEB Leaderboard" — huggingface.co/spaces/mteb/leaderboard
+                         | [B] "Choosing an Embedding Model" — blog.llamaindex.ai
+                         | [P] "Text Embeddings by Contrastive Learning" — arxiv.org/abs/2201.10005
+ChromaDB intro           | [D] ChromaDB Docs — docs.trychroma.com
+                         | [G] ChromaDB GitHub — github.com/chroma-core/chroma
+                         | [V] "ChromaDB Crash Course" — YouTube
+Create/read/update/delete| [D] ChromaDB Getting Started — docs.trychroma.com/getting-started
+                         | [B] "ChromaDB Tutorial: Vector Database for Beginners" — medium
+
+
+--- WEEK 5: RAG Basic + Chunking ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+RAG basics               | [P] "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" (Lewis 2020) — arxiv.org/abs/2005.11401
+                         | [B] "RAG from Scratch (Part 1)" — blog.llamaindex.ai (Jerry Liu series)
+                         | [C] DeepLearning.AI "Building RAG with LangChain" — deeplearning.ai
+                         | [B] "What is RAG" — pinecone.io/learn/retrieval-augmented-generation
+                         | [G] LangChain RAG example — python.langchain.com/docs/tutorials/rag
+LangChain + ChromaDB     | [D] LangChain + ChromaDB — python.langchain.com/docs/integrations/vectorstores/chroma
+                         | [C] LangChain Academy — academy.langchain.com
+Q&A over PDF             | [B] "RAG Over PDFs with LangChain" — medium
+                         | [G] chat-with-pdf examples — github.com (search)
+Chunking: recursive split| [B] "Chunking Strategies for RAG" — pinecone.io/learn/chunking-strategies
+                         | [D] LangChain Text Splitters — python.langchain.com/docs/how_to/text-splitters
+                         | [B] "Chunking: Best Practices" — blog.llamaindex.ai
+Semantic chunking        | [P] "Semantic Chunking" — various blog posts
+                         | [B] "Semantic Text Splitting" — blog.langchain.dev
+Compare chunk strategies | [B] "Chunking Strategies: A Comparison" — towardsdatascience.com
+
+
+--- WEEK 6: Retrieval + FastAPI + LLM ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+MMR retrieval            | [P] "MMR for Text Summarization" — original MMR paper
+                         | [D] LangChain MMR — python.langchain.com/docs/how_to/multi-query-retrieval
+                         | [B] "Dense vs Sparse Retrieval" — pinecone.io/learn
+Similarity search        | [D] ChromaDB Similarity Search — docs.trychroma.com/usage-guide
+                         | [B] "Vector Similarity Search Explained" — weaviate.io/blog
+Hybrid search (dense + sparse)| [B] "Hybrid Search Explained" — qdrant.tech/articles/hybrid-search
+                         | [D] LangChain Hybrid Search — python.langchain.com/docs/how_to/retrieval
+Chat API with history    | [D] FastAPI + Chat — fastapi.tiangolo.com/tutorial/body
+                         | [B] "Building a Chat API with FastAPI + LangChain" — medium
+Streaming responses      | [D] FastAPI Streaming Responses — fastapi.tiangolo.com/advanced/custom-response
+                         | [D] LangChain Streaming — python.langchain.com/docs/concepts/streaming
+                         | [B] "Streaming LLM Responses with FastAPI" — testdriven.io
+
+
+--- WEEK 7: Async Python + Type Hints ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+asyncio deep dive        | [Bk] "Using Asyncio in Python" — Caleb Hattingh (O'Reilly)
+                         | [C] "Async Python" — realpython.com/async-io-python
+                         | [D] Python asyncio docs — docs.python.org/3/library/asyncio.html
+                         | [V] "Python Asyncio Full Tutorial" — YouTube (TechWithTim)
+aiohttp                  | [D] aiohttp docs — docs.aiohttp.org
+                         | [B] "Async HTTP with aiohttp" — realpython.com
+Concurrent API calls     | [B] "Making Concurrent API Calls with Asyncio" — medium
+                         | [G] asyncio examples — github.com (python asyncio examples)
+mypy strict              | [D] mypy docs — mypy.readthedocs.io/en/stable
+                         | [B] "Getting Started with Mypy" — realpython.com
+                         | [B] "Type Hints in Production" — medium
+
+
+--- WEEK 8: REST Best Practices + Error Handling ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+FastAPI routers          | [D] FastAPI Bigger Applications — fastapi.tiangolo.com/tutorial/bigger-applications
+                         | [D] FastAPI APIRouter — fastapi.tiangolo.com/reference/apirouter
+Structured API project   | [B] "FastAPI Project Structure" — medium
+                         | [G] full-stack-fastapi-template — github.com/tiangolo/full-stack-fastapi-template
+FastAPI middleware        | [D] FastAPI Middleware — fastapi.tiangolo.com/tutorial/middleware
+                         | [D] CORS, Trusted Hosts — fastapi.tiangolo.com/tutorial/cors
+Error handling patterns  | [D] FastAPI Error Handling — fastapi.tiangolo.com/tutorial/handling-errors
+                         | [D] HTTPException — fastapi.tiangolo.com/reference/exceptions
+                         | [B] "FastAPI Error Handling Best Practices" — medium
+
+
+--- WEEK 9: Logging + Testing ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Python logging           | [D] Python logging docs — docs.python.org/3/library/logging.html
+                         | [B] "Python Logging Guide" — realpython.com
+structlog                | [D] structlog docs — structlog.org
+                         | [G] structlog — github.com/hynek/structlog
+loguru                   | [G] loguru — github.com/Delgan/loguru
+                         | [B] "Logging in Python with Loguru" — medium
+JSON log output          | [B] "Structured Logging in Python" — medium
+pytest                   | [D] pytest docs — docs.pytest.org
+                         | [B] "Pytest: Getting Started" — realpython.com
+httpx for async tests    | [D] httpx docs — www.python-httpx.org
+                         | [B] "Testing FastAPI with pytest + httpx" — fastapi.tiangolo.com/tutorial/testing
+>80% coverage            | [D] pytest-cov — pytest-cov.readthedocs.io
+                         | [B] "Measuring Code Coverage with Pytest" — medium
+
+
+--- WEEK 10: Project 1 (RAG Chatbot) + Review ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Full stack RAG chatbot   | [C] "Build a RAG Chatbot with FastAPI + LangChain" — deeplearning.ai or YouTube
+                         | [G] rag-chatbot examples — github.com (search "rag chatbot fastapi")
+                         | [B] "Complete RAG Application Tutorial" — pinecone.io
+                         | [V] "Building RAG with LangChain" — YouTube (Nicholas Renotte)
+Review + fix gaps        | Revisit all docs from weeks 1-9
+                         | [B] "Common RAG Mistakes" — blog.llamaindex.ai
+                         | [B] "RAG Evaluation Checklist" — explodinggradients.com
+
+
+--- WEEK 11: API Security + Config Management ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+API key auth             | [D] FastAPI Security — fastapi.tiangolo.com/tutorial/security
+                         | [B] "API Key Authentication in FastAPI" — medium
+Rate limiting            | [G] slowapi (FastAPI rate limiter) — github.com/laurentS/slowapi
+                         | [B] "Rate Limiting Strategies" — nginx.com/blog
+pydantic-settings        | [D] pydantic-settings — docs.pydantic.dev/latest/concepts/pydantic_settings
+                         | [B] "FastAPI Configuration Management" — medium
+Environment-based config | [B] "12 Factor App: Config" — 12factor.net/config
+                         | [D] python-dotenv — pypi.org/project/python-dotenv
+
+
+--- WEEK 12: Phase 1 Capstone ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Production-ready RAG API | [C] Full Stack LLM Bootcamp — github.com/thefullstackllm/bootcamp
+                         | [B] "Production RAG Architecture" — a16z.com/emerging-architectures-for-llm-apps
+                         | [G] Deploy FastAPI — fastapi.tiangolo.com/deployment
+Deploy with docs         | [D] FastAPI Deployment — fastapi.tiangolo.com/deployment
+                         | [B] "Deploying FastAPI to Cloud" — testdriven.io
+====================================================================================================================================================================
+
+
+====================================================================================================================================================================
+PHASE 2 — AGENTIC AI (Months 3-6) — HIGHEST PRIORITY
+====================================================================================================================================================================
+
+--- WEEK 13: LangChain Basics + Tool Calling ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+LangChain LCEL           | [D] LangChain LCEL — python.langchain.com/docs/concepts/lcel
+                         | [C] LangChain Academy — academy.langchain.com
+                         | [V] "LangChain Explained" — YouTube (LangChain official)
+                         | [G] LangChain Cookbook — github.com/langchain-ai/langchain
+Chain pipeline           | [D] LangChain Chains — python.langchain.com/docs/concepts/legacy
+                         | [B] "Building Chains in LangChain" — blog.langchain.dev
+@tool decorator          | [D] LangChain Tools — python.langchain.com/docs/concepts/tools
+                         | [D] Tool Calling — python.langchain.com/docs/how_to/tool_calling
+Tool-enabled LLM         | [B] "LangChain Tool Use" — blog.langchain.dev
+                         | [G] langchain-tools examples — github.com/langchain-ai/langchain
+
+
+--- WEEK 14: Memory Systems + LangGraph Intro ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+ConversationBufferMemory | [D] LangChain Memory — python.langchain.com/docs/concepts/memory
+                         | [B] "Conversation Memory in LangChain" — medium
+SummaryBufferMemory      | [D] ConversationSummaryMemory — python.langchain.com/docs/how_to/memory
+Chat with memory         | [B] "Building Chatbots with Memory" — blog.langchain.dev
+                         | [V] "LangChain Memory" — YouTube
+LangGraph StateGraph     | [D] LangGraph Concepts — langchain-ai.github.io/langgraph/concepts
+                         | [D] LangGraph Quickstart — langchain-ai.github.io/langgraph/tutorials/introduction
+                         | [C] LangGraph Academy — academy.langchain.com
+                         | [P] LangGraph Paper (if any) — blog.langchain.dev
+Simple state machine     | [B] "StateGraph Explained" — langchain-ai.github.io/langgraph/concepts/high_level
+
+
+--- WEEK 15: LangGraph Nodes/Edges + Human-in-Loop ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Nodes, edges, conditional| [D] LangGraph Nodes & Edges — langchain-ai.github.io/langgraph/concepts/low_level
+                         | [D] Conditional Edges — langchain-ai.github.io/langgraph/how-tos
+Branching workflow       | [G] LangGraph examples — github.com/langchain-ai/langgraph
+Human-in-loop            | [D] LangGraph HITL — langchain-ai.github.io/langgraph/concepts/human_in_the_loop
+                         | [D] Interrupt/Checkpoint — langchain-ai.github.io/langgraph/how-tos
+Approval workflow        | [B] "Human-in-the-Loop with LangGraph" — blog.langchain.dev
+
+
+--- WEEK 16: Multi-Agent Patterns ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Supervisor pattern       | [B] "Multi-Agent Supervisor Pattern" — blog.langchain.dev
+                         | [D] LangGraph Multi-Agent — langchain-ai.github.io/langgraph/tutorials/multiagent
+                         | [G] supervisor-agent example — github.com/langchain-ai/langgraph
+                         | [P] "LLM Powered Autonomous Agents" — lilianweng.github.io/posts/2023-06-23-agent
+Team/crew pattern        | [B] "Crew Pattern in LangGraph" — blog.langchain.dev
+                         | [D] LangGraph Team Tutorial — langchain-ai.github.io/langgraph/tutorials/multiagent
+Research+write team      | [B] "Building a Research-Writing Multi-Agent System" — medium
+
+
+--- WEEK 17: MCP Intro + MCP Resources ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+MCP protocol             | [D] MCP Official Spec — modelcontextprotocol.io
+                         | [D] MCP Python SDK — github.com/modelcontextprotocol/python-sdk
+                         | [B] "What is MCP?" — anthropic.com/engineering (intro blog)
+                         | [V] "MCP Explained" — YouTube
+MCP tool server          | [D] MCP Server Tutorial — modelcontextprotocol.io/docs/tutorials
+                         | [D] MCP Server Architecture — modelcontextprotocol.io/docs/concepts/server
+                         | [G] MCP Servers (Official) — github.com/modelcontextprotocol/servers
+Resource templates       | [D] MCP Resources — modelcontextprotocol.io/docs/concepts/resources
+                         | [D] MCP Resource Templates — modelcontextprotocol.io/docs/concepts/resources
+Dynamic resource server  | [D] MCP Server Tutorials — modelcontextprotocol.io/docs/tutorials
+
+
+--- WEEK 18: MCP + LangGraph + CrewAI ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+MCP client in graph      | [D] MCP + LangChain — python.langchain.com/docs/integrations/tools/mcp
+                         | [B] "MCP Integration with LangGraph" — blog.langchain.dev
+                         | [G] MCP + LangChain examples — github.com (search)
+Agent with MCP tools     | [D] MCP Client Architecture — modelcontextprotocol.io/docs/concepts/client
+CrewAI basics            | [D] CrewAI Official Docs — docs.crewai.com
+                         | [G] CrewAI Examples — github.com/crewAIInc/crewAI
+                         | [C] CrewAI Tutorial — deeplearning.ai (short course)
+Simple crew              | [B] "Getting Started with CrewAI" — medium
+                         | [V] "CrewAI Crash Course" — YouTube
+
+
+--- WEEK 19: CrewAI Advanced + AutoGen ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Processes, tasks         | [D] CrewAI Processes — docs.crewai.com/core-concepts/Processes
+                         | [D] CrewAI Tasks — docs.crewai.com/core-concepts/Tasks
+Research crew            | [B] "Building Research Agents with CrewAI" — medium
+                         | [G] crewAI-examples — github.com/crewAIInc/crewAI-examples
+AutoGen                  | [D] AutoGen Docs — microsoft.github.io/autogen
+                         | [G] AutoGen — github.com/microsoft/autogen
+                         | [B] "AutoGen vs CrewAI" — medium
+Conversational agents    | [C] AutoGen Short Course — deeplearning.ai
+                         | [V] "AutoGen Tutorial" — YouTube
+
+
+--- WEEK 20: Agent Comparison + ReAct Pattern ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+LangGraph vs CrewAI      | [B] "LangGraph vs CrewAI vs AutoGen Comparison" — medium/analyticsvidhya
+                         | [B] "Choosing the Right Agent Framework" — blog.langchain.dev
+ReAct implementation     | [P] "ReAct: Synergizing Reasoning and Acting" (Yao et al. 2022) — arxiv.org/abs/2210.03629
+                         | [D] LangChain ReAct — python.langchain.com/docs/how_to/react
+                         | [B] "ReAct Pattern Explained" — promptingguide.ai
+                         | [G] ReAct implementation — github.com (react-pattern-example)
+
+
+--- WEEK 21: Planning Agents + Reflection Agents ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Plan-execute pattern     | [P] "Plan-and-Solve Prompting" — arxiv.org/abs/2305.04091
+                         | [D] LangGraph Planning — langchain-ai.github.io/langgraph/tutorials/plan-and-execute
+                         | [B] "Building Planning Agents with LangGraph" — blog.langchain.dev
+Task planning agent      | [P] "Tree of Thoughts" — arxiv.org/abs/2305.10601
+                         | [B] "Plan-Execute Agent" — blog.langchain.dev
+Self-reflection agents   | [P] "Reflexion: Agents with Verbal Reinforcement Learning" — arxiv.org/abs/2303.11366
+                         | [D] LangGraph Reflection — langchain-ai.github.io/langgraph/tutorials/reflection
+                         | [B] "Reflection Agent Pattern" — blog.langchain.dev
+Self-improving agent     | [G] reflexion-agent — github.com (search)
+                         | [P] "CRITIC: Large Language Models Can Self-Correct" — arxiv.org/abs/2305.11738
+
+
+--- WEEK 22: Advanced RAG Techniques ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+HyDE (Hypothetical Doc)  | [P] "HyDE: Precise Zero-Shot Dense Retrieval" — arxiv.org/abs/2212.10496
+                         | [D] LangChain HyDE — python.langchain.com/docs/how_to/HyDE
+                         | [B] "HyDE Explained" — pinecone.io/learn
+Multi-query retrieval    | [D] LangChain Multi-Query — python.langchain.com/docs/how_to/MultiQueryRetriever
+                         | [B] "Multi-Query RAG" — blog.langchain.dev
+Reranking                | [P] "Ranking for RAG" — various
+                         | [B] "Reranking in RAG" — cohere.com/blog/reranking
+                         | [D] LangChain ContextualCompression — python.langchain.com/docs/how_to/contextual_compression
+Contextual compression   | [D] LangChain Compression Retriever — python.langchain.com/docs/how_to/contextual_compression
+                         | [B] "Contextual Compression for RAG" — blog.langchain.dev
+Production RAG           | [B] "Advanced RAG on Production" — blog.llamaindex.ai
+                         | [B] "RAG Optimization Guide" — databricks.com/blog
+
+
+--- WEEK 23: Fine-Tuning (LoRA) + Local Models ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+LoRA / QLoRA             | [P] "LoRA: Low-Rank Adaptation" — arxiv.org/abs/2106.09685
+                         | [P] "QLoRA: Efficient Finetuning" — arxiv.org/abs/2305.14314
+                         | [B] "LoRA Explained" — huggingface.co/blog/lora
+                         | [D] HuggingFace PEFT — huggingface.co/docs/peft
+HuggingFace PEFT         | [C] HuggingFace NLP Course (Fine-tuning) — huggingface.co/learn/nlp-course
+                         | [G] PEFT examples — github.com/huggingface/peft
+Fine-tune small model    | [C] DeepLearning.AI "Finetuning LLMs" — deeplearning.ai
+                         | [B] "Fine-Tune LLM with LoRA" — medium
+Ollama + Modelfile       | [D] Ollama Docs — github.com/ollama/ollama
+                         | [D] Ollama Modelfile — github.com/ollama/ollama/blob/main/docs/modelfile.md
+                         | [B] "Custom Ollama Models with Modelfile" — medium
+Custom Ollama model      | [V] "Create Custom Ollama Model" — YouTube
+
+
+--- WEEK 24: Phase 2 Capstone (Multi-Agent System) ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Full agentic app         | [G] langgraph-multiagent-examples — github.com/langchain-ai/langgraph
+                         | [B] "End-to-End Agent System Architecture" — blog.langchain.dev
+                         | [C] DeepLearning.AI "Multi-Agent Systems" — deeplearning.ai
+                         | [V] "Building Multi-Agent Systems" — YouTube
+End-to-end demo          | [B] "How to Build a Multi-Agent System" — medium
+                         | [G] full stack agent app — github.com (search "multi-agent fastapi")
+====================================================================================================================================================================
+
+
+====================================================================================================================================================================
+PHASE 3 — ENTERPRISE AI + SPECIALISATION (Months 6-12)
+====================================================================================================================================================================
+
+--- WEEK 25: Docker for AI + GPU in Docker ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Docker for AI apps       | [D] Docker Official — docs.docker.com
+                         | [B] "Docker for Data Science" — medium
+                         | [B] "Containerizing AI Applications" — testdriven.io
+                         | [G] awesome-docker — github.com/veggiemonk/awesome-docker
+docker-compose           | [D] Docker Compose — docs.docker.com/compose
+                         | [V] "Docker Compose Tutorial" — YouTube
+nvidia-docker            | [D] NVIDIA Container Toolkit — docs.nvidia.com/datacenter/cloud-native/container-toolkit
+                         | [B] "GPU-Powered Docker Containers" — towardsdatascience.com
+GPU container            | [G] nvidia-docker examples — github.com/NVIDIA/nvidia-docker
+                         | [V] "Docker with GPU Support" — YouTube
+
+
+--- WEEK 26: Kubernetes for AI ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+minikube                 | [D] minikube — minikube.sigs.k8s.io/docs
+                         | [C] "Kubernetes Basics" — kubernetes.io/docs/tutorials
+                         | [B] "K8s for ML Engineers" — medium
+kubectl basics           | [D] kubectl Cheatsheet — kubernetes.io/docs/reference/kubectl/cheatsheet
+                         | [V] "Kubernetes Crash Course" — YouTube
+Deploy AI service on K8s | [B] "Deploying LLMs on Kubernetes" — towardsdatascience.com
+                         | [G] K8s YAML examples — github.com (search "k8s deployment ai")
+GPU scheduling on K8s    | [D] NVIDIA GPU Operator — docs.nvidia.com/datacenter/cloud-native/gpu-operator
+                         | [B] "GPU on Kubernetes" — medium
+                         | [D] Volcano (batch scheduling) — github.com/volcano-sh/volcano
+
+
+--- WEEK 27: Model Serving + Inference Optimization ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+vLLM (serving)           | [D] vLLM Docs — docs.vllm.ai
+                         | [G] vLLM — github.com/vllm-project/vllm
+                         | [B] "vLLM: Fast LLM Serving" — blog.vllm.ai
+                         | [P] "Efficient Memory Management for LLM Serving (PagedAttention)" — arxiv.org/abs/2309.06180
+TGI (Text Gen Inference) | [D] HuggingFace TGI — huggingface.co/docs/text-generation-inference
+                         | [G] TGI — github.com/huggingface/text-generation-inference
+Continuous batching      | [P] "Orca: A Distributed Serving System" — arxiv.org/abs/2208.04615
+                         | [B] "Continuous Batching Explained" — medium (vLLM blog)
+Benchmark throughput     | [B] "LLM Inference Benchmarking" — medium
+                         | [G] LLM-Perf — github.com (search "llm benchmark tool")
+
+
+--- WEEK 28: Spring AI Bridge + Python↔Java ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Spring AI                | [D] Spring AI Docs — docs.spring.io/spring-ai
+                         | [G] Spring AI — github.com/spring-projects/spring-ai
+                         | [C] Spring AI Tutorials — spring.academy
+                         | [B] "Spring AI: Building AI in Java" — medium
+Java AI service          | [B] "Spring Boot + LLM Integration" — medium
+                         | [V] "Spring AI Crash Course" — YouTube
+gRPC Bridge              | [D] gRPC Python — grpc.io/docs/languages/python
+                         | [D] gRPC Java — grpc.io/docs/languages/java
+                         | [B] "gRPC vs REST for AI Services" — medium
+REST bridge pattern      | [B] "Python-Java Microservices with REST" — medium
+Hybrid microservice      | [G] grpc-examples — github.com/grpc/grpc
+                         | [B] "Building Hybrid Java+Python AI Services" — medium
+
+
+--- WEEK 29: AI Security (Guardrails + Content Filtering) ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+NVIDIA NeMo Guardrails   | [D] NeMo Guardrails — docs.nvidia.com/nemo/guardrails
+                         | [G] NeMo Guardrails — github.com/NVIDIA/NeMo-Guardrails
+                         | [B] "Prompt Injection Defense" — medium
+                         | [P] "Prompt Injection Attacks and Defenses" — arxiv.org
+Guardrail implementation | [B] "Building Guardrails for LLM Apps" — blog.langchain.dev
+                         | [D] LangChain Guardrails — python.langchain.com/docs/integrations/guardrails
+Content filtering        | [B] "LLM Content Moderation" — platform.openai.com/docs/guides/moderation
+                         | [B] "Output Safety for LLM Applications" — anthropic.com
+PII masking              | [B] "Detecting and Masking PII in LLM Input/Output" — medium
+                         | [G] presidio (PII detection) — github.com/microsoft/presidio
+
+
+--- WEEK 30: Data Governance + LLMOps ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+PDPA compliance          | [D] PDPA Singapore — pdpc.gov.sg
+                         | [B] "Singapore PDPA for AI" — pdpc.gov.sg/ai
+                         | [B] "Data Governance for AI Systems" — medium
+Data handling layer      | [B] "GDPR/PDPA Compliant AI Architecture" — medium
+LangSmith                | [D] LangSmith Docs — docs.smith.langchain.com
+                         | [C] LangSmith Academy — academy.langchain.com
+                         | [B] "LangSmith: LLM Observability" — blog.langchain.dev
+Weights & Biases         | [D] W&B Docs — docs.wandb.ai
+                         | [G] wandb — github.com/wandb/wandb
+                         | [B] "Tracking LLM Runs with W&B" — wandb.ai/blog
+Single run trace         | [V] "LangSmith Tutorial" — YouTube
+
+
+--- WEEK 31: Evals Framework + Prometheus ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Ragas                    | [D] Ragas Docs — docs.ragas.io
+                         | [G] Ragas — github.com/explodinggradients/ragas
+                         | [B] "RAG Evaluation with Ragas" — medium
+                         | [P] "RAGAS: Automatic Evaluation of RAG" — arxiv.org/abs/2309.15217
+DeepEval                 | [D] DeepEval Docs — docs.confident-ai.com
+                         | [G] DeepEval — github.com/confident-ai/deepeval
+                         | [B] "LLM Evaluation with DeepEval" — medium
+Evaluation pipeline      | [C] DeepLearning.AI "Evaluating LLM Apps" — deeplearning.ai
+                         | [B] "Building an Eval Pipeline" — blog.langchain.dev
+Prometheus + LLM metrics | [D] Prometheus Docs — prometheus.io/docs
+                         | [B] "Monitoring LLM Apps with Prometheus" — medium
+                         | [G] prometheus-python — github.com/prometheus/client_python
+
+
+--- WEEK 32: CI/CD for AI + Model Registry ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+GitHub Actions           | [D] GitHub Actions Docs — docs.github.com/actions
+                         | [C] "GitHub Actions for ML" — github.com/resources
+                         | [B] "CI/CD for AI Projects" — medium
+Auto-deploy pipeline     | [G] ai-cicd-examples — github.com (search "mlops cicd pipeline")
+                         | [B] "MLOps CI/CD Best Practices" — neptune.ai/blog
+MLflow                   | [D] MLflow Docs — mlflow.org/docs
+                         | [G] MLflow — github.com/mlflow/mlflow
+                         | [B] "MLflow for Model Registry" — medium
+DVC (Data Version Control)| [D] DVC Docs — dvc.org/doc
+                         | [G] DVC — github.com/iterative/dvc
+                         | [B] "Data Versioning with DVC" — medium
+Versioned models         | [V] "MLflow + DVC Tutorial" — YouTube
+
+
+--- WEEK 33: Caching + Rate Limiting ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Redis caching            | [D] Redis Docs — redis.io/documentation
+                         | [D] redis-py — github.com/redis/redis-py
+                         | [B] "Caching LLM Responses with Redis" — medium
+Semantic cache           | [P] "GPTCache: Semantic Cache for LLM" — arxiv.org/abs/2306.08636
+                         | [G] GPTCache — github.com/zilliztech/GPTCache
+                         | [B] "Semantic Caching for LLMs" — medium
+                         | [D] LangChain Cache — python.langchain.com/docs/how_to/caching
+Cache layer for AI       | [B] "Building a Cache Layer for AI APIs" — medium
+Token bucket limiter     | [D] slowapi (rate limit) — github.com/laurentS/slowapi
+                         | [B] "Rate Limiting Algorithms" — medium
+                         | [D] FastAPI Rate Limiting — fastapi.tiangolo.com/advanced/middleware
+
+
+--- WEEK 34: Cost Optimization + Observability ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Token accounting         | [B] "LLM Cost Management" — medium
+                         | [B] "How to Reduce LLM API Costs" — towardsdatascience.com
+                         | [G] llm-cost-calculator — github.com (search)
+Cost dashboard           | [B] "Building LLM Cost Dashboards" — medium
+OpenTelemetry            | [D] OpenTelemetry Python — opentelemetry.io/docs/languages/python
+                         | [G] opentelemetry-python — github.com/open-telemetry/opentelemetry-python
+                         | [B] "OpenTelemetry for AI Applications" — medium
+Traces + metrics + logs  | [D] OpenTelemetry Collector — opentelemetry.io/docs/collector
+                         | [V] "OpenTelemetry Full Tutorial" — YouTube
+
+
+--- WEEK 35: Enterprise Projects (Docs Q&A + Automation) ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Enterprise RAG system    | [B] "Enterprise RAG Architecture Patterns" — blog.llamaindex.ai
+                         | [B] "Building an Enterprise Document Q&A" — medium
+                         | [G] enterprise-rag — github.com (search)
+                         | [D] LangChain Enterprise Patterns — python.langchain.com/docs/tutorials
+Automated report gen     | [B] "Multi-Agent Report Generation" — medium
+                         | [G] langgraph-report-agent — github.com (search)
+                         | [B] "Agentic Report Generation Architecture" — blog.langchain.dev
+
+
+--- WEEK 36: Robotics Intro + LLM + Robot ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+ROS2 basics              | [D] ROS2 Docs — docs.ros.org/en/humble
+                         | [C] ROS2 Tutorials — docs.ros.org/en/humble/Tutorials.html
+                         | [B] "ROS2 for Beginners" — medium
+                         | [V] "ROS2 Crash Course" — YouTube (Robotics Backend)
+ROS2 pub/sub (Python)    | [D] ROS2 Python Tutorials — docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries
+                         | [G] ros2-examples — github.com/ros2/examples
+LLM → robot action       | [P] "SayCan: Grounding LLMs in Robot Actions" — arxiv.org/abs/2204.01691
+                         | [P] "RT-2: Vision-Language-Action Model" — arxiv.org/abs/2307.15818
+                         | [B] "LLMs for Robotics" — deepmind.google/blog
+Task planner for robot   | [P] "PaLM-E: Embodied Multimodal Language Model" — arxiv.org/abs/2303.03378
+                         | [B] "ROS + LLM Integration" — medium
+                         | [G] ros-llm-integration — github.com (search)
+
+
+--- WEEK 37: Phase 3 Review + Mock Interview ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Portfolio polish         | [B] "How to Structure a GitHub Portfolio" — medium
+                         | [B] "AI Engineer Resume Tips" — medium
+AI system design prep    | [B] "AI System Design Interview Questions" — medium
+                         | [B] "System Design for AI: The Interview" — bytebytego.com
+1-hr system design       | [V] "Mock AI System Design Interview" — YouTube
+                         | [C] "AI System Design" — alexxubyte (System Design Interview)
+                         | [V] "Design a RAG System" — YouTube (system design round)
+
+
+--- WEEK 38-48: Deepen Weak Areas ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Identify gaps            | Revisit any weeks above where topics were unclear
+Build 2-3 more projects  | Pick from Project Portfolio (see below)
+Senior AI role prep      | [B] "Senior AI Engineer: Skills Beyond Coding" — medium
+                         | [B] "Becoming an AI Architect" — medium
+====================================================================================================================================================================
+
+
+====================================================================================================================================================================
+PHASE 4 — FUTURE-PROOF (Year 1-5)
+====================================================================================================================================================================
+
+--- YEAR 1-2: Production Depth ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Scaling AI systems       | [Bk] "Designing Data-Intensive Applications" — Martin Kleppmann
+                         | [B] "Scaling LLM Applications" — medium
+                         | [B] "Architecture Patterns for Production AI" — a16z.com
+Production RAG at scale  | [P] "GraphRAG: RAG on Knowledge Graphs" — microsoft.com
+                         | [B] "Caching and Scaling RAG" — blog.llamaindex.ai
+                         | [D] Qdrant Production — qdrant.tech/documentation/high-availability
+
+
+--- YEAR 2: Quantum Intro (Conceptual Only) ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Quantum concepts         | [Bk] "Quantum Computing for Everyone" — Chris Bernhardt (start here)
+                         | [C] Qiskit Textbook — learning.quantum.ibm.com
+                         | [B] "Quantum Computing Explained" — medium
+                         | [V] "Quantum Computing for Beginners" — YouTube (IBM)
+                         | [B] Scott Aaronson Blog — scottaaronson.blog
+Qubits, gates, circuits  | [C] IBM Quantum Learning Path — learning.quantum.ibm.com
+                         | [D] Qiskit Docs — qiskit.org/documentation
+                         | [V] "Qubits Explained" — YouTube
+
+
+--- YEAR 2-3: Quantum ML ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Quantum ML basics        | [C] PennyLane QML — pennylane.ai/qml
+                         | [B] "Quantum Machine Learning" — pennylane.ai/blog
+                         | [P] "Variational Quantum Classifier" — arxiv.org
+Quantum circuits basics  | [D] PennyLane Docs — docs.pennylane.ai
+                         | [G] pennylane-examples — github.com/PennyLaneAI/pennylane
+
+
+--- YEAR 3: AI + Quantum Hybrid ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Hybrid algorithms        | [P] "Hybrid Quantum-Classical Neural Networks" — various
+                         | [B] "Quantum + Classical ML" — IBM Research blog
+                         | [C] Qiskit + ML — learning.quantum.ibm.com
+                         | [P] "Quantum Natural Language Processing" — various (emerging)
+
+
+--- YEAR 3-4: Quantum + Agent Optimisation ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Quantum optimisation     | [P] "QAOA: Quantum Approximate Optimization Algorithm"
+                         | [B] "Quantum for Combinatorial Optimization" — medium
+                         | [D] Qiskit Optimization — qiskit-community.github.io/qiskit-optimization
+Agent planning + quantum | [P] "Quantum Reinforcement Learning" — arxiv.org
+                         | [B] "Quantum RL for Agent Planning" — medium (emerging)
+
+
+--- YEAR 4-5: Full Convergence (AI+Quantum+Robotics) ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+Emerging convergence     | [P] Search "quantum reinforcement learning robot control 2025-2026"
+                         | [B] Monitor arxiv.org (quant-ph + cs.RO + cs.AI)
+                         | [V] Conference talks (IEEE, IBM Quantum Summit)
+                         | [B] "The Future of AI + Quantum + Robotics" — medium (opinion)
+
+
+--- CONTINUOUS: Architecture + Leadership ---
+Topic                    | Resources
+-------------------------|-------------------------------------------------------------------------------------------------------------------
+System design patterns   | [Bk] "Design Patterns" — GoF (Gang of Four)
+                         | [Bk] "System Design Interview" — Alex Xu Vol 1 & 2
+                         | [B] bytebytego.com
+                         | [B] "AI Architecture Patterns" — martinfowler.com
+Tech lead / architect    | [Bk] "Staff Engineer" — Will Larson
+                         | [Bk] "The Software Architect Elevator" — Gregor Hohpe
+                         | [B] "The Road to Staff Engineer" — medium
+Mentor others            | [B] "How to Be a Tech Lead" — medium
+                         | [B] "Becoming a Software Architect" — medium
+====================================================================================================================================================================
+
+
+====================================================================================================================================================================
+BONUS: PROJECT PORTFOLIO — Detailed Resources
+====================================================================================================================================================================
+#  | Project              | Phase | Key Resources
+---|----------------------|-------|-----------------------------------------------------------------------------------------------------------------
+1  | RAG Q&A Chatbot      | 1     | [D] FastAPI + LangChain + ChromaDB (see weeks 5-6)
+                         |       | [G] github.com (search "rag-chatbot fastapi")
+                         |       | [V] "Build RAG Chatbot" — YouTube (Nicholas Renotte)
+2  | Multi-Agent Research | 2     | [D] LangGraph Multi-Agent Tutorial — langchain-ai.github.io/langgraph
+                         |       | [D] MCP Python SDK — modelcontextprotocol.io
+                         |       | [G] langgraph-multiagent — github.com/ langchain-ai/langgraph
+3  | Document Pipeline    | 2     | [D] LangChain Document Loaders — python.langchain.com
+                         |       | [B] "OCR + RAG Pipeline" — medium
+                         |       | [D] PyMuPDF / Tesseract — pypi.org
+4  | Enterprise Doc Portal| 3     | [D] Spring AI — docs.spring.io/spring-ai
+                         |       | [D] FastAPI + Docker — fastapi.tiangolo.com/deployment
+                         |       | [B] "Enterprise RAG Architecture" — blog.llamaindex.ai
+5  | AI API Gateway       | 3     | [D] FastAPI Middleware + Redis — fastapi.tiangolo.com
+                         |       | [D] NeMo Guardrails — github.com/NVIDIA/NeMo-Guardrails
+                         |       | [B] "API Gateway Pattern for AI" — medium
+6  | Agent Dashboard      | 2-3   | [D] LangGraph Streaming — langchain-ai.github.io/langgraph
+                         |       | [D] FastAPI WebSocket — fastapi.tiangolo.com/advanced/websocket
+                         |       | [G] react-fastapi-template — github.com
+7  | Eval + Monitoring Sys| 3     | [D] Ragas — docs.ragas.io
+                         |       | [D] LangSmith — docs.smith.langchain.com
+                         |       | [D] Prometheus — prometheus.io/docs
+                         |       | [G] grafana-dashboards — github.com/grafana
+8  | Full Enterprise AI   | 3-4   | [D] vLLM + Docker + K8s — docs.vllm.ai
+                         |       | [D] Spring AI — docs.spring.io/spring-ai
+                         |       | [D] LangGraph — langchain-ai.github.io/langgraph
+                         |       | [D] Qdrant — qdrant.tech/documentation
+                         |       | [B] "Full Stack AI Architecture" — medium
+====================================================================================================================================================================
+
+
+====================================================================================================================================================================
+BLOGS TO BOOKMARK (by Week/Phase)
+====================================================================================================================================================================
+Phase | Blog Name                          | URL                                    | When to Read
+------|------------------------------------|----------------------------------------|------------------------------
+1     | Real Python                        | realpython.com                         | Weeks 1-10 (Python)
+1     | FastAPI Official                   | fastapi.tiangolo.com                   | Weeks 1-12 (every FastAPI topic)
+1     | Lilian Weng's Blog (LLMs)          | lilianweng.github.io                   | Week 3 (LLM fundamentals)
+1     | Prompting Guide                    | promptingguide.ai                     | Week 3 (prompts)
+1     | Pinecone Learn                     | pinecone.io/learn                      | Weeks 4-6 (embeddings, RAG)
+1     | LlamaIndex Blog (RAG series)       | blog.llamaindex.ai                     | Weeks 5-6 (RAG deep dive)
+2     | LangChain Blog                     | blog.langchain.dev                     | Weeks 13-24 (ALL agent content)
+2     | LangGraph Docs                     | langchain-ai.github.io/langgraph       | Weeks 14-24 (DAILY reference)
+2     | MCP Official                       | modelcontextprotocol.io                 | Weeks 17-18 (MCP protocol)
+2     | Anthropic Engineering Blog          | anthropic.com/engineering              | Week 20 (agents, ReAct)
+2     | CrewAI Docs                        | docs.crewai.com                        | Weeks 18-19 (CrewAI)
+2     | AutoGen Docs                       | microsoft.github.io/autogen             | Week 19 (AutoGen)
+3     | NVIDIA Developer                   | developer.nvidia.com/blog              | Weeks 25-27 (Docker, GPU, serving)
+3     | Spring AI Docs                     | docs.spring.io/spring-ai               | Week 28 (Java bridge)
+3     | NeMo Guardrails                    | github.com/NVIDIA/NeMo-Guardrails       | Week 29 (security)
+3     | MLflow Docs                        | mlflow.org/docs                        | Week 32 (model registry)
+3     | Prometheus Docs                    | prometheus.io/docs                     | Week 31 (monitoring)
+3     | Weights & Biases Blog              | wandb.ai/blog                          | Week 30 (LLMOps)
+4     | IBM Quantum Blog                   | ibm.com/quantum/blog                   | Year 2 (quantum)
+4     | Scott Aaronson Blog                | scottaaronson.blog                     | Year 2+ (quantum perspective)
+ALL   | a16z AI (architecture)             | a16z.com/ai                            | ALL phases (big picture)
+ALL   | Chip Huyen's Blog                  | huyenchip.com/blog                      | ALL phases (production ML)
+ALL   | Sebastian Raschka's Blog           | sebastianraschka.com/blog               | ALL phases (LLM deep dives)
+====================================================================================================================================================================
+
+
+====================================================================================================================================================================
+PAPERS TO READ (ordered by week)
+====================================================================================================================================================================
+Week | Paper                                                                       | Link
+-----|-----------------------------------------------------------------------------|------------------------------------------------------
+3    | "Chain-of-Thought Prompting Elicits Reasoning"                              | arxiv.org/abs/2201.11903
+4    | "Text Embeddings by Contrastive Learning (SimCSE)"                          | arxiv.org/abs/2201.10005
+5    | "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks"          | arxiv.org/abs/2005.11401
+14   | "LLM Powered Autonomous Agents" (Lilian Weng survey — READ THIS)            | lilianweng.github.io/posts/2023-06-23-agent
+20   | "ReAct: Synergizing Reasoning and Acting"                                   | arxiv.org/abs/2210.03629
+21   | "Plan-and-Solve Prompting"                                                   | arxiv.org/abs/2305.04091
+21   | "Reflexion: Agents with Verbal Reinforcement Learning"                      | arxiv.org/abs/2303.11366
+22   | "HyDE: Precise Zero-Shot Dense Retrieval"                                   | arxiv.org/abs/2212.10496
+23   | "LoRA: Low-Rank Adaptation"                                                  | arxiv.org/abs/2106.09685
+23   | "QLoRA: Efficient Finetuning of Quantized LLMs"                              | arxiv.org/abs/2305.14314
+25   | "PagedAttention: Efficient Memory Management for LLM Serving"                | arxiv.org/abs/2309.06180
+29   | "Prompt Injection Attacks and Defenses"                                     | search arxiv (multiple papers)
+31   | "RAGAS: Automatic Evaluation of RAG"                                        | arxiv.org/abs/2309.15217
+33   | "GPTCache: Semantic Cache for LLM"                                          | arxiv.org/abs/2306.08636
+36   | "SayCan: Grounding LLMs in Robot Actions"                                   | arxiv.org/abs/2204.01691
+36   | "RT-2: Vision-Language-Action Model"                                        | arxiv.org/abs/2307.15818
+36   | "PaLM-E: An Embodied Multimodal Language Model"                              | arxiv.org/abs/2303.03378
+Y2   | "Variational Quantum Eigensolver" (VQE)                                     | various
+Y3   | "Hybrid Quantum-Classical Neural Networks"                                  | various
+====================================================================================================================================================================
+
+
+====================================================================================================================================================================
+YOUTUBE CHANNELS (by Phase)
+====================================================================================================================================================================
+Phase | Channel                   | Best For                              | Search
+------|---------------------------|---------------------------------------|-----------------------------
+1     | TechWithTim              | Python, FastAPI                       | "FastAPI Crash Course"
+1     | Traversy Media           | Python, FastAPI                       | "Python REST API"
+1     | Real Python              | Python, async                         | "Python Async IO"
+1     | Nicholas Renotte         | AI projects, RAG                      | "Build RAG Chatbot"
+1-2   | LangChain (official)     | LangChain, LangGraph                  | "LangGraph Tutorial"
+1-2   | AssemblyAI               | LLM internals, RAG                    | "RAG Explained"
+2     | DeepLearning.AI (Andrew) | Agents, RAG, fine-tuning (shorts)     | "AI Agent Design Patterns"
+2     | AI Engineering           | LangGraph, Multi-agent                | "Multi-Agent LangGraph"
+3     | NVIDIA Developer         | GPU, model serving, containers        | "vLLM + Docker"
+3     | Kubernetes (CNCF)        | K8s basics                            | "Kubernetes for Beginners"
+3-4   | IBM Technology           | Quantum computing, architecture       | "Quantum Computing For Beginners"
+ALL   | Two Minute Papers        | AI research simplified                | (weekly watch)
+====================================================================================================================================================================
+
+
+====================================================================================================================================================================
+FINAL NOTE
+====================================================================================================================================================================
+
+  This map covers EVERY week and topic in your Career Survival Plan.
+  
+  How to use:
+  1. Open this file in Notepad++ alongside your plan
+  2. Each week, click/open the resources listed for that week
+  3. Focus on DEEPER understanding — read papers when listed
+  4. Build the project each week to practice
+  5. Mark off skills in your Skill Tracker as you go
+  
+  Remember: 30 min of focused resource study > 4 hours of random browsing.
+  These are curated — every link has a reason.
+
+====================================================================================================================================================================

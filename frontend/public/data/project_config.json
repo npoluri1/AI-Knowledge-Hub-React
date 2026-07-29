@@ -1,0 +1,726 @@
+{
+  "AI_Agent_Marketplace": {
+    "name": "AI Agent Marketplace",
+    "dir": "AI_Agent_Marketplace",
+    "icon": "shopping_cart",
+    "color": "#8b5cf6",
+    "endpoints": {
+      "agents": "/api/v1/marketplace/agents",
+      "categories": "/api/v1/marketplace/categories",
+      "discover": "/api/v1/marketplace/discover"
+    },
+    "domain_kpis": [
+      {
+        "label": "Agents Listed",
+        "endpoint": "agents",
+        "field": "total",
+        "color": "violet"
+      },
+      {
+        "label": "Categories",
+        "endpoint": "categories",
+        "field": "length",
+        "color": "blue"
+      },
+      {
+        "label": "Active Publishers",
+        "endpoint": "discover",
+        "field": "publishers",
+        "color": "green"
+      }
+    ],
+    "tables": [
+      {
+        "title": "Featured Agents",
+        "endpoint": "/api/v1/marketplace/agents",
+        "params": {
+          "limit": 10
+        },
+        "columns": [
+          "id",
+          "name",
+          "publisher",
+          "category",
+          "rating",
+          "price"
+        ]
+      }
+    ],
+    "features": [
+      "Publish",
+      "Discover",
+      "Billing",
+      "Guardrails",
+      "RAG Engine"
+    ]
+  },
+  "AI_Banking_Payment_Brain": {
+    "name": "AI Banking & Payment Brain",
+    "dir": "AI_Banking_Payment_Brain",
+    "icon": "account_balance",
+    "color": "#059669",
+    "endpoints": {
+      "accounts": "/api/v1/accounts",
+      "transactions": "/api/v1/realtime/transactions",
+      "fraud_score": "/api/v1/fraud/score"
+    },
+    "domain_kpis": [
+      {
+        "label": "Accounts",
+        "endpoint": "accounts",
+        "field": "total",
+        "color": "emerald"
+      },
+      {
+        "label": "Fraud Score",
+        "endpoint": "fraud_score",
+        "field": "score",
+        "color": "red"
+      }
+    ],
+    "features": [
+      "Payments",
+      "Fraud Detection",
+      "AML",
+      "Cards",
+      "Insurance",
+      "Trading",
+      "FX"
+    ]
+  },
+  "AI_Cybersecurity_Platform": {
+    "name": "AI Cybersecurity Platform",
+    "dir": "AI_Cybersecurity_Platform",
+    "icon": "security",
+    "color": "#dc2626",
+    "endpoints": {
+      "alerts": "/api/v1/security/alerts",
+      "incidents": "/api/v1/incidents/list",
+      "threats": "/api/v1/threat-intel/high-confidence",
+      "vulnerabilities": "/api/v1/vulnerabilities/list"
+    },
+    "domain_kpis": [
+      {
+        "label": "Active Alerts",
+        "endpoint": "alerts",
+        "field": "count",
+        "color": "red"
+      },
+      {
+        "label": "Open Incidents",
+        "endpoint": "incidents",
+        "field": "total",
+        "color": "orange"
+      },
+      {
+        "label": "Vulnerabilities",
+        "endpoint": "vulnerabilities",
+        "field": "total",
+        "color": "yellow"
+      }
+    ],
+    "features": [
+      "SIEM",
+      "Threat Detection",
+      "IR",
+      "Quantum Crypto",
+      "Zero Trust",
+      "Compliance"
+    ]
+  },
+  "AI_DevOps_Automation": {
+    "name": "AI DevOps Automation",
+    "dir": "AI_DevOps_Automation",
+    "icon": "terminal",
+    "color": "#2563eb",
+    "endpoints": {
+      "pipelines": "/api/v1/pipelines/history",
+      "deployments": "/api/v1/releases/list",
+      "costs": "/api/v1/costs/analysis",
+      "security": "/api/v1/security/findings"
+    },
+    "domain_kpis": [
+      {
+        "label": "Pipelines",
+        "endpoint": "pipelines",
+        "field": "total",
+        "color": "blue"
+      },
+      {
+        "label": "Deployments",
+        "endpoint": "deployments",
+        "field": "count",
+        "color": "cyan"
+      },
+      {
+        "label": "Cost Savings",
+        "endpoint": "costs",
+        "field": "savings",
+        "color": "green"
+      }
+    ],
+    "features": [
+      "Pipeline Analysis",
+      "Deployment Strategy",
+      "Infra Scan",
+      "Cost Analysis"
+    ]
+  },
+  "AI_Education_Tutor": {
+    "name": "AI Education Tutor",
+    "dir": "AI_Education_Tutor",
+    "icon": "school",
+    "color": "#7c3aed",
+    "endpoints": {
+      "students": "/api/v1/students/list",
+      "progress": "/api/v1/students/{id}/progress",
+      "assessments": "/api/v1/assessments/list"
+    },
+    "domain_kpis": [
+      {
+        "label": "Students",
+        "endpoint": "students",
+        "field": "total",
+        "color": "violet"
+      },
+      {
+        "label": "Assessments",
+        "endpoint": "assessments",
+        "field": "count",
+        "color": "purple"
+      }
+    ],
+    "features": [
+      "Learning Paths",
+      "Lesson Generation",
+      "Assessments",
+      "Progress Tracking"
+    ]
+  },
+  "AI_Enterprise_Search_Engine": {
+    "name": "AI Enterprise Search",
+    "dir": "AI_Enterprise_Search_Engine",
+    "icon": "search",
+    "color": "#0891b2",
+    "endpoints": {
+      "sources": "/api/v1/sources",
+      "analytics": "/api/v1/admin/analytics",
+      "index_status": "/api/v1/index/status"
+    },
+    "domain_kpis": [
+      {
+        "label": "Sources",
+        "endpoint": "sources",
+        "field": "count",
+        "color": "cyan"
+      },
+      {
+        "label": "Index Status",
+        "endpoint": "index_status",
+        "field": "status",
+        "color": "green"
+      }
+    ],
+    "features": [
+      "Semantic Search",
+      "Multi-Source Indexing",
+      "NLP Queries",
+      "Analytics"
+    ]
+  },
+  "AI_Financial_Fraud_Detection": {
+    "name": "AI Fraud Detection",
+    "dir": "AI_Financial_Fraud_Detection",
+    "icon": "gpp_bad",
+    "color": "#e11d48",
+    "endpoints": {
+      "cases": "/api/v1/fraud/cases",
+      "dashboard": "/api/v1/fraud/dashboard",
+      "rules": "/api/v1/fraud/rules"
+    },
+    "domain_kpis": [
+      {
+        "label": "Open Cases",
+        "endpoint": "cases",
+        "field": "total",
+        "color": "red"
+      },
+      {
+        "label": "Rules Active",
+        "endpoint": "rules",
+        "field": "count",
+        "color": "amber"
+      }
+    ],
+    "features": [
+      "Real-time Scoring",
+      "Batch Analysis",
+      "Case Mgmt",
+      "Rule Engine"
+    ]
+  },
+  "AI_Global_Problem_Solver": {
+    "name": "AI Global Problem Solver",
+    "dir": "AI_Global_Problem_Solver",
+    "icon": "public",
+    "color": "#16a34a",
+    "endpoints": {
+      "problems": "/api/v1/problems/list",
+      "sdgs": "/api/v1/sdgs/progress"
+    },
+    "domain_kpis": [
+      {
+        "label": "Problems Modeled",
+        "endpoint": "problems",
+        "field": "count",
+        "color": "green"
+      },
+      {
+        "label": "SDG Progress",
+        "endpoint": "sdgs",
+        "field": "overall",
+        "color": "blue"
+      }
+    ],
+    "features": [
+      "Problem Modeling",
+      "Simulation",
+      "SDG Tracking"
+    ]
+  },
+  "AI_Government_Automation_Suite": {
+    "name": "AI Government Automation",
+    "dir": "AI_Government_Automation_Suite",
+    "icon": "account_balance",
+    "color": "#1d4ed8",
+    "endpoints": {
+      "dashboard_metrics": "/api/v1/dashboard/metrics",
+      "audit": "/api/v1/audit/logs"
+    },
+    "domain_kpis": [
+      {
+        "label": "Applications",
+        "endpoint": "dashboard_metrics",
+        "field": "applications",
+        "color": "blue"
+      },
+      {
+        "label": "Audit Logs",
+        "endpoint": "audit",
+        "field": "total",
+        "color": "gray"
+      }
+    ],
+    "features": [
+      "Service Applications",
+      "Workflows",
+      "Doc Mgmt",
+      "Compliance Checks"
+    ]
+  },
+  "AI_Healthcare_Platform": {
+    "name": "AI Healthcare Platform",
+    "dir": "AI_Healthcare_Platform",
+    "icon": "local_hospital",
+    "color": "#dc2626",
+    "endpoints": {
+      "patients": "/api/v1/patients/list",
+      "diagnosis": "/api/v1/diagnosis/predict"
+    },
+    "domain_kpis": [
+      {
+        "label": "Patients",
+        "endpoint": "patients",
+        "field": "total",
+        "color": "red"
+      },
+      {
+        "label": "Diagnoses",
+        "endpoint": "diagnosis",
+        "field": "count",
+        "color": "rose"
+      }
+    ],
+    "features": [
+      "Diagnosis Prediction",
+      "Clinical Notes",
+      "FHIR Parsing",
+      "Medication Check"
+    ]
+  },
+  "AI_Incident_Commander": {
+    "name": "AI Incident Commander",
+    "dir": "AI_Incident_Commander",
+    "icon": "warning",
+    "color": "#f59e0b",
+    "endpoints": {
+      "incidents": "/api/v1/incidents/history",
+      "metrics": "/api/v1/metrics/overview"
+    },
+    "domain_kpis": [
+      {
+        "label": "Incidents",
+        "endpoint": "incidents",
+        "field": "total",
+        "color": "amber"
+      },
+      {
+        "label": "MTTR",
+        "endpoint": "metrics",
+        "field": "mttr",
+        "color": "blue"
+      }
+    ],
+    "features": [
+      "Incident Reporting",
+      "Diagnosis",
+      "Remediation",
+      "Runbooks"
+    ]
+  },
+  "AI_Legal_Document_Analyzer": {
+    "name": "AI Legal Document Analyzer",
+    "dir": "AI_Legal_Document_Analyzer",
+    "icon": "gavel",
+    "color": "#7c3aed",
+    "endpoints": {
+      "stats": "/api/v1/admin/stats",
+      "research": "/api/v1/research/query"
+    },
+    "domain_kpis": [
+      {
+        "label": "Contracts",
+        "endpoint": "stats",
+        "field": "total_contracts",
+        "color": "violet"
+      },
+      {
+        "label": "Risks Found",
+        "endpoint": "stats",
+        "field": "total_risks",
+        "color": "red"
+      }
+    ],
+    "features": [
+      "Contract Review",
+      "Risk Assessment",
+      "Compliance",
+      "Legal Research"
+    ]
+  },
+  "AI_Logistics_Supply_Chain": {
+    "name": "AI Logistics & Supply Chain",
+    "dir": "AI_Logistics_Supply_Chain",
+    "icon": "local_shipping",
+    "color": "#0891b2",
+    "endpoints": {
+      "inventory": "/api/v1/inventory/status",
+      "routes": "/api/v1/routing/optimize"
+    },
+    "domain_kpis": [
+      {
+        "label": "Inventory Items",
+        "endpoint": "inventory",
+        "field": "count",
+        "color": "cyan"
+      },
+      {
+        "label": "Routes Optimized",
+        "endpoint": "routes",
+        "field": "optimized",
+        "color": "teal"
+      }
+    ],
+    "features": [
+      "Route Optimization",
+      "Demand Forecasting",
+      "Digital Twin",
+      "Warehouse"
+    ]
+  },
+  "AI_Monitoring_Brain": {
+    "name": "AI Monitoring Brain",
+    "dir": "AI_Monitoring_Brain",
+    "icon": "monitor_heart",
+    "color": "#06b6d4",
+    "endpoints": {
+      "service_graph": "/api/v1/service-graph",
+      "alert_rules": "/api/v1/alerting/rules",
+      "anomalies": "/api/v1/anomalies/detect"
+    },
+    "domain_kpis": [
+      {
+        "label": "Services",
+        "endpoint": "service_graph",
+        "field": "node_count",
+        "color": "cyan"
+      },
+      {
+        "label": "Alert Rules",
+        "endpoint": "alert_rules",
+        "field": "count",
+        "color": "amber"
+      }
+    ],
+    "features": [
+      "Tracing",
+      "Metrics",
+      "Anomaly Detection",
+      "RCA",
+      "Alerting"
+    ]
+  },
+  "AI_Real_Estate_Intelligence": {
+    "name": "AI Real Estate Intelligence",
+    "dir": "AI_Real_Estate_Intelligence",
+    "icon": "real_estate_agent",
+    "color": "#f59e0b",
+    "endpoints": {
+      "opportunities": "/api/v1/opportunities",
+      "insights": "/api/v1/market/insights"
+    },
+    "domain_kpis": [
+      {
+        "label": "Opportunities",
+        "endpoint": "opportunities",
+        "field": "count",
+        "color": "amber"
+      },
+      {
+        "label": "Market Insights",
+        "endpoint": "insights",
+        "field": "summary",
+        "color": "blue"
+      }
+    ],
+    "features": [
+      "Valuation",
+      "Market Analysis",
+      "Forecasting",
+      "Portfolio Analysis"
+    ]
+  },
+  "AI_Robotics_Control_Platform": {
+    "name": "AI Robotics Control",
+    "dir": "AI_Robotics_Control_Platform",
+    "icon": "precision_manufacturing",
+    "color": "#2563eb",
+    "endpoints": {
+      "robots": "/api/v1/robots",
+      "fleet": "/api/v1/fleet/status"
+    },
+    "domain_kpis": [
+      {
+        "label": "Robots",
+        "endpoint": "robots",
+        "field": "total",
+        "color": "blue"
+      },
+      {
+        "label": "Fleet Status",
+        "endpoint": "fleet",
+        "field": "online",
+        "color": "green"
+      }
+    ],
+    "features": [
+      "Robot Command",
+      "Navigation",
+      "Vision",
+      "SLAM",
+      "Fleet Mgmt"
+    ]
+  },
+  "AI_Software_Engineer_Agent": {
+    "name": "AI Software Engineer",
+    "dir": "AI_Software_Engineer_Agent",
+    "icon": "code",
+    "color": "#10b981",
+    "endpoints": {
+      "repos": "/api/v1/repos",
+      "pipelines": "/api/v1/ci/pipeline"
+    },
+    "domain_kpis": [
+      {
+        "label": "Repositories",
+        "endpoint": "repos",
+        "field": "count",
+        "color": "emerald"
+      },
+      {
+        "label": "Pipelines",
+        "endpoint": "pipelines",
+        "field": "total",
+        "color": "blue"
+      }
+    ],
+    "features": [
+      "Code Generation",
+      "Review",
+      "Testing",
+      "PR Mgmt",
+      "CI Optimization"
+    ]
+  },
+  "ViziForge": {
+    "name": "ViziForge",
+    "dir": "ViziForge",
+    "icon": "visibility",
+    "color": "#8b5cf6",
+    "endpoints": {
+      "organizations": "/api/v1/organizations",
+      "projects": "/api/v1/projects",
+      "agents": "/api/v1/agents"
+    },
+    "domain_kpis": [
+      {
+        "label": "Organizations",
+        "endpoint": "organizations",
+        "field": "count",
+        "color": "violet"
+      },
+      {
+        "label": "Projects",
+        "endpoint": "projects",
+        "field": "total",
+        "color": "purple"
+      }
+    ],
+    "features": [
+      "Project Generation",
+      "Code Gen",
+      "Diagram Gen",
+      "Auth"
+    ]
+  },
+  "Cloud_Management_Platform": {
+    "name": "Cloud Management Platform",
+    "dir": "Cloud_Management_Platform",
+    "icon": "cloud",
+    "color": "#0284c7",
+    "endpoints": {
+      "resources": "/api/v1/resources",
+      "compliance": "/api/v1/compliance"
+    },
+    "domain_kpis": [
+      {
+        "label": "Resources",
+        "endpoint": "resources",
+        "field": "count",
+        "color": "sky"
+      },
+      {
+        "label": "Compliance Score",
+        "endpoint": "compliance",
+        "field": "score",
+        "color": "green"
+      }
+    ],
+    "features": [
+      "Rightsizing",
+      "Cost Forecasting",
+      "Security Scan",
+      "Compliance"
+    ]
+  },
+  "Enterprise_Knowledge_Digital_Twin": {
+    "name": "Enterprise Knowledge Twin",
+    "dir": "Enterprise_Knowledge_Digital_Twin",
+    "icon": "hub",
+    "color": "#6366f1",
+    "endpoints": {
+      "graph_stats": "/api/v1/knowledge/graph/stats",
+      "ea_services": "/api/v1/knowledge/enterprise-architecture/services"
+    },
+    "domain_kpis": [
+      {
+        "label": "Graph Nodes",
+        "endpoint": "graph_stats",
+        "field": "nodes",
+        "color": "indigo"
+      },
+      {
+        "label": "Services",
+        "endpoint": "ea_services",
+        "field": "count",
+        "color": "violet"
+      }
+    ],
+    "features": [
+      "Semantic Search",
+      "Knowledge Graph",
+      "Document Ingest",
+      "EA Mapping"
+    ]
+  },
+  "AI_Smart_City_Platform": {
+    "name": "AI Smart City Platform",
+    "dir": "AI_Smart_City_Platform",
+    "icon": "location_city",
+    "color": "#0ea5e9",
+    "endpoints": {
+      "sensors": "/api/v1/city/sensors",
+      "traffic": "/api/v1/city/traffic/signals",
+      "gis": "/api/v1/city/gis/heatmap"
+    },
+    "domain_kpis": [
+      {
+        "label": "Sensors",
+        "endpoint": "sensors",
+        "field": "total",
+        "color": "sky"
+      },
+      {
+        "label": "Traffic Signals",
+        "endpoint": "traffic",
+        "field": "count",
+        "color": "amber"
+      }
+    ],
+    "features": [
+      "Sensor Mgmt",
+      "Traffic Optimization",
+      "Drone Dispatch",
+      "GIS"
+    ]
+  },
+  "Autonomous_Enterprise_AI_OS": {
+    "name": "Autonomous Enterprise AI OS",
+    "dir": "Autonomous_Enterprise_AI_OS",
+    "icon": "smart_toy",
+    "color": "#f59e0b",
+    "endpoints": {
+      "kernel": "/kernel/status",
+      "agents": "/agents",
+      "queue": "/queue/status",
+      "metrics": "/metrics"
+    },
+    "domain_kpis": [
+      {
+        "label": "Agents",
+        "endpoint": "agents",
+        "field": "total",
+        "color": "amber"
+      },
+      {
+        "label": "Queue Depth",
+        "endpoint": "queue",
+        "field": "depth",
+        "color": "blue"
+      },
+      {
+        "label": "Kernel Status",
+        "endpoint": "kernel",
+        "field": "status",
+        "color": "green"
+      }
+    ],
+    "features": [
+      "Kernel",
+      "Multi-Agent Orchestration",
+      "Workflows",
+      "MCP",
+      "Plugins"
+    ]
+  }
+}

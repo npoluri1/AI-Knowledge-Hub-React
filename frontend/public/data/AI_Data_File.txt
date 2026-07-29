@@ -1,0 +1,185 @@
+	================================
+	COMPLETE END-TO-END AI AGENT ARCHITECTURE + 7 RAG DESIGN PATTERNS
+	================================
+
+	================================
+	PART 1: AI AGENT ARCHITECTURE (END TO END)
+	================================
+
+	================================
+	LAYER 0: USER ENTRY POINT
+	================================
+	User		|	Starts the interaction by sending a request
+	API/UI Layer	|	Receives the user request and passes it to orchestrator
+
+	================================
+	LAYER 1: ORCHESTRATION ENGINE
+	================================
+	Agent Orchestrator	|	Coordinates entire workflow. Decides what info is needed.
+
+	================================
+	LAYER 2: MEMORY & CONTEXT
+	================================
+	Memory		|	Stores conversation history, user profile, preferences
+	RAG		|	Queries Vector Database, Documents, Runbooks
+
+	================================
+	LAYER 3: TOOLS & ENTERPRISE SYSTEMS
+	================================
+	Tools Layer	|	Connects to AWS, Databases, Jira, GitHub, Linux
+
+	================================
+	LAYER 4: PROMPT ASSEMBLY
+	================================
+	Prompt Builder	|	Combines context from Memory + RAG + Tools
+
+	================================
+	LAYER 5: LLM INFERENCE
+	================================
+	LLM Model	|	Understands request & generates response (GPT/Qwen/Llama)
+
+	================================
+	LAYER 6: RESPONSE DELIVERY
+	================================
+	Response Generator	|	Formats the final answer
+	User		|	Receives accurate, contextual response
+
+	================================
+	COMPLETE DATA FLOW
+	================================
+	Step 1	|	User → API/UI Layer
+	Step 2	|	API/UI Layer → Agent Orchestrator
+	Step 3	|	Agent Orchestrator → Memory + RAG + Tools
+	Step 4	|	Memory + RAG + Tools → Prompt Builder
+	Step 5	|	Prompt Builder → LLM Model
+	Step 6	|	LLM Model → Response Generator
+	Step 7	|	Response Generator → User
+
+	================================
+	WHY THIS ARCHITECTURE MATTERS
+	================================
+	Problem			|	Solution
+	LLM only knows training data	|	+ Memory = Remembers past conversations
+	LLM has no company context	|	+ RAG = Accesses documents
+	LLM cannot take actions	|	+ Tools = Connects to AWS, Jira, GitHub
+	LLM uses stale information	|	+ Real-time = Gathers live data
+
+	================================
+	THE REAL POWER OF AI AGENTS
+	================================
+	Memory + RAG + Tools + LLM = Complete AI Agent
+
+	================================
+	7 RAG DESIGN PATTERNS YOU MUST KNOW IN 2026
+	================================
+
+	================================
+	PATTERN 1: NAIVE RAG
+	================================
+	Name		|	Naive RAG
+	Type		|	Foundation Pattern
+	How it works	|	Retrieve chunks → LLM → Response
+	Pros		|	Simple, fast
+	Cons		|	Struggles with retrieval quality
+	Best for	|	Quick prototypes, simple Q&A
+
+	================================
+	PATTERN 2: RETRIEVE-AND-RERANK RAG
+	================================
+	Name		|	Retrieve-and-Rerank RAG
+	Type		|	Accuracy-Optimized Pattern
+	How it works	|	Retrieve → Rerank → LLM → Response
+	Pros		|	Higher accuracy, better answers
+	Cons		|	Adds latency, more compute
+	Best for	|	Precision-critical applications
+
+	================================
+	PATTERN 3: MULTIMODAL RAG
+	================================
+	Name		|	Multimodal RAG
+	Type		|	Cross-Media Pattern
+	How it works	|	Retrieves from text, images, audio, video
+	Pros		|	Handles rich media
+	Cons		|	Complex embedding management
+	Best for	|	Healthcare, retail, media
+
+	================================
+	PATTERN 4: GRAPHRAG
+	================================
+	Name		|	GraphRAG
+	Type		|	Relationship-Aware Pattern
+	How it works	|	Uses knowledge graphs for entity relationships
+	Pros		|	Complex reasoning, connected data
+	Cons		|	Graph building overhead
+	Best for	|	Fraud detection, supply chain
+
+	================================
+	PATTERN 5: HYBRID RAG
+	================================
+	Name		|	Hybrid RAG
+	Type		|	Combined Search Pattern
+	How it works	|	Vector search + graph databases
+	Pros		|	Semantic + structured reasoning
+	Cons		|	Two systems to maintain
+	Best for	|	Legal tech, financial services
+
+	================================
+	PATTERN 6: AGENTIC RAG (ROUTER)
+	================================
+	Name		|	Agentic RAG (Router)
+	Type		|	Intelligent Orchestration Pattern
+	How it works	|	AI agent decides source/strategy/tool
+	Pros		|	Smarter orchestration, lower hallucination
+	Cons		|	Agent decision overhead
+	Best for	|	Customer support, multi-source systems
+
+	================================
+	PATTERN 7: MULTI-AGENT RAG
+	================================
+	Name		|	Multi-Agent RAG
+	Type		|	Collaborative Pattern
+	How it works	|	Multiple specialized agents collaborate
+	Pros		|	Best for advanced enterprise AI
+	Cons		|	Highest complexity
+	Best for	|	Large-scale enterprise AI systems
+
+	================================
+	COMPARISON MATRIX
+	================================
+	Pattern			| Complexity | Accuracy | Speed | Best Use Case
+	Naive RAG		| Low        | Medium   | Very High | Quick prototypes
+	Retrieve-and-Rerank	| Medium     | High     | Medium | Precision search
+	Multimodal RAG		| High       | High     | Low    | Media + text
+	GraphRAG		| High       | Very High| Low    | Relationship discovery
+	Hybrid RAG		| Medium     | Very High| Medium | Semantic + structured
+	Agentic RAG		| High       | High     | Medium | Dynamic routing
+	Multi-Agent RAG		| Very High  | Very High| Low    | Complex enterprise
+
+	================================
+	WHEN TO USE WHICH PATTERN
+	================================
+	If you need...			| Use this pattern...
+	Simple, fast Q&A		| Naive RAG
+	High precision answers		| Retrieve-and-Rerank RAG
+	Images + text together		| Multimodal RAG
+	Entity relationship discovery	| GraphRAG
+	Semantic + structured		| Hybrid RAG
+	Smart source selection		| Agentic RAG
+	Complex automation		| Multi-Agent RAG
+
+	================================
+	FINAL KEY TAKEAWAY
+	================================
+	The teams that understand these patterns today will build the most reliable AI products tomorrow.
+
+	================================
+	DISCUSSION QUESTION
+	================================
+	Which RAG architecture are you currently experimenting with?
+
+	Options: Naive | Retrieve-and-Rerank | Multimodal | GraphRAG | Hybrid | Agentic | Multi-Agent
+
+	================================
+	HASHTAGS
+	================================
+	#AI #AIAgents #RAG #LLM #GraphRAG #MultimodalRAG #AgenticRAG #HybridRAG #EnterpriseAI

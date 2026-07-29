@@ -1,0 +1,216 @@
+====================================================================================================================================================================
+  THE DAILY ESSENTIAL — Most Important Stuff To Learn (Distilled from ALL context)
+====================================================================================================================================================================
+  Rule: Learn 20% that gives 80% results. Ignore shiny objects. Build daily.
+  Target: Job safety 10+ yrs | Budget: Zero-cost | Singapore market
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+PRIORITY #1 — LEARN THESE FIRST (Critical for job survival, 80% of interview questions)
+====================================================================================================================================================================
+Rank | Skill                    | Why It Saves Your Job                         | Time to Master | Free Tool
+-----|--------------------------|------------------------------------------------|----------------|------------------------------
+1    | LangGraph StateGraph     | Multi-agent orchestration = #1 demand skill   | 3 weeks        | LangGraph OSS
+2    | RAG (Basic + Advanced)   | Every enterprise AI app starts with RAG       | 4 weeks        | ChromaDB + LangChain
+3    | FastAPI + Python async   | Every AI service needs an API layer           | 3 weeks        | FastAPI
+4    | MCP Protocol             | Connecting AI to tools = infrastructure layer  | 2 weeks        | MCP Python SDK
+5    | LLM Evals (Ragas)        | Companies need to measure AI quality          | 1 week         | Ragas OSS
+6    | Prompt Engineering       | Day-to-day AI work                            | 2 weeks        | Free (practice)
+7    | Docker for AI            | Every AI app must be deployable               | 1 week         | Docker Desktop
+8    | Model Serving (vLLM)     | Serving models in production                  | 1 week         | vLLM OSS
+9    | AI Security (Guardrails) | Production requirement, not optional          | 1 week         | NeMo Guardrails
+10   | LangChain LCEL           | Foundation for LangGraph                      | 1 week         | LangChain OSS
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+PRIORITY #2 — LEARN SECOND (Important but not urgent)
+====================================================================================================================================================================
+Rank | Skill                    | Why                                     | Time | Free Tool
+-----|--------------------------|-----------------------------------------|------|-------------------------
+11   | Fine-tuning (LoRA)       | Custom models for niche tasks           | 2wk  | PEFT + Ollama
+12   | Spring AI Bridge         | Your Java edge + AI                     | 2wk  | Spring AI OSS
+13   | CrewAI / AutoGen         | Alternative agent frameworks            | 1wk  | OSS
+14   | K8s for AI               | Scaling in big companies               | 2wk  | minikube
+15   | CI/CD for AI             | Professional deployment                 | 1wk  | GitHub Actions
+16   | Observability (OTel)     | Production debugging                    | 1wk  | OpenTelemetry
+17   | Redis + Semantic Cache   | Cost reduction                          | 1wk  | Redis
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+PRIORITY #3 — SKIP FOR NOW (Monitor only)
+====================================================================================================================================================================
+Skill                     | When to Learn            | Why Skip
+--------------------------|--------------------------|------------------------------------------
+Quantum Computing         | Year 2-3                 | No job impact in next 5 years
+Robotics + AI             | Year 2-3                 | Niche, fewer jobs
+Building LLMs from scratch| Never needed             | Use existing APIs and open models
+500 projects              | Never                    | 8 deep projects > 500 shallow ones
+Every new AI tool         | Only if market-proven    | Shiny object syndrome = wasted time
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+DAILY LEARNING ROUTINE (4-6 hrs/day, 6 days/week)
+====================================================================================================================================================================
+Time Slot       | Duration | Activity                     | What Exactly
+----------------|----------|------------------------------|-------------------------------------------
+Morning Theory  | 1 hr     | Read + understand            | One blog post or 30min of a course
+Mid-day Build   | 2-3 hrs  | Hands-on coding              | Build the week's specific project piece
+Evening Deep    | 1-2 hrs  | Experiment / debug           | Fix issues, try variations, optimize
+Night Review    | 15-30min | Journal + plan tomorrow      | What worked, what's next, 3 bullet points
+Sunday          | OFF/polish| Portfolio polish             | README, deploy, blog post, LinkedIn
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+WEEK-BY-WEEK PRIORITY (First 12 weeks — the most critical)
+====================================================================================================================================================================
+Week | Focus Area              | Build This                          | Key Resource (ONE per week)
+-----|-------------------------|-------------------------------------|------------------------------------------
+1    | Python + async          | CLI tool with async calls           | Real Python async tutorial
+2    | FastAPI basics          | Hello world API + Pydantic models   | fastapi.tiangolo.com tutorial
+3    | LLM APIs (OpenAI/Anthr.)| Token counter + cost calculator     | platform.openai.com/docs
+4    | Embeddings + ChromaDB   | Text similarity search service      | docs.trychroma.com
+5    | RAG basics              | Q&A over PDF (LangChain + Chroma)   | LangChain RAG tutorial
+6    | FastAPI + LLM streaming | Chat API with history + streaming   | FastAPI streaming responses
+7    | LangChain LCEL          | Chain pipeline with tools           | academy.langchain.com
+8    | LangGraph StateGraph    | Simple state machine (2 nodes)       | langgraph quickstart
+9    | LangGraph multi-agent   | Supervisor + 2 worker agents        | langgraph multi-agent tutorial
+10   | MCP basics              | MCP tool server + client            | modelcontextprotocol.io
+11   | MCP + LangGraph         | Agent with MCP tools                | blog.langchain.dev (MCP integration)
+12   | Advanced RAG            | HyDE + re-ranking pipeline          | blog.llamaindex.ai (advanced RAG)
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+THE 5 PROJECTS THAT MATTER (Build these, not 500)
+====================================================================================================================================================================
+#  | Project                  | Tech Stack                    | Time  | Job Value
+---|--------------------------|-------------------------------|-------|-------------------------------
+1  | RAG Q&A Chatbot          | FastAPI + ChromaDB + LLM      | 2 wk  | Shows you understand RAG
+2  | Multi-Agent Research Sys | LangGraph + MCP + Tools      | 3 wk  | Shows agent orchestration skill
+3  | Document Pipeline        | OCR → Chunk → Embed → RAG    | 2 wk  | Enterprise data processing
+4  | AI API Gateway           | FastAPI + Redis + Guardrails  | 2 wk  | Production deployment skill
+5  | Full Enterprise AI App   | Spring AI + LangGraph + K8s   | 3 wk  | Your 15yr Java + AI = unique
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+BEST BLOGS TO FOLLOW (Don't follow more than these)
+====================================================================================================================================================================
+Blog                      | Why                                 | Frequency
+--------------------------|--------------------------------------|------------
+blog.langchain.dev        | LangChain + LangGraph patterns       | Weekly
+blog.llamaindex.ai        | RAG deep dives                       | Weekly
+anthropic.com/engineering | Agents, MCP, best practices          | Bi-weekly
+lilianweng.github.io      | LLM foundations, agent surveys       | Monthly
+huyenchip.com/blog        | Production ML systems                | Monthly
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+BEST PAPERS TO READ (No more than these 10)
+====================================================================================================================================================================
+#  | Paper                           | Why Read                      | Time
+---|---------------------------------|-------------------------------|--------
+1  | Attention Is All You Need       | Foundation of all LLMs        | 2 hrs
+2  | ReAct: Reasoning + Acting       | Foundation of all agents      | 1 hr
+3  | LLM Powered Autonomous Agents   | Survey of agent architectures | 1 hr
+4  | Retrieval-Augmented Generation  | Original RAG paper            | 1 hr
+5  | LoRA: Low-Rank Adaptation       | Fine-tuning foundation        | 1 hr
+6  | PagedAttention (vLLM)           | LLM serving efficiency        | 1 hr
+7  | RAGAS: Automatic Evaluation     | RAG quality measurement       | 30 min
+8  | Building Effective Agents       | Anthropic's agent patterns    | 30 min
+9  | GraphRAG (Microsoft)            | Advanced RAG with graphs      | 1 hr
+10 | Constitutional AI               | AI safety                     | 1 hr
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+YOUR UNIQUE EDGE (15yr Java + Singapore + AI)
+====================================================================================================================================================================
+Factor              | How To Leverage
+--------------------|-------------------------------------------------------------------
+15yr Java/Spring    | Bridge old enterprise systems with new AI — few can do this
+Singapore market    | Build projects solving banking/govt/healthcare AI problems
+Enterprise delivery | You know production, compliance, stability — AI engineers lack this
+Zero-cost learning  | Ollama + ChromaDB + LangGraph OSS = no money needed
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+COMMON MISTAKES TO AVOID
+====================================================================================================================================================================
+Mistake                     | Why It's Wrong                     | Do This Instead
+----------------------------|-----------------------------------|--------------------------------------
+500 projects                | No depth, no interview signal     | 5 deep projects with README + tests
+Chasing every new tool      | You'll learn nothing deeply      | Master LangGraph + RAG + FastAPI
+Skipping deployment         | 90% of learning is in production | Deploy every project (Railway free tier)
+Not writing about your work | Nobody sees your skills           | 1 blog post per project
+Learning Quantum now        | 0% job impact in next 5 years    | Skip until Year 2
+Learning Robotics now       | Niche, fewer jobs                | Skip until Phase 3
+Comparing to others         | Kills motivation                 | Compare only to yourself yesterday
+====================================================================================================================================================================
+
+====================================================================================================================================================================
+TOOLS YOU ACTUALLY NEED (Not the full catalog — just these)
+====================================================================================================================================================================
+Category          | Tool                          | Why
+------------------|-------------------------------|-------------------------------------------
+Local LLM         | Ollama + Qwen2.5-Coder:7b     | Run locally, free, good enough
+Vector DB         | ChromaDB                      | Free, local, simple to learn
+Orchestration     | LangGraph (OSS)               | Industry standard for agents
+API Framework     | FastAPI                       | Best Python AI API framework
+LLM SDK           | OpenAI + Anthropic SDKs       | Industry standard APIs
+Java Bridge       | Spring AI                     | Leverage your Java expertise
+Code Editor       | VS Code + Cline               | Free, powerful AI coding
+Evals             | Ragas                         | Free, RAG quality measurement
+Monitoring        | LangSmith (free tier)         | 100K traces/month free
+Container         | Docker Desktop                | Free for personal use
+CI/CD             | GitHub Actions                | Free for public repos
+====================================================================================================================================
+
+====================================================================================================================================
+YOUR 6-MONTH GOAL (Not 500 projects)
+====================================================================================================================================
+Month | Goal                             | Deliverable
+------|----------------------------------|----------------------------------------------
+1     | FastAPI + RAG + VectorDB         | 1 working RAG chatbot deployed
+2     | LangGraph + Multi-agent          | 1 multi-agent system with MCP tools
+3     | Production hardening             | Same projects with Docker + tests + CI/CD
+4     | Advanced RAG + Fine-tuning       | Enterprise document pipeline
+5     | Spring AI + Java bridge          | Hybrid Java+Python AI service
+6     | Portfolio + interview prep       | 5 GitHub repos + 5 blog posts + resume
+====================================================================================================================================
+
+====================================================================================================================================
+FINAL NOTE — THE TRUTH
+====================================================================================================================================
+- AI will NOT eliminate all software jobs in 2 years
+  - It will shift what engineers do
+  - The people who BUILD and OPERATE AI are irreplaceable
+  - Your 15 years of Java enterprise delivery is an ASSET, not a liability
+
+- You don't need 500 projects
+  - You need 5 DEEP, WELL-DOCUMENTED, DEPLOYED projects
+  - Each project should demonstrate production thinking
+    - Tests, error handling, logging, security, CI/CD
+
+- You don't need Quantum or Robotics
+  - Not for the next 3-5 years
+  - Master LangGraph + RAG + FastAPI + MCP + Evals
+  - That's 80% of all AI engineering jobs
+
+- Your Singapore context is valuable
+  - Banking, government, healthcare all need AI integration
+  - They need someone who understands enterprise systems AND AI
+  - That person is you
+
+- Consistency > Intensity
+  - 4 hours daily > 12 hours on weekends
+  - Sleep 7 hours, exercise, don't burn out
+  - This is a marathon, not a sprint
+
+- The only competition is yourself
+  - Don't compare to tech influencers
+  - Compare to yourself 6 months ago
+  - Keep building. Keep shipping.
+
+====================================================================================================================================
+  YOUR ONLY COMPETITION IS ENGINEERS WHO STOP LEARNING. KEEP BUILDING.
+  Singapore needs AI engineers who can bridge old systems with new AI.
+  That's you.
+====================================================================================================================================

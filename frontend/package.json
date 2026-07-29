@@ -1,0 +1,24 @@
+{
+  "name": "ai-knowledge-hub",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "manifest": "node scripts/generateManifest.js",
+    "scan-server": "node scan-server.js",
+    "dev": "npm run manifest && concurrently -k \"npm run scan-server\" \"vite\"",
+    "dev:vite": "npm run manifest && vite",
+    "build": "npm run manifest && vite build",
+    "preview": "npm run manifest && concurrently -k \"npm run scan-server\" \"vite preview\""
+  },
+  "dependencies": {
+    "mammoth": "^1.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.0"
+  }
+}

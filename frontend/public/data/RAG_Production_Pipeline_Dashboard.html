@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Production Pipeline — Complete Engineering Dashboard</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:'Segoe UI','Consolas',monospace;
+  background:#1e1e2e; padding:20px; color:#cdd6f4;
+}
+h1 { color:#cba6f7; font-size:26px; margin-bottom:4px; letter-spacing:1px; }
+.subtitle { color:#a6adc8; font-size:13px; margin-bottom:20px; border-left:4px solid #cba6f7; padding-left:14px; }
+
+/* --- STICKY TOC --- */
+.toc {
+  position:sticky; top:0; z-index:100;
+  background:#11111b; border:1px solid #45475a; border-radius:8px;
+  padding:14px 18px; margin-bottom:24px; max-height:85vh; overflow-y:auto;
+}
+.toc h3 { color:#f9e2af; margin:0 0 8px 0; font-size:13px; text-transform:uppercase; letter-spacing:1px; }
+.toc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:4px 12px; }
+.toc a { display:block; padding:3px 6px; border-radius:3px; font-size:12px; color:#a6adc8; text-decoration:none; }
+.toc a:hover { background:#313244; color:#89b4fa; }
+.toc .sub { padding-left:18px; font-size:11px; color:#585b70; }
+
+/* --- CATEGORY CARDS --- */
+.cat {
+  background:#181825; border:1px solid #313244; border-radius:8px;
+  padding:18px 20px; margin-bottom:20px;
+}
+.cat h2 { color:#f5c2e7; font-size:18px; margin:0 0 12px 0; border-bottom:2px solid #45475a; padding-bottom:6px; }
+.cat h2 .cat-num { color:#585b70; font-weight:400; }
+.cat h3 { color:#89b4fa; font-size:15px; margin:16px 0 8px 0; }
+.cat h4 { color:#a6e3a1; font-size:13px; margin:12px 0 6px 0; }
+.cat p, .cat li { font-size:13px; line-height:1.6; color:#a6adc8; }
+.cat ul, .cat ol { padding-left:22px; margin:6px 0; }
+
+/* --- CONCEPT BOX --- */
+.concept { background:#1e1e2e; border-left:4px solid #89b4fa; padding:12px 14px; margin:8px 0; border-radius:0 6px 6px 0; }
+.concept h4 { color:#89b4fa; margin:0 0 4px 0; }
+
+/* --- ALERT BOX --- */
+.alert { background:#1e1e2e; border-left:4px solid #f38ba8; padding:12px 14px; margin:8px 0; border-radius:0 6px 6px 0; }
+.alert h4 { color:#f38ba8; margin:0 0 4px 0; }
+
+.insight { background:#1e1e2e; border-left:4px solid #f9e2af; padding:12px 14px; margin:8px 0; border-radius:0 6px 6px 0; }
+.insight h4 { color:#f9e2af; margin:0 0 4px 0; }
+
+/* --- CODE BLOCKS --- */
+details.code-block {
+  background:#11111b; border:1px solid #45475a; border-radius:6px;
+  margin:8px 0 12px 0; overflow:hidden;
+}
+details.code-block summary {
+  padding:10px 14px; cursor:pointer; color:#a6e3a1;
+  font-weight:600; font-size:12px; background:#181825; user-select:none;
+}
+details.code-block summary:hover { background:#1e1e2e; }
+details.code-block[open] { border-color:#a6e3a1; }
+.code-inner {
+  padding:14px 16px; font-family:'Consolas','Courier New',monospace;
+  font-size:12px; line-height:1.6; overflow-x:auto; white-space:pre;
+  color:#cdd6f4; border-top:1px solid #313244;
+}
+.kw { color:#cba6f7; } .fn { color:#89b4fa; } .str { color:#f9e2af; }
+.cm { color:#585b70; } .num { color:#fab387; } .tp { color:#a6e3a1; }
+
+/* --- TABLES --- */
+table { width:100%; border-collapse:collapse; margin:8px 0 12px 0; font-size:12px; }
+th {
+  padding:8px 10px; text-align:left; font-weight:700; font-size:11px;
+  text-transform:uppercase; letter-spacing:0.6px;
+  border:1px solid #313244; background:#11111b;
+}
+td { padding:7px 10px; border:1px solid #313244; vertical-align:top; line-height:1.5; }
+tr:nth-child(even) td { background:#181825; }
+tr:nth-child(odd) td { background:#1e1e2e; }
+
+/* --- COLUMN HIGHLIGHTS --- */
+.col-num { color:#f38ba8; font-weight:700; width:40px; text-align:center; }
+.col-comp { color:#89b4fa; font-weight:700; width:140px; }
+.col-desc { color:#cdd6f4; }
+
+.req-table th:nth-child(1) { color:#f38ba8; }
+.req-table th:nth-child(2) { color:#fab387; }
+.req-table th:nth-child(3) { color:#a6e3a1; }
+.req-table td:nth-child(1) { color:#f38ba8; font-weight:600; width:130px; }
+
+.proj-table th:nth-child(1) { color:#cba6f7; }
+.proj-table th:nth-child(2) { color:#89b4fa; }
+.proj-table th:nth-child(3) { color:#a6e3a1; }
+.proj-table th:nth-child(4) { color:#f9e2af; }
+.proj-table td:nth-child(1) { color:#cba6f7; font-weight:600; width:40px; text-align:center; }
+.proj-table td:nth-child(2) { color:#89b4fa; font-weight:600; width:160px; }
+.proj-table td:nth-child(3) { color:#a6e3a1; }
+
+/* --- QUOTE --- */
+.quote {
+  background:#11111b; border:1px solid #45475a; border-radius:6px;
+  padding:14px 18px; margin:12px 0; font-style:italic; color:#a6adc8; font-size:13px;
+}
+.quote strong { color:#f9e2af; }
+
+/* --- GRID --- */
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:8px 0; }
+@media(max-width:800px){ .grid2 { grid-template-columns:1fr; } }
+
+.card {
+  background:#1e1e2e; border:1px solid #313244; border-radius:6px; padding:12px 14px;
+}
+.card h4 { color:#89b4fa; font-size:13px; margin:0 0 6px 0; }
+.card p, .card li { font-size:12px; color:#a6adc8; }
+</style>
+</head>
+<body>
+
+<h1>RAG Production Pipeline</h1>
+<div class="subtitle">Complete Engineering Dashboard — Concepts, Code, Real-World Apps, Use Cases &amp; Project Ideas</div>
+
+<!-- ==================== TOC ==================== -->
+<div class="toc">
+<h3>Table of Contents</h3>
+<div class="toc-grid">
+<a href="#ov">Overview &amp; Philosophy</a>
+<a href="#s1">Step 1: User Query</a>
+<a href="#s2">Step 2: Query Processing</a>
+<a href="#s3">Step 3: Embedding</a>
+<a href="#s4">Step 4: Hybrid Search</a>
+<a href="#s5">Step 5: Vector Database</a>
+<a href="#s6">Step 6: Reranking</a>
+<a href="#s7">Step 7: Context Assembly</a>
+<a href="#s8">Step 8: Generation</a>
+<a href="#s9">Step 9: Grounding Check</a>
+<a href="#hall">Hallucination Entry Points</a>
+<a href="#demo">Demo vs Production</a>
+<a href="#arch">Architecture Patterns</a>
+<a href="#stack">Tech Stack Comparison</a>
+<a href="#metric">Metrics &amp; Observability</a>
+<a href="#sec">Security &amp; Compliance</a>
+<a href="#agent">Agentic Retrieval</a>
+<a href="#proj">Project Ideas</a>
+<a href="#full">Full Pipeline Code</a>
+</div>
+</div>
+
+<!-- ==================== OVERVIEW ==================== -->
+<div class="cat" id="ov">
+<h2><span class="cat-num">⬡</span> Overview &amp; Engineering Philosophy</h2>
+<div class="insight">
+<h4>Key Insight</h4>
+<p>Teams spend weeks swapping embedding models chasing a 2% gain — while the pipeline bleeds 20% at a step most haven't even implemented.</p>
+</div>
+<div class="quote">
+<strong>The Uncomfortable Truth:</strong> In banking and healthcare, a hallucinated answer isn't embarrassing — it's a compliance incident. The failure modes in RAG pipelines are the same ones that have killed production systems for 16+ years: skipped validation, stale data, no audit trail.
+</div>
+<div class="grid2">
+<div class="card">
+<h4>Old Failure Modes, New Tech</h4>
+<ul>
+<li>→ Chunking that splits ideas mid-thought</li>
+<li>→ Stale indexes serving last quarter's truth</li>
+<li>→ No reranker, so noise reaches context window</li>
+<li>→ No grounding check, so model fills gaps with confidence</li>
+<li>→ <strong>Notice what's NOT on the list:</strong> the embedding model</li>
+</ul>
+</div>
+<div class="card">
+<h4>Pipeline-First Mindset</h4>
+<ul>
+<li>Fix pipeline fundamentals before tuning models</li>
+<li>Hybrid search is non-negotiable for enterprise data</li>
+<li>Reranking is the most skipped — and most impactful — step</li>
+<li>Context is a built artifact with audit trail, never a dump</li>
+<li>Every claim must be traceable to a source chunk</li>
+</ul>
+</div>
+</div>
+
+<table class="req-table">
+<thead><tr><th>Principle</th><th>Why It Matters</th><th>Implementation</th></tr></thead>
+<tbody>
+<tr><td>Recall First</td><td>Cast wide net (K=20-50), then refine</td><td>Large K in vector DB + reranker to filter</td></tr>
+<tr><td>Audit Trail</td><td>Regulated environments require traceability</td><td>Source doc, page, version per chunk</td></tr>
+<tr><td>Deterministic Core</td><td>IR pipeline should be deterministic; only generation is probabilistic</td><td>Fixed chunking + BM25 + rule-based assembly</td></tr>
+<tr><td>Defense in Depth</td><td>Multiple layers catch different failure modes</td><td>Hybrid search → reranker → grounding check</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== STEP 1 ==================== -->
+<div class="cat" id="s1">
+<h2><span class="cat-num">01</span> Step 1: User Query</h2>
+<div class="concept">
+<h4>Concept</h4>
+<p>The raw question from the user. It's vague, incomplete, and phrased nothing like your enterprise documents. A user asking "what changed last month?" might mean policy changes, pricing updates, or personnel shifts — the query carries no context about which index to search.</p>
+</div>
+
+<details class="code-block">
+<summary> Python — User Query Handler </summary>
+<div class="code-inner"><span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+<span class="kw">from</span> typing <span class="kw">import</span> Optional, Dict, Any
+<span class="kw">import</span> uuid
+<span class="kw">import</span> datetime
+
+<span class="cm"># Schema for incoming query with full traceability</span>
+@dataclass
+<span class="kw">class</span> <span class="tp">UserQuery</span>:
+    query_id: str
+    raw_text: str
+    user_id: str
+    session_id: str
+    timestamp: datetime.datetime
+    metadata: Dict[str, Any]
+    domain: Optional[str] = <span class="kw">None</span>
+
+<span class="kw">def</span> <span class="fn">capture_query</span>(text: str, user: str, session: str,
+                    domain: Optional[str] = <span class="kw">None</span>) -> UserQuery:
+    <span class="cm">"""Capture and log the raw query before any processing."""</span>
+    <span class="kw">return</span> UserQuery(
+        query_id=str(uuid.uuid4())[:8],
+        raw_text=text,
+        user_id=user,
+        session_id=session,
+        timestamp=datetime.datetime.now(),
+        metadata={},
+        domain=domain
+    )
+
+<span class="cm"># Real-world example:</span>
+query = capture_query(
+    text=<span class="str">"tell me about the policy changes last quarter"</span>,
+    user=<span class="str">"usr_42"</span>,
+    session=<span class="str">"sess_7a3"</span>,
+    domain=<span class="str">"insurance"</span>
+)
+<span class="fn">print</span>(<span class="str">f"Logged query: {query.query_id}"</span>)</div>
+</details>
+
+<div class="grid2">
+<div class="card">
+<h4>Real-Time Application</h4>
+<p><strong>Customer Support Chatbot</strong> — User types "my bill is wrong" into a banking support widget. The system must infer intent (billing dispute), domain (retail banking), and urgency before any retrieval step.</p>
+</div>
+<div class="card">
+<h4>Use Case: Enterprise Search</h4>
+<p><strong>Healthcare Portal</strong> — Doctor queries "latest guidelines for hypertension in elderly patients." Raw query lacks specificity about which guideline body (WHO, AHA, ESC) and which year.</p>
+</div>
+</div>
+
+<table class="req-table">
+<thead><tr><th>Requirement</th><th>Tool/Method</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Query Logging</td><td>Structured logging (JSON)</td><td>Every query captured before processing</td></tr>
+<tr><td>Session Tracking</td><td>Session ID + User ID</td><td>Link queries to conversation history</td></tr>
+<tr><td>Rate Limiting</td><td>Token bucket / Sliding window</td><td>Prevent abuse and cost spikes</td></tr>
+<tr><td>PII Scrubbing</td><td>Regex + NER model</td><td>Remove sensitive data before logging</td></tr>
+</tbody>
+</table>
+
+<table class="proj-table">
+<thead><tr><th>#</th><th>Project Idea</th><th>Tech Stack</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Multi-Intent Query Router</td><td>FastAPI + Claude + Redis</td><td>Intermediate</td></tr>
+<tr><td>2</td><td>Query Enrichment Pipeline</td><td>LangChain + MongoDB</td><td>Beginner</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== STEP 2 ==================== -->
+<div class="cat" id="s2">
+<h2><span class="cat-num">02</span> Step 2: Query Processing</h2>
+<div class="concept">
+<h4>Concept</h4>
+<p>The raw question is almost never the query you actually search with. Query processing includes rewriting, decomposition (splitting complex queries into sub-questions), and HyDE (Hypothetical Document Embeddings — generating a synthetic ideal document to search with instead of the query).</p>
+</div>
+
+<details class="code-block">
+<summary> Python — Query Rewriting + Decomposition + HyDE </summary>
+<div class="code-inner"><span class="kw">from</span> typing <span class="kw">import</span> List
+<span class="kw">import</span> json
+
+<span class="cm"># === Query Rewriting ===</span>
+<span class="kw">def</span> <span class="fn">rewrite_query</span>(raw: str, domain: str = <span class="str">"general"</span>) -> str:
+    <span class="cm">"""Rewrite vague user query into precise search query."""</span>
+    prompt = <span class="str">f"""Rewrite this user query into a clear, specific search query
+that would find relevant documents in a {domain} knowledge base.
+User: {raw}
+Search query:"""</span>
+    <span class="kw">return</span> llm.generate(prompt)  <span class="cm"># e.g., "billing dispute resolution policy Q3 2025"</span>
+
+<span class="cm"># === Query Decomposition ===</span>
+<span class="kw">def</span> <span class="fn">decompose_query</span>(query: str) -> List[str]:
+    <span class="cm">"""Split complex query into parallel sub-queries."""</span>
+    prompt = <span class="str">f"""Break this question into 2-4 simpler sub-questions
+that together answer the original question.
+Question: {query}
+Sub-questions (JSON list):"""</span>
+    result = llm.generate(prompt)
+    <span class="kw">return</span> json.loads(result)  <span class="cm"># ["sub_q1", "sub_q2", ...]</span>
+
+<span class="cm"># === HyDE: Hypothetical Document Embeddings ===</span>
+<span class="kw">def</span> <span class="fn">hyde_generate</span>(query: str) -> str:
+    <span class="cm">"""Generate a hypothetical ideal document that would answer the query.
+    Search with THIS instead of the raw query."""</span>
+    prompt = <span class="str">f"""Write a paragraph that would perfectly answer this question.
+Be specific and factual in style.
+Question: {query}
+Hypothetical document:"""</span>
+    <span class="kw">return</span> llm.generate(prompt)
+
+<span class="cm"># Real-world usage:</span>
+raw = <span class="str">"how do we handle refunds for cancelled flights"</span>
+search_query = <span class="fn">rewrite_query</span>(raw, domain=<span class="str">"airline_policy"</span>)
+hyde_doc = <span class="fn">hyde_generate</span>(search_query)
+<span class="cm"># Now embed hyde_doc instead of raw query</span></div>
+</details>
+
+<div class="grid2">
+<div class="card">
+<h4>Real-Time Application</h4>
+<p><strong>Airline Customer Service</strong> — "my flight was cancelled" → Query rewritten to "cancelled flight refund policy 2025 + rebooking options + compensation policy." Sub-queries for refunds, rebooking, and EU-261 compensation run in parallel.</p>
+</div>
+<div class="card">
+<h4>Use Case: Legal Document Search</h4>
+<p><strong>Law Firm Discovery</strong> — "what cases relate to data breach liability in healthcare" → Decomposed into: (a) healthcare data breach statutes, (b) relevant case law 2020-2025, (c) liability precedents.</p>
+</div>
+</div>
+
+<table class="req-table">
+<thead><tr><th>Requirement</th><th>Tool/Method</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>LLM for Rewriting</td><td>GPT-4 / Claude / Llama-3</td><td>Small fast model works; needs <500ms</td></tr>
+<tr><td>Cache</td><td>Redis / Memcached</td><td>Cache (query→rewritten_query) pairs</td></tr>
+<tr><td>Feedback Loop</td><td>A/B test with/without rewriting</td><td>Measure retrieval precision impact</td></tr>
+</tbody>
+</table>
+
+<table class="proj-table">
+<thead><tr><th>#</th><th>Project Idea</th><th>Tech Stack</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td>3</td><td>Adaptive Query Rewriter</td><td>Claude API + Redis + FastAPI</td><td>Intermediate</td></tr>
+<tr><td>4</td><td>HyDE Document Generator</td><td>Llama-3 + ChromaDB</td><td>Advanced</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== STEP 3 ==================== -->
+<div class="cat" id="s3">
+<h2><span class="cat-num">03</span> Step 3: Embedding</h2>
+<div class="concept">
+<h4>Concept</h4>
+<p>The query (or HyDE document) becomes a vector — a dense numerical representation that captures semantic meaning. Common models: OpenAI text-embedding-3-small (1536d), BGE-large-en-v1.5 (1024d), Cohere embed-english-v3.0. The embedding model is <strong>not</strong> the bottleneck — stop chasing 2% gains here.</p>
+</div>
+
+<details class="code-block">
+<summary> Python — Embedding with Multiple Models </summary>
+<div class="code-inner"><span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> typing <span class="kw">import</span> List, Union
+
+<span class="cm"># Supported embedding models — normalize interface</span>
+<span class="kw">class</span> <span class="tp">EmbeddingEngine</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, model: str = <span class="str">"text-embedding-3-small"</span>):
+        <span class="kw">self</span>.model = model
+        <span class="kw">if</span> <span class="str">"openai"</span> <span class="kw">in</span> model:
+            <span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+            <span class="kw">self</span>.client = OpenAI()
+        <span class="kw">elif</span> <span class="str">"bge"</span> <span class="kw">in</span> model:
+            <span class="kw">from</span> sentence_transformers <span class="kw">import</span> SentenceTransformer
+            <span class="kw">self</span>.model_obj = SentenceTransformer(model)
+    
+    <span class="kw">def</span> <span class="fn">encode</span>(<span class="kw">self</span>, text: Union[str, List[str]]) -> np.ndarray:
+        <span class="kw">if</span> <span class="str">"openai"</span> <span class="kw">in</span> <span class="kw">self</span>.model:
+            resp = <span class="kw">self</span>.client.embeddings.create(
+                input=text <span class="kw">if</span> <span class="fn">isinstance</span>(text, <span class="fn">list</span>) <span class="kw">else</span> [text],
+                model=<span class="kw">self</span>.model
+            )
+            <span class="kw">return</span> np.array([d.embedding <span class="kw">for</span> d <span class="kw">in</span> resp.data])
+        <span class="kw">else</span>:
+            <span class="kw">return</span> <span class="kw">self</span>.model_obj.encode(text)
+
+<span class="cm"># Batch processing for production</span>
+<span class="kw">def</span> <span class="fn">batch_embed</span>(texts: List[str], batch_size: int = 32) -> np.ndarray:
+    engine = EmbeddingEngine()
+    all_embeddings = []
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="num">0</span>, <span class="fn">len</span>(texts), batch_size):
+        batch = texts[i:i+batch_size]
+        all_embeddings.append(engine.encode(batch))
+    <span class="kw">return</span> np.vstack(all_embeddings)</div>
+</details>
+
+<div class="grid2">
+<div class="card">
+<h4>Real-Time Application</h4>
+<p><strong>E-Commerce Product Search</strong> — "red dress for summer wedding" → embedded and matched against 100K+ product descriptions. Multi-lingual embedding model handles mixed-language queries.</p>
+</div>
+<div class="card">
+<h4>Use Case: Medical Research</h4>
+<p><strong>Clinical Trial Matcher</strong> — Embed patient profiles and trial criteria; find matching trials by vector similarity across 50K+ trial records.</p>
+</div>
+</div>
+
+<table class="req-table">
+<thead><tr><th>Requirement</th><th>Tool/Method</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Async Embedding</td><td>asyncio + aiohttp</td><td>Don't block the request thread</td></tr>
+<tr><td>Embedding Cache</td><td>Redis (TTL-based)</td><td>Same text → same vector</td></tr>
+<tr><td>Dimension Alignment</td><td>Single model per index</td><td>Don't mix 768d and 1536d in one index</td></tr>
+</tbody>
+</table>
+
+<table class="proj-table">
+<thead><tr><th>#</th><th>Project Idea</th><th>Tech Stack</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td>5</td><td>Multi-Model Embedding Benchmark</td><td>SentenceTransformers + Qdrant</td><td>Intermediate</td></tr>
+<tr><td>6</td><td>Embedding Drift Monitor</td><td>MLflow + Evidently</td><td>Advanced</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== STEP 4 ==================== -->
+<div class="cat" id="s4">
+<h2><span class="cat-num">04</span> Step 4: Hybrid Search</h2>
+<div class="concept">
+<h4>Concept</h4>
+<p>Vector search catches meaning; BM25 catches exact terms. RRF (Reciprocal Rank Fusion) merges both ranked lists. In enterprise data — policy numbers, product codes, acronyms — pure vector search fails quietly every day. <strong>It's the first thing to check when someone says "our RAG doesn't work."</strong></p>
+</div>
+
+<details class="code-block">
+<summary> Python — Hybrid Search with RRF Fusion </summary>
+<div class="code-inner"><span class="kw">from</span> typing <span class="kw">import</span> List, Tuple, Dict
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="cm"># === RRF: Reciprocal Rank Fusion ===</span>
+<span class="kw">def</span> <span class="fn">rrf_fusion</span>(
+    vec_results: List[Dict],
+    bm25_results: List[Dict],
+    k: int = <span class="num">60</span>
+) -> List[str]:
+    <span class="cm">"""Fuse two ranked lists using reciprocal rank fusion.
+    k=60 is the standard constant (RRF paper)."""</span>
+    scores: Dict[str, float] = {}
+    
+    <span class="kw">for</span> rank, doc <span class="kw">in</span> <span class="fn">enumerate</span>(vec_results):
+        doc_id = doc[<span class="str">"id"</span>]
+        scores[doc_id] = scores.get(doc_id, <span class="num">0</span>) + <span class="num">1</span> / (k + rank + <span class="num">1</span>)
+    
+    <span class="kw">for</span> rank, doc <span class="kw">in</span> <span class="fn">enumerate</span>(bm25_results):
+        doc_id = doc[<span class="str">"id"</span>]
+        scores[doc_id] = scores.get(doc_id, <span class="num">0</span>) + <span class="num">1</span> / (k + rank + <span class="num">1</span>)
+    
+    <span class="kw">return</span> <span class="fn">sorted</span>(scores, key=scores.get, reverse=<span class="kw">True</span>)
+
+<span class="cm"># === Full Hybrid Search Pipeline ===</span>
+<span class="kw">class</span> <span class="tp">HybridSearch</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, vector_db, bm25_index):
+        <span class="kw">self</span>.vector_db = vector_db
+        <span class="kw">self</span>.bm25_index = bm25_index
+    
+    <span class="kw">def</span> <span class="fn">search</span>(<span class="kw">self</span>, query: str, query_vec: np.ndarray,
+                 k: int = <span class="num">30</span>) -> List[Dict]:
+        <span class="cm"># 1. Vector search — semantic</span>
+        vec_hits = <span class="kw">self</span>.vector_db.search(query_vec, k=k*<span class="num">2</span>)
+        
+        <span class="cm"># 2. BM25 search — exact term</span>
+        bm25_hits = <span class="kw">self</span>.bm25_index.search(query, k=k*<span class="num">2</span>)
+        
+        <span class="cm"># 3. RRF fusion</span>
+        fused_ids = <span class="fn">rrf_fusion</span>(vec_hits, bm25_hits)
+        
+        <span class="cm"># 4. Return top-k with scores</span>
+        <span class="kw">return</span> fused_ids[:k]
+
+<span class="cm"># Enterprise example: searching "CPT-99213 + follow-up visit protocol"</span>
+<span class="cm"># Vector catches "follow-up visit protocol" semantic</span>
+<span class="cm"># BM25 catches exact code "CPT-99213"</span>
+<span class="cm"># RRF ensures both contribute to final ranking</span></div>
+</details>
+
+<div class="grid2">
+<div class="card">
+<h4>Real-Time Application</h4>
+<p><strong>Healthcare Coding Search</strong> — Doctor searches "CPT-99213 follow-up hypertension" — BM25 catches the exact CPT code, vector search finds related hypertension management documents. RRF combines both for complete results.</p>
+</div>
+<div class="card">
+<h4>Use Case: Legal Document Discovery</h4>
+<p><strong>E-Discovery Platform</strong> — Search for "Section 230 immunity social media 2024" — vector finds conceptually related cases; BM25 catches exact statutory citations.</p>
+</div>
+</div>
+
+<table class="req-table">
+<thead><tr><th>Requirement</th><th>Tool/Method</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>BM25 Index</td><td>Elasticsearch / Meilisearch</td><td>Inverted index for exact term matching</td></tr>
+<tr><td>Vector Index</td><td>Pinecone / Qdrant / Weaviate</td><td>Dense vector similarity search</td></tr>
+<tr><td>Fusion Layer</td><td>RRF (custom) or Reciprocal Rank Fusion</td><td>Simple weighted or rank-based merge</td></tr>
+</tbody>
+</table>
+
+<table class="proj-table">
+<thead><tr><th>#</th><th>Project Idea</th><th>Tech Stack</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td>7</td><td>Hybrid Search Engine for Patents</td><td>Elasticsearch + Qdrant + FastAPI</td><td>Advanced</td></tr>
+<tr><td>8</td><td>Adaptive Fusion Weight Tuner</td><td>Weights &amp; Biases + Optuna</td><td>Advanced</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== STEP 5 ==================== -->
+<div class="cat" id="s5">
+<h2><span class="cat-num">05</span> Step 5: Vector Database</h2>
+<div class="concept">
+<h4>Concept</h4>
+<p>Top-K comes back. <strong>K = 20–50, not 5.</strong> Recall first, precision later. The vector database stores embeddings + metadata and returns nearest neighbors. Production considerations: index type (HNSW, IVF), filterable metadata fields, namespacing for multi-tenant isolation.</p>
+</div>
+
+<details class="code-block">
+<summary> Python — Vector Database Operations </summary>
+<div class="code-inner"><span class="kw">from</span> typing <span class="kw">import</span> List, Dict, Optional
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="cm"># === Abstract Vector DB Interface ===</span>
+<span class="kw">class</span> <span class="tp">VectorDatabase</span>:
+    <span class="kw">def</span> <span class="fn">search</span>(<span class="kw">self</span>, vector: np.ndarray, k: int = <span class="num">30</span>,
+                 filter: Optional[Dict] = <span class="kw">None</span>) -> List[Dict]:
+        <span class="cm"># k=30 default: recall first, precision later</span>
+        <span class="kw">raise</span> NotImplementedError
+    
+    <span class="kw">def</span> <span class="fn">upsert</span>(<span class="kw">self</span>, docs: List[Dict]):
+        <span class="kw">raise</span> NotImplementedError
+
+<span class="cm"># === Qdrant Implementation ===</span>
+<span class="kw">class</span> <span class="tp">QdrantDB</span>(VectorDatabase):
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, collection: str, host: str = <span class="str">"localhost"</span>):
+        <span class="kw">from</span> qdrant_client <span class="kw">import</span> QdrantClient
+        <span class="kw">self</span>.client = QdrantClient(host=host)
+        <span class="kw">self</span>.collection = collection
+    
+    <span class="kw">def</span> <span class="fn">search</span>(<span class="kw">self</span>, vector: np.ndarray, k: int = <span class="num">30</span>,
+                 filter: Optional[Dict] = <span class="kw">None</span>) -> List[Dict]:
+        <span class="kw">from</span> qdrant_client.http.models <span class="kw">import</span> Filter
+        results = <span class="kw">self</span>.client.search(
+            collection_name=<span class="kw">self</span>.collection,
+            query_vector=vector.<span class="fn">tolist</span>(),
+            limit=k,
+            query_filter=Filter(**filter) <span class="kw">if</span> filter <span class="kw">else</span> <span class="kw">None</span>
+        )
+        <span class="kw">return</span> [
+            {<span class="str">"id"</span>: r.id, <span class="str">"score"</span>: r.score, <span class="str">"payload"</span>: r.payload}
+            <span class="kw">for</span> r <span class="kw">in</span> results
+        ]
+    
+    <span class="kw">def</span> <span class="fn">upsert</span>(<span class="kw">self</span>, docs: List[Dict]):
+        points = [
+            {<span class="str">"id"</span>: d[<span class="str">"id"</span>], <span class="str">"vector"</span>: d[<span class="str">"vector"</span>],
+             <span class="str">"payload"</span>: d[<span class="str">"payload"</span>]}
+            <span class="kw">for</span> d <span class="kw">in</span> docs
+        ]
+        <span class="kw">self</span>.client.upsert(
+            collection_name=<span class="kw">self</span>.collection,
+            points=points
+        )
+
+<span class="cm"># Production: Namespace per tenant for isolation</span>
+<span class="cm"># K=50 initial recall → reranker filters to top 5</span></div>
+</details>
+
+<div class="grid2">
+<div class="card">
+<h4>Real-Time Application</h4>
+<p><strong>Multi-Tenant SaaS Knowledge Base</strong> — 500+ companies use the same RAG system. Each company gets a namespace (tenant_id filter). K=40 per namespace. Reranker narrows to 5 before generation.</p>
+</div>
+<div class="card">
+<h4>Use Case: Compliance Document Search</h4>
+<p><strong>Banking Regulation Platform</strong> — Search across 10K+ regulatory documents. Results filtered by jurisdiction (SG, US, EU), document type (guideline, statute, circular), and effective date range.</p>
+</div>
+</div>
+
+<table class="req-table">
+<thead><tr><th>Requirement</th><th>Tool/Method</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Vector DB</td><td>Qdrant / Pinecone / Weaviate</td><td>HNSW index for fast ANN search</td></tr>
+<tr><td>Metadata Filters</td><td>Payload indexing (Qdrant)</td><td>Filter by tenant, date, doc type</td></tr>
+<tr><td>Re-indexing Pipeline</td><td>Airflow / Prefect</td><td>Automated refresh of stale indexes</td></tr>
+</tbody>
+</table>
+
+<table class="proj-table">
+<thead><tr><th>#</th><th>Project Idea</th><th>Tech Stack</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td>9</td><td>Multi-Tenant Vector DB</td><td>Qdrant + FastAPI + JWT</td><td>Intermediate</td></tr>
+<tr><td>10</td><td>Vector DB Benchmark Suite</td><td>Pinecone/Weaviate/Qdrant + Locust</td><td>Intermediate</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== STEP 6 ==================== -->
+<div class="cat" id="s6">
+<h2><span class="cat-num">06</span> Step 6: Reranking ← The Step Everyone Skips</h2>
+<div class="alert">
+<h4>Most "broken" RAG systems are simply missing this step</h4>
+<p>A cross-encoder scores query + chunk together (not separately like bi-encoders). Twenty mediocre candidates become five great ones. In banking compliance, getting the exact policy clause to position 1 is not "nice to have" — it's a regulatory requirement.</p>
+</div>
+
+<details class="code-block">
+<summary> Python — Cross-Encoder Reranking </summary>
+<div class="code-inner"><span class="kw">from</span> typing <span class="kw">import</span> List, Tuple
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">class</span> <span class="tp">Reranker</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, model_name: str = <span class="str">"BAAI/bge-reranker-v2-m3"</span>):
+        <span class="kw">from</span> transformers <span class="kw">import</span> AutoModelForSequenceClassification, AutoTokenizer
+        <span class="kw">self</span>.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        <span class="kw">self</span>.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    
+    <span class="kw">def</span> <span class="fn">rerank</span>(<span class="kw">self</span>, query: str, documents: List[str],
+                 top_k: int = <span class="num">5</span>) -> List[Tuple[str, float]]:
+        <span class="cm"># Cross-encoder: score (query, doc) pair together</span>
+        <span class="kw">import</span> torch
+        pairs = [(query, doc) <span class="kw">for</span> doc <span class="kw">in</span> documents]
+        inputs = <span class="kw">self</span>.tokenizer(
+            pairs, padding=<span class="kw">True</span>, truncation=<span class="kw">True</span>,
+            return_tensors=<span class="str">"pt"</span>, max_length=<span class="num">512</span>
+        )
+        <span class="kw">with</span> torch.no_grad():
+            scores = <span class="kw">self</span>.model(**inputs).logits.<span class="fn">squeeze</span>(-1)
+        
+        scored = <span class="fn">list</span>(<span class="fn">zip</span>(documents, scores.<span class="fn">tolist</span>()))
+        scored.<span class="fn">sort</span>(key=<span class="kw">lambda</span> x: x[<span class="num">1</span>], reverse=<span class="kw">True</span>)
+        <span class="kw">return</span> scored[:top_k]
+
+<span class="cm"># === API-based reranker (simpler) ===</span>
+<span class="kw">def</span> <span class="fn">rerank_cohere</span>(query: str, docs: List[str], top_k: int = <span class="num">5</span>) -> List[int]:
+    <span class="kw">import</span> cohere
+    co = cohere.Client(api_key=<span class="str">"..."</span>)
+    results = co.rerank(
+        query=query, documents=docs,
+        model=<span class="str">"rerank-english-v3.0"</span>,
+        top_n=top_k
+    )
+    <span class="kw">return</span> [(r.index, r.relevance_score) <span class="kw">for</span> r <span class="kw">in</span> results.results]
+
+<span class="cm"># Production pipeline: 30 raw → reranker → 5 final</span>
+candidates = vector_db.search(query_vec, k=<span class="num">30</span>)
+docs_text = [c[<span class="str">"text"</span>] <span class="kw">for</span> c <span class="kw">in</span> candidates]
+top_5 = <span class="fn">rerank_cohere</span>(query, docs_text, top_k=<span class="num">5</span>)</div>
+</details>
+
+<div class="grid2">
+<div class="card">
+<h4>Real-Time Application</h4>
+<p><strong>Banking Compliance Check</strong> — "What is our policy on account takeover refunds?" → 30 candidates retrieved → reranker ensures the exact compliance policy document is ranked #1. Missing this step would surface generic FAQ content instead.</p>
+</div>
+<div class="card">
+<h4>Use Case: Medical Q&A</h4>
+<p><strong>Clinical Decision Support</strong> — "Contraindications for Warfarin in elderly patients" → Reranker promotes the specific geriatric guideline to #1, demoting general Warfarin info that doesn't address elderly-specific risks.</p>
+</div>
+</div>
+
+<table class="req-table">
+<thead><tr><th>Requirement</th><th>Tool/Method</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Cross-Encoder Model</td><td>BGE-reranker / Cohere Rerank / GPT-Rerank</td><td>2-20ms per pair on GPU</td></tr>
+<tr><td>Batch Scoring</td><td>Torch batching</td><td>Score 30 pairs in one forward pass</td></tr>
+<tr><td>Cache</td><td>LRU cache (query_hash → scores)</td><td>Avoid re-scoring identical queries</td></tr>
+</tbody>
+</table>
+
+<table class="proj-table">
+<thead><tr><th>#</th><th>Project Idea</th><th>Tech Stack</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td>11</td><td>Reranker-as-a-Service</td><td>FastAPI + Torch + Docker + GPU</td><td>Advanced</td></tr>
+<tr><td>12</td><td>Domain-Adapted Reranker Trainer</td><td>Transformers + LoRA + Domain Dataset</td><td>Expert</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== STEP 7 ==================== -->
+<div class="cat" id="s7">
+<h2><span class="cat-num">07</span> Step 7: Context Assembly</h2>
+<div class="concept">
+<h4>Concept</h4>
+<p>Deduplicate, order by relevance, trim to token budget, and attach citations. In regulated environments, context is a <strong>built artifact with an audit trail</strong> — never a dump. Each chunk carries its source document ID, page number, version, and retrieval score.</p>
+</div>
+
+<details class="code-block">
+<summary> Python — Context Assembly with Audit Trail </summary>
+<div class="code-inner"><span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field
+<span class="kw">from</span> typing <span class="kw">import</span> List, Tuple
+<span class="kw">import</span> json
+
+@dataclass
+<span class="kw">class</span> <span class="tp">ContextChunk</span>:
+    text: str
+    source_doc: str
+    page: int
+    version: str
+    score: float
+    chunk_id: str
+
+@dataclass
+<span class="kw">class</span> <span class="tp">BuiltContext</span>:
+    chunks: List[ContextChunk] = field(default_factory=<span class="fn">list</span>)
+    total_tokens: int = <span class="num">0</span>
+    max_tokens: int = <span class="num">4096</span>
+    
+    <span class="kw">def</span> <span class="fn">add</span>(<span class="kw">self</span>, chunk: ContextChunk) -> <span class="kw">bool</span>:
+        tokens = <span class="fn">len</span>(chunk.text) // <span class="num">4</span>  <span class="cm"># rough estimate</span>
+        <span class="kw">if</span> <span class="kw">self</span>.total_tokens + tokens > <span class="kw">self</span>.max_tokens:
+            <span class="kw">return</span> <span class="kw">False</span>
+        <span class="kw">self</span>.chunks.append(chunk)
+        <span class="kw">self</span>.total_tokens += tokens
+        <span class="kw">return</span> <span class="kw">True</span>
+    
+    <span class="kw">def</span> <span class="fn">to_dict</span>(<span class="kw">self</span>) -> dict:
+        <span class="kw">return</span> {
+            <span class="str">"total_tokens"</span>: <span class="kw">self</span>.total_tokens,
+            <span class="str">"max_tokens"</span>: <span class="kw">self</span>.max_tokens,
+            <span class="str">"chunks"</span>: [
+                {<span class="str">"source"</span>: c.source_doc, <span class="str">"page"</span>: c.page,
+                 <span class="str">"version"</span>: c.version, <span class="str">"score"</span>: c.score,
+                 <span class="str">"text_preview"</span>: c.text[:<span class="num">100</span>]}
+                <span class="kw">for</span> c <span class="kw">in</span> <span class="kw">self</span>.chunks
+            ]
+        }
+
+<span class="cm"># === Build context with citations ===</span>
+<span class="kw">def</span> <span class="fn">assemble_context</span>(scored_docs: List[Tuple], max_tokens: int = <span class="num">4096</span>) -> BuiltContext:
+    ctx = BuiltContext(max_tokens=max_tokens)
+    <span class="kw">for</span> doc, score <span class="kw">in</span> scored_docs:
+        chunk = ContextChunk(
+            text=doc.text,
+            source_doc=doc.metadata[<span class="str">"source"</span>],
+            page=doc.metadata.get(<span class="str">"page"</span>, <span class="num">0</span>),
+            version=doc.metadata.get(<span class="str">"version"</span>, <span class="str">"1.0"</span>),
+            score=score,
+            chunk_id=f<span class="str">"{doc.id}"</span>
+        )
+        <span class="kw">if</span> <span class="kw">not</span> ctx.add(chunk):
+            <span class="kw">break</span>
+    <span class="kw">return</span> ctx
+
+<span class="cm"># Serialize audit trail to JSON for compliance logging</span>
+trace = ctx.to_dict()
+<span class="fn">print</span>(json.dumps(trace, indent=<span class="num">2</span>))
+<span class="cm"># → ["source": "policy_v3.pdf", "page": 12, "version": "2.1", ...]</span></div>
+</details>
+
+<div class="grid2">
+<div class="card">
+<h4>Real-Time Application</h4>
+<p><strong>Regulatory Filing Assistant</strong> — Context assembled from 5 regulatory documents. Each chunk tagged with issuing body (MAS, SEC, FCA), effective date, and section number. Auditor can trace every answer to its source.</p>
+</div>
+<div class="card">
+<h4>Use Case: Legal Contract Analysis</h4>
+<p><strong>Contract Review System</strong> — Context built from 20 contract clauses. Each clause carries contract ID, clause number, and execution date. Token budget capped at 4096 — oldest/least relevant trimmed first.</p>
+</div>
+</div>
+
+<table class="req-table">
+<thead><tr><th>Requirement</th><th>Tool/Method</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Deduplication</td><td>MinHash / Embedding similarity</td><td>Remove near-duplicate chunks</td></tr>
+<tr><td>Token Budget</td><td>tiktoken (OpenAI) / tokenizers (HuggingFace)</td><td>Accurate count, not length/4</td></tr>
+<tr><td>Audit Trail</td><td>JSON serialization</td><td>Log every context assembly</td></tr>
+</tbody>
+</table>
+
+<table class="proj-table">
+<thead><tr><th>#</th><th>Project Idea</th><th>Tech Stack</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td>13</td><td>Context Assembly Pipeline</td><td>Redis + MongoDB + FastAPI</td><td>Intermediate</td></tr>
+<tr><td>14</td><td>Audit Trail Visualizer</td><td>React + D3 + Flask</td><td>Advanced</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== STEP 8 ==================== -->
+<div class="cat" id="s8">
+<h2><span class="cat-num">08</span> Step 8: Generation</h2>
+<div class="concept">
+<h4>Concept</h4>
+<p>The model answers using <strong>only</strong> the assembled context. Instruct-tuned LLM with system prompt guardrails: "You are a helpful assistant. Answer based only on the provided context. If the context doesn't contain the answer, say 'I cannot find this information in the available documents.'"</p>
+</div>
+
+<details class="code-block">
+<summary> Python — Generation with Guardrails </summary>
+<div class="code-inner"><span class="kw">from</span> typing <span class="kw">import</span> Optional
+
+<span class="kw">class</span> <span class="tp">RAGGenerator</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, model: str = <span class="str">"gpt-4"</span>):
+        <span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+        <span class="kw">self</span>.client = OpenAI()
+        <span class="kw">self</span>.model = model
+    
+    SYSTEM_PROMPT = <span class="str">"""You are a precise document analyst.
+Rules:
+1. Answer ONLY from the provided context.
+2. If the context doesn't have the answer, say so.
+3. Cite the source document for each claim.
+4. Do not use prior knowledge.
+5. If unsure, say "I cannot verify this."</span>"""
+
+    <span class="kw">def</span> <span class="fn">generate</span>(<span class="kw">self</span>, context: <span class="str">"BuiltContext"</span>,
+                   query: str) -> str:
+        context_text = <span class="str">"\n\n---\n\n"</span>.join(
+            [f<span class="str">"[Source: {c.source_doc}, p.{c.page}] {c.text}"</span>
+             <span class="kw">for</span> c <span class="kw">in</span> context.chunks]
+        )
+        messages = [
+            {<span class="str">"role"</span>: <span class="str">"system"</span>, <span class="str">"content"</span>: <span class="kw">self</span>.SYSTEM_PROMPT},
+            {<span class="str">"role"</span>: <span class="str">"user"</span>, <span class="str">"content"</span>: <span class="str">f"""Context:
+{context_text}
+
+Question: {query}
+
+Answer based only on the context above:"""</span>}
+        ]
+        resp = <span class="kw">self</span>.client.chat.completions.create(
+            model=<span class="kw">self</span>.model, messages=messages,
+            temperature=<span class="num">0.1</span>, max_tokens=<span class="num">1024</span>
+        )
+        <span class="kw">return</span> resp.choices[<span class="num">0</span>].message.content</div>
+</details>
+
+<div class="grid2">
+<div class="card">
+<h4>Real-Time Application</h4>
+<p><strong>Customer Support Agent</strong> — Context contains 3 policy documents about refunds. Model must synthesize answer from all 3. Temperature=0.1 ensures deterministic output. Source citations added to every paragraph.</p>
+</div>
+<div class="card">
+<h4>Use Case: Financial Report Analysis</h4>
+<p><strong>Q&A over Earnings Reports</strong> — "What was Q3 revenue growth by segment?" Context from 10-K filing. Model extracts exact figures per segment with page references.</p>
+</div>
+</div>
+
+<table class="req-table">
+<thead><tr><th>Requirement</th><th>Tool/Method</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>LLM Provider</td><td>OpenAI / Anthropic / Ollama</td><td>Pick based on latency, cost, compliance</td></tr>
+<tr><td>Temperature</td><td>0.0–0.2 for RAG</td><td>Low temp = deterministic, factual</td></tr>
+<tr><td>Max Tokens</td><td>512–2048</td><td>Prevent verbose/extraneous output</td></tr>
+<tr><td>Streaming</td><td>Server-Sent Events (SSE)</td><td>UX: show tokens as they generate</td></tr>
+</tbody>
+</table>
+
+<table class="proj-table">
+<thead><tr><th>#</th><th>Project Idea</th><th>Tech Stack</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td>15</td><td>Multi-Provider RAG Generator</td><td>LiteLLM + FastAPI</td><td>Intermediate</td></tr>
+<tr><td>16</td><td>Streaming RAG Chat Interface</td><td>React + Server-Sent Events</td><td>Intermediate</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== STEP 9 ==================== -->
+<div class="cat" id="s9">
+<h2><span class="cat-num">09</span> Step 9: Grounding Check</h2>
+<div class="alert">
+<h4>No source? No claim. This is the difference between a demo and a system that survives an audit.</h4>
+<p>Every claim in the generated answer is traced back to a source chunk. If a claim can't be verified against the provided context, it's flagged or rejected. In healthcare and banking, this step is mandatory for compliance.</p>
+</div>
+
+<details class="code-block">
+<summary> Python — Grounding Check with Claim Extraction </summary>
+<div class="code-inner"><span class="kw">from</span> typing <span class="kw">import</span> List, Tuple
+<span class="kw">import</span> re
+
+<span class="kw">class</span> <span class="tp">GroundingChecker</span>:
+    <span class="kw">def</span> <span class="fn">extract_claims</span>(<span class="kw">self</span>, response: str) -> List[str]:
+        <span class="cm">"""Split response into atomic claims (sentences/statements)."""</span>
+        sentences = re.split(<span class="str">r'(?<=[.?!])\s+'</span>, response)
+        <span class="kw">return</span> [s.<span class="fn">strip</span>() <span class="kw">for</span> s <span class="kw">in</span> sentences <span class="kw">if</span> <span class="fn">len</span>(s) > <span class="num">10</span>]
+    
+    <span class="kw">def</span> <span class="fn">check_claim</span>(<span class="kw">self</span>, claim: str, context_chunks: List[str],
+                     threshold: float = <span class="num">0.7</span>) -> Tuple[<span class="kw">bool</span>, float]:
+        <span class="cm">"""Check if a claim is supported by any context chunk.
+        Uses embedding similarity + keyword overlap as fallback."""</span>
+        best_score = <span class="num">0.0</span>
+        best_chunk = <span class="kw">None</span>
+        <span class="kw">for</span> chunk <span class="kw">in</span> context_chunks:
+            <span class="cm"># Simple keyword overlap (in production, use NLI model)</span>
+            claim_words = <span class="fn">set</span>(claim.lower().<span class="fn">split</span>())
+            chunk_words = <span class="fn">set</span>(chunk.lower().<span class="fn">split</span>())
+            overlap = <span class="fn">len</span>(claim_words & chunk_words) / <span class="fn">max</span>(<span class="fn">len</span>(claim_words), <span class="num">1</span>)
+            <span class="kw">if</span> overlap > best_score:
+                best_score = overlap
+                best_chunk = chunk
+        <span class="kw">return</span> best_score >= threshold, best_score
+    
+    <span class="kw">def</span> <span class="fn">validate</span>(<span class="kw">self</span>, response: str, context_chunks: List[str]) -> List[Dict]:
+        claims = <span class="kw">self</span>.extract_claims(response)
+        results = []
+        <span class="kw">for</span> claim <span class="kw">in</span> claims:
+            grounded, score = <span class="kw">self</span>.check_claim(claim, context_chunks)
+            results.append({
+                <span class="str">"claim"</span>: claim,
+                <span class="str">"grounded"</span>: grounded,
+                <span class="str">"score"</span>: score
+            })
+        <span class="kw">return</span> results
+
+<span class="cm"># === Production: reject if any claim is ungrounded ===</span>
+<span class="kw">def</span> <span class="fn">safe_generate</span>(query: str, context: BuiltContext) -> str:
+    gen = RAGGenerator()
+    checker = GroundingChecker()
+    
+    response = gen.generate(context, query)
+    context_texts = [c.text <span class="kw">for</span> c <span class="kw">in</span> context.chunks]
+    results = checker.validate(response, context_texts)
+    
+    ungrounded = [r <span class="kw">for</span> r <span class="kw">in</span> results <span class="kw">if</span> <span class="kw">not</span> r[<span class="str">"grounded"</span>]]
+    <span class="kw">if</span> ungrounded:
+        <span class="kw">return</span> <span class="str">"I cannot verify this answer from the available sources."</span>
+    <span class="kw">return</span> response</div>
+</details>
+
+<div class="grid2">
+<div class="card">
+<h4>Real-Time Application</h4>
+<p><strong>Healthcare Answer Validation</strong> — "The recommended dosage of Warfarin for elderly patients is 2.5mg" → Checked against context chunks. If no chunk mentions "2.5mg" or "elderly" and "Warfarin" together, the claim is flagged as ungrounded.</p>
+</div>
+<div class="card">
+<h4>Use Case: Financial Audit</h4>
+<p><strong>Regulatory Filing Review</strong> — "Revenue grew 15% in Q3 2025" → Grounding checker verifies this exact number appears in the filed 10-Q document. If the context contains "revenue grew 12%", the mismatch is flagged.</p>
+</div>
+</div>
+
+<table class="req-table">
+<thead><tr><th>Requirement</th><th>Tool/Method</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Claim Extraction</td><td>Regex / SpaCy / LLM</td><td>Split response into atomic claims</td></tr>
+<tr><td>NLI Model (optional)</td><td>DeBERTa / BART NLI</td><td>Natural language inference for entailment</td></tr>
+<tr><td>Fallback Strategy</td><td>Keyword overlap + embedding cosine</td><td>When NLI is too slow</td></tr>
+<tr><td>Logging</td><td>Structured logs</td><td>Log all grounded/ungrounded claims for review</td></tr>
+</tbody>
+</table>
+
+<table class="proj-table">
+<thead><tr><th>#</th><th>Project Idea</th><th>Tech Stack</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td>17</td><td>NLI-Based Grounding Checker</td><td>DeBERTa + FastAPI + Redis</td><td>Advanced</td></tr>
+<tr><td>18</td><td>Claim Visualization Dashboard</td><td>React + D3 + Flask</td><td>Advanced</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== HALLUCINATION ENTRY ==================== -->
+<div class="cat" id="hall">
+<h2><span class="cat-num">⬡</span> Where Hallucinations Actually Enter</h2>
+<div class="insight">
+<h4>The embedding model is NOT on this list</h4>
+</div>
+
+<table>
+<thead><tr><th>Entry Point</th><th>Root Cause</th><th>Fix / Mitigation</th><th>Detection Method</th></tr></thead>
+<tbody>
+<tr><td style="color:#f38ba8;font-weight:700;">Chunking</td><td>Splits ideas mid-thought → incomplete context</td><td>Semantic chunking with sentence boundaries; overlap 10-15%</td><td>Monitor chunk coherence score</td></tr>
+<tr><td style="color:#f38ba8;font-weight:700;">Stale Indexes</td><td>Serves last quarter's truth → outdated answers</td><td>Automated re-indexing pipeline; TTL-based cache invalidation</td><td>Index freshness metrics</td></tr>
+<tr><td style="color:#f38ba8;font-weight:700;">No Reranker</td><td>Noise and irrelevant chunks reach context window</td><td>Cross-encoder reranker (Cohere rerank, BGE-reranker)</td><td>Context relevance score (avg of top-K scores)</td></tr>
+<tr><td style="color:#f38ba8;font-weight:700;">No Grounding</td><td>Model fills gaps with confident fabrication</td><td>Claim extraction + source verification; reject ungrounded claims</td><td>Grounding pass rate</td></tr>
+<tr><td style="color:#f38ba8;font-weight:700;">Query Ambiguity</td><td>Raw query doesn't match document language</td><td>Query rewriting + HyDE</td><td>Query-document term overlap ratio</td></tr>
+<tr><td style="color:#f38ba8;font-weight:700;">Context Overflow</td><td>Too much context → model ignores relevant parts</td><td>Strict token budget + priority ordering</td><td>Position bias in answer source</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== DEMO vs PROD ==================== -->
+<div class="cat" id="demo">
+<h2><span class="cat-num">⬡</span> Demo vs Production RAG</h2>
+<table>
+<thead><tr><th>Dimension</th><th>Demo RAG</th><th>Production RAG</th><th>Impact</th></tr></thead>
+<tbody>
+<tr><td style="color:#89b4fa;font-weight:700;">K Value</td><td>3-5</td><td>20-50</td><td>Recall lost → missed context</td></tr>
+<tr><td style="color:#89b4fa;font-weight:700;">Search</td><td>Pure vector</td><td>Hybrid (vector + BM25 + RRF)</td><td>Codes/acronyms missed</td></tr>
+<tr><td style="color:#89b4fa;font-weight:700;">Reranking</td><td>None</td><td>Cross-encoder (mandatory)</td><td>Noise in context window</td></tr>
+<tr><td style="color:#89b4fa;font-weight:700;">Context Assembly</td><td>Raw dump</td><td>Curated, deduped, cited artifact</td><td>Token waste + no audit trail</td></tr>
+<tr><td style="color:#89b4fa;font-weight:700;">Grounding</td><td>Trust the model</td><td>Claim tracing + source verification</td><td>Hallucination with confidence</td></tr>
+<tr><td style="color:#89b4fa;font-weight:700;">Audit</td><td>None</td><td>Full chain-of-custody trail</td><td>Compliance failure</td></tr>
+<tr><td style="color:#89b4fa;font-weight:700;">Monitoring</td><td>None</td><td>Latency, recall, precision, grounding pass rate</td><td>Blind to degradation</td></tr>
+<tr><td style="color:#89b4fa;font-weight:700;">Failure Response</td><td>"Refine the prompt"</td><td>"Check the pipeline metrics"</td><td>Systematic debugging</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== ARCHITECTURE ==================== -->
+<div class="cat" id="arch">
+<h2><span class="cat-num">⬡</span> Architecture Patterns</h2>
+<div class="grid2">
+<div class="card">
+<h4>Pattern 1: Sequential Pipeline</h4>
+<p>Query → Process → Embed → Search → Rerank → Assemble → Generate → Ground → Answer</p>
+<p style="margin-top:8px;color:#585b70;">Simple, traceable, good for most enterprise RAG.</p>
+</div>
+<div class="card">
+<h4>Pattern 2: Parallel Multi-Query</h4>
+<p>Query → Decompose → [SubQ1, SubQ2, SubQ3] → Parallel search → Merge → Rerank → Generate</p>
+<p style="margin-top:8px;color:#585b70;">Better for complex multi-faceted questions.</p>
+</div>
+<div class="card">
+<h4>Pattern 3: Agentic Retrieval</h4>
+<p>Agent decides: when to search, what to search, which tool to use, whether results are sufficient</p>
+<p style="margin-top:8px;color:#585b70;">Emerging pattern — RAG becomes a tool the agent uses.</p>
+</div>
+<div class="card">
+<h4>Pattern 4: Corrective RAG (CRAG)</h4>
+<p>Generate → Grounding Check → [Pass: answer] [Fail: rewrite search → re-retrieve → re-generate]</p>
+<p style="margin-top:8px;color:#585b70;">Self-correcting loop for high-accuracy needs.</p>
+</div>
+</div>
+</div>
+
+<!-- ==================== TECH STACK ==================== -->
+<div class="cat" id="stack">
+<h2><span class="cat-num">⬡</span> Tech Stack Comparison</h2>
+<table>
+<thead><tr><th>Step</th><th>Open Source</th><th>Managed / Cloud</th><th>Enterprise</th></tr></thead>
+<tbody>
+<tr><td style="color:#89b4fa;">Query Processing</td><td>LangChain / LlamaIndex</td><td>Claude API / GPT-4</td><td>Custom NLU pipeline</td></tr>
+<tr><td style="color:#89b4fa;">Embedding</td><td>SentenceTransformers / BGE</td><td>OpenAI Embeddings / Cohere Embed</td><td>Custom fine-tuned embedding</td></tr>
+<tr><td style="color:#89b4fa;">Vector Search</td><td>Qdrant / ChromaDB</td><td>Pinecone / Weaviate Cloud</td><td>Elasticsearch + kNN plugin</td></tr>
+<tr><td style="color:#89b4fa;">BM25</td><td>Elasticsearch / Meilisearch</td><td>Algolia / Meilisearch Cloud</td><td>Solr / Elasticsearch</td></tr>
+<tr><td style="color:#89b4fa;">Reranker</td><td>BGE-reranker / CrossEncoder</td><td>Cohere Rerank</td><td>Custom trained cross-encoder</td></tr>
+<tr><td style="color:#89b4fa;">LLM</td><td>Llama-3 / Mistral</td><td>GPT-4 / Claude / Gemini</td><td>Azure OpenAI / Bedrock</td></tr>
+<tr><td style="color:#89b4fa;">Grounding</td><td>Custom + NLI models</td><td>LangSmith / Galileo</td><td>Custom verification service</td></tr>
+<tr><td style="color:#89b4fa;">Monitoring</td><td>Prometheus + Grafana</td><td>DataDog / New Relic</td><td>Splunk / Datadog</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== METRICS ==================== -->
+<div class="cat" id="metric">
+<h2><span class="cat-num">⬡</span> Metrics &amp; Observability</h2>
+<div class="grid2">
+<div class="card">
+<h4>Retrieval Metrics</h4>
+<ul>
+<li>Recall@K: fraction of relevant docs in top-K</li>
+<li>Precision@K: fraction of top-K that are relevant</li>
+<li>MRR: Mean Reciprocal Rank of first relevant</li>
+<li>NDCG@K: Normalized Discounted Cumulative Gain</li>
+<li>Context Relevance: avg reranker score of assembled context</li>
+</ul>
+</div>
+<div class="card">
+<h4>Generation Metrics</h4>
+<ul>
+<li>Grounding Pass Rate: % of claims verifiable in context</li>
+<li>Faithfulness: NLI-based entailment score</li>
+<li>Answer Relevance: cosine between query and answer</li>
+<li>Latency P50/P95/P99: end-to-end pipeline timing</li>
+<li>Cost Per Query: tokens in/out × model rates</li>
+</ul>
+</div>
+</div>
+
+<details class="code-block">
+<summary> Python — RAG Metrics Logger </summary>
+<div class="code-inner"><span class="kw">import</span> time
+<span class="kw">import</span> json
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field, asdict
+<span class="kw">from</span> typing <span class="kw">import</span> List
+
+@dataclass
+<span class="kw">class</span> <span class="tp">RAGMetrics</span>:
+    query_id: str
+    latency_ms: float
+    k_retrieved: int
+    k_after_rerank: int
+    context_tokens: int
+    response_tokens: int
+    grounding_pass_rate: float
+    timestamp: str = field(default_factory=<span class="kw">lambda</span>: time.<span class="fn">strftime</span>(<span class="str">"%Y-%m-%dT%H:%M:%S"</span>))
+    
+    <span class="kw">def</span> <span class="fn">log</span>(<span class="kw">self</span>):
+        <span class="fn">print</span>(json.dumps(asdict(<span class="kw">self</span>)))  <span class="cm"># → stdout → log shipper (Fluentd, Logstash)</span>
+
+<span class="cm"># Prometheus metrics (pseudo)</span>
+<span class="cm"># rag_retrieval_latency_ms{step="rerank"} 42</span>
+<span class="cm"># rag_grounding_pass_rate 0.95</span>
+<span class="cm"># rag_context_tokens_avg 2048</span></div>
+</details>
+</div>
+
+<!-- ==================== SECURITY ==================== -->
+<div class="cat" id="sec">
+<h2><span class="cat-num">⬡</span> Security &amp; Compliance</h2>
+
+<table>
+<thead><tr><th>Concern</th><th>Risk</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td style="color:#f38ba8;">Prompt Injection</td><td>User query attempts to override system prompt</td><td>Input sanitization; delimiter separation; prompt guards</td></tr>
+<tr><td style="color:#f38ba8;">Data Leakage</td><td>Sensitive docs retrieved across tenant boundaries</td><td>Namespace isolation; metadata filter enforcement</td></tr>
+<tr><td style="color:#f38ba8;">Audit Trail</td><td>No traceability of which documents informed answer</td><td>Context assembly logging; claim → source mapping</td></tr>
+<tr><td style="color:#f38ba8;">PII Exposure</td><td>User query or retrieved docs contain PII</td><td>PII scrubbing at query ingress + doc ingestion</td></tr>
+<tr><td style="color:#f38ba8;">Model Hallucination</td><td>Fabricated compliance/medical information</td><td>Grounding check with fallback responses</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== AGENTIC ==================== -->
+<div class="cat" id="agent">
+<h2><span class="cat-num">⬡</span> Agentic Retrieval: RAG as a Tool</h2>
+<div class="concept">
+<h4>The Future</h4>
+<p>The agent decides: when to search, what to search (which index/tool), how to refine queries, and whether the results are good enough to answer from. RAG isn't dying — it's becoming an organ inside a larger system.</p>
+</div>
+
+<details class="code-block">
+<summary> Python — Agentic Retrieval Loop </summary>
+<div class="code-inner"><span class="kw">from</span> typing <span class="kw">import</span> List, Optional
+
+<span class="kw">class</span> <span class="tp">RetrievalAgent</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>):
+        <span class="kw">self</span>.tools = {
+            <span class="str">"policy_search"</span>: HybridSearch(vector_db_policy, bm25_policy),
+            <span class="str">"claims_search"</span>: HybridSearch(vector_db_claims, bm25_claims),
+            <span class="str">"faq_search"</span>: HybridSearch(vector_db_faq, bm25_faq),
+        }
+    
+    <span class="kw">def</span> <span class="fn">decide_tool</span>(<span class="kw">self</span>, query: str) -> str:
+        <span class="cm">"""LLM decides which search tool to use."""</span>
+        prompt = <span class="str">f"""Given this user question, which knowledge base should I search?
+- policy_search: for company policies, procedures
+- claims_search: for insurance claims processing
+- faq_search: for common questions
+        
+Question: {query}
+Tool:"""</span>
+        <span class="kw">return</span> llm.generate(prompt).<span class="fn">strip</span>()
+    
+    <span class="kw">def</span> <span class="fn">evaluate_results</span>(<span class="kw">self</span>, query: str, results: List) -> <span class="kw">bool</span>:
+        <span class="cm">"""Agent decides if results are sufficient to answer."""</span>
+        prompt = <span class="str">f"""Given this question and the search results,
+        can you fully answer the question? YES or NO.
+        Question: {query}
+        Results: {results[:500]}
+        Answer:"""</span>
+        verdict = llm.generate(prompt).<span class="fn">strip</span>()
+        <span class="kw">return</span> verdict == <span class="str">"YES"</span>
+    
+    <span class="kw">def</span> <span class="fn">retrieve</span>(<span class="kw">self</span>, query: str, max_attempts: int = <span class="num">3</span>) -> List:
+        <span class="cm">"""Agentic retrieval loop: decide → search → evaluate → repeat if needed"""</span>
+        <span class="kw">for</span> attempt <span class="kw">in</span> <span class="fn">range</span>(max_attempts):
+            tool = <span class="kw">self</span>.decide_tool(query)
+            searcher = <span class="kw">self</span>.tools[tool]
+            results = searcher.search(query, k=<span class="num">30</span>)
+            
+            <span class="kw">if</span> <span class="kw">self</span>.evaluate_results(query, results):
+                <span class="kw">return</span> results
+            
+            <span class="cm"># Refine query and try again</span>
+            query = <span class="fn">rewrite_query</span>(query + <span class="str">" [need more specific results]"</span>)
+        
+        <span class="kw">return</span> results  <span class="cm"># best effort after max_attempts</span></div>
+</details>
+
+<div class="quote">
+<strong>Key Question:</strong> As agentic retrieval takes over — is RAG a component that agents use, or an architecture that agents replaced? The answer: <strong>RAG becomes a tool (or set of tools) that the agent orchestrates.</strong>
+</div>
+</div>
+
+<!-- ==================== PROJECT IDEAS ==================== -->
+<div class="cat" id="proj">
+<h2><span class="cat-num">⬡</span> Complete Project Portfolio</h2>
+
+<table class="proj-table">
+<thead><tr><th>#</th><th>Project Name</th><th>Tech Stack</th><th>Difficulty</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Multi-Intent Query Router</td><td>FastAPI + Claude + Redis</td><td>Intermediate</td></tr>
+<tr><td>2</td><td>Query Enrichment Pipeline</td><td>LangChain + MongoDB</td><td>Beginner</td></tr>
+<tr><td>3</td><td>Adaptive Query Rewriter</td><td>Claude API + Redis + FastAPI</td><td>Intermediate</td></tr>
+<tr><td>4</td><td>HyDE Document Generator</td><td>Llama-3 + ChromaDB</td><td>Advanced</td></tr>
+<tr><td>5</td><td>Multi-Model Embedding Benchmark</td><td>SentenceTransformers + Qdrant</td><td>Intermediate</td></tr>
+<tr><td>6</td><td>Embedding Drift Monitor</td><td>MLflow + Evidently</td><td>Advanced</td></tr>
+<tr><td>7</td><td>Hybrid Search Engine for Patents</td><td>Elasticsearch + Qdrant + FastAPI</td><td>Advanced</td></tr>
+<tr><td>8</td><td>Adaptive Fusion Weight Tuner</td><td>Weights &amp; Biases + Optuna</td><td>Advanced</td></tr>
+<tr><td>9</td><td>Multi-Tenant Vector DB</td><td>Qdrant + FastAPI + JWT</td><td>Intermediate</td></tr>
+<tr><td>10</td><td>Vector DB Benchmark Suite</td><td>Pinecone/Weaviate/Qdrant + Locust</td><td>Intermediate</td></tr>
+<tr><td>11</td><td>Reranker-as-a-Service</td><td>FastAPI + Torch + Docker + GPU</td><td>Advanced</td></tr>
+<tr><td>12</td><td>Domain-Adapted Reranker Trainer</td><td>Transformers + LoRA + Domain Dataset</td><td>Expert</td></tr>
+<tr><td>13</td><td>Context Assembly Pipeline</td><td>Redis + MongoDB + FastAPI</td><td>Intermediate</td></tr>
+<tr><td>14</td><td>Audit Trail Visualizer</td><td>React + D3 + Flask</td><td>Advanced</td></tr>
+<tr><td>15</td><td>Multi-Provider RAG Generator</td><td>LiteLLM + FastAPI</td><td>Intermediate</td></tr>
+<tr><td>16</td><td>Streaming RAG Chat Interface</td><td>React + Server-Sent Events</td><td>Intermediate</td></tr>
+<tr><td>17</td><td>NLI-Based Grounding Checker</td><td>DeBERTa + FastAPI + Redis</td><td>Advanced</td></tr>
+<tr><td>18</td><td>Claim Visualization Dashboard</td><td>React + D3 + Flask</td><td>Advanced</td></tr>
+<tr><td>19</td><td>End-to-End RAG Pipeline</td><td>Qdrant + Claude + FastAPI + Docker</td><td>Expert</td></tr>
+<tr><td>20</td><td>Agentic Retrieval System</td><td>LangGraph + Claude + Pinecone</td><td>Expert</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ==================== FULL CODE ==================== -->
+<div class="cat" id="full">
+<h2><span class="cat-num">⬡</span> Complete Production RAG Pipeline Code</h2>
+<p style="color:#a6adc8;">Full end-to-end pipeline: query → answer with monitoring and grounding.</p>
+
+<details class="code-block" open>
+<summary> Full Pipeline: query → answer (copy & paste ready) </summary>
+<div class="code-inner"><span class="cm"># === RAG Production Pipeline — Complete End-to-End ===</span>
+<span class="cm"># FastAPI + Qdrant + Cross-Encoder + LLM + Grounding Check</span>
+
+<span class="kw">import</span> os, time, json, uuid
+<span class="kw">from</span> typing <span class="kw">import</span> List, Optional, Tuple
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass, field, asdict
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, HTTPException
+<span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel
+
+app = FastAPI(title=<span class="str">"RAG Production Pipeline"</span>)
+
+<span class="cm"># ─── Data Models ───</span>
+<span class="kw">class</span> <span class="tp">QueryRequest</span>(BaseModel):
+    text: str
+    user_id: str = <span class="str">"anonymous"</span>
+    session_id: str = <span class="str">"default"</span>
+
+<span class="kw">class</span> <span class="tp">RAGResponse</span>(BaseModel):
+    answer: str
+    grounded: bool
+    latency_ms: float
+    sources: List[str]
+
+<span class="cm"># ─── Step 1: Capture Query ───</span>
+<span class="kw">def</span> <span class="fn">capture_query</span>(req: QueryRequest) -> dict:
+    <span class="kw">return</span> {<span class="str">"query_id"</span>: str(uuid.uuid4())[:<span class="num">8</span>], <span class="str">"raw_text"</span>: req.text,
+            <span class="str">"user_id"</span>: req.user_id, <span class="str">"session_id"</span>: req.session_id,
+            <span class="str">"timestamp"</span>: time.<span class="fn">strftime</span>(<span class="str">"%Y-%m-%dT%H:%M:%S"</span>)}
+
+<span class="cm"># ─── Step 2: Query Processing ───</span>
+<span class="kw">def</span> <span class="fn">rewrite_query</span>(text: str) -> str:
+    <span class="cm">"""Use LLM to rewrite vague query into specific search query."""</span>
+    prompt = <span class="str">f"Rewrite for search: {text}\nSearch query:"</span>
+    <span class="kw">return</span> llm_generate(prompt)
+
+<span class="cm"># ─── Step 3: Embedding ───</span>
+<span class="kw">def</span> <span class="fn">embed_query</span>(text: str) -> np.ndarray:
+    <span class="kw">return</span> embedding_engine.encode(text)
+
+<span class="cm"># ─── Step 4: Hybrid Search (Vector + BM25 + RRF) ───</span>
+<span class="kw">def</span> <span class="fn">hybrid_search</span>(query: str, query_vec: np.ndarray, k: int = <span class="num">30</span>) -> List[dict]:
+    vec_results = vector_db.search(query_vec, k=k*<span class="num">2</span>)
+    bm25_results = bm25_index.search(query, k=k*<span class="num">2</span>)
+    <span class="cm"># RRF fusion</span>
+    scores = {}
+    <span class="kw">for</span> rank, r <span class="kw">in</span> <span class="fn">enumerate</span>(vec_results):
+        scores[r[<span class="str">"id"</span>]] = scores.get(r[<span class="str">"id"</span>], <span class="num">0</span>) + <span class="num">1</span>/(<span class="num">60</span>+rank)
+    <span class="kw">for</span> rank, r <span class="kw">in</span> <span class="fn">enumerate</span>(bm25_results):
+        scores[r[<span class="str">"id"</span>]] = scores.get(r[<span class="str">"id"</span>], <span class="num">0</span>) + <span class="num">1</span>/(<span class="num">60</span>+rank)
+    ranked = <span class="fn">sorted</span>(scores, key=scores.get, reverse=<span class="kw">True</span>)
+    <span class="kw">return</span> [doc_map[_id] <span class="kw">for</span> _id <span class="kw">in</span> ranked[:k]]
+
+<span class="cm"># ─── Step 6: Reranking ───</span>
+<span class="kw">def</span> <span class="fn">rerank</span>(query: str, docs: List[dict], top_k: int = <span class="num">5</span>) -> List[dict]:
+    pairs = [(query, d[<span class="str">"text"</span>]) <span class="kw">for</span> d <span class="kw">in</span> docs]
+    scores = reranker.predict(pairs)
+    scored = <span class="fn">list</span>(<span class="fn">zip</span>(docs, scores))
+    scored.<span class="fn">sort</span>(key=<span class="kw">lambda</span> x: x[<span class="num">1</span>], reverse=<span class="kw">True</span>)
+    <span class="kw">return</span> [d <span class="kw">for</span> d, _ <span class="kw">in</span> scored[:top_k]]
+
+<span class="cm"># ─── Step 7: Context Assembly ───</span>
+<span class="kw">def</span> <span class="fn">assemble_context</span>(docs: List[dict], max_tokens: int = <span class="num">4096</span>) -> Tuple[str, List[str]]:
+    chunks, sources, tokens = [], [], <span class="num">0</span>
+    <span class="kw">for</span> d <span class="kw">in</span> docs:
+        estimated = <span class="fn">len</span>(d[<span class="str">"text"</span>]) // <span class="num">4</span>
+        <span class="kw">if</span> tokens + estimated > max_tokens: <span class="kw">break</span>
+        chunks.append(d[<span class="str">"text"</span>])
+        sources.append(d.get(<span class="str">"source"</span>, <span class="str">"unknown"</span>))
+        tokens += estimated
+    <span class="kw">return</span> <span class="str">"\n\n---\n\n"</span>.join(chunks), sources
+
+<span class="cm"># ─── Step 8: Generation ───</span>
+<span class="kw">def</span> <span class="fn">generate_answer</span>(query: str, context: str) -> str:
+    system = <span class="str">"Answer ONLY from the context. Cite sources. Say 'not found' if unsure."</span>
+    <span class="kw">return</span> llm_generate(system + <span class="str">"\nContext:\n"</span> + context + <span class="str">"\nQ: "</span> + query)
+
+<span class="cm"># ─── Step 9: Grounding Check ───</span>
+<span class="kw">def</span> <span class="fn">check_grounding</span>(answer: str, context: str) -> Tuple[bool, float]:
+    claims = [s.<span class="fn">strip</span>() <span class="kw">for</span> s <span class="kw">in</span> answer.<span class="fn">split</span>(<span class="str">"."</span>) <span class="kw">if</span> <span class="fn">len</span>(s) > <span class="num">10</span>]
+    grounded = <span class="num">0</span>
+    <span class="kw">for</span> claim <span class="kw">in</span> claims:
+        <span class="kw">if</span> <span class="fn">any</span>(claim.lower() <span class="kw">in</span> chunk.lower()
+               <span class="kw">for</span> chunk <span class="kw">in</span> context.<span class="fn">split</span>(<span class="str">"\n\n---\n\n"</span>)):
+            grounded += <span class="num">1</span>
+    rate = grounded / <span class="fn">max</span>(<span class="fn">len</span>(claims), <span class="num">1</span>)
+    <span class="kw">return</span> rate >= <span class="num">0.8</span>, rate
+
+<span class="cm"># ─── API Endpoint ───</span>
+@app.post(<span class="str">"/rag/query"</span>, response_model=RAGResponse)
+<span class="kw">def</span> <span class="fn">rag_query</span>(req: QueryRequest):
+    start = time.time()
+    
+    q = capture_query(req)
+    rewritten = rewrite_query(q[<span class="str">"raw_text"</span>])
+    vec = embed_query(rewritten)
+    candidates = hybrid_search(rewritten, vec)
+    top_docs = rerank(rewritten, candidates)
+    context, sources = assemble_context(top_docs)
+    answer = generate_answer(rewritten, context)
+    grounded, rate = check_grounding(answer, context)
+    
+    latency = <span class="fn">round</span>((time.time() - start) * <span class="num">1000</span>, <span class="num">2</span>)
+    
+    <span class="kw">if</span> <span class="kw">not</span> grounded:
+        answer = <span class="str">"I cannot verify this answer from available sources."</span>
+    
+    <span class="kw">return</span> RAGResponse(answer=answer, grounded=grounded,
+                        latency_ms=latency, sources=sources)
+
+<span class="cm"># Run: uvicorn rag_pipeline:app --reload</span>
+<span class="cm"># Test: curl -X POST http://localhost:8000/rag/query \</span>
+<span class="cm">#   -H "Content-Type: application/json" \</span>
+<span class="cm">#   -d '{"text": "what are the refund policies for cancelled orders"}'</span></div>
+</details>
+</div>
+
+<!-- ==================== FOOTER ==================== -->
+<div style="text-align:center;padding:30px 0 10px 0;color:#585b70;font-size:12px;">
+<strong style="color:#cba6f7;">RAG Production Pipeline Dashboard</strong> — Catppuccin Mocha Theme<br>
+Every hallucination maps to a pipeline step that was skipped. Fix the pipeline, not the model.<br>
+<span style="font-size:11px;">Built from 16+ years of enterprise systems engineering in banking and healthcare</span>
+</div>
+
+</body>
+</html>

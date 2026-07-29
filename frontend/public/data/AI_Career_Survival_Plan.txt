@@ -1,0 +1,259 @@
+================================================================================
+  AI CAREER SURVIVAL PLAN — Complete Roadmap 2026–2031
+================================================================================
+  Target: Job safety next 10 years | Budget: Zero-cost (free tools)
+  Background: 15+ yr Java/Spring enterprise dev | Singapore market
+================================================================================
+
+================================================================================
+PHASE 0 — MINDSET & REALITY CHECK
+================================================================================
+Factor                | Reality                       | Your Action
+----------------------|-------------------------------|-------------------------------------------
+AI job impact         | Automates TASKS not ROLES     | Become the person who BUILDS the AI
+Your edge             | 15+ yr enterprise delivery    | Bridge old systems with new AI
+Quantity trap         | 500 shallow projects = waste  | 5-8 DEEP production-grade projects
+Cost concern          | Free tools exist              | Use Ollama + HF free tier + ChromaDB
+Singapore market      | High demand AI integration    | Focus on banking/govt/healthcare AI
+================================================================================
+
+
+================================================================================
+PHASE 1 — FOUNDATION (Months 0-3)
+================================================================================
+Week | Topic             | Tools/Models          | What to Build           | Verification
+-----|-------------------|-----------------------|-------------------------|-----------------------------
+1    | Python for AI     | Python 3.12+         | Async CLI tool          | Can use asyncio + typing
+1    | FastAPI basics    | FastAPI, Uvicorn      | Hello world API         | /docs endpoint works
+2    | Pydantic models   | Pydantic v2           | Data validation layer   | Type errors caught
+2    | Flask alternative | Flask, Gunicorn       | Simple REST API         | Compare vs FastAPI
+3    | LLM Fundamentals | OpenAI SDK, Anthropic | Token counter, cost calc| Know tokens, temp, top_p
+3    | Prompt Patterns   | System/user/asst      | Prompt template lib     | 10 reusable prompts
+4    | Embeddings        | sentence-transformers | Text similarity search  | Cosine similarity works
+4    | VectorDB Intro    | ChromaDB (local)      | Store/query embeddings  | CRUD on vectors
+5    | RAG Basic         | LangChain + ChromaDB  | Q&A over PDF            | Answers from doc content
+5    | Chunking          | Recursive split,      | Compare chunk strategies| Know tradeoffs (size vs 
+                      | semantic chunking      |                         |  precision)
+6    | Retrieval         | MMR, similarity       | Hybrid search demo      | Both dense+sparse work
+6    | FastAPI + LLM     | FastAPI + LangChain   | Chat API with history   | Streaming response
+7    | Async in Python   | asyncio, aiohttp       | Concurrent API calls    | 10x speedup vs sync
+7    | Type hints        | typing module          | Typed codebase          | mypy passes
+8    | REST best pract.  | FastAPI routers        | Structured API project  | Clean file hierarchy
+8    | Error handling    | Exception middleware   | Robust error responses  | All errors caught
+9    | Logging           | structlog, loguru      | Structured logs         | JSON log output
+9    | Testing           | pytest, httpx          | API tests               | >80% coverage
+10   | Project 1         | Full stack             | RAG chatbot with UI     | Deployed somewhere
+10   | Review week       | All above              | Fix gaps                | Can explain each concept
+11   | API security      | API keys, rate limit   | Secure API              | Auth middleware works
+11   | Config management | pydantic-settings      | Env-based config        | Works in dev/prod
+12   | Phase 1 capstone  | All above              | Production-ready RAG API| Deployed with docs
+================================================================================
+
+
+================================================================================
+PHASE 2 — AGENTIC AI (Months 3-6) — HIGHEST PRIORITY
+================================================================================
+Week | Topic             | Tools/Models          | What to Build           | Verification
+-----|-------------------|-----------------------|-------------------------|-----------------------------
+13   | LangChain basics  | LangChain, LCEL       | Chain pipeline          | Understand LCEL
+13   | Tool calling      | @tool decorator       | Tool-enabled LLM        | LLM calls tools correctly
+14   | Memory systems    | ConversationBuffer    | Chat with memory         | Remembers context
+                      | SummaryBuffer         |                         |
+14   | LangGraph intro   | StateGraph            | Simple state machine    | State transitions work
+15   | LangGraph nodes   | Nodes, edges, cond.   | Branching workflow      | Conditional paths work
+15   | Human-in-loop     | interrupt, checkpoint | Approval workflow       | Human can override
+16   | Multi-agent 1     | Supervisor pattern    | Two agents, one super.  | Agents delegate work
+16   | Multi-agent 2     | Team/crew pattern     | Research+write team     | Coordinated output
+17   | MCP intro         | MCP protocol          | MCP tool server         | Client can call tool
+17   | MCP resources     | Resource templates    | Dynamic resource server | Resources served via MCP
+18   | MCP + LangGraph   | MCP client in graph   | Agent with MCP tools    | Full MCP integration
+18   | CrewAI basic      | CrewAI framework      | Simple crew of agents   | Crew completes tasks
+19   | CrewAI advanced   | Processes, tasks      | Research crew           | Multi-step research
+19   | AutoGen intro     | AutoGen               | Conversational agents   | Agents talk to each other
+20   | Agent comparison  | LangGraph vs CrewAI   | Same problem, 2 framew. | Know when to use which
+20   | ReAct pattern     | ReAct implementation  | LLM thinks + acts       | Understand thought loop
+21   | Planning agents   | Plan-execute          | Task planning agent     | Breaks down complex tasks
+21   | Reflection agents | Self-critique         | Self-improving agent    | Iterates on own output
+22   | Advanced RAG 1    | HyDE, multi-query     | Enhanced RAG pipeline   | Better retrieval results
+22   | Advanced RAG 2    | Reranking, compression| Production RAG          | Precision improved
+23   | Fine-tuning intro | LoRA, PEFT            | Fine-tune small model   | Loss decreases
+23   | Fine-tuning local | Ollama + Modelfile    | Custom Ollama model     | Local model works
+24   | Phase 2 capstone  | Multi-agent system    | Full agentic app        | End-to-end demo ready
+================================================================================
+
+
+================================================================================
+PHASE 3 — ENTERPRISE AI + SPECIALISATION (Months 6-12)
+================================================================================
+Week | Topic             | Tools/Models          | What to Build           | Verification
+-----|-------------------|-----------------------|-------------------------|-----------------------------
+25   | Docker for AI     | Docker, docker-compose| Containerised AI app    | docker-compose up works
+25   | GPU in Docker     | nvidia-docker         | GPU container           | nvidia-smi inside container
+26   | K8s basics        | minikube, kubectl     | Deploy AI service       | pod running
+26   | K8s GPU sched.    | Volcano, device plugin| GPU workload on k8s     | GPU job runs
+27   | Model serving     | vLLM, TGI             | Serve LLM with vLLM     | /v1/chat/completions works
+27   | Inference optim.  | Continuous batching   | Benchmark throughput    | Lower latency
+28   | Spring AI bridge  | Spring AI, Java       | Java AI service         | Java calls LLM
+28   | Python ↔ Java     | gRPC, REST bridge     | Hybrid microservice     | Both lang work together
+29   | AI Security 1     | Guardrails, NVIDIA    | Prompt injection shield | Attack blocked
+                      | NeMo Guardrails        |                         |
+29   | AI Security 2     | Content filtering     | Output safety filter    | PII masked
+30   | Data governance   | PDPA compliance       | Data handling layer     | Compliant by design
+30   | LLMOps Intro      | LangSmith, Weights &  | Trace + evaluate        | Single run trace
+                      | Biases                |                         |
+31   | Evals framework   | Ragas, DeepEval       | Evaluation pipeline     | Metrics reported
+31   | Prometheus + AI   | Custom metrics        | Monitor token usage     | Dashboard live
+32   | CI/CD for AI      | GitHub Actions        | Auto-deploy pipeline    | Push → deploy
+32   | Model registry    | MLflow, DVC           | Versioned models        | Rollback works
+33   | Caching strategies| Redis, semantic cache | Cache layer for AI      | Latency reduced 10x
+33   | Rate limiting     | Token bucket, sliding | API rate limiter        | Limits enforced
+34   | Cost optimization | Token accounting      | Cost dashboard          | Know $/query
+34   | Observability     | OpenTelemetry         | Full observability      | Traces + metrics + logs
+35   | Project 3         | Enterprise RAG system | Docs Q&A for enterprise | Deployed, tested
+35   | Project 4         | Multi-agent workflow  | Automated report gen    | End-to-end automation
+36   | Robotics intro    | ROS2 basics           | Simple robot node       | Pub/sub works (sim)
+36   | LLM + Robot       | LLM → action          | Task planner for robot  | Plan → execute
+37   | Phase 3 review    | All above             | Portfolio polish        | 5 projects on GitHub
+37   | Mock interview    | AI system design      | 1-hr system design      | Can explain all choices
+38-48| Deepen weak areas | Based on gaps         | 2-3 more projects       | Ready for senior AI role
+================================================================================
+
+
+================================================================================
+PHASE 4 — FUTURE-PROOF (Year 1-5)
+================================================================================
+Year | Topic             | Tools/Models          | When to Start           | Notes
+-----|-------------------|-----------------------|-------------------------|---------------------------
+1-2  | Production depth  | All above + scaling   | After Phase 3           | Master deployment at scale
+2    | Quantum intro     | Qiskit                | Year 2, basic only      | 1 hour/week, conceptual
+2-3  | Quantum ML        | PennyLane             | Year 2-3                | Basic quantum circuits
+3    | AI+Quantum        | Hybrid algorithms     | Year 3                  | Research phase, not urgent
+3-4  | Quantum+Agentics  | Quantum optimisation  | Year 3-4                | For agent planning
+4-5  | Full convergence  | AI+Quantum+Robotics   | Year 4+                 | Emerging field, monitor
+1-5  | Architecture      | System design patterns| Continuous              | Read papers, blogs
+1-5  | Leadership        | Tech lead, architect  | Continuous              | Mentor others
+================================================================================
+
+
+================================================================================
+SKILL TRACKER — Tick when confident
+================================================================================
+Skill                     | Phase | Priority | Status [ ] | Date
+--------------------------|-------|----------|------------|--------
+Python async/typing       | 1     | HIGH     | [ ]        |
+FastAPI REST API          | 1     | HIGH     | [ ]        |
+LLM Fundamentals          | 1     | HIGH     | [ ]        |
+Prompt Engineering        | 1     | HIGH     | [ ]        |
+Embeddings                | 1     | HIGH     | [ ]        |
+ChromaDB / VectorDB       | 1     | HIGH     | [ ]        |
+Basic RAG                 | 1     | HIGH     | [ ]        |
+LangChain LCEL            | 2     | HIGH     | [ ]        |
+LangGraph StateGraph      | 2     | HIGH     | [ ]        |
+Multi-agent orchestration | 2     | HIGH     | [ ]        |
+MCP Protocol              | 2     | HIGH     | [ ]        |
+CrewAI / AutoGen          | 2     | MEDIUM   | [ ]        |
+Advanced RAG (HyDE etc)   | 2     | HIGH     | [ ]        |
+Fine-tuning (LoRA)        | 2     | MEDIUM   | [ ]        |
+LLM Evals (Ragas)         | 2     | HIGH     | [ ]        |
+Docker for AI             | 3     | HIGH     | [ ]        |
+K8s for AI                | 3     | MEDIUM   | [ ]        |
+Model serving (vLLM)      | 3     | HIGH     | [ ]        |
+Spring AI bridge          | 3     | MEDIUM   | [ ]        |
+AI Security               | 3     | HIGH     | [ ]        |
+LLMOps / Monitoring       | 3     | HIGH     | [ ]        |
+CI/CD for AI              | 3     | MEDIUM   | [ ]        |
+Cost optimization         | 3     | HIGH     | [ ]        |
+Robotics + AI basics      | 3     | LOW      | [ ]        |
+Quantum concepts          | 4     | LOW      | [ ]        |
+System design (AI)        | ALL   | HIGH     | [ ]        |
+================================================================================
+
+
+================================================================================
+PROJECT PORTFOLIO — Build these 8 (not 500)
+================================================================================
+#  | Project                | Phase | Tech Stack                | Demo Ready
+---|------------------------|-------|---------------------------|--------------
+1  | RAG Q&A Chatbot        | 1     | FastAPI + ChromaDB + LLM  | [ ] 
+2  | Multi-Agent Research   | 2     | LangGraph + MCP + Tools   | [ ]
+3  | Document Pipeline      | 2     | OCR → RAG → Summary       | [ ]
+4  | Enterprise Doc Portal  | 3     | Docker + Spring AI + RAG  | [ ] 
+5  | AI API Gateway         | 3     | FastAPI + Redis + Guard    | [ ]
+6  | Agent Dashboard        | 2-3   | LangGraph + FastAPI + UI  | [ ]
+7  | Eval + Monitoring Sys  | 3     | Ragas + Prometheus + Graf | [ ]
+8  | Full Enterprise AI App | 3-4   | All combined + K8s        | [ ]
+================================================================================
+
+
+================================================================================
+DAILY ROUTINE (6 months, 6 days/week, 4-6 hours/day)
+================================================================================
+Time Slot        | Activity                     | Notes
+-----------------|------------------------------|-------------------------------------------
+Morning (1hr)    | Theory + reading             | Papers, docs, architecture
+Mid-day (2hr)    | Hands-on coding              | Build the week's project
+Evening (1-2hr)  | Deep work / experiment        | Debug, optimise, refactor
+Night (30min)    | Review + journal              | What worked, what's next
+Sunday           | Rest OR portfolio polish     | GitHub README, deploy, blog
+================================================================================
+
+
+================================================================================
+FREE TOOLS — Zero cost learning
+================================================================================
+Category          | Tool                        | Why
+------------------|-----------------------------|-------------------------------------------
+Local LLM         | Ollama + llama3.2/Phi-3     | Run models locally, no API cost
+Embeddings        | sentence-transformers       | Free local embeddings
+VectorDB          | ChromaDB                    | Free, local, simple
+Postgres vector   | pgvector                    | Free with Postgres
+Orchestration     | LangChain + LangGraph (OSS) | Free, industry standard
+Finetuning        | HuggingFace PEFT + LoRA     | Free, colab compatible
+Container         | Docker Desktop              | Free for personal
+Orchestration     | minikube                    | Free local K8s
+CI/CD             | GitHub Actions              | Free for public repos
+Monitoring        | LangSmith (free tier)       | 100k traces/month free
+Evals             | Ragas, DeepEval              | Open source
+Coding assistant  | Claude Free / GitHub Copilot | Accelerate learning
+================================================================================
+
+
+================================================================================
+CRITICAL SUCCESS FACTORS
+================================================================================
+Factor            | Action
+------------------|-------------------------------------------------------------------
+Depth over volume | 8 deep projects > 500 scripts. Recruiters check GitHub README quality.
+Production mindset| Tests, docs, error handling, logging, CI/CD in every project.
+Portfolio first   | Before applying, have 5 repos with README, architecture diagram.
+Singapore context | Build projects that solve banking/govt/EDG/healthcare problems.
+Network           | Join AI Singapore community, attend meetups after Month 6.
+Java bridge       | Your 15-yr Java + new AI skills = unique. Don't drop Spring.
+Consistency       | 4-6 hours daily > 12 hours on weekend. Small daily wins compound.
+Health            | Sleep 7hr, exercise, don't burn out. This is a marathon, not sprint.
+================================================================================
+
+
+================================================================================
+SUMMARY: WHAT TO LEARN (from most to least important)
+================================================================================
+Order | Topic                    | Job Safety Impact | Time Investment
+------|--------------------------|-------------------|-------------------
+1     | LangGraph + Multi-agent  | CRITICAL          | 2 months
+2     | RAG + Advanced RAG       | CRITICAL          | 1.5 months
+3     | FastAPI + Python for AI  | CRITICAL          | 1 month
+4     | MCP Protocol             | HIGH              | 2 weeks
+5     | LLM Evals + LLMOps       | HIGH              | 1 month
+6     | Docker + Model Serving   | HIGH              | 1 month
+7     | AI Security              | HIGH              | 2 weeks
+8     | Fine-tuning (LoRA)       | MEDIUM            | 2 weeks
+9     | Spring AI Bridge         | MEDIUM            | 2 weeks
+10    | CrewAI / AutoGen         | MEDIUM            | 2 weeks
+11    | K8s for AI               | MEDIUM            | 2 weeks
+12    | Robotics + AI            | LOW (future)      | Skip for now
+13    | Quantum computing        | LOW (far future)  | Skip for now
+================================================================================
+
+Your only real competition is other engineers who stop learning. Keep building.
+Singapore needs AI engineers who can bridge old systems with new AI — that's you.
+================================================================================

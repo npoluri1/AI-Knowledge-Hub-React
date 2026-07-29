@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Pipeline — Notepad++ Rich Table</title>
+<style>
+  body {
+    font-family: 'Consolas', 'Courier New', monospace;
+    background: #1e1e2e;
+    padding: 20px;
+    color: #cdd6f4;
+    font-size: 12px;
+  }
+  h1 { color: #cba6f7; font-size: 20px; margin-bottom: 16px; }
+  h2 { color: #f5c2e7; font-size: 16px; margin: 20px 0 10px; border-bottom: 2px solid #45475a; padding-bottom: 6px; }
+
+  /* --- MULTI-BORDER RICH TABLE --- */
+  .rich-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 20px;
+    font-size: 12px;
+  }
+  .rich-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border: 2px solid #585b70;
+    background: #11111b;
+    color: #f9e2af;
+  }
+  .rich-table td {
+    padding: 9px 12px;
+    border: 2px solid #45475a;
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .rich-table tr:nth-child(even) td { background: #181825; }
+  .rich-table tr:nth-child(odd) td { background: #1e1e2e; }
+
+  /* Colored columns */
+  .col-step   { color: #f38ba8; font-weight: 700; width: 40px; text-align: center; }
+  .col-name   { color: #89b4fa; font-weight: 700; width: 140px; }
+  .col-desc   { color: #cdd6f4; width: 250px; }
+  .col-code   { color: #a6e3a1; font-family: 'Consolas', monospace; width: 300px; white-space: pre-wrap; font-size: 11px; }
+  .col-app    { color: #fab387; width: 200px; }
+  .col-fail   { color: #f38ba8; width: 160px; }
+
+  /* Section tables */
+  .hall-table th { background: #11111b; color: #f38ba8; }
+  .hall-table td { border: 2px solid #45475a; }
+
+  .failure-table th { border: 2px solid #585b70; }
+  .failure-table tr:nth-child(even) td { background: #181825; }
+  .failure-table tr:nth-child(odd) td { background: #1e1e2e; }
+
+  .col-cause  { color: #f38ba8; font-weight: 700; width: 160px; }
+  .col-impact { color: #fab387; width: 220px; }
+  .col-fix    { color: #a6e3a1; width: 280px; }
+
+  .legend {
+    background: #11111b;
+    border: 2px solid #45475a;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 16px 0;
+  }
+  .legend span { display: inline-block; margin-right: 20px; padding: 3px 6px; font-size: 11px; }
+  .lg-step { color: #f38ba8; font-weight: 700; }
+  .lg-name { color: #89b4fa; font-weight: 700; }
+  .lg-desc { color: #cdd6f4; }
+  .lg-code { color: #a6e3a1; }
+  .lg-app  { color: #fab387; }
+  .lg-fail { color: #f38ba8; }
+
+  .note {
+    background: #181825;
+    border-left: 4px solid #f9e2af;
+    padding: 10px 14px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+  }
+  .note strong { color: #f9e2af; }
+</style>
+</head>
+<body>
+
+<h1>RAG Production Pipeline — Multi-Border Rich Table</h1>
+<p style="color:#a6adc8; margin-bottom:20px;">Notepad++ compatible | Catppuccin Mocha Theme | 6-Column Layout</p>
+
+<div class="legend">
+  <span class="lg-step">Step#</span>
+  <span class="lg-name">Component</span>
+  <span class="lg-desc">Description</span>
+  <span class="lg-code">Code Snippet</span>
+  <span class="lg-app">Real App</span>
+  <span class="lg-fail">Failure Mode</span>
+</div>
+
+<!-- ===== PIPELINE TABLE ===== -->
+<h2>Pipeline Step-by-Step</h2>
+<table class="rich-table">
+<thead>
+<tr>
+  <th style="color:#f38ba8;">Step</th>
+  <th style="color:#89b4fa;">Component</th>
+  <th style="color:#cdd6f4;">Description</th>
+  <th style="color:#a6e3a1;">Code Snippet</th>
+  <th style="color:#fab387;">Real App</th>
+  <th style="color:#f38ba8;">Failure Mode</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+  <td class="col-step">1</td>
+  <td class="col-name">User Query</td>
+  <td class="col-desc">Raw question from user. Vague, incomplete, phrased nothing like your documents.</td>
+  <td class="col-code">user_input = "tell me about the policy changes last quarter"</td>
+  <td class="col-app">Customer support chatbot receives "my bill is wrong"</td>
+  <td class="col-fail">Ambiguous intent → wrong retrieval</td>
+</tr>
+
+<tr>
+  <td class="col-step">2</td>
+  <td class="col-name">Query Processing</td>
+  <td class="col-desc">Rewriting, decomposition, HyDE. Raw question is almost never the query you actually search with.</td>
+  <td class="col-code">query = rewrite(user_query)\nsub_queries = decompose(query)\nhyde_docs = hyde_generate(query)</td>
+  <td class="col-app">"my bill is wrong" → "billing dispute process Q3 2025"</td>
+  <td class="col-fail">Poor rewriting → irrelevant chunks retrieved</td>
+</tr>
+
+<tr>
+  <td class="col-step">3</td>
+  <td class="col-name">Embedding</td>
+  <td class="col-desc">Query becomes a vector. Meaning compressed into numbers for similarity search.</td>
+  <td class="col-code">vector = embed_model.encode(query)\n# text-embedding-3-small | bge-large-en-v1.5</td>
+  <td class="col-app">Encode rewritten query to 1536-dim vector for vector DB search</td>
+  <td class="col-fail">Domain shift → embedding doesn't capture intent</td>
+</tr>
+
+<tr>
+  <td class="col-step">4</td>
+  <td class="col-name">Hybrid Search</td>
+  <td class="col-desc">Vector + BM25. RRF fusion. Catches meaning AND exact terms (policy codes, product IDs).</td>
+  <td class="col-code">vec_results = vector_search(query)\nbm25_results = bm25_search(query)\nfused = rrf_fusion(vec_results, bm25_results)</td>
+  <td class="col-app">Healthcare: search "CPT-99213" + "follow-up visit"</td>
+  <td class="col-fail">Pure vector misses exact codes; pure BM25 misses synonyms</td>
+</tr>
+
+<tr>
+  <td class="col-step">5</td>
+  <td class="col-name">Vector Database</td>
+  <td class="col-desc">Top-K returns. K = 20-50, not 5. Recall first, precision later.</td>
+  <td class="col-code">results = vector_db.query(vector, k=30)\n# recall first, rerank later</td>
+  <td class="col-app">Pinecone / Weaviate / Qdrant returning 30 candidate chunks</td>
+  <td class="col-fail">K too small → miss relevant context</td>
+</tr>
+
+<tr>
+  <td class="col-step">6</td>
+  <td class="col-name">Reranking</td>
+  <td class="col-desc">Cross-encoder scores query+chunk together. 20 mediocre → 5 great. Most skipped step.</td>
+  <td class="col-code">pairs = [(query, c) for c in candidates]\nscores = cross_encoder(pairs)\ntop_5 = take_top_k(candidates, scores, 5)</td>
+  <td class="col-app">Banking compliance: exact policy clause must be top-1</td>
+  <td class="col-fail">No reranker → noise reaches context window</td>
+</tr>
+
+<tr>
+  <td class="col-step">7</td>
+  <td class="col-name">Context Assembly</td>
+  <td class="col-desc">Dedupe. Order. Trim to token budget. Attach citations. Built artifact with audit trail.</td>
+  <td class="col-code">ctx = deduplicate(top_5)\nctx = order_by_relevance(ctx)\nctx = trim_to_budget(ctx, max_tokens=4096)\nctx = attach_citations(ctx)</td>
+  <td class="col-app">Regulated: each chunk tagged with source doc, page, version</td>
+  <td class="col-fail">No citations → compliance violation</td>
+</tr>
+
+<tr>
+  <td class="col-step">8</td>
+  <td class="col-name">Generation</td>
+  <td class="col-desc">Model answers using ONLY assembled context. Instruct-tuned LLM with system prompt guardrails.</td>
+  <td class="col-code">prompt = f"Context:{ctx}\nAnswer based only on context."\nresponse = llm.generate(prompt)</td>
+  <td class="col-app">GPT-4 / Claude / Llama generating final answer from curated context</td>
+  <td class="col-fail">Context overflow → model ignores relevant parts</td>
+</tr>
+
+<tr>
+  <td class="col-step">9</td>
+  <td class="col-name">Grounding Check</td>
+  <td class="col-desc">Every claim traced to source chunk. No source → no claim. Survives audit.</td>
+  <td class="col-code">claims = extract_claims(response)\nfor c in claims:\n    assert trace_to_source(c, ctx)</td>
+  <td class="col-app">Healthcare: each medical claim must cite the guideline document</td>
+  <td class="col-fail">No grounding → hallucination with confidence</td>
+</tr>
+
+</tbody>
+</table>
+
+<!-- ===== HALLUCINATION ENTRY POINTS TABLE ===== -->
+<h2>Where Hallucinations Actually Enter</h2>
+<table class="rich-table hall-table">
+<thead>
+<tr>
+  <th style="color:#f38ba8;">Entry Point</th>
+  <th style="color:#fab387;">Root Cause</th>
+  <th style="color:#a6e3a1;">Fix / Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td class="col-cause">Chunking</td>
+  <td class="col-impact">Splits ideas mid-thought → incomplete context</td>
+  <td class="col-fix">Semantic chunking with sentence boundaries; overlap 10-15%</td>
+</tr>
+<tr>
+  <td class="col-cause">Stale Indexes</td>
+  <td class="col-impact">Serves last quarter's truth → outdated answers</td>
+  <td class="col-fix">Automated re-indexing pipeline; TTL-based cache invalidation</td>
+</tr>
+<tr>
+  <td class="col-cause">No Reranker</td>
+  <td class="col-impact">Noise and irrelevant chunks reach context window</td>
+  <td class="col-fix">Cross-encoder reranker (Cohere rerank, BGE-reranker)</td>
+</tr>
+<tr>
+  <td class="col-cause">No Grounding</td>
+  <td class="col-impact">Model fills gaps with confident fabrication</td>
+  <td class="col-fix">Claim extraction + source verification; reject ungrounded claims</td>
+</tr>
+</tbody>
+</table>
+
+<!-- ===== KEY INSIGHTS TABLE ===== -->
+<h2>Key Insights & Engineering Principles</h2>
+<table class="rich-table">
+<thead>
+<tr>
+  <th style="color:#cba6f7;">Insight</th>
+  <th style="color:#89b4fa;">Explanation</th>
+  <th style="color:#a6e3a1;">Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td class="col-name">Embedding Model is NOT the bottleneck</td>
+  <td class="col-desc">Teams chase 2% gain swapping models while pipeline bleeds 20% at missing steps</td>
+  <td class="col-app">Fix pipeline fundamentals before tuning embeddings</td>
+</tr>
+<tr>
+  <td class="col-name">Hybrid Search is non-negotiable</td>
+  <td class="col-desc">Enterprise data has codes (CPT, policy numbers) that vector search misses</td>
+  <td class="col-app">Always implement vector + BM25 + RRF fusion</td>
+</tr>
+<tr>
+  <td class="col-name">Reranking is the most skipped step</td>
+  <td class="col-desc">Cross-encoder scores query+chunk together for precision</td>
+  <td class="col-app">Most "broken RAG" just needs a reranker</td>
+</tr>
+<tr>
+  <td class="col-name">Audit trail is mandatory in regulated</td>
+  <td class="col-desc">Context must be a built artifact with citations</td>
+  <td class="col-app">Track source doc, page, version per chunk</td>
+</tr>
+<tr>
+  <td class="col-name">Agentic Retrieval is the future</td>
+  <td class="col-desc">Agent decides when/what to search and if results are good enough</td>
+  <td class="col-app">Build query planning + result evaluation loops</td>
+</tr>
+</tbody>
+</table>
+
+<!-- ===== COMPARISON TABLE ===== -->
+<h2>Demo vs Production RAG</h2>
+<table class="rich-table">
+<thead>
+<tr>
+  <th style="color:#f9e2af;">Dimension</th>
+  <th style="color:#a6e3a1;">Demo RAG</th>
+  <th style="color:#f38ba8;">Production RAG (Enterprise)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td class="col-name">K value</td>
+  <td class="col-app">3-5</td>
+  <td class="col-desc">20-50 (recall first)</td>
+</tr>
+<tr>
+  <td class="col-name">Search</td>
+  <td class="col-app">Pure vector</td>
+  <td class="col-desc">Hybrid (vector + BM25 + RRF)</td>
+</tr>
+<tr>
+  <td class="col-name">Reranking</td>
+  <td class="col-app">None</td>
+  <td class="col-desc">Cross-encoder (mandatory)</td>
+</tr>
+<tr>
+  <td class="col-name">Context</td>
+  <td class="col-app">Raw dump</td>
+  <td class="col-desc">Curated, deduped, cited artifact</td>
+</tr>
+<tr>
+  <td class="col-name">Grounding</td>
+  <td class="col-app">Trust the model</td>
+  <td class="col-desc">Claim tracing + source verification</td>
+</tr>
+<tr>
+  <td class="col-name">Audit</td>
+  <td class="col-app">None</td>
+  <td class="col-desc">Full chain-of-custody trail</td>
+</tr>
+<tr>
+  <td class="col-name">Failure mode</td>
+  <td class="col-app">"Refine the prompt"</td>
+  <td class="col-desc">"Check the pipeline metrics"</td>
+</tr>
+</tbody>
+</table>
+
+<!-- ===== CODE EXAMPLE TABLE ===== -->
+<h2>Complete Pipeline Code (Python)</h2>
+<table class="rich-table" style="width:100%;">
+<thead>
+<tr><th style="color:#a6e3a1; text-align:center;">Full Production RAG Pipeline — Copy & Paste Ready</th></tr>
+</thead>
+<tbody>
+<tr><td style="white-space:pre-wrap; font-family:'Consolas',monospace; font-size:11px; line-height:1.6; background:#11111b; color:#cdd6f4; border:2px solid #585b70; padding:16px;">
+<span style="color:#585b70;"># === PRODUCTION-GRADE RAG PIPELINE ===</span>
+<span style="color:#cba6f7;">import</span> numpy <span style="color:#cba6f7;">as</span> np
+<span style="color:#cba6f7;">from</span> typing <span style="color:#cba6f7;">import</span> List, Tuple, Dict
+
+<span style="color:#585b70;"># Step 1-2: Query Processing</span>
+<span style="color:#cba6f7;">def</span> <span style="color:#89b4fa;">rewrite_query</span>(raw: str) -> str:
+    <span style="color:#585b70;">"""HyDE + query rewriting"""</span>
+    <span style="color:#cba6f7;">return</span> <span style="color:#f9e2af;">f"Context: {raw}\nReformulate as a search query:"</span>
+
+<span style="color:#585b70;"># Step 3: Embedding</span>
+<span style="color:#cba6f7;">def</span> <span style="color:#89b4fa;">embed</span>(text: str) -> np.ndarray:
+    <span style="color:#cba6f7;">return</span> embed_model.encode(text)  <span style="color:#585b70;"># text-embedding-3-small</span>
+
+<span style="color:#585b70;"># Step 4: Hybrid Search (Vector + BM25 + RRF)</span>
+<span style="color:#cba6f7;">def</span> <span style="color:#89b4fa;">hybrid_search</span>(query: str, k: int = 30) -> List[Dict]:
+    vec_scores = vector_db.similarity_search(query, k=k*2)
+    bm25_scores = bm25_index.search(query, k=k*2)
+    <span style="color:#585b70;"># RRF fusion: reciprocal rank fusion</span>
+    fused = {}
+    <span style="color:#cba6f7;">for</span> rank, doc <span style="color:#cba6f7;">in</span> <span style="color:#89b4fa;">enumerate</span>(vec_scores):
+        fused[doc.id] = fused.get(doc.id, 0) + 1/(60 + rank)
+    <span style="color:#cba6f7;">for</span> rank, doc <span style="color:#cba6f7;">in</span> <span style="color:#89b4fa;">enumerate</span>(bm25_scores):
+        fused[doc.id] = fused.get(doc.id, 0) + 1/(60 + rank)
+    ranked = <span style="color:#89b4fa;">sorted</span>(fused.items(), key=<span style="color:#cba6f7;">lambda</span> x: x[1], reverse=<span style="color:#fab387;">True</span>)
+    <span style="color:#cba6f7;">return</span> [doc_map[doc_id] <span style="color:#cba6f7;">for</span> doc_id, _ <span style="color:#cba6f7;">in</span> ranked[:k]]
+
+<span style="color:#585b70;"># Step 5: Vector DB Query</span>
+results = hybrid_search(query, k=30)  <span style="color:#585b70;"># Recall first</span>
+
+<span style="color:#585b70;"># Step 6: Reranking with Cross-Encoder</span>
+<span style="color:#cba6f7;">def</span> <span style="color:#89b4fa;">rerank</span>(query: str, candidates: List[Dict], top_k: int = 5) -> List[Dict]:
+    pairs = [(query, c.text) <span style="color:#cba6f7;">for</span> c <span style="color:#cba6f7;">in</span> candidates]
+    scores = cross_encoder.predict(pairs)
+    scored = <span style="color:#89b4fa;">list</span>(<span style="color:#89b4fa;">zip</span>(candidates, scores))
+    scored.<span style="color:#89b4fa;">sort</span>(key=<span style="color:#cba6f7;">lambda</span> x: x[1], reverse=<span style="color:#fab387;">True</span>)
+    <span style="color:#cba6f7;">return</span> [doc <span style="color:#cba6f7;">for</span> doc, _ <span style="color:#cba6f7;">in</span> scored[:top_k]]
+
+top_5 = rerank(query, results, top_k=5)
+
+<span style="color:#585b70;"># Step 7: Context Assembly</span>
+<span style="color:#cba6f7;">def</span> <span style="color:#89b4fa;">assemble_context</span>(docs: List[Dict], max_tokens: int = 4096) -> Tuple[str, List[str]]:
+    context_parts = []
+    citations = []
+    token_count = 0
+    <span style="color:#cba6f7;">for</span> doc <span style="color:#cba6f7;">in</span> docs:
+        text = doc.text
+        tokens = len(text) // 4  <span style="color:#585b70;"># rough estimate</span>
+        <span style="color:#cba6f7;">if</span> token_count + tokens > max_tokens:
+            <span style="color:#cba6f7;">break</span>
+        context_parts.append(text)
+        citations.append(doc.source)  <span style="color:#585b70;"># audit trail</span>
+        token_count += tokens
+    <span style="color:#cba6f7;">return</span> <span style="color:#f9e2af;">"\n\n"</span>.join(context_parts), citations
+
+context, citations = assemble_context(top_5)
+
+<span style="color:#585b70;"># Step 8: Generation</span>
+system_prompt = <span style="color:#f9e2af;">"Answer using ONLY the provided context."</span>
+response = llm.generate(system_prompt + <span style="color:#f9e2af;">"\nContext:\n"</span> + context)
+
+<span style="color:#585b70;"># Step 9: Grounding Check</span>
+<span style="color:#cba6f7;">def</span> <span style="color:#89b4fa;">grounding_check</span>(response: str, context: str) -> bool:
+    claims = extract_claims(response)
+    <span style="color:#cba6f7;">for</span> claim <span style="color:#cba6f7;">in</span> claims:
+        <span style="color:#cba6f7;">if</span> <span style="color:#cba6f7;">not</span> <span style="color:#89b4fa;">any</span>(claim.lower() <span style="color:#cba6f7;">in</span> chunk.lower() <span style="color:#cba6f7;">for</span> chunk <span style="color:#cba6f7;">in</span> context.split(<span style="color:#f9e2af;">"\n\n"</span>)):
+            <span style="color:#cba6f7;">return</span> <span style="color:#fab387;">False</span>  <span style="color:#585b70;"># Ungrounded claim detected!</span>
+    <span style="color:#cba6f7;">return</span> <span style="color:#fab387;">True</span>
+
+<span style="color:#cba6f7;">if</span> <span style="color:#cba6f7;">not</span> <span style="color:#89b4fa;">grounding_check</span>(response, context):
+    response = <span style="color:#f9e2af;">"I cannot verify this answer from the available sources."</span>
+</td></tr>
+</tbody>
+</table>
+
+<div class="note">
+<strong>Bottom Line:</strong> Every "hallucination" in production RAG maps to a specific pipeline step that was skipped or poorly implemented. Fix the pipeline, not the model. Embedding model swaps chase 2% gains; the pipeline bleeds 20% at steps most teams haven't implemented.
+</div>
+
+</body>
+</html>
