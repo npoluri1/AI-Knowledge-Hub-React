@@ -24,11 +24,13 @@ function parseMermaid(source) {
   const edges = []
   const subgraphs = []
   const styles = {}
+  const classStyles = {}
+  let pendingClasses = []
   let subgraphStack = []
 
   for (const line of lines) {
     // Direction
-    const dirMatch = line.match(/^graph\s+(TB|LR|BT|RL)/)
+    const dirMatch = line.match(/^(?:graph|flowchart)\s+(TB|LR|BT|RL)/)
     if (dirMatch) { direction = dirMatch[1]; continue }
 
     // Subgraph start: subgraph Key [Label Text]
@@ -67,6 +69,30 @@ function parseMermaid(source) {
       continue
     }
 
+    // Class definitions and assignments used by flowchart diagrams.
+    const classDefMatch = line.match(/^classDef\s+(\S+)\s+(.+)/)
+    if (classDefMatch) {
+      const style = {}
+      for (const p of classDefMatch[2].split(',')) {
+        const kv = p.split(':')
+        if (kv.length === 2) {
+          const key = kv[0].trim(); let val = kv.slice(1).join(':').trim()
+          if (val.startsWith('##')) val = '#' + val.slice(2)
+          if (key === 'fill') style.fill = val
+          else if (key === 'stroke') style.stroke = val
+          else if (key === 'stroke-width') style.strokeWidth = val
+          else if (key === 'color') style.color = val
+        }
+      }
+      classStyles[classDefMatch[1]] = style
+      continue
+    }
+    const classMatch = line.match(/^class\s+(.+)\s+(\S+)$/)
+    if (classMatch) {
+      classMatch[1].split(',').forEach(name => { pendingClasses.push({ name: name.trim(), className: classMatch[2] }) })
+      continue
+    }
+
     // Style: style NodeName fill:#hex,stroke:#hex,stroke-width:Npx
     const styleMatch = line.match(/^style\s+(\S+)\s+(.+)/)
     if (styleMatch) {
@@ -91,9 +117,16 @@ function parseMermaid(source) {
     }
 
     // Edge: A -->|label| B  or  A --> B
-    const edgeMatch = line.match(/^(\S+)\s*(--+>|==+|\.-+->)\s*(?:\|(.+?)\|)?\s*(\S+)/)
+    const edgeMatch = line.match(/^(\S+)\s*(--+>|==+|\.-+->|-.->|==>)\s*(?:\|(.+?)\|)?\s*(\S+)/)
     if (edgeMatch) {
       edges.push({ from: edgeMatch[1], to: edgeMatch[4], arrow: edgeMatch[2], label: edgeMatch[3] || '' })
+      continue
+    }
+
+    // Mermaid flowchart edges may use a quoted/HTML-labeled node token.
+    const flowEdgeMatch = line.match(/^(\w+)\s*(--+>|==+|\.-+->|-.->|==>)\s*(?:\|(.+?)\|)?\s*(\w+)/)
+    if (flowEdgeMatch) {
+      edges.push({ from: flowEdgeMatch[1], to: flowEdgeMatch[4], arrow: flowEdgeMatch[2], label: flowEdgeMatch[3] || '' })
       continue
     }
 
@@ -101,10 +134,11 @@ function parseMermaid(source) {
     const nodeMatch = line.match(/^(\S+)\s*(\[([^\]]*)\]|\(\(([^)]*)\)\)|\{([^}]*)\})/)
     if (nodeMatch) {
       const id = nodeMatch[1]
-      const label = nodeMatch[3] || nodeMatch[4] || nodeMatch[5] || id
+      const label = (nodeMatch[3] || nodeMatch[4] || nodeMatch[5] || id).replace(/^['"]|['"]$/g, '').replace(/<b>|<\/b>/g, '')
       const shape = nodeMatch[2].startsWith('[') ? 'rect' :
                     nodeMatch[2].startsWith('((') ? 'circle' : 'diamond'
-      nodes[id] = { id, label, shape }
+      const nodeClass = pendingClasses.find(item => item.name === id)?.className
+      nodes[id] = { id, label, shape, className: nodeClass }
       // Track which subgraph this node belongs to
       if (subgraphStack.length > 0) {
         const parentId = subgraphStack[subgraphStack.length - 1]
@@ -117,6 +151,12 @@ function parseMermaid(source) {
     }
   }
 
+  for (const assignment of pendingClasses) {
+    if (nodes[assignment.name]) nodes[assignment.name].className = assignment.className
+  }
+  for (const node of Object.values(nodes)) {
+    if (node.className && classStyles[node.className]) styles[node.id] = { ...(styles[node.id] || {}), ...classStyles[node.className] }
+  }
   return { direction, nodes: Object.values(nodes), edges, subgraphs, styles }
 }
 

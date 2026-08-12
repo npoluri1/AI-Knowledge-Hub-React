@@ -4,11 +4,76 @@ import { spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import busboy from 'busboy'
+import { PDFParse } from 'pdf-parse'
+import WordExtractor from 'word-extractor'
+import mammoth from 'mammoth'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PORT = 9000
 const MANIFEST_PATH = path.resolve(__dirname, 'src', 'fileManifest.json')
 const GENERATOR_SCRIPT = path.resolve(__dirname, 'scripts', 'generateManifest.js')
+const GITHUB_PERSISTED_PATH = path.resolve(__dirname, 'public', 'github-persisted.json')
+const GITHUB_REFRESH_CONFIG_PATH = path.resolve(__dirname, 'public', 'github-refresh-config.json')
+
+function readJsonFile(filePath, fallback) {
+  try { return JSON.parse(fs.readFileSync(filePath, 'utf8')) } catch { return fallback }
+}
+
+function writeJsonFile(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`
+  fs.writeFileSync(temporaryPath, JSON.stringify(value, null, 2) + '\n', 'utf8')
+  try {
+    fs.rmSync(filePath, { force: true })
+    fs.renameSync(temporaryPath, filePath)
+  } catch (error) {
+    fs.rmSync(temporaryPath, { force: true })
+    throw error
+  }
+}
+
+function normalizePersistedRepo(repo) {
+  if (!repo || typeof repo !== 'object') return null
+  const url = String(repo.url || repo.html_url || '').trim()
+  const name = String(repo.name || '').trim()
+  if (!name || !/^https:\/\/github\.com\/[^/]+\/[^/]+(?:\/)?$/.test(url)) return null
+  const description = String(repo.description || `${name} open-source project`).replace(/<[^>]*>/g, '').trim()
+  const topics = Array.isArray(repo.topics) ? repo.topics.filter(Boolean).slice(0, 20) : []
+  const category = String(repo.category || repo.sourceIndustry || 'Fetched GitHub Repositories').trim()
+  return {
+    name, url, stars: Number(repo.stars ?? repo.stargazers_count) || 0, description, category,
+    features: Array.isArray(repo.features) && repo.features.length ? repo.features.filter(Boolean).slice(0, 6) : [repo.language, ...topics].filter(Boolean).slice(0, 6),
+    install: String(repo.install || `git clone ${url}`), useCase: String(repo.useCase || description),
+    language: String(repo.language || ''), topics, updated_at: String(repo.updated_at || ''),
+    license: String(repo.license?.spdx_id || repo.license || ''), forks: Number(repo.forks) || 0,
+    open_issues: Number(repo.open_issues) || 0, source: 'github-fetch', fetchedAt: String(repo.fetchedAt || new Date().toISOString()),
+  }
+}
+
+function readPersistedGitHub() {
+  const data = readJsonFile(GITHUB_PERSISTED_PATH, { version: 1, updatedAt: null, items: [] })
+  const byUrl = new Map()
+  for (const item of Array.isArray(data.items) ? data.items : []) {
+    const normalized = normalizePersistedRepo(item)
+    if (normalized) byUrl.set(normalized.url, normalized)
+  }
+  return { ...data, items: [...byUrl.values()] }
+}
+
+function readRequestBody(req, maxBytes = 8 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    let body = ''; let bytes = 0
+    req.on('data', chunk => { bytes += chunk.length; if (bytes > maxBytes) { reject(new Error('Request body is too large')); req.destroy(); return }; body += chunk })
+    req.on('end', () => resolve(body)); req.on('error', reject)
+  })
+}
+
+function sendJson(res, status, payload) {
+  if (res.writableEnded) return
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+  res.end(JSON.stringify(payload))
+}
 
 const MIME_TYPES = {
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
@@ -52,7 +117,7 @@ function readManifest() {
   }
 }
 
-function serve(req, res) {
+async function serve(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`)
   const pathname = url.pathname
 
@@ -182,12 +247,91 @@ function serve(req, res) {
     return
   }
 
+  // GitHub repo search — proxies to api.github.com/search/repositories
+  if (pathname === '/api/github/search' && req.method === 'GET') {
+    const q = url.searchParams.get('q') || ''
+    const topics = url.searchParams.get('topics') || ''
+    const sort = url.searchParams.get('sort') || 'stars'
+    const order = url.searchParams.get('order') || 'desc'
+    const perPage = Math.min(parseInt(url.searchParams.get('per_page') || '30', 10) || 30, 100)
+    let query = q.trim()
+    if (!query && topics.trim()) query = topics.split(',').flatMap(group => group.trim().split(/[+\s]+/)).filter(Boolean).map(topic => `topic:${topic}`).join(' ')
+    if (!query) { sendJson(res, 400, { error: 'Missing query parameter q or topics', items: [], total: 0 }); return }
+    const apiUrl = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=${sort}&order=${order}&per_page=${perPage}`
+    let responded = false
+    const sendSearchResponse = (status, payload) => { if (responded || res.writableEnded) return; responded = true; sendJson(res, status, payload) }
+    const ghReq = https.get(apiUrl, { headers: { 'User-Agent': 'AI-Knowledge-Hub/1.0', 'Accept': 'application/vnd.github.v3+json', ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) } }, ghRes => {
+      let body = ''
+      ghRes.on('data', chunk => body += chunk)
+      ghRes.on('error', err => sendSearchResponse(502, { error: `GitHub response failed: ${err.message}`, items: [], total: 0 }))
+      ghRes.on('end', () => {
+        try {
+          const data = JSON.parse(body)
+          if (ghRes.statusCode !== 200) { const resetAt = ghRes.headers['x-ratelimit-reset']; sendSearchResponse(ghRes.statusCode, { error: data.message || `GitHub search failed (HTTP ${ghRes.statusCode})`, items: [], total: 0, rateLimitReset: resetAt ? Number(resetAt) * 1000 : null }); return }
+          const items = (data.items || []).map(repo => ({ name: repo.full_name || '', url: repo.html_url || '', stars: repo.stargazers_count || 0, description: (repo.description || '').slice(0, 200), language: repo.language || '', topics: repo.topics || [], updated_at: repo.updated_at || '', license: repo.license?.spdx_id || '', forks: repo.forks_count || 0, open_issues: repo.open_issues_count || 0 }))
+          sendSearchResponse(200, { items, total: data.total_count || items.length, query: q || query })
+        } catch { sendSearchResponse(502, { error: 'Failed to parse GitHub response', items: [], total: 0 }) }
+      })
+    })
+    ghReq.setTimeout(20000, () => ghReq.destroy(new Error('GitHub search request timed out')))
+    ghReq.on('error', err => sendSearchResponse(502, { error: `GitHub search request failed: ${err.message}`, items: [], total: 0 }))
+    return
+  }
+
+  if (pathname === '/api/github/persisted' && req.method === 'GET') {
+    const data = readPersistedGitHub()
+    sendJson(res, 200, { ...data, total: data.items.length })
+    return
+  }
+
+  if (pathname === '/api/github/persist' && req.method === 'POST') {
+    try {
+      const payload = JSON.parse(await readRequestBody(req))
+      const current = readPersistedGitHub(); const byUrl = new Map(current.items.map(item => [item.url, item])); const fetchedAt = new Date().toISOString()
+      for (const item of Array.isArray(payload.items) ? payload.items : []) { const normalized = normalizePersistedRepo({ ...item, fetchedAt }); if (normalized) byUrl.set(normalized.url, normalized) }
+      const saved = { version: 1, updatedAt: fetchedAt, items: [...byUrl.values()] }
+      writeJsonFile(GITHUB_PERSISTED_PATH, saved)
+      writeJsonFile(GITHUB_REFRESH_CONFIG_PATH, { version: 1, updatedAt: fetchedAt, topics: Array.isArray(payload.topics) ? payload.topics.map(topic => String(topic).trim()).filter(Boolean) : String(payload.topics || '').split(',').map(topic => topic.trim()).filter(Boolean), query: String(payload.query || '').trim(), category: String(payload.category || '').trim() })
+      sendJson(res, 200, { ok: true, updatedAt: saved.updatedAt, total: saved.items.length })
+    } catch (error) { sendJson(res, 400, { ok: false, error: error.message || 'Could not persist GitHub repositories' }) }
+    return
+  }
+
+  // Chat with file attachments — accepts multipart/form-data with a `message`
+  // field and one or more `files` (Word / PDF / text / images).
+  if (pathname === '/api/chat/upload' && req.method === 'POST') {
+    handleChatUpload(req, res)
+    return
+  }
+
   res.writeHead(404)
   res.end('Not found')
 }
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'qwen/qwen-2.5-72b-instruct'
+const OPENROUTER_VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || 'qwen/qwen-2.5-vl-72b-instruct'
+
+// File-attachment chat limits
+const MAX_UPLOAD_FILES = 6
+const MAX_UPLOAD_BYTES = 12 * 1024 * 1024          // 12 MB per file
+const MAX_TOTAL_UPLOAD_BYTES = 32 * 1024 * 1024    // 32 MB per request
+const MAX_EXTRACTED_CHARS = 40000                  // per-file text fed to the LLM
+
+const TEXT_FILE_EXTENSIONS = new Set([
+  '.txt', '.md', '.markdown', '.csv', '.tsv', '.json', '.log', '.xml', '.yml', '.yaml',
+  '.py', '.js', '.jsx', '.ts', '.tsx', '.sql', '.html', '.htm', '.css', '.sh', '.bat',
+  '.ini', '.cfg', '.conf', '.env', '.toml', '.rst', '.tex', '.rtf',
+])
+
+const IMAGE_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.avif',
+])
+
+const IMAGE_MIME = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+  '.webp': 'image/webp', '.bmp': 'image/bmp', '.svg': 'image/svg+xml', '.avif': 'image/avif',
+}
 
 const SYSTEM_PROMPT = `You are an expert AI knowledge assistant for the AI Knowledge Hub. Answer questions about:
 - RAG pipelines, vector databases (Qdrant, Pinecone, Weaviate, ChromaDB, Milvus, pgvector)
@@ -203,34 +347,22 @@ const SYSTEM_PROMPT = `You are an expert AI knowledge assistant for the AI Knowl
 
 Keep answers concise and technical. Provide specific tool names, versions, and practical details.`
 
-function streamChat(messages, res) {
-  const hasKey = OPENROUTER_API_KEY && OPENROUTER_API_KEY.length > 20
+function sendSSEHeaders(res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  })
+}
 
-  if (!hasKey) {
-    // No API key — use local keyword-based response (non-streaming)
-    const lastMsg = messages.filter(m => m.role === 'user').pop()
-    const q = (lastMsg?.content || '').toLowerCase()
-    const answer = localAnswer(q)
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no'
-    })
-    res.write(`data: ${JSON.stringify({ type: 'token', content: answer })}\n\n`)
-    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
-    res.end()
-    return
-  }
-
-  // Streaming via OpenRouter
-  const chatMessages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...messages.slice(-20)
-  ]
-
+// Stream a chat completion from OpenRouter to the client as SSE tokens.
+// `chatMessages` is the full payload (system + history + current turn), `model`
+// is the OpenRouter model id, `fallbackMessages` are the raw user turns used to
+// produce a local keyword answer if the network call fails.
+function streamOpenRouter(chatMessages, model, res, fallbackMessages) {
   const requestBody = JSON.stringify({
-    model: OPENROUTER_MODEL,
+    model,
     messages: chatMessages,
     stream: true,
     max_tokens: 2048,
@@ -249,12 +381,7 @@ function streamChat(messages, res) {
     }
   }
 
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'X-Accel-Buffering': 'no'
-  })
+  sendSSEHeaders(res)
 
   const apiReq = https.request(options, apiRes => {
     let buffer = ''
@@ -282,17 +409,40 @@ function streamChat(messages, res) {
     })
     apiRes.on('error', err => {
       console.error('OpenRouter stream error:', err.message)
-      fallbackResponse(messages, res)
+      fallbackResponse(fallbackMessages, res)
     })
   })
 
   apiReq.on('error', err => {
     console.error('OpenRouter connection error:', err.message)
-    fallbackResponse(messages, res)
+    fallbackResponse(fallbackMessages, res)
   })
 
   apiReq.write(requestBody)
   apiReq.end()
+}
+
+function streamChat(messages, res) {
+  const hasKey = OPENROUTER_API_KEY && OPENROUTER_API_KEY.length > 20
+
+  if (!hasKey) {
+    // No API key — use local keyword-based response (non-streaming)
+    const lastMsg = messages.filter(m => m.role === 'user').pop()
+    const q = (lastMsg?.content || '').toLowerCase()
+    const answer = localAnswer(q)
+    sendSSEHeaders(res)
+    res.write(`data: ${JSON.stringify({ type: 'token', content: answer })}\n\n`)
+    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+    res.end()
+    return
+  }
+
+  // Streaming via OpenRouter
+  const chatMessages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...messages.slice(-20)
+  ]
+  streamOpenRouter(chatMessages, OPENROUTER_MODEL, res, messages)
 }
 
 function fallbackResponse(messages, res) {
@@ -324,6 +474,167 @@ function localAnswer(q) {
   if (q.includes('hello') || q.includes('hi') || q.includes('hey'))
     return '👋 Welcome to AI Knowledge Hub! I can help you with: RAG pipelines, AI agents, LLM models, vector databases, prompt engineering, fine-tuning, system design, security, compliance, and more. What would you like to know?'
   return `I found information related to your query about "${q.slice(0, 100)}" in the AI Knowledge Hub. You can explore specific topics like: RAG, Agents, LLMs, Vector DBs, Security, Compliance, Fine-tuning, Python, or FastAPI. What would you like to dive deeper into?`
+}
+
+// ===== File attachments for chat =====
+// Extracts readable text from Word / PDF / text files, and keeps images as data
+// URLs so a vision-capable model can inspect them.
+async function extractFileContent(file) {
+  const ext = path.extname(file.name).toLowerCase()
+
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    const mime = IMAGE_MIME[ext] || 'image/png'
+    const dataUrl = `data:${mime};base64,${file.buffer.toString('base64')}`
+    return { kind: 'image', name: file.name, mime, dataUrl, chars: 0 }
+  }
+
+  let text = ''
+  try {
+    if (ext === '.docx') {
+      const result = await mammoth.extractRawText({ buffer: file.buffer })
+      text = result.value || ''
+    } else if (ext === '.doc') {
+      const extractor = new WordExtractor()
+      const doc = await extractor.extract(file.buffer)
+      text = doc.getBody() || ''
+    } else if (ext === '.pdf') {
+      const pdf = new PDFParse({ data: file.buffer })
+      try {
+        const result = await pdf.getText()
+        text = result.text || ''
+      } finally {
+        pdf.destroy()
+      }
+    } else if (TEXT_FILE_EXTENSIONS.has(ext)) {
+      text = file.buffer.toString('utf8')
+    } else {
+      return { kind: 'skip', name: file.name, reason: `Unsupported file type ${ext}` }
+    }
+  } catch (err) {
+    return { kind: 'skip', name: file.name, reason: `Could not read file: ${err.message}` }
+  }
+
+  if (text.length > MAX_EXTRACTED_CHARS) {
+    text = `${text.slice(0, MAX_EXTRACTED_CHARS)}\n\n[truncated: file was longer than ${MAX_EXTRACTED_CHARS} characters]`
+  }
+  return { kind: 'text', name: file.name, text, chars: text.length }
+}
+
+function buildFileContextText(files) {
+  const parts = files.map(file => `### File: ${file.name}\n\n${file.text}`)
+  return parts.join('\n\n---\n\n')
+}
+
+// Endpoint handler for /api/chat/upload — receives message + files (multipart),
+// extracts content, then streams an LLM answer that has access to the files.
+async function handleChatUpload(req, res) {
+  const bb = busboy({ headers: req.headers, limits: { files: MAX_UPLOAD_FILES, fileSize: MAX_UPLOAD_BYTES } })
+  const fields = {}
+  const files = []
+  let totalBytes = 0
+  let parseError = null
+
+  await new Promise((resolve) => {
+    bb.on('field', (name, val) => { fields[name] = val })
+    bb.on('file', (name, fileStream, info) => {
+      const chunks = []
+      let bytes = 0
+      fileStream.on('data', chunk => {
+        bytes += chunk.length
+        if (bytes > MAX_UPLOAD_BYTES) {
+          fileStream.resume()
+          return
+        }
+        chunks.push(chunk)
+      })
+      fileStream.on('limit', () => { parseError = parseError || new Error(`File exceeds the ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB limit`) })
+      fileStream.on('end', () => {
+        totalBytes += bytes
+        files.push({ name: info.filename || 'file', mime: info.mimeType || '', buffer: Buffer.concat(chunks) })
+      })
+    })
+    bb.on('error', err => { parseError = parseError || err; resolve() })
+    bb.on('close', resolve)
+    req.pipe(bb)
+  })
+
+  if (parseError || totalBytes > MAX_TOTAL_UPLOAD_BYTES) {
+    sendJson(res, 413, { error: parseError?.message || 'Total upload size exceeded the limit' })
+    return
+  }
+
+  const message = String(fields.message || '').trim()
+  const validFiles = files.filter(f => f.buffer.length > 0)
+  const tooMany = validFiles.length > MAX_UPLOAD_FILES
+  if (tooMany) {
+    sendJson(res, 413, { error: `You can attach up to ${MAX_UPLOAD_FILES} files at once.` })
+    return
+  }
+  if (!message && validFiles.length === 0) {
+    sendJson(res, 400, { error: 'Please include a message and/or a file.' })
+    return
+  }
+
+  // Extract readable content from every attachment.
+  const extracted = []
+  for (const file of validFiles) {
+    const result = await extractFileContent(file)
+    extracted.push(result)
+  }
+  const textFiles = extracted.filter(e => e.kind === 'text')
+  const imageFiles = extracted.filter(e => e.kind === 'image')
+  const skipped = extracted.filter(e => e.kind === 'skip')
+
+  const hasKey = OPENROUTER_API_KEY && OPENROUTER_API_KEY.length > 20
+
+  if (!hasKey) {
+    // Local fallback: no LLM key — answer from the extracted text by keyword.
+    const answers = []
+    for (const tf of textFiles) {
+      const sample = (tf.text || '').slice(0, 500)
+      answers.push(`📄 ${tf.name} (${tf.chars} chars):\n${sample}${sample.length >= 500 ? '…' : ''}`)
+    }
+    for (const img of imageFiles) {
+      answers.push(`🖼️ ${img.name} — image received. To analyse it visually the server needs the OPENROUTER_API_KEY (vision model).`)
+    }
+    for (const sk of skipped) {
+      answers.push(`⚠️ ${sk.name}: ${sk.reason}`)
+    }
+    const body = [`📎 I received ${validFiles.length} file(s).`, ...answers, ''].join('\n')
+    const answer = body + (message ? `\nYour question: "${message}"\n\nI couldn't run the LLM (no API key). Here is the file content above — check it directly, or configure OPENROUTER_API_KEY for full answers.` : '\nConfigure OPENROUTER_API_KEY to have me read the files intelligently.')
+    sendSSEHeaders(res)
+    res.write(`data: ${JSON.stringify({ type: 'token', content: answer })}\n\n`)
+    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+    res.end()
+    return
+  }
+
+  // Build the model message: plain string for text-only, content array when images exist.
+  const context = buildFileContextText(textFiles)
+  const attachmentsNote = []
+  if (textFiles.length) attachmentsNote.push(`Attached text files:\n${context}`)
+  if (imageFiles.length) attachmentsNote.push(`Attached images (${imageFiles.map(i => i.name).join(', ')}) — please inspect them and answer based on their content.`)
+  if (skipped.length) attachmentsNote.push(`Some files were not readable: ${skipped.map(s => `${s.name} (${s.reason})`).join('; ')}`)
+
+  const userText = [attachmentsNote.join('\n\n'), message].filter(Boolean).join('\n\n')
+
+  let contentPart
+  if (imageFiles.length > 0) {
+    contentPart = [
+      { type: 'text', text: userText },
+      ...imageFiles.map(img => ({ type: 'image_url', image_url: { url: img.dataUrl } })),
+    ]
+  } else {
+    contentPart = userText
+  }
+
+  const chatMessages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...(JSON.parse(fields.history || '[]').slice(-20)),
+    { role: 'user', content: contentPart },
+  ]
+  const model = imageFiles.length > 0 ? OPENROUTER_VISION_MODEL : OPENROUTER_MODEL
+  streamOpenRouter(chatMessages, model, res, [{ role: 'user', content: message || `Analyse the attached file(s).` }])
 }
 
 const server = http.createServer(serve)

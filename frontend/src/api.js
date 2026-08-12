@@ -221,10 +221,48 @@ export async function searchGitHubRepos({ topics = [], query = '', sort = 'stars
     params.set('sort', sort)
     params.set('per_page', String(perPage))
     const res = await fetch(`/api/github/search?${params.toString()}`, { cache: 'no-store' })
-    if (res.ok) return await res.json()
-    return { items: [], total: 0, error: `HTTP ${res.status}` }
-  } catch {
-    return { items: [], total: 0, error: 'Backend offline' }
+    let data = null
+    try {
+      data = await res.json()
+    } catch {
+      data = null
+    }
+    if (res.ok) return data || { items: [], total: 0, error: 'GitHub returned an empty response' }
+    return {
+      items: [],
+      total: 0,
+      error: data?.error || data?.message || `GitHub search failed (HTTP ${res.status})`,
+      rateLimitReset: data?.rateLimitReset || null,
+    }
+  } catch (error) {
+    return { items: [], total: 0, error: error.message || 'Backend offline' }
+  }
+}
+
+export async function loadPersistedGitHubRepos() {
+  try {
+    const res = await fetch('/api/github/persisted', { cache: 'no-store' })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data?.error || `Could not load saved GitHub repositories (HTTP ${res.status})`)
+    return data
+  } catch (error) {
+    return { items: [], error: error.message || 'Could not load saved GitHub repositories' }
+  }
+}
+
+export async function persistGitHubRepos({ items = [], topics = [], query = '', category = '' } = {}) {
+  try {
+    const res = await fetch('/api/github/persist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items, topics, query, category }),
+      cache: 'no-store'
+    })
+    const data = await res.json()
+    if (!res.ok) return { ok: false, error: data?.error || `Could not save GitHub repositories (HTTP ${res.status})` }
+    return data
+  } catch (error) {
+    return { ok: false, error: error.message || 'Could not save GitHub repositories' }
   }
 }
 

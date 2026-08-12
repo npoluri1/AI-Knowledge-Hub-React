@@ -127,6 +127,18 @@ export default function Layout({ children }) {
             <Link to="/integrations" className={`sidebar-home ${loc.pathname === '/integrations' ? 'active' : ''}`}>
               <span className="icon-emoji">🔌</span> Integrations
             </Link>
+            <Link to="/books" className={`sidebar-home ${loc.pathname === '/books' ? 'active' : ''}`}>
+              <span className="icon-emoji">📚</span> Book Catalog (10,100)
+            </Link>
+            <Link to="/playbook" className={`sidebar-home ${loc.pathname.startsWith('/playbook') ? 'active' : ''}`}>
+              <span className="icon-emoji">📖</span> AI Engineering Playbook (70 pages)
+            </Link>
+            <Link to="/rapid-fire" className={`sidebar-home ${loc.pathname.startsWith('/rapid-fire') ? 'active' : ''}`}>
+              <span className="icon-emoji">⚡</span> Rapid Fire Playbook
+            </Link>
+            <Link to="/ai-stack" className={`sidebar-home ${loc.pathname.startsWith('/ai-stack') ? 'active' : ''}`}>
+              <span className="icon-emoji">🧠</span> AI Stack (68 tools, 1 screen)
+            </Link>
             {sidebarCategories.map((cat, ci) => (
               <div key={ci} className="sidebar-group">
                 <div className="sidebar-group-label">{cat.label}</div>

@@ -706,6 +706,20 @@ code {
 .chat-stop-btn { background: var(--accent-red) !important; border-radius: 0 20px 20px 0 !important; }
 .chat-stop-btn:hover { background: #e64553 !important; }
 
+.chat-input-area .chat-attach-btn { padding: 10px 10px 10px 12px; background: var(--bg-overlay); border: 1px solid var(--border); border-right: none; border-radius: 20px 0 0 20px; color: var(--text-muted); cursor: pointer; font-size: 15px; transition: all var(--transition); -webkit-tap-highlight-color: transparent; }
+.chat-input-area .chat-attach-btn:hover:not(:disabled) { color: var(--accent-blue); background: rgba(137, 180, 250, 0.08); }
+.chat-input-area .chat-attach-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-input-area input { border-radius: 0; }
+
+.chat-attachments { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px 0; }
+.chat-file-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg-overlay); border: 1px solid rgba(137, 180, 250, 0.45); color: var(--text-primary); border-radius: 12px; padding: 4px 6px 4px 9px; font-size: 11px; max-width: 100%; }
+.chat-file-icon { font-size: 13px; }
+.chat-file-name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-file-size { color: var(--text-muted); font-size: 10px; }
+.chat-file-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px; padding: 2px; border-radius: 50%; line-height: 1; }
+.chat-file-remove:hover { color: var(--accent-red); }
+.chat-file-error { padding: 6px 14px 0; color: var(--accent-red); font-size: 11px; }
+
 .chat-connecting { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 14px; color: var(--text-muted); font-size: 12px; }
 
 /* ===== JOBS PROJECT VIEW ===== */

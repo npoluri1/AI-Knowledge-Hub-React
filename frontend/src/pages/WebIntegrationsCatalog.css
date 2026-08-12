@@ -14,7 +14,7 @@
 .wic-hero h1 {
   font-size: 2.2em;
   font-weight: 800;
-  color: var(--text);
+  color: var(--text-primary);
   margin: 0 0 8px;
 }
 
@@ -27,7 +27,7 @@
   margin-right: auto;
 }
 
-.wic-subtitle a { color: var(--accent); text-decoration: none; }
+.wic-subtitle a { color: var(--accent-blue); text-decoration: none; }
 .wic-subtitle a:hover { text-decoration: underline; }
 
 .wic-stats-row {
@@ -72,7 +72,7 @@
   padding: 10px 0;
   border: none;
   background: transparent;
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 0.9em;
   outline: none;
 }
@@ -100,7 +100,7 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-surface);
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 0.85em;
   outline: none;
 }
@@ -125,12 +125,12 @@
   white-space: nowrap;
 }
 
-.wic-cat-tab:hover { border-color: var(--accent); color: var(--text); }
+.wic-cat-tab:hover { border-color: var(--accent-blue); color: var(--text-primary); }
 
 .wic-cat-tab.active {
-  background: var(--accent);
-  color: var(--bg-primary);
-  border-color: var(--accent);
+  background: var(--accent-blue);
+  color: var(--bg-base);
+  border-color: var(--accent-blue);
   font-weight: 600;
 }
 
@@ -147,6 +147,12 @@
   margin-bottom: 24px;
 }
 
+.wic-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
 .wic-card {
   display: flex;
   flex-direction: column;
@@ -156,10 +162,11 @@
   border: 1px solid var(--border);
   text-decoration: none;
   transition: all 0.2s;
+  height: 100%;
 }
 
 .wic-card:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-blue);
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
@@ -171,9 +178,31 @@
   margin-bottom: 8px;
 }
 
+.wic-card-logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  margin-bottom: 12px;
+}
+
+.wic-card-logo {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.wic-card-logo-fallback {
+  font-size: 2em;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  width: 48px;
+}
+
 .wic-card-name {
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 0.95em;
 }
 
@@ -219,7 +248,7 @@
 .wic-section-title {
   font-size: 1.3em;
   font-weight: 700;
-  color: var(--text);
+  color: var(--text-primary);
   margin: 0 0 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
@@ -247,7 +276,7 @@
   margin-top: 30px;
 }
 
-.wic-footer a { color: var(--accent); text-decoration: none; }
+.wic-footer a { color: var(--accent-blue); text-decoration: none; }
 .wic-footer a:hover { text-decoration: underline; }
 
 @media (max-width: 768px) {

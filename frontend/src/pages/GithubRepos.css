@@ -216,6 +216,34 @@
 }
 
 /* Results Count */
+.gh-csv-loader-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 14px 18px;
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.08), rgba(188, 140, 255, 0.06));
+}
+
+.gh-csv-loader-panel > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gh-csv-loader-panel strong {
+  color: #e6edf3;
+}
+
+.gh-csv-loader-panel span,
+.gh-csv-progress {
+  color: #8b949e;
+  font-size: 0.85rem;
+}
+
 .gh-results-info {
   display: flex;
   align-items: center;
@@ -931,6 +959,7 @@
   .gh-hero h1 { font-size: 22px; }
   .gh-grid { grid-template-columns: 1fr; }
   .gh-controls { flex-direction: column; }
+  .gh-csv-loader-panel { align-items: stretch; flex-direction: column; }
   .gh-categories { gap: 4px; }
   .gh-cat-btn { font-size: 11px; padding: 5px 10px; }
   .gh-expand-controls { width: 100%; }

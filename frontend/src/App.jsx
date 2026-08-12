@@ -17,6 +17,10 @@ import GithubRepos from './pages/GithubRepos'
 import DelphiTools from './pages/DelphiTools'
 import OpenAlternatives from './pages/OpenAlternatives'
 import WebIntegrationsCatalog from './pages/WebIntegrationsCatalog'
+import BooksCatalog from './pages/BooksCatalog'
+import RapidFireView from './pages/RapidFireView'
+import PlaybookView from './pages/PlaybookView'
+import AiStackScreen from './pages/AiStackScreen'
 
 export default function App() {
   return (
@@ -38,6 +42,11 @@ export default function App() {
         <Route path="/tools" element={<DelphiTools />} />
         <Route path="/open-alternatives" element={<OpenAlternatives />} />
         <Route path="/integrations" element={<WebIntegrationsCatalog />} />
+        <Route path="/books" element={<BooksCatalog />} />
+        <Route path="/playbook/*" element={<PlaybookView />} />
+        <Route path="/rapid-fire" element={<RapidFireView />} />
+        <Route path="/rapid-fire/:deckId" element={<RapidFireView />} />
+        <Route path="/ai-stack" element={<AiStackScreen />} />
       </Routes>
     </Layout>
   )

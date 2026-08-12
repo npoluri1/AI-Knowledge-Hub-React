@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react'
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { GITHUB_REPOS, REPO_CATEGORIES } from '../data/githubRepos'
-import { searchGitHubRepos } from '../api'
+import { loadRepoBatch, loadRepoBatchManifest } from '../data/githubRepoBatchLoader.js'
+import { loadPersistedGitHubRepos, persistGitHubRepos, searchGitHubRepos } from '../api'
 import './GithubRepos.css'
 
 const CATEGORY_COLORS = ['blue', 'purple', 'green', 'pink', 'yellow', 'teal', 'blue', 'purple', 'green', 'pink', 'blue', 'green', 'pink', 'yellow', 'teal', 'purple', 'red']
@@ -33,6 +34,175 @@ const CATEGORY_ICONS = {
   'Observability & Evaluations': '\u{1F4CA}',
   'Prompt Engineering & Fine-Tuning': '\u{1F4DD}',
   'AI Design Patterns & Architecture': '\u{1F3DB}\u{FE0F}',
+  'Fashion': '\u{1F457}',
+  'Publishing': '\u{1F4DD}',
+  'E-commerce': '\u{1F6D2}',
+  'Education': '\u{1F393}',
+  'Robotics': '\u{1F916}',
+  'Afghanistan AI Projects': '\u{1F1E6}\u{1F1EB}',
+  'Albania AI Projects': '\u{1F1E6}\u{1F1F1}',
+  'Algeria AI Projects': '\u{1F1E9}\u{1F1FF}',
+  'Andorra AI Projects': '\u{1F1E6}\u{1F1E9}',
+  'Angola AI Projects': '\u{1F1E6}\u{1F1F4}',
+  'Argentina AI Projects': '\u{1F1E6}\u{1F1F7}',
+  'Armenia AI Projects': '\u{1F1E6}\u{1F1F2}',
+  'Australia AI Projects': '\u{1F1E6}\u{1F1FA}',
+  'Austria AI Projects': '\u{1F1E6}\u{1F1F9}',
+  'Azerbaijan AI Projects': '\u{1F1E6}\u{1F1FF}',
+  'Bahrain AI Projects': '\u{1F1E7}\u{1F1ED}',
+  'Bangladesh AI Projects': '\u{1F1E7}\u{1F1E9}',
+  'Barbados AI Projects': '\u{1F1E7}\u{1F1E7}',
+  'Belarus AI Projects': '\u{1F1E7}\u{1F1FE}',
+  'Belgium AI Projects': '\u{1F1E7}\u{1F1EA}',
+  'Benin AI Projects': '\u{1F1E7}\u{1F1EF}',
+  'Bhutan AI Projects': '\u{1F1E7}\u{1F1F9}',
+  'Bolivia AI Projects': '\u{1F1E7}\u{1F1F4}',
+  'Botswana AI Projects': '\u{1F1E7}\u{1F1FC}',
+  'Brazil AI Projects': '\u{1F1E7}\u{1F1F7}',
+  'Brunei AI Projects': '\u{1F1E7}\u{1F1F3}',
+  'Bulgaria AI Projects': '\u{1F1E7}\u{1F1EC}',
+  'Burundi AI Projects': '\u{1F1E7}\u{1F1EE}',
+  'Cambodia AI Projects': '\u{1F1F0}\u{1F1ED}',
+  'Cameroon AI Projects': '\u{1F1E8}\u{1F1F2}',
+  'Canada AI Projects': '\u{1F1E8}\u{1F1E6}',
+  'Chad AI Projects': '\u{1F1F9}\u{1F1E9}',
+  'Chile AI Projects': '\u{1F1E8}\u{1F1F1}',
+  'China AI Projects': '\u{1F1E8}\u{1F1F3}',
+  'Colombia AI Projects': '\u{1F1E8}\u{1F1F4}',
+  'Congo AI Projects': '\u{1F1E8}\u{1F1EC}',
+  'Costa Rica AI Projects': '\u{1F1E8}\u{1F1F7}',
+  'Croatia AI Projects': '\u{1F1ED}\u{1F1F7}',
+  'Cuba AI Projects': '\u{1F1E8}\u{1F1FA}',
+  'Cyprus AI Projects': '\u{1F1E8}\u{1F1FE}',
+  'Denmark AI Projects': '\u{1F1E9}\u{1F1F0}',
+  'Dominican Republic AI Projects': '\u{1F1E9}\u{1F1F4}',
+  'Ecuador AI Projects': '\u{1F1EA}\u{1F1E8}',
+  'Egypt AI Projects': '\u{1F1EA}\u{1F1EC}',
+  'El Salvador AI Projects': '\u{1F1F8}\u{1F1FB}',
+  'Estonia AI Projects': '\u{1F1EA}\u{1F1EA}',
+  'Eswatini AI Projects': '\u{1F1F8}\u{1F1FF}',
+  'Ethiopia AI Projects': '\u{1F1EA}\u{1F1F9}',
+  'Fiji AI Projects': '\u{1F1EB}\u{1F1EF}',
+  'Finland AI Projects': '\u{1F1EB}\u{1F1EE}',
+  'France AI Projects': '\u{1F1EB}\u{1F1F7}',
+  'Gabon AI Projects': '\u{1F1EC}\u{1F1E6}',
+  'Gambia AI Projects': '\u{1F1EC}\u{1F1F2}',
+  'Georgia AI Projects': '\u{1F1EC}\u{1F1EA}',
+  'Germany AI Projects': '\u{1F1E9}\u{1F1EA}',
+  'Ghana AI Projects': '\u{1F1EC}\u{1F1ED}',
+  'Greece AI Projects': '\u{1F1EC}\u{1F1F7}',
+  'Grenada AI Projects': '\u{1F1EC}\u{1F1E9}',
+  'Guatemala AI Projects': '\u{1F1EC}\u{1F1F9}',
+  'Guinea AI Projects': '\u{1F1EC}\u{1F1F3}',
+  'Guyana AI Projects': '\u{1F1EC}\u{1F1FE}',
+  'Haiti AI Projects': '\u{1F1ED}\u{1F1F9}',
+  'Honduras AI Projects': '\u{1F1ED}\u{1F1F3}',
+  'Hungary AI Projects': '\u{1F1ED}\u{1F1FA}',
+  'Iceland AI Projects': '\u{1F1EE}\u{1F1F8}',
+  'India AI Projects': '\u{1F1EE}\u{1F1F3}',
+  'Indonesia AI Projects': '\u{1F1EE}\u{1F1E9}',
+  'Iran AI Projects': '\u{1F1EE}\u{1F1F7}',
+  'Iraq AI Projects': '\u{1F1EE}\u{1F1F6}',
+  'Ireland AI Projects': '\u{1F1EE}\u{1F1EA}',
+  'Israel AI Projects': '\u{1F1EE}\u{1F1F1}',
+  'Italy AI Projects': '\u{1F1EE}\u{1F1F9}',
+  'Jamaica AI Projects': '\u{1F1EF}\u{1F1F2}',
+  'Japan AI Projects': '\u{1F1EF}\u{1F1F5}',
+  'Jordan AI Projects': '\u{1F1EF}\u{1F1F4}',
+  'Kazakhstan AI Projects': '\u{1F1F0}\u{1F1FF}',
+  'Kenya AI Projects': '\u{1F1F0}\u{1F1EA}',
+  'Kuwait AI Projects': '\u{1F1F0}\u{1F1FC}',
+  'Kyrgyzstan AI Projects': '\u{1F1F0}\u{1F1EC}',
+  'Laos AI Projects': '\u{1F1F1}\u{1F1E6}',
+  'Latvia AI Projects': '\u{1F1F1}\u{1F1FB}',
+  'Lebanon AI Projects': '\u{1F1F1}\u{1F1E7}',
+  'Lesotho AI Projects': '\u{1F1F1}\u{1F1F8}',
+  'Liberia AI Projects': '\u{1F1F1}\u{1F1F7}',
+  'Libya AI Projects': '\u{1F1F1}\u{1F1FE}',
+  'Lithuania AI Projects': '\u{1F1F1}\u{1F1F9}',
+  'Luxembourg AI Projects': '\u{1F1F1}\u{1F1FA}',
+  'Madagascar AI Projects': '\u{1F1F2}\u{1F1EC}',
+  'Malawi AI Projects': '\u{1F1F2}\u{1F1FC}',
+  'Malaysia AI Projects': '\u{1F1F2}\u{1F1FE}',
+  'Maldives AI Projects': '\u{1F1F2}\u{1F1FB}',
+  'Mali AI Projects': '\u{1F1F2}\u{1F1F1}',
+  'Malta AI Projects': '\u{1F1F2}\u{1F1F9}',
+  'Mauritius AI Projects': '\u{1F1F2}\u{1F1FA}',
+  'Mexico AI Projects': '\u{1F1F2}\u{1F1FD}',
+  'Moldova AI Projects': '\u{1F1F2}\u{1F1E9}',
+  'Monaco AI Projects': '\u{1F1F2}\u{1F1E8}',
+  'Mongolia AI Projects': '\u{1F1F2}\u{1F1F3}',
+  'Montenegro AI Projects': '\u{1F1F2}\u{1F1EA}',
+  'Morocco AI Projects': '\u{1F1F2}\u{1F1E6}',
+  'Mozambique AI Projects': '\u{1F1F2}\u{1F1FF}',
+  'Myanmar AI Projects': '\u{1F1F2}\u{1F1F2}',
+  'Namibia AI Projects': '\u{1F1F3}\u{1F1E6}',
+  'Nepal AI Projects': '\u{1F1F3}\u{1F1F5}',
+  'Netherlands AI Projects': '\u{1F1F3}\u{1F1F1}',
+  'New Zealand AI Projects': '\u{1F1F3}\u{1F1FF}',
+  'Nicaragua AI Projects': '\u{1F1F3}\u{1F1F1}',
+  'Niger AI Projects': '\u{1F1F3}\u{1F1EA}',
+  'Nigeria AI Projects': '\u{1F1F3}\u{1F1EC}',
+  'North Korea AI Projects': '\u{1F1F0}\u{1F1F5}',
+  'North Macedonia AI Projects': '\u{1F1F2}\u{1F1F0}',
+  'Norway AI Projects': '\u{1F1F3}\u{1F1F4}',
+  'Oman AI Projects': '\u{1F1F4}\u{1F1F2}',
+  'Pakistan AI Projects': '\u{1F1F5}\u{1F1F0}',
+  'Palestine AI Projects': '\u{1F1F5}\u{1F1F8}',
+  'Panama AI Projects': '\u{1F1F5}\u{1F1E6}',
+  'Paraguay AI Projects': '\u{1F1F5}\u{1F1FE}',
+  'Peru AI Projects': '\u{1F1F5}\u{1F1EA}',
+  'Philippines AI Projects': '\u{1F1F5}\u{1F1ED}',
+  'Poland AI Projects': '\u{1F1F5}\u{1F1F1}',
+  'Portugal AI Projects': '\u{1F1F5}\u{1F1F9}',
+  'Qatar AI Projects': '\u{1F1F6}\u{1F1E6}',
+  'Romania AI Projects': '\u{1F1F7}\u{1F1F4}',
+  'Russia AI Projects': '\u{1F1F7}\u{1F1FA}',
+  'Rwanda AI Projects': '\u{1F1F7}\u{1F1FC}',
+  'Samoa AI Projects': '\u{1F1FC}\u{1F1F8}',
+  'Saudi Arabia AI Projects': '\u{1F1F8}\u{1F1E6}',
+  'Senegal AI Projects': '\u{1F1F8}\u{1F1F3}',
+  'Serbia AI Projects': '\u{1F1F7}\u{1F1F8}',
+  'Sierra Leone AI Projects': '\u{1F1F8}\u{1F1F1}',
+  'Singapore AI Projects': '\u{1F1F8}\u{1F1EC}',
+  'Slovakia AI Projects': '\u{1F1F8}\u{1F1F0}',
+  'Slovenia AI Projects': '\u{1F1F8}\u{1F1EE}',
+  'Somalia AI Projects': '\u{1F1F8}\u{1F1F4}',
+  'South Africa AI Projects': '\u{1F1FF}\u{1F1E6}',
+  'South Korea AI Projects': '\u{1F1F0}\u{1F1F7}',
+  'South Sudan AI Projects': '\u{1F1F8}\u{1F1F8}',
+  'Spain AI Projects': '\u{1F1EA}\u{1F1F8}',
+  'Sri Lanka AI Projects': '\u{1F1F1}\u{1F1F0}',
+  'Sudan AI Projects': '\u{1F1F8}\u{1F1E9}',
+  'Sweden AI Projects': '\u{1F1F8}\u{1F1EA}',
+  'Switzerland AI Projects': '\u{1F1E8}\u{1F1ED}',
+  'Syria AI Projects': '\u{1F1F8}\u{1F1FE}',
+  'Taiwan AI Projects': '\u{1F1F9}\u{1F1FC}',
+  'Tanzania AI Projects': '\u{1F1F9}\u{1F1FF}',
+  'Thailand AI Projects': '\u{1F1F9}\u{1F1ED}',
+  'Timor-Leste AI Projects': '\u{1F1F9}\u{1F1F1}',
+  'Togo AI Projects': '\u{1F1F9}\u{1F1EC}',
+  'Tunisia AI Projects': '\u{1F1F9}\u{1F1F3}',
+  'Turkey AI Projects': '\u{1F1F9}\u{1F1F7}',
+  'Uganda AI Projects': '\u{1F1FA}\u{1F1EC}',
+  'Ukraine AI Projects': '\u{1F1FA}\u{1F1E6}',
+  'United Kingdom AI Projects': '\u{1F1EC}\u{1F1E7}',
+  'United States AI Projects': '\u{1F1FA}\u{1F1F8}',
+  'Uruguay AI Projects': '\u{1F1FA}\u{1F1FE}',
+  'Uzbekistan AI Projects': '\u{1F1FA}\u{1F1FF}',
+  'Venezuela AI Projects': '\u{1F1FB}\u{1F1EA}',
+  'Vietnam AI Projects': '\u{1F1FB}\u{1F1F3}',
+  'Yemen AI Projects': '\u{1F1FE}\u{1F1EA}',
+  'Zambia AI Projects': '\u{1F1FF}\u{1F1F2}',
+  'Zimbabwe AI Projects': '\u{1F1FF}\u{1F1FC}',
+  'Djibouti AI Projects': '\u{1F1E9}\u{1F1EF}',
+  'Vanuatu AI Projects': '\u{1F1FB}\u{1F1FA}',
+  'Belize AI Projects': '\u{1F1E7}\u{1F1FF}',
+  'Cabo Verde AI Projects': '\u{1F1E8}\u{1F1FB}',
+  'Czechia AI Projects': '\u{1F1E8}\u{1F1FF}',
+  'Dominica AI Projects': '\u{1F1E9}\u{1F1F2}',
+  'Kiribati AI Projects': '\u{1F1F0}\u{1F1EE}',
+  'Liechtenstein AI Projects': '\u{1F1F1}\u{1F1EE}',
 }
 const TECH_STACK = [
   { label: 'AI/ML', color: 'blue' },
@@ -125,22 +295,72 @@ export default function GithubRepos() {
   const [fetchModal, setFetchModal] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [fetchedRepos, setFetchedRepos] = useState(null)
+  const [savedFetchedRepos, setSavedFetchedRepos] = useState([])
   const [fetchError, setFetchError] = useState(null)
   const [selectedTopics, setSelectedTopics] = useState([])
   const [fetchMode, setFetchMode] = useState('topics')
+  const [csvRepos, setCsvRepos] = useState([])
+  const [csvManifest, setCsvManifest] = useState(null)
+  const [csvLoading, setCsvLoading] = useState(false)
+  const [csvError, setCsvError] = useState(null)
+  const [csvLoadedBatches, setCsvLoadedBatches] = useState(0)
   const [fetchQuery, setFetchQuery] = useState('')
+  const [csvAutoLoading, setCsvAutoLoading] = useState(true)
+  const initialCsvLoadRef = useRef(false)
   const categoriesRef = useRef(null)
 
+  const catalogRepos = useMemo(() => {
+    const byUrl = new Map(GITHUB_REPOS.map(repo => [repo.url, repo]))
+    csvRepos.forEach(repo => {
+      if (!byUrl.has(repo.url)) byUrl.set(repo.url, repo)
+    })
+    savedFetchedRepos.forEach(repo => {
+      if (!byUrl.has(repo.url)) byUrl.set(repo.url, repo)
+    })
+    return [...byUrl.values()]
+  }, [csvRepos, savedFetchedRepos])
+
+  useEffect(() => {
+    let cancelled = false
+    loadPersistedGitHubRepos().then(result => {
+      if (!cancelled && !result.error) setSavedFetchedRepos(result.items || [])
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  const handlePersistedRepos = useCallback((items) => {
+    setSavedFetchedRepos(previous => {
+      const byUrl = new Map(previous.map(repo => [repo.url, repo]))
+      items.forEach(repo => byUrl.set(repo.url, repo))
+      return [...byUrl.values()]
+    })
+  }, [])
+
   const categoryCounts = useMemo(() => {
-    const counts = { All: GITHUB_REPOS.length }
-    GITHUB_REPOS.forEach(r => {
+    const counts = { All: catalogRepos.length }
+    catalogRepos.forEach(r => {
       counts[r.category] = (counts[r.category] || 0) + 1
     })
     return counts
-  }, [])
+  }, [catalogRepos])
+
+  const dynamicCategories = useMemo(() => {
+    const seen = new Set(REPO_CATEGORIES.map(category => category.label))
+    const categories = [...REPO_CATEGORIES]
+    catalogRepos.forEach(repo => {
+      if (seen.has(repo.category)) return
+      seen.add(repo.category)
+      categories.push({
+        id: repo.category.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        label: repo.category,
+        icon: repo.sourceIndustry ? '📂' : '📦',
+      })
+    })
+    return categories
+  }, [catalogRepos])
 
   const filteredRepos = useMemo(() => {
-    let repos = GITHUB_REPOS.filter(r => {
+    let repos = catalogRepos.filter(r => {
       const matchCat = activeCategory === 'All' || r.category === activeCategory
       const q = search.toLowerCase()
       const matchSearch = !q ||
@@ -157,7 +377,7 @@ export default function GithubRepos() {
       return 0
     })
     return repos
-  }, [activeCategory, search, sortBy])
+  }, [activeCategory, catalogRepos, search, sortBy])
 
   const groupedRepos = useMemo(() => {
     const groups = {}
@@ -190,6 +410,49 @@ export default function GithubRepos() {
   const collapseAll = useCallback(() => {
     setVisibleCounts({})
   }, [])
+
+  const loadNextCsvBatch = useCallback(async () => {
+    if (csvLoading) return
+    setCsvLoading(true)
+    setCsvError(null)
+    try {
+      const manifest = csvManifest || await loadRepoBatchManifest()
+      const nextBatch = manifest.batches[csvLoadedBatches]
+      if (!nextBatch) {
+        setCsvManifest(manifest)
+        return
+      }
+      const nextRepos = await loadRepoBatch(nextBatch.file)
+      setCsvManifest(manifest)
+      setCsvRepos(previous => {
+        const byUrl = new Map(previous.map(repo => [repo.url, repo]))
+        nextRepos.forEach(repo => {
+          if (!byUrl.has(repo.url)) byUrl.set(repo.url, repo)
+        })
+        return [...byUrl.values()]
+      })
+      setCsvLoadedBatches(value => value + 1)
+    } catch (error) {
+      setCsvError(error.message || 'Could not load the next CSV batch')
+    } finally {
+      setCsvLoading(false)
+    }
+  }, [csvLoadedBatches, csvLoading, csvManifest])
+
+  useEffect(() => {
+    if (initialCsvLoadRef.current) return undefined
+    initialCsvLoadRef.current = true
+    let cancelled = false
+    const loadInitialCsvBatch = async () => {
+      try {
+        await loadNextCsvBatch()
+      } finally {
+        if (!cancelled) setCsvAutoLoading(false)
+      }
+    }
+    loadInitialCsvBatch()
+    return () => { cancelled = true }
+  }, [loadNextCsvBatch])
 
   const copyToClipboard = useCallback((text, idx) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -278,7 +541,7 @@ export default function GithubRepos() {
         >
           All <span className="gh-cat-count">{categoryCounts.All || 0}</span>
         </button>
-        {REPO_CATEGORIES.map((cat) => (
+        {dynamicCategories.map((cat) => (
           <button
             key={cat.id}
             className={`gh-cat-btn ${activeCategory === cat.label ? 'active' : ''}`}
@@ -291,11 +554,24 @@ export default function GithubRepos() {
 
       {/* Results Info */}
       <div className="gh-results-info">
-        <span>Showing <strong>{filteredRepos.length}</strong> of {GITHUB_REPOS.length} repositories</span>
+        <span>Showing <strong>{filteredRepos.length}</strong> of {catalogRepos.length} repositories</span>
+        <span className="gh-csv-progress">
+          CSV batches: <strong>{csvLoadedBatches}</strong>{csvManifest ? `/${csvManifest.batches.length}` : ''}
+        </span>
         {search && <span>Filtered by: &quot;{search}&quot;</span>}
       </div>
 
       {/* Repo Grid by Category */}
+      <div className="gh-csv-loader-panel">
+        <div>
+          <strong>📄 Large CSV catalog</strong>
+          <span>{csvManifest ? `${csvManifest.importedRows.toLocaleString()} new repositories available in ${csvManifest.batches.length} batches.` : 'Load the external crawler CSV progressively to keep the page responsive.'}</span>
+        </div>
+        <button className="gh-fetch-btn" onClick={loadNextCsvBatch} disabled={csvLoading || csvAutoLoading || Boolean(csvManifest && csvLoadedBatches >= csvManifest.batches.length)}>
+          {csvLoading || csvAutoLoading ? 'Loading batch…' : csvManifest && csvLoadedBatches >= csvManifest.batches.length ? 'All batches loaded' : `Load batch ${csvLoadedBatches + 1}`}
+        </button>
+      </div>
+      {csvError && <div className="gh-fetch-error">⚠️ {csvError}</div>}
       {Object.keys(groupedRepos).length === 0 ? (
         <div className="gh-empty">
           <span className="gh-empty-icon">&#x1F50D;</span>
@@ -303,7 +579,7 @@ export default function GithubRepos() {
         </div>
       ) : (
         Object.entries(groupedRepos).map(([category, repos]) => {
-          const catIdx = REPO_CATEGORIES.findIndex(c => c.label === category)
+          const catIdx = dynamicCategories.findIndex(c => c.label === category)
           const colorClass = CATEGORY_COLORS[catIdx % CATEGORY_COLORS.length]
           const icon = CATEGORY_ICONS[category] || '\u{1F4E6}'
           const visible = visibleCounts[category] || INITIAL_VISIBLE
@@ -403,6 +679,7 @@ export default function GithubRepos() {
           fetching={fetching}
           setFetching={setFetching}
           setFetchedRepos={setFetchedRepos}
+          onPersistedRepos={handlePersistedRepos}
           setFetchError={setFetchError}
           onClose={() => setFetchModal(false)}
         />
@@ -497,7 +774,7 @@ function FetchedRepoCard({ repo, idx }) {
   )
 }
 
-function FetchModal({ selectedTopics, setSelectedTopics, fetchMode, setFetchMode, fetchQuery, setFetchQuery, fetching, setFetching, setFetchedRepos, setFetchError, onClose }) {
+function FetchModal({ selectedTopics, setSelectedTopics, fetchMode, setFetchMode, fetchQuery, setFetchQuery, fetching, setFetching, setFetchedRepos, onPersistedRepos, setFetchError, onClose }) {
   const handleToggleTopic = useCallback((topic) => {
     setSelectedTopics(prev =>
       prev.includes(topic) ? prev.filter(t => t !== topic) : [...prev, topic]
@@ -518,7 +795,11 @@ function FetchModal({ selectedTopics, setSelectedTopics, fetchMode, setFetchMode
     setFetchedRepos(null)
     try {
       let result
-      if (fetchMode === 'query' && fetchQuery.trim()) {
+      if (fetchMode === 'query') {
+        if (!fetchQuery.trim()) {
+          setFetchError('Enter a GitHub search query first')
+          return
+        }
         result = await searchGitHubRepos({ query: fetchQuery.trim(), sort: 'stars', perPage: 50 })
       } else if (selectedTopics.length > 0) {
         result = await searchGitHubRepos({ topics: selectedTopics, sort: 'stars', perPage: 30 })
@@ -532,14 +813,27 @@ function FetchModal({ selectedTopics, setSelectedTopics, fetchMode, setFetchMode
       } else if (!result.items || result.items.length === 0) {
         setFetchError('No repositories found. Try different topics.')
       } else {
+        const persisted = await persistGitHubRepos({
+          items: result.items,
+          topics: fetchMode === 'topics' ? selectedTopics : [],
+          query: fetchMode === 'query' ? fetchQuery.trim() : '',
+          category: fetchMode === 'topics' ? selectedTopics.join(', ') : 'Custom GitHub Query',
+        })
+        if (persisted.ok) {
+          const saved = await loadPersistedGitHubRepos()
+          if (!saved.error) onPersistedRepos(saved.items || [])
+        } else {
+          setFetchError(`Fetched successfully, but could not save results: ${persisted.error}`)
+        }
         setFetchedRepos(result)
         onClose()
       }
     } catch (e) {
       setFetchError(e.message || 'Failed to fetch repositories')
+    } finally {
+      setFetching(false)
     }
-    setFetching(false)
-  }, [fetchMode, fetchQuery, selectedTopics, onClose, setFetchedRepos, setFetchError, setFetching])
+  }, [fetchMode, fetchQuery, selectedTopics, onClose, onPersistedRepos, setFetchedRepos, setFetchError, setFetching])
 
   return (
     <div className="gh-modal-overlay" onClick={onClose}>

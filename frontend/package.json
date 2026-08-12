@@ -9,13 +9,18 @@
     "dev": "npm run manifest && concurrently -k \"npm run scan-server\" \"vite\"",
     "dev:vite": "npm run manifest && vite",
     "build": "npm run manifest && vite build",
+    "github:refresh": "node scripts/refreshGithubRepos.mjs",
+    "github:import": "python scripts/importGithubReposCsv.py --source C:/Users/Legion/Desktop/github_crawler/github_repos.csv --catalog src/data/githubRepos.js --output public/github-repos-batches --batch-size 5000",
     "preview": "npm run manifest && concurrently -k \"npm run scan-server\" \"vite preview\""
   },
   "dependencies": {
+    "busboy": "^1.6.0",
     "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.0"
+    "react-router-dom": "^6.26.0",
+    "word-extractor": "^1.0.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

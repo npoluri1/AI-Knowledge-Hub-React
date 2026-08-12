@@ -13,6 +13,24 @@ const CATEGORY_ICONS = {
   video: '🎬', 'web-search': '🌐', webhooks: '🔗'
 }
 
+function deriveDomain(name) {
+  let d = name.replace(/\s*\(.*?\)\s*/g, '').trim()
+  d = d.replace(/ (Cloud|API|Platform|Studio|SDK|ORM|DB|STT|TTS|BaaS|PaaS|SaaS|CLI)$/gi, '')
+  d = d.replace(/^(AWS|Azure|Google|GCP) /i, '')
+  d = d.toLowerCase().replace(/['']/g, '').replace(/[^a-z0-9.-]/g, '-').replace(/^-+|-+$/g, '')
+  return d ? `${d}.com` : ''
+}
+
+function serviceUrl(name) {
+  const domain = deriveDomain(name)
+  return domain ? `https://${domain}` : '#'
+}
+
+function logoUrl(name) {
+  const domain = deriveDomain(name)
+  return domain ? `https://logo.clearbit.com/${domain}` : ''
+}
+
 function keysLabel(k) {
   if (!k || k === 0) return ''
   return `${k} key${k !== 1 ? 's' : ''}`
@@ -133,45 +151,69 @@ export default function WebIntegrationsCatalog() {
         Object.entries(groupedByCat).map(([catName, { icon, services }]) => (
           <div key={catName} className="wic-section">
             <h2 className="wic-section-title">{icon} {catName} <span className="wic-section-count">({services.length})</span></h2>
-            <div className="wic-grid">
-              {services.map(svc => (
-                <div key={svc.name} className="wic-card">
-                  <div className="wic-card-header">
-                    <span className="wic-card-name">{svc.name}</span>
-                    {svc.keys > 0 && (
-                      <span className="wic-card-keys" style={{ color: keyColor(svc.keys) }}>
-                        🔑 {keysLabel(svc.keys)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="wic-card-desc">{svc.desc}</div>
-                  <div className="wic-card-footer">
-                    <span className="wic-card-cat">{icon} {catName}</span>
-                    {svc.recommended && <span className="wic-badge">Recommended</span>}
-                  </div>
+                <div className="wic-grid">
+                  {services.map(svc => (
+                    <a key={svc.name} href={serviceUrl(svc.name)} target="_blank" rel="noopener noreferrer" className="wic-card-link">
+                      <div className="wic-card">
+                        <div className="wic-card-logo-wrap">
+                          <img
+                            src={logoUrl(svc.name)}
+                            alt={`${svc.name} logo`}
+                            className="wic-card-logo"
+                            loading="lazy"
+                            onError={e => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex' }}
+                          />
+                          <div className="wic-card-logo-fallback" style={{ display: 'none' }}>{CATEGORY_ICONS[svc.categoryId] || '📦'}</div>
+                        </div>
+                        <div className="wic-card-header">
+                          <span className="wic-card-name">{svc.name}</span>
+                          {svc.keys > 0 && (
+                            <span className="wic-card-keys" style={{ color: keyColor(svc.keys) }}>
+                              🔑 {keysLabel(svc.keys)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="wic-card-desc">{svc.desc}</div>
+                        <div className="wic-card-footer">
+                          <span className="wic-card-cat">{icon} {catName}</span>
+                          {svc.recommended && <span className="wic-badge">Recommended</span>}
+                        </div>
+                      </div>
+                    </a>
+                  ))}
                 </div>
-              ))}
-            </div>
           </div>
         ))
       ) : (
         <div className="wic-grid">
           {filtered.map(svc => (
-            <div key={svc.name} className="wic-card">
-              <div className="wic-card-header">
-                <span className="wic-card-name">{svc.name}</span>
-                {svc.keys > 0 && (
-                  <span className="wic-card-keys" style={{ color: keyColor(svc.keys) }}>
-                    🔑 {keysLabel(svc.keys)}
-                  </span>
-                )}
+            <a key={svc.name} href={serviceUrl(svc.name)} target="_blank" rel="noopener noreferrer" className="wic-card-link">
+              <div className="wic-card">
+                <div className="wic-card-logo-wrap">
+                  <img
+                    src={logoUrl(svc.name)}
+                    alt={`${svc.name} logo`}
+                    className="wic-card-logo"
+                    loading="lazy"
+                    onError={e => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex' }}
+                  />
+                  <div className="wic-card-logo-fallback" style={{ display: 'none' }}>{CATEGORY_ICONS[svc.categoryId] || '📦'}</div>
+                </div>
+                <div className="wic-card-header">
+                  <span className="wic-card-name">{svc.name}</span>
+                  {svc.keys > 0 && (
+                    <span className="wic-card-keys" style={{ color: keyColor(svc.keys) }}>
+                      🔑 {keysLabel(svc.keys)}
+                    </span>
+                  )}
+                </div>
+                <div className="wic-card-desc">{svc.desc}</div>
+                <div className="wic-card-footer">
+                  <span className="wic-card-cat">{CATEGORY_ICONS[svc.categoryId] || '📦'} {svc.category}</span>
+                  {svc.recommended && <span className="wic-badge">Recommended</span>}
+                </div>
               </div>
-              <div className="wic-card-desc">{svc.desc}</div>
-              <div className="wic-card-footer">
-                <span className="wic-card-cat">{CATEGORY_ICONS[svc.categoryId] || '📦'} {svc.category}</span>
-                {svc.recommended && <span className="wic-badge">Recommended</span>}
-              </div>
-            </div>
+            </a>
           ))}
           {filtered.length === 0 && (
             <div className="wic-empty">

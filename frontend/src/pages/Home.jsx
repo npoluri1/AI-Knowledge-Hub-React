@@ -201,6 +201,10 @@ export default function Home() {
             <div className="dd-icon">🔴</div>
             <div className="dd-info"><h4>Live News Fetcher</h4><p>Real-time news from 40+ AI websites via RSS feeds</p></div>
           </Link>
+          <Link to="/books" className="deep-dive-card" style={{ borderLeftColor: '#f9c74f' }}>
+            <div className="dd-icon">📚</div>
+            <div className="dd-info"><h4>Book Catalog</h4><p>10,100 books • Personal growth, money making & best star reads</p></div>
+          </Link>
         </div>
       </div>
 
