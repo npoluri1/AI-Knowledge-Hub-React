@@ -21,6 +21,7 @@ import BooksCatalog from './pages/BooksCatalog'
 import RapidFireView from './pages/RapidFireView'
 import PlaybookView from './pages/PlaybookView'
 import AiStackScreen from './pages/AiStackScreen'
+import ClaudeCertView from './pages/ClaudeCertView'
 
 export default function App() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/rapid-fire" element={<RapidFireView />} />
         <Route path="/rapid-fire/:deckId" element={<RapidFireView />} />
         <Route path="/ai-stack" element={<AiStackScreen />} />
+        <Route path="/claude-cert" element={<ClaudeCertView />} />
       </Routes>
     </Layout>
   )

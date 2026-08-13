@@ -205,6 +205,10 @@ export default function Home() {
             <div className="dd-icon">📚</div>
             <div className="dd-info"><h4>Book Catalog</h4><p>10,100 books • Personal growth, money making & best star reads</p></div>
           </Link>
+          <Link to="/claude-cert" className="deep-dive-card" style={{ borderLeftColor: '#d97757' }}>
+            <div className="dd-icon">📜</div>
+            <div className="dd-info"><h4>Claude Certification</h4><p>Pricing, study videos & links • 68 supporting AI tools reference</p></div>
+          </Link>
         </div>
       </div>
 

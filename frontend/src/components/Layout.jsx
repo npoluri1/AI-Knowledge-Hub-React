@@ -139,6 +139,9 @@ export default function Layout({ children }) {
             <Link to="/ai-stack" className={`sidebar-home ${loc.pathname.startsWith('/ai-stack') ? 'active' : ''}`}>
               <span className="icon-emoji">🧠</span> AI Stack (68 tools, 1 screen)
             </Link>
+            <Link to="/claude-cert" className={`sidebar-home ${loc.pathname.startsWith('/claude-cert') ? 'active' : ''}`}>
+              <span className="icon-emoji">📜</span> Claude Certification
+            </Link>
             {sidebarCategories.map((cat, ci) => (
               <div key={ci} className="sidebar-group">
                 <div className="sidebar-group-label">{cat.label}</div>
