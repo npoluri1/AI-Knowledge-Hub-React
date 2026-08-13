@@ -1,0 +1,242 @@
+.ccaf {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin: 26px 0;
+}
+
+.ccaf-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.ccaf-tab {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all var(--transition);
+}
+
+.ccaf-tab b { color: var(--text-muted); font-weight: 600; }
+.ccaf-tab:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.ccaf-tab-active { background: var(--accent-blue); color: var(--bg-overlay) !important; border-color: var(--accent-blue); }
+.ccaf-tab-active b { color: var(--bg-overlay); }
+
+/* ---- toolbar / chips ---- */
+.ccaf-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+.ccaf-search {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 14px;
+  min-width: 240px;
+}
+.ccaf-search:focus { outline: none; border-color: var(--accent-blue); }
+.ccaf-chip {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12.5px;
+  transition: all var(--transition);
+}
+.ccaf-chip:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.ccaf-chip-active { background: var(--accent-blue); color: var(--bg-overlay) !important; border-color: var(--accent-blue); font-weight: 600; }
+
+/* ---- domain badge ---- */
+.ccaf-domain-badge {
+  display: inline-block;
+  background: var(--bg-surface);
+  color: var(--accent-purple);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.ccaf-domain-badge.ccaf-small { font-size: 10px; padding: 1px 7px; }
+
+/* ---- lessons ---- */
+.ccaf-lessons { display: flex; flex-direction: column; gap: 8px; }
+.ccaf-empty { color: var(--text-muted); padding: 12px; }
+.ccaf-lesson {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  overflow: hidden;
+  transition: border-color var(--transition);
+}
+.ccaf-lesson-open { border-color: var(--accent-blue); }
+.ccaf-lesson-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  padding: 11px 14px;
+  cursor: pointer;
+  font-size: 14.5px;
+  text-align: left;
+}
+.ccaf-lesson-head:hover { background: var(--bg-overlay); }
+.ccaf-lesson-id {
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: var(--accent-blue);
+  font-size: 12.5px;
+  min-width: 34px;
+}
+.ccaf-lesson-title { flex: 1 1 auto; }
+.ccaf-lesson-caret { color: var(--text-muted); font-size: 10px; }
+.ccaf-lesson-body { border-top: 1px solid var(--border); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.ccaf-field-label { color: var(--text-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+.ccaf-field-text { color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+
+/* chat walkthrough */
+.ccaf-chat-details { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--bg-overlay); }
+.ccaf-chat-details summary { cursor: pointer; color: var(--accent-teal); font-size: 13.5px; font-weight: 600; }
+.ccaf-chat { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.ccaf-note { color: var(--text-muted); font-style: italic; font-size: 13px; padding: 2px 0; }
+.ccaf-bubble {
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  max-width: 92%;
+}
+.ccaf-turn-user .ccaf-bubble { background: var(--bg-surface); border: 1px solid var(--border); align-self: flex-end; margin-left: auto; }
+.ccaf-turn-claude .ccaf-bubble { background: rgba(166, 227, 161, 0.07); border: 1px solid rgba(166, 227, 161, 0.35); align-self: flex-start; }
+.ccaf-bubble-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.ccaf-turn-claude .ccaf-bubble-label { color: var(--accent-green); }
+.ccaf-turn-note { align-self: center; }
+
+.ccaf-linked { margin-top: 2px; }
+.ccaf-linked-q { color: var(--text-secondary); font-size: 13.5px; padding: 6px 0; }
+
+/* ---- overview ---- */
+.ccaf-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.ccaf-domain-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ccaf-domain-top { display: flex; justify-content: space-between; align-items: center; }
+.ccaf-domain-n { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: var(--accent-purple); text-transform: uppercase; }
+.ccaf-domain-w { font-size: 18px; font-weight: 800; color: var(--accent-blue); }
+.ccaf-domain-title { font-size: 15.5px; font-weight: 600; color: var(--text-primary); }
+.ccaf-domain-bar { height: 6px; background: var(--bg-overlay); border-radius: 999px; overflow: hidden; }
+.ccaf-domain-bar div { height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); border-radius: 999px; }
+.ccaf-domain-blurb { color: var(--text-secondary); font-size: 13px; line-height: 1.55; }
+.ccaf-domain-go {
+  background: none;
+  border: none;
+  color: var(--accent-blue);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 0;
+  text-align: left;
+}
+.ccaf-domain-go:hover { text-decoration: underline; }
+.ccaf-themes { display: flex; flex-direction: column; gap: 10px; }
+.ccaf-theme { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; }
+.ccaf-theme-title { color: var(--accent-yellow); font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.ccaf-theme-body { color: var(--text-secondary); font-size: 13.5px; line-height: 1.6; }
+
+/* ---- scenarios ---- */
+.ccaf-scenarios { display: flex; flex-direction: column; gap: 14px; }
+.ccaf-scenario { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.ccaf-scenario-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.ccaf-scenario-n { font-weight: 800; color: var(--accent-pink); font-size: 16px; }
+.ccaf-scenario-title { font-weight: 600; font-size: 16px; color: var(--text-primary); }
+.ccaf-scenario-domains { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.ccaf-scenario-summary { color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0 0 10px; }
+.ccaf-scenario-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.ccaf-scenario-steps li { color: var(--text-secondary); font-size: 14px; line-height: 1.55; }
+.ccaf-step-task { color: var(--accent-blue); font-size: 12px; }
+.ccaf-step-d { color: var(--text-muted); font-size: 13px; }
+
+/* ---- Q&A ---- */
+.ccaf-qa-list { display: flex; flex-direction: column; gap: 14px; }
+.ccaf-qa { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.ccaf-qa-prompt { color: var(--text-primary); font-size: 14.5px; line-height: 1.6; margin-bottom: 10px; }
+.ccaf-qa-num { color: var(--accent-blue); font-weight: 700; }
+.ccaf-qa-ref { color: var(--text-muted); font-size: 11.5px; margin-top: 4px; }
+.ccaf-qa-options { display: flex; flex-direction: column; gap: 6px; }
+.ccaf-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 13.5px;
+  line-height: 1.5;
+  transition: all var(--transition);
+}
+.ccaf-opt:hover:not(:disabled) { border-color: var(--accent-blue); color: var(--text-primary); }
+.ccaf-opt-key { flex: 0 0 auto; font-weight: 700; color: var(--accent-purple); }
+.ccaf-opt-mark { margin-left: auto; font-weight: 800; }
+.ccaf-opt-correct { border-color: var(--accent-green) !important; color: var(--accent-green) !important; background: rgba(166, 227, 161, 0.08); }
+.ccaf-opt-wrong { border-color: var(--accent-red) !important; color: var(--accent-red) !important; background: rgba(243, 139, 168, 0.08); }
+.ccaf-opt-dim { opacity: 0.45; }
+.ccaf-qa-why { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13.5px; line-height: 1.6; }
+.ccaf-good { background: rgba(166, 227, 161, 0.08); border: 1px solid rgba(166, 227, 161, 0.4); color: var(--accent-green); }
+.ccaf-bad { background: rgba(243, 139, 168, 0.08); border: 1px solid rgba(243, 139, 168, 0.4); color: var(--accent-red); }
+
+/* ---- cheat sheet ---- */
+.ccaf-cheat { display: flex; flex-direction: column; gap: 18px; }
+.ccaf-cheat-group-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--accent-purple);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.ccaf-cheat-item { color: var(--text-secondary); font-size: 13.5px; line-height: 1.55; padding: 5px 0; }
+.ccaf-cheat-num { color: var(--text-muted); font-family: var(--font-mono, monospace); font-size: 12px; margin-right: 8px; }
+.ccaf-cheat-task { color: var(--text-muted); font-size: 12px; }
+
+/* ---- mock exam ---- */
+.ccaf-mock-bar { display: flex; justify-content: space-between; color: var(--text-muted); font-size: 13px; margin-bottom: 6px; }
+.ccaf-mock-progress { height: 5px; background: var(--bg-surface); border-radius: 999px; overflow: hidden; margin-bottom: 16px; }
+.ccaf-mock-progress div { height: 100%; background: linear-gradient(90deg, var(--accent-blue), var(--accent-green)); transition: width 0.3s ease; }
+.ccaf-mock-nav { display: flex; gap: 10px; justify-content: space-between; margin-top: 12px; }
+.ccaf-mock-nav button {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.ccaf-mock-nav button:hover:not(:disabled) { border-color: var(--accent-blue); color: var(--text-primary); }
+.ccaf-mock-nav button:disabled { opacity: 0.4; cursor: not-allowed; }

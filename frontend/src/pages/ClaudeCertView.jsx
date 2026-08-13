@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import ROWS, { AI_STACK_CATEGORIES, AI_STACK_STATS, aiStackCat } from '../data/aiStackData'
-import { CERTS, CERTS_TOTAL, VIDEOS, STUDY_LINKS } from '../data/claudeCertData'
+import { CERTS, CERTS_TOTAL, VIDEOS, STUDY_LINKS, PEARSON } from '../data/claudeCertData'
+import CcafPrep from '../components/CcafPrep'
+import ClaudeCertGuide from '../components/ClaudeCertGuide'
 import './ClaudeCertView.css'
 
 const SPLIT_RE = /(https?:\/\/[^\s|]+|[a-z0-9.-]+\.(?:com|ai|dev|io|org|gov|net)(?::\d+)?(?:\/[^\s|]*)?)/gi
@@ -99,6 +101,77 @@ export default function ClaudeCertView() {
         </section>
       </div>
 
+      <section className="cc-card cc-pearson">
+        <div className="cc-pearson-head">
+          <h2>🎫 Exam Scheduling & Delivery (Pearson VUE)</h2>
+          <span className="cc-pearson-badge">Official proctoring provider</span>
+        </div>
+        <div className="cc-pearson-grid">
+          <div>
+            <h3>Certifications on Pearson</h3>
+            <ul className="cc-link-list">
+              {PEARSON.certs.map((c, i) => (
+                <li key={i}>
+                  <span className="cc-cert-code">{c.code}</span>{' '}
+                  <a href={c.url} target="_blank" rel="noopener noreferrer">{c.label}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3>How to schedule</h3>
+            <ol className="cc-pearson-steps">
+              {PEARSON.scheduling.map((s, i) => <li key={i}>{s}</li>)}
+            </ol>
+          </div>
+        </div>
+
+        <div className="cc-pearson-grid">
+          <div>
+            <h3>Retake policy</h3>
+            <table className="cc-price-table cc-retake-table">
+              <thead>
+                <tr><th>Attempt</th><th>Wait before retaking</th></tr>
+              </thead>
+              <tbody>
+                {PEARSON.retakes.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.attempt}</td>
+                    <td className="cc-price">{r.wait}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={2}>• {PEARSON.maxAttempts}</td>
+                </tr>
+              </tfoot>
+            </table>
+            <p className="cc-pearson-badges">🎖️ {PEARSON.badges}</p>
+          </div>
+          <div>
+            <h3>OnVUE online testing — required network domains</h3>
+            <p className="cc-pearson-note">
+              The following domains (and all subdomains) must be reachable for OnVUE exam delivery.
+              Contact your network administrator if the system test flags any of them.
+            </p>
+            <div className="cc-pearson-domains">
+              {PEARSON.onvueDomains.map((d, i) => <code key={i} className="cc-pearson-domain">{d}</code>)}
+            </div>
+          </div>
+        </div>
+
+        <h3>Useful Pearson links</h3>
+        <ul className="cc-link-list cc-two-col">
+          {PEARSON.links.map((l, i) => (
+            <li key={i}>
+              <a href={l.url} target="_blank" rel="noopener noreferrer">🔗 {l.label}</a>
+              <span className="cc-url">{l.url.replace(/^https?:\/\/(www\.)?/, '')}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section className="cc-card cc-study">
         <h2>📚 Study & Booking Links</h2>
         <ul className="cc-link-list cc-two-col">
@@ -110,6 +183,10 @@ export default function ClaudeCertView() {
           ))}
         </ul>
       </section>
+
+      <CcafPrep />
+
+      <ClaudeCertGuide />
 
       <section className="cc-table-section">
         <div className="cc-table-header">
