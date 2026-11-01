@@ -2721,6 +2721,48 @@ def _do_fetch(key: str, source: dict, rss_url: str) -> dict:
     _enrich_item_images(items)
     return {"key": key, "name": source["name"], "items": items,
             "url": source["url"], "error": None, "status": "OK"}
+_TOPIC_NEWS_CACHE: dict = {}
+
+
+@app.get("/api/news/topic")
+def topic_news(q: str = "", days: int = 30, limit: int = 8, hl: str = "en-US", gl: str = "US", fresh: int = 0):
+    """Latest headlines for any topic (Google News RSS search), cached 20 min.
+
+    Powers the per-page "Latest" strip so every section shows current news
+    for its own subject without hand-maintained lists.
+    """
+    q = (q or "").strip()[:120]
+    if not q:
+        return {"items": [], "error": "missing q"}
+    days = max(1, min(int(days), 90))
+    limit = max(1, min(int(limit), 20))
+    key = (q.lower(), days, limit, hl, gl)
+    hit = _TOPIC_NEWS_CACHE.get(key)
+    if hit and not fresh and time.time() - hit[0] < 1200:
+        return hit[1]
+    from urllib.parse import quote as _q
+    url = (f"https://news.google.com/rss/search?q={_q(q + f' when:{days}d')}"
+           f"&hl={_q(hl)}&gl={_q(gl)}&ceid={_q(gl)}:{_q(hl.split('-')[0])}")
+    items = []
+    try:
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"})
+        root = ET.fromstring(urlopen(req, timeout=12).read())
+        for it in root.iter("item"):
+            title = (it.findtext("title") or "").strip()
+            source = (it.findtext("source") or "").strip()
+            if source and title.endswith(f" - {source}"):
+                title = title[: -len(source) - 3]
+            items.append({"title": title, "url": (it.findtext("link") or "").strip(),
+                          "source": source, "date": (it.findtext("pubDate") or "").strip()})
+            if len(items) >= limit:
+                break
+    except Exception as e:  # network / parse problems -> empty list, not a 500
+        return {"items": [], "error": str(e)[:120], "query": q}
+    payload = {"items": items, "query": q, "fetched_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())}
+    _TOPIC_NEWS_CACHE[key] = (time.time(), payload)
+    return payload
+
+
 @app.get("/api/news/sources")
 def list_news_sources(country: str = "", category: str = ""):
     """Return AI news sources with optional country/category filtering.

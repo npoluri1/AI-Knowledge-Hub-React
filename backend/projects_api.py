@@ -20,7 +20,11 @@ import time
 import json
 import hashlib
 import shutil
+import socket
+import tempfile
+import threading
 import subprocess
+import uuid
 
 from fastapi.responses import JSONResponse, FileResponse
 
@@ -469,7 +473,7 @@ def _detect_stack(proj_dir: str) -> dict:
 
     stacks: list[str] = []
     kind = "unknown"
-    commands = {"build": None, "deploy": None, "run": None, "test": None}
+    commands = {"install": None, "build": None, "deploy": None, "run": None, "test": None}
 
     is_node = "package.json" in lower
     is_python = has("requirements.txt", "pyproject.toml", "setup.py", "pipfile")
@@ -484,6 +488,7 @@ def _detect_stack(proj_dir: str) -> dict:
         stacks.append("Node")
         kind = "node"
         scripts = _node_scripts(proj_dir)
+        commands["install"] = "npm install"
         commands["build"] = "npm install && npm run build" if "build" in scripts else "npm install"
         run_script = next((s for s in ("dev", "start", "serve", "start:dev") if s in scripts), "dev")
         commands["run"] = f"npm run {run_script}"
@@ -495,6 +500,7 @@ def _detect_stack(proj_dir: str) -> dict:
             kind = "python"
         _dep_name, dep_cmd = _python_dep_file(proj_dir)
         commands["build"] = dep_cmd or "pip install -e ."
+        commands["install"] = commands["build"]
         entry = _find_python_entry(proj_dir)
         if entry:
             if _is_fastapi(proj_dir):
@@ -542,8 +548,11 @@ def _detect_stack(proj_dir: str) -> dict:
 
     if is_docker:
         stacks.append("Docker")
-        if not commands["run"]:
+        if has("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
             commands["deploy"] = "docker compose up -d --build"
+        else:
+            slug = re.sub(r"[^a-z0-9_.-]+", "-", os.path.basename(proj_dir).lower()).strip("-") or "app"
+            commands["deploy"] = f"docker build -t {slug}:local ."
 
     if has_make:
         stacks.append("Make")
@@ -558,6 +567,29 @@ def _detect_stack(proj_dir: str) -> dict:
                 hit = next((n for n in names if n in targets), None)
                 if hit:
                     commands[act] = f"make {hit}"
+
+    # Static web sites (plain index.html, no manifest): serve them locally.
+    if not stacks and has("index.html"):
+        stacks.append("Static")
+        kind = "static"
+        commands["run"] = "python -m http.server"
+
+    # Local "deploy" = production-mode start when nothing more specific exists.
+    if commands["deploy"] is None:
+        if is_node:
+            scripts = _node_scripts(proj_dir)
+            if "build" in scripts and "start" in scripts:
+                commands["deploy"] = "npm install && npm run build && npm start"
+            elif "build" in scripts and "preview" in scripts:
+                commands["deploy"] = "npm install && npm run build && npm run preview"
+            elif "start" in scripts:
+                commands["deploy"] = "npm install && npm start"
+        elif is_python and commands["run"]:
+            commands["deploy"] = commands["run"].replace(" --reload", "")
+        elif kind == "static":
+            commands["deploy"] = "python -m http.server"
+        elif is_go:
+            commands["deploy"] = "go build -o app.exe . && app.exe" if os.name == "nt" else "go build -o app . && ./app"
 
     # Documentation-only projects (markdown-heavy, no build manifest).
     has_docs = any(e.lower().endswith(".md") for e in entries)
@@ -714,7 +746,10 @@ def _run_command_core(path: str, action: str, command: str, timeout: int):
     proj = _find_project_root(proj)
     detected = _detect_stack(proj)
     if not command:
-        command = (detected["commands"].get(action) or detected["commands"].get("run")) or ""
+        if action == "install":
+            command = detected["commands"].get("install") or ""
+        else:
+            command = detected["commands"].get(action) or ""
     if not command:
         return {
             "ok": False, "command": "", "path": proj, "action": action,
@@ -752,8 +787,15 @@ def _run_command_core(path: str, action: str, command: str, timeout: int):
             command, cwd=proj, shell=True, capture_output=True, text=True,
             timeout=timeout, env={**os.environ},
         )
+        out_all = (proc.stdout or "") + (proc.stderr or "")
+        no_tests = action == "test" and (
+            (proc.returncode == 5 and "pytest" in command)
+            or "no test specified" in out_all.lower()
+            or "no tests found" in out_all.lower()
+        )
         return {
-            "ok": proc.returncode == 0,
+            "ok": proc.returncode == 0 or no_tests,
+            "noTests": no_tests,
             "command": command,
             "path": proj,
             "action": action,
@@ -783,6 +825,194 @@ def _run_command_core(path: str, action: str, command: str, timeout: int):
             "error": str(e)[:500],
             "duration": round(time.time() - started, 2),
         }, None
+
+
+# --------------------------------------------------------------------------- #
+# Background processes (Run / Deploy servers) — start, inspect, stop
+# --------------------------------------------------------------------------- #
+_PROCS: dict = {}
+_PROCS_LOCK = threading.Lock()
+_LOG_DIR = os.path.join(tempfile.gettempdir(), "aihub-project-logs")
+_URL_RE = re.compile(r"https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1?\]):(\d{2,5})[^\s'\"<>]*")
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def _port_open(port: int) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", int(port)), timeout=0.25):
+            return True
+    except OSError:
+        return False
+
+
+def _uses_vite(proj: str) -> bool:
+    try:
+        with open(os.path.join(proj, "package.json"), encoding="utf-8") as f:
+            pkg = json.load(f)
+        deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+        return "vite" in deps
+    except Exception:
+        return False
+
+
+def _with_port(command: str, port: int, proj: str) -> str:
+    """Give each server its own free port so projects never collide with each
+    other or with this app (5273 / 9000 / 9001)."""
+    c = command
+    if "uvicorn" in c and "--port" not in c:
+        c += f" --port {port}"
+    elif "http.server" in c and not re.search(r"http\.server\s+\d+", c):
+        c += f" {port}"
+    elif re.search(r"npm (run )?(dev|preview|start|serve)\b", c) and _uses_vite(proj) and "--port" not in c:
+        c += f" -- --port {port}"
+    return c
+
+
+def _is_background(action: str, command: str) -> bool:
+    if action == "run":
+        return True
+    return action == "deploy" and not command.strip().startswith("docker")
+
+
+def _kill_tree(proc) -> None:
+    try:
+        if os.name == "nt":
+            subprocess.run(f"taskkill /PID {proc.pid} /T /F", shell=True, capture_output=True, timeout=15)
+        else:
+            import signal
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
+def _tail(path: str, n: int = 8000) -> str:
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - n))
+            return _ANSI_RE.sub("", f.read().decode("utf-8", "replace"))
+    except OSError:
+        return ""
+
+
+def _proc_info(rec: dict, with_log: bool = False) -> dict:
+    alive = rec["proc"].poll() is None
+    log = _tail(rec["log"], 12000)
+    # Servers often print their own port (e.g. Next.js ignoring PORT) — probe
+    # every port mentioned in the log plus the one we assigned.
+    found = [(m.group(0).rstrip(".,);").replace("0.0.0.0", "localhost"), int(m.group(1))) for m in _URL_RE.finditer(log)]
+    url, listening = "", False
+    if alive:
+        for u, port in reversed(found):
+            if _port_open(port):
+                url, listening = u, True
+                break
+        if not listening and _port_open(rec["port"]):
+            url, listening = f"http://localhost:{rec['port']}", True
+    info = {
+        "path": rec["path"], "action": rec["action"], "command": rec["command"], "pid": rec["proc"].pid,
+        "port": rec["port"], "url": url if alive else "", "listening": listening,
+        "status": "running" if alive else ("stopped" if rec.get("stopped") else "exited"),
+        "exitCode": None if alive else rec["proc"].returncode,
+        "started": rec["started"], "uptime": round(time.time() - rec["started"], 1),
+    }
+    if with_log:
+        info["log"] = log[-8000:]
+    return info
+
+
+def _start_background(proj: str, action: str, command: str) -> dict:
+    key = _normcase(proj)
+    with _PROCS_LOCK:
+        cur = _PROCS.get(key)
+        if cur and cur["proc"].poll() is None:
+            info = _proc_info(cur, with_log=True)
+            info.update({"ok": True, "background": True, "alreadyRunning": True})
+            return info
+        port = _free_port()
+        cmd = _with_port(command, port, proj)
+        os.makedirs(_LOG_DIR, exist_ok=True)
+        log_path = os.path.join(_LOG_DIR, f"{hashlib.md5(key.encode()).hexdigest()[:10]}-{action}.log")
+        logf = open(log_path, "w", encoding="utf-8", errors="replace")
+        env = {**os.environ, "PORT": str(port), "PYTHONUNBUFFERED": "1", "BROWSER": "none", "FORCE_COLOR": "0", "CI": "true"}
+        kwargs = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+        proc = subprocess.Popen(cmd, cwd=proj, shell=True, stdout=logf, stderr=subprocess.STDOUT, env=env, **kwargs)
+        rec = {"path": proj, "action": action, "command": cmd, "proc": proc, "port": port,
+               "log": log_path, "started": time.time(), "logf": logf}
+        _PROCS[key] = rec
+    time.sleep(1.5)  # let it print its first lines / fail fast
+    info = _proc_info(rec, with_log=True)
+    info.update({"ok": info["status"] == "running" or info["exitCode"] == 0, "background": True})
+    return info
+
+
+# --------------------------------------------------------------------------- #
+# Batch jobs — run Install / Build / Test across many projects in the background
+# --------------------------------------------------------------------------- #
+_JOBS: dict = {}
+_BATCH_ACTIONS = {"build", "test", "install"}
+
+
+def _compact(r: dict) -> dict:
+    out = (r.get("stderr") or "") if not r.get("ok") else (r.get("stdout") or "")
+    return {
+        "path": r.get("path"), "name": os.path.basename(r.get("path") or ""), "ok": bool(r.get("ok")),
+        "noCommand": r.get("noCommand", False), "noTests": r.get("noTests", False),
+        "toolMissing": r.get("toolMissing"), "timedOut": r.get("timedOut", False),
+        "exitCode": r.get("exitCode"), "duration": r.get("duration"), "command": r.get("command", ""),
+        "output": (r.get("error") or out or "")[-2500:],
+    }
+
+
+def _run_job(job: dict, targets: list, command: str, timeout: int) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(proj):
+        if job["cancel"]:
+            return None
+        job["current"].add(os.path.basename(proj))
+        try:
+            res, _status = _run_command_core(proj, job["action"], command, timeout)
+        except Exception as e:
+            res = {"ok": False, "path": proj, "error": str(e)[:300]}
+        finally:
+            job["current"].discard(os.path.basename(proj))
+        c = _compact(res if res.get("path") else {**res, "path": proj})
+        with _PROCS_LOCK:
+            job["results"].append(c)
+            job["done"] += 1
+            if c["noCommand"]:
+                job["skipped"] += 1
+            elif c["ok"]:
+                job["ok"] += 1
+            else:
+                job["failed"] += 1
+        return c
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        list(ex.map(one, targets))
+    job["finished"] = time.time()
+    job["status"] = "cancelled" if job["cancel"] else "done"
+
+
+def _job_view(job: dict, since: int = 0) -> dict:
+    return {
+        "id": job["id"], "action": job["action"], "status": job["status"], "total": job["total"],
+        "done": job["done"], "ok": job["ok"], "failed": job["failed"], "skipped": job["skipped"],
+        "current": sorted(job["current"]), "started": job["started"], "finished": job.get("finished"),
+        "elapsed": round((job.get("finished") or time.time()) - job["started"], 1),
+        "results": job["results"][since:], "next": len(job["results"]),
+    }
 
 
 def register_projects_api(app):
@@ -847,10 +1077,68 @@ def register_projects_api(app):
         except (TypeError, ValueError):
             timeout = 0
 
+        proj = _resolve_project_path(path)
+        if proj and action in ("run", "deploy"):
+            root = _find_project_root(proj)
+            cmd = command or _detect_stack(root)["commands"].get(action) or ""
+            if cmd and _is_background(action, cmd):
+                tool = _command_tool(cmd)
+                tools = _toolchain_status()
+                if tool and tool not in ("python", "npm") and not tools.get(tool):
+                    return {"ok": False, "command": cmd, "path": root, "action": action, "exitCode": None,
+                            "stdout": "", "stderr": f"'{tool}' is not installed on this machine.", "toolMissing": tool}
+                return _start_background(root, action, cmd)
         result, status = _run_command_core(path, action, command, timeout)
         if status:
             return JSONResponse(result, status_code=status)
         return result
+
+    @app.get("/api/projects/processes")
+    def list_processes():
+        with _PROCS_LOCK:
+            recs = list(_PROCS.values())
+        return {"processes": [_proc_info(r) for r in recs]}
+
+    @app.get("/api/projects/logs")
+    def process_logs(path: str = ""):
+        rec = _PROCS.get(_normcase(_find_project_root(path))) or _PROCS.get(_normcase(path))
+        if not rec:
+            return JSONResponse({"error": "No process for this project"}, status_code=404)
+        return _proc_info(rec, with_log=True)
+
+    @app.post("/api/projects/stop")
+    def stop_process(body: dict):
+        path = body.get("path") or ""
+        rec = _PROCS.get(_normcase(_find_project_root(path))) or _PROCS.get(_normcase(path))
+        if not rec:
+            return JSONResponse({"error": "No process for this project"}, status_code=404)
+        if rec["proc"].poll() is None:
+            _kill_tree(rec["proc"])
+            rec["stopped"] = True
+            try:
+                rec["proc"].wait(timeout=10)
+            except Exception:
+                pass
+        try:
+            rec["logf"].close()
+        except Exception:
+            pass
+        return _proc_info(rec, with_log=True)
+
+    @app.get("/api/projects/batch")
+    def batch_status(id: str = "", since: int = 0):
+        job = _JOBS.get(id)
+        if not job:
+            return JSONResponse({"error": "Unknown batch job"}, status_code=404)
+        return _job_view(job, since)
+
+    @app.post("/api/projects/batch/cancel")
+    def batch_cancel(body: dict):
+        job = _JOBS.get(body.get("id") or "")
+        if not job:
+            return JSONResponse({"error": "Unknown batch job"}, status_code=404)
+        job["cancel"] = True
+        return _job_view(job, len(job["results"]))
 
     @app.post("/api/projects/run-batch")
     def run_batch(body: dict):
@@ -875,17 +1163,12 @@ def register_projects_api(app):
 
         if not targets:
             return JSONResponse({"error": "No projects to run"}, status_code=400)
+        if action not in _BATCH_ACTIONS:
+            return JSONResponse({"error": "Batch supports install, build and test (Run/Deploy start servers — use them per project)."}, status_code=400)
 
-        results = []
-        for proj in targets:
-            result, _status = _run_command_core(proj, action, command, timeout)
-            results.append(result)
-
-        ok_count = sum(1 for r in results if r.get("ok"))
-        return {
-            "action": action,
-            "total": len(results),
-            "ok": ok_count,
-            "failed": len(results) - ok_count,
-            "results": results,
-        }
+        job = {"id": uuid.uuid4().hex[:12], "action": action, "status": "running", "total": len(targets),
+               "done": 0, "ok": 0, "failed": 0, "skipped": 0, "results": [], "current": set(),
+               "cancel": False, "started": time.time()}
+        _JOBS[job["id"]] = job
+        threading.Thread(target=_run_job, args=(job, targets, command, timeout), daemon=True).start()
+        return _job_view(job)

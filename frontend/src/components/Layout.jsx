@@ -2,11 +2,14 @@ import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import ChatWidget from './ChatWidget'
 import RouteExperienceBanner from './RouteExperienceBanner'
+import LatestPulse from './LatestPulse'
+import IconPhotos from './IconPhotos'
 import { LANGUAGES, useLang } from '../i18n'
 import { CHAPTERS, DEEP_DIVES } from '../data/appData'
 import BOOKS from '../data/booksData'
 import { LINKEDIN_POSTS } from '../data/linkedinPostsCollection'
 import './NexusNav.css'
+import { menuImage, menuTagline } from '../data/menuVisuals'
 
 const CHAPTER_GROUPS = [
   {
@@ -64,7 +67,7 @@ function buildSidebarCategories(chapters, deepDives) {
 
 // Primary sidebar menu — labels flow through the app-wide language layer, so
 // switching the interface language re-labels every menu automatically.
-const MENU = [
+export const MENU = [
   { to: '/', icon: '🏠', key: 'Home', exact: true },
   { to: '/images', icon: '🖼️', key: 'Images Gallery', exact: true },
   { to: '/files', icon: '📂', key: 'File Reference', exact: true },
@@ -116,7 +119,7 @@ const MENU = [
 ]
 
 // Visual grouping for the primary menu (keeps 45+ links scannable).
-const MENU_GROUPS = [
+export const MENU_GROUPS = [
   { label: 'Overview', paths: ['/', '/images', '/files', '/knowledge', '/edureka'] },
   { label: 'Learn & Guides', paths: ['/learn', '/playbook', '/rapid-fire', '/ai-stack', '/claude-cert', '/snowflake', '/etl-guide', '/python-masterhub', '/python-tutorials', '/python-tech-hub', '/technologies', '/ai-python-masterhub-pages', '/study-by-doing', '/study-by-doing/resources', '/ai-techstack-ref', '/reference-library', '/mortalapps-hub'] },
   { label: 'News & Catalogs', paths: ['/ai-news', '/live-news', '/ai-tools', '/github-repos', '/tools', '/open-alternatives', '/integrations', '/books', '/linked-posts', '/video-hub', '/ai-tech-blogs'] },
@@ -141,7 +144,7 @@ const cleanParen = v => String(v).replace(/^\(+|\)+$/g, '')
 
 // Each section owns a hue — headers, icon tiles, the active glow bar and the
 // jump chips all derive from it, so every menu reads as its own "zone".
-const GROUP_THEME = {
+export const GROUP_THEME = {
   'Overview': { hue: '#79d9f2', glyph: '◈' },
   'Learn & Guides': { hue: '#c2a5ff', glyph: '✦' },
   'News & Catalogs': { hue: '#f7d47d', glyph: '◉' },
@@ -203,6 +206,8 @@ export default function Layout({ children }) {
   const isPhone = useMedia('(max-width: 768px)')
   const isTablet = useMedia('(min-width: 769px) and (max-width: 1180px)')
   const navScrollRef = React.useRef(null)
+  const canHover = useMedia('(hover: hover) and (pointer: fine)')
+  const [peek, setPeek] = React.useState(null)
 
   // iPad-class widths default to the compact icon rail; desktops default to
   // the full panel. An explicit toggle wins on every device.
@@ -253,7 +258,7 @@ export default function Layout({ children }) {
   }
 
   // Close the phone sheet on navigation and on Escape.
-  React.useEffect(() => { setMenuOpen(false) }, [loc.pathname])
+  React.useEffect(() => { setMenuOpen(false); setPeek(null) }, [loc.pathname])
   React.useEffect(() => {
     if (!menuOpen) return undefined
     const onKey = e => { if (e.key === 'Escape') setMenuOpen(false) }
@@ -316,9 +321,18 @@ export default function Layout({ children }) {
                   className={`nx-link ${active ? 'active' : ''}`}
                   aria-current={active ? 'page' : undefined}
                   title={rail ? label : undefined}
-                  onClick={() => setMenuOpen(false)}
+                  onClick={() => { setMenuOpen(false); setPeek(null) }}
+                  onMouseEnter={e => {
+                    if (!canHover || isPhone) return
+                    const r = e.currentTarget.getBoundingClientRect()
+                    const panel = e.currentTarget.closest('.nx-panel')?.getBoundingClientRect()
+                    setPeek({ to: item.to, icon: item.icon, label, paren: paren ? cleanParen(paren) : '', hue: g.hue, top: r.top, left: panel ? panel.right : r.right })
+                  }}
+                  onMouseLeave={() => setPeek(null)}
                 >
-                  <span className="nx-tile" aria-hidden="true">{item.icon}</span>
+                  <span className="nx-tile nx-photo" aria-hidden="true" style={{ '--img': `url("${menuImage(item.to, 96, 96)}")` }}>
+                    <i>{item.icon}</i>
+                  </span>
                   <span className="nx-link-label">{label}</span>
                   {paren && <span className="nx-count">{cleanParen(paren)}</span>}
                 </Link>
@@ -445,7 +459,7 @@ export default function Layout({ children }) {
                 </div>
               )}
             </div>
-            <div className="nx-scroll" ref={navScrollRef}>
+            <div className="nx-scroll" ref={navScrollRef} onScroll={() => peek && setPeek(null)}>
               {mainSections.map(renderSection)}
               {chapterSections.length > 0 && (
                 <div className="nx-zone-label"><span>{t('Chapters')} · {chapters.length}</span></div>
@@ -455,8 +469,26 @@ export default function Layout({ children }) {
             </div>
           </div>
         </aside>
+        {peek && (
+          <div
+            className="nx-peek"
+            aria-hidden="true"
+            style={{ top: Math.max(70, Math.min(peek.top - 24, window.innerHeight - 260)), left: peek.left + 14, '--g': peek.hue }}
+          >
+            <div className="nx-peek-img" style={{ backgroundImage: `url("${menuImage(peek.to, 560, 300)}")` }}>
+              <span>{peek.icon}</span>
+            </div>
+            <div className="nx-peek-body">
+              <b>{peek.label}</b>
+              {menuTagline(peek.to) && <span>{menuTagline(peek.to)}</span>}
+              {peek.paren && <em>{peek.paren}</em>}
+            </div>
+          </div>
+        )}
         <main id="page-content" className="main-content">
           <RouteExperienceBanner />
+          <LatestPulse />
+          <IconPhotos />
           {children}
         </main>
       </div>

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { menuImage } from '../data/menuVisuals'
 
 const VISUALS = {
   ai: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1600&q=85',
@@ -98,9 +99,35 @@ function getGuide(pathname) {
 export default function RouteExperienceBanner() {
   const { pathname } = useLocation()
   const guide = getGuide(pathname)
-  if (!guide || pathname === '/' || pathname === '/ai-tech-blogs' || pathname === '/books' || pathname.startsWith('/book/ol/') || pathname.startsWith('/ai-python-masterhub-pages/')) return null
+  const [duplicate, setDuplicate] = React.useState(false)
 
-  const image = VISUALS[guide.type] || VISUALS.ai
+  // Hide this banner when the page renders its own hero with the same title,
+  // so pages never show the same heading, summary and checklist twice.
+  React.useEffect(() => {
+    setDuplicate(false)
+    if (!guide) return undefined
+    const root = document.getElementById('page-content')
+    if (!root) return undefined
+    const norm = x => String(x || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+    const want = norm(guide.title)
+    const check = () => {
+      const heads = [...root.querySelectorAll('h1, h2')].filter(h => !h.closest('.route-guide'))
+      if (heads.some(h => { const t = norm(h.textContent); return t === want || (t.length > 3 && (t.endsWith(want) || want.endsWith(t))) })) {
+        setDuplicate(true)
+        return true
+      }
+      return false
+    }
+    if (check()) return undefined
+    const mo = new MutationObserver(() => { if (check()) mo.disconnect() })
+    mo.observe(root, { childList: true, subtree: true })
+    const stop = setTimeout(() => mo.disconnect(), 8000)
+    return () => { mo.disconnect(); clearTimeout(stop) }
+  }, [pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!guide || duplicate || pathname === '/' || pathname === '/ai-tech-blogs' || pathname === '/books' || pathname.startsWith('/book/ol/') || pathname.startsWith('/ai-python-masterhub-pages/')) return null
+
+  // Each page gets its own curated photo; fall back to the topic visual.
+  const image = menuImage(pathname, 1600) || VISUALS[guide.type] || VISUALS.ai
   return (
     <section className="route-guide" style={{ '--route-accent': `var(--accent-${guide.type === 'hardware' ? 'teal' : guide.type === 'books' ? 'purple' : guide.type === 'news' ? 'yellow' : guide.type === 'security' ? 'pink' : guide.type === 'cloud' ? 'blue' : guide.type === 'web' ? 'green' : 'blue'})`, '--route-image': `url(${image})` }}>
       <div className="route-guide-media" aria-hidden="true" />

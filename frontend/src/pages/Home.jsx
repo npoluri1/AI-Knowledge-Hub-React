@@ -5,6 +5,7 @@ import { getChapters, getDeepDives, searchAll, fetchLiveChapters, fetchLiveDeepD
 import { Link } from 'react-router-dom'
 import { FILE_CATEGORIES, CATEGORY_ICONS, KNOWLEDGE_SECTIONS, APP_STATS } from '../data/appData'
 import { useLang } from '../i18n'
+import ExploreSections from '../components/ExploreSections'
 
 const DEEP_DIVE_CARDS = [
   { id: 'rag', icon: '🔍', title: 'RAG Pipeline Deep Dive', desc: 'Chunking, retrieval, evaluation in production', color: '#a6e3a1' },
@@ -185,6 +186,8 @@ export default function Home() {
           ))}
         </div>
       )}
+
+      <ExploreSections />
 
       <div className="featured-topics">
         <span className="section-title">⚡ Quick Access — Self-Contained Data Modules</span>

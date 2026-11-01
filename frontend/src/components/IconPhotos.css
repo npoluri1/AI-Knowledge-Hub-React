@@ -1,0 +1,29 @@
+/* Emoji icons upgraded to topic photo tiles by IconPhotos.jsx */
+#page-content .photo-icon {
+  position: relative !important;
+  display: inline-grid !important;
+  flex: none !important;
+  width: var(--pi-size) !important;
+  height: var(--pi-size) !important;
+  min-width: var(--pi-size) !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border-radius: calc(var(--pi-size) * .28) !important;
+  background: linear-gradient(160deg, rgba(121, 217, 242, .18), rgba(5, 9, 20, .35)), var(--pi) center / cover no-repeat, #141b2e !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), 0 6px 16px rgba(0, 0, 0, .35) !important;
+  font-size: 0 !important;
+  line-height: 1 !important;
+  vertical-align: middle;
+  transition: transform .25s cubic-bezier(.2, .8, .2, 1);
+}
+#page-content .photo-icon::after {
+  content: attr(data-emoji);
+  position: absolute; right: calc(var(--pi-badge) * -.28); bottom: calc(var(--pi-badge) * -.28);
+  display: grid; width: var(--pi-badge); height: var(--pi-badge); place-items: center;
+  border-radius: calc(var(--pi-badge) * .32); background: #0b1121; box-shadow: 0 0 0 1.5px rgba(121, 217, 242, .55);
+  font-size: calc(var(--pi-badge) * .62); font-style: normal; line-height: 1;
+}
+@media (hover: hover) {
+  #page-content :is(a, [class*="card"], article):hover > .photo-icon,
+  #page-content :is(a, [class*="card"], article):hover .photo-icon { transform: scale(1.06) rotate(-2deg); }
+}
