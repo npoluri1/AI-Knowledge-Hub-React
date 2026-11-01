@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react'
+import React, { useMemo, useState, useCallback, useEffect, useId, useRef } from 'react'
 
 /**
  * MermaidRenderer — Parses Mermaid graph syntax and renders as inline SVG.
@@ -400,14 +400,26 @@ export default function MermaidRenderer({ source, id }) {
     setZoom(1)
   }, [])
 
+  const viewportRef = useRef(null)
+  const generatedId = useId()
+
   const handleWheel = useCallback((e) => {
     if (e.ctrlKey || e.metaKey) {
-      e.preventDefault()
+      // This listener is intentionally passive so trackpad scrolling stays
+      // responsive and Chrome does not report a blocking wheel-listener warning.
       e.stopPropagation()
       const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP
       setZoom(z => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, +(z + delta).toFixed(2))))
     }
   }, [])
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return undefined
+
+    viewport.addEventListener('wheel', handleWheel, { passive: true })
+    return () => viewport.removeEventListener('wheel', handleWheel)
+  }, [handleWheel])
 
   if (!layout || layout.width <= 60) {
     return (
@@ -420,7 +432,7 @@ export default function MermaidRenderer({ source, id }) {
   }
 
   const { positions, subgraphs, width, height, BOX_W, BOX_H, isHorizontal, edges, nodes, styles: styleMap } = layout
-  const arrowId = `arrow${id || ''}`
+  const arrowId = `arrow${id || ''}-${generatedId.replace(/:/g, '')}`
   const allNodes = getAllVisibleNodes(subgraphs, nodes)
 
   const zoomPct = Math.round(zoom * 100)
@@ -432,7 +444,7 @@ export default function MermaidRenderer({ source, id }) {
         <span className="mermaid-zoom-label" onClick={zoomReset} title="Reset to 100%">{zoomPct}%</span>
         <button className="mermaid-zoom-btn" onClick={zoomIn} title="Zoom in (Ctrl+Scroll)">+</button>
       </div>
-      <div className="mermaid-svg-viewport" onWheel={handleWheel}>
+      <div ref={viewportRef} className="mermaid-svg-viewport">
         <div className="mermaid-svg-stage"
           style={{
             transform: `scale(${zoom})`,

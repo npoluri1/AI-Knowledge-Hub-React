@@ -1,10 +1,19 @@
 // Streaming chat API — connects to scan-server /api/chat endpoint
 // Falls back to local keyword responses when server is offline
 
-async function readStream(res, onToken, onDone) {
+async function readStream(res, onToken, onDone, onError) {
+  if (!res.body) throw new Error('The chat server returned an empty response.')
+
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let settled = false
+
+  const finish = () => {
+    if (settled) return
+    settled = true
+    onDone()
+  }
 
   while (true) {
     const { done, value } = await reader.read()
@@ -20,17 +29,23 @@ async function readStream(res, onToken, onDone) {
 
       try {
         const parsed = JSON.parse(trimmed.slice(6))
-        if (parsed.type === 'token') {
+        if (parsed.type === 'token' && parsed.content) {
           onToken(parsed.content)
+        } else if (parsed.type === 'error') {
+          settled = true
+          onError(parsed.message || 'The model provider returned an error.')
+          return
         } else if (parsed.type === 'done') {
-          onDone()
+          finish()
           return
         }
-      } catch { /* skip */ }
+      } catch {
+        // Ignore comments and incomplete SSE frames; the next chunk completes them.
+      }
     }
   }
 
-  onDone()
+  finish()
 }
 
 export async function streamChat(messages, onToken, onDone, onError) {
@@ -45,7 +60,20 @@ export async function streamChat(messages, onToken, onDone, onError) {
       throw new Error(`Server returned ${res.status}`)
     }
 
-    await readStream(res, onToken, onDone)
+    const contentType = res.headers.get('content-type') || ''
+    if (!contentType.includes('text/event-stream')) {
+      // Not the scan-server SSE stream (e.g. the request hit a different
+      // backend that answered with JSON). Surface that instead of streaming nothing.
+      let detail = `Unexpected response (${contentType.split(';')[0] || 'unknown'}) — is the scan-server on :9001 running?`
+      try {
+        const payload = await res.json()
+        if (payload?.error) detail = payload.error
+        else if (payload?.answer) detail = payload.answer
+      } catch { /* non-JSON body */ }
+      throw new Error(detail)
+    }
+
+    await readStream(res, onToken, onDone, onError)
   } catch (err) {
     onError(err.message || 'Connection failed')
   }
@@ -77,7 +105,17 @@ export async function streamChatWithFiles(message, files, history, onToken, onDo
       throw new Error(message)
     }
 
-    await readStream(res, onToken, onDone)
+    const contentType = res.headers.get('content-type') || ''
+    if (!contentType.includes('text/event-stream')) {
+      let detail = `Unexpected response (${contentType.split(';')[0] || 'unknown'}) — is the scan-server on :9001 running?`
+      try {
+        const payload = await res.json()
+        if (payload?.error) detail = payload.error
+      } catch { /* non-JSON body */ }
+      throw new Error(detail)
+    }
+
+    await readStream(res, onToken, onDone, onError)
   } catch (err) {
     onError(err.message || 'Connection failed')
   }

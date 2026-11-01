@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { INDUSTRY_MATRIX, INDUSTRIES, COUNTRIES, INDUSTRY_COLORS } from '../data/aiIndustryMatrix'
+import { useLang } from '../i18n'
 
 const REGIONS = {
   'North America': ['USA', 'Canada', 'Mexico'],
@@ -36,6 +37,7 @@ const INDUSTRY_ICONS = {
 }
 
 export default function IndustryMatrix() {
+  const { t } = useLang()
   const [search, setSearch] = useState('')
   const [selectedIndustry, setSelectedIndustry] = useState('All')
   const [selectedCountry, setSelectedCountry] = useState('All')
@@ -114,7 +116,7 @@ export default function IndustryMatrix() {
   return (
     <div className="im-container">
       <div className="im-header">
-        <h2 className="im-title">🌐 Industry Regulatory & Compliance Matrix</h2>
+        <h2 className="im-title">🌐 {t('Industry Regulatory & Compliance Matrix')}</h2>
         <p className="im-subtitle">
           AI deployment regulations, costs, latency, safety, and compliance across {INDUSTRIES.length} industries and {COUNTRIES.length} countries
         </p>
@@ -124,19 +126,19 @@ export default function IndustryMatrix() {
       <div className="im-stats">
         <div className="im-stat">
           <span className="im-stat-value">{stats.total}</span>
-          <span className="im-stat-label">Entries</span>
+          <span className="im-stat-label">{t('Entries')}</span>
         </div>
         <div className="im-stat">
           <span className="im-stat-value">{stats.industries}</span>
-          <span className="im-stat-label">Industries</span>
+          <span className="im-stat-label">{t('Industries')}</span>
         </div>
         <div className="im-stat">
           <span className="im-stat-value">{stats.subIndustries}</span>
-          <span className="im-stat-label">Sub-Industries</span>
+          <span className="im-stat-label">{t('Sub-Industries')}</span>
         </div>
         <div className="im-stat">
           <span className="im-stat-value">{stats.countries}</span>
-          <span className="im-stat-label">Countries</span>
+          <span className="im-stat-label">{t('Countries')}</span>
         </div>
       </div>
 
@@ -159,7 +161,7 @@ export default function IndustryMatrix() {
           value={selectedIndustry}
           onChange={e => setSelectedIndustry(e.target.value)}
         >
-          <option value="All">All Industries</option>
+          <option value="All">{t('All Industries')}</option>
           {INDUSTRIES.map(ind => (
             <option key={ind} value={ind}>{INDUSTRY_ICONS[ind] || '📁'} {ind}</option>
           ))}
@@ -170,7 +172,7 @@ export default function IndustryMatrix() {
           value={selectedRegion}
           onChange={e => { setSelectedRegion(e.target.value); setSelectedCountry('All') }}
         >
-          <option value="All">All Regions</option>
+          <option value="All">{t('All Regions')}</option>
           {Object.keys(REGIONS).map(r => (
             <option key={r} value={r}>{r}</option>
           ))}
@@ -181,14 +183,14 @@ export default function IndustryMatrix() {
           value={selectedCountry}
           onChange={e => setSelectedCountry(e.target.value)}
         >
-          <option value="All">All Countries</option>
+          <option value="All">{t('All Countries')}</option>
           {COUNTRIES.map(c => (
             <option key={c} value={c}>{COUNTRY_FLAGS[c] || '🏳️'} {c}</option>
           ))}
         </select>
 
         {hasActiveFilters && (
-          <button className="im-clear-btn" onClick={clearFilters}>✕ Clear Filters</button>
+          <button className="im-clear-btn" onClick={clearFilters}>✕ {t('Clear Filters')}</button>
         )}
       </div>
 

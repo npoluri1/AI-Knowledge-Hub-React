@@ -2,8 +2,11 @@ import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import AI_TOOLS_CATALOG, { TOOL_CATEGORIES, CATEGORY_META } from '../data/aiToolsCatalog'
 import IndustryMatrix from './IndustryMatrix'
+import FetchButton from '../components/FetchButton'
+import { useLang } from '../i18n'
 
 export default function AiToolsCatalog() {
+  const { t } = useLang()
   const [activeTab, setActiveTab] = useState('tools')
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
@@ -12,10 +15,13 @@ export default function AiToolsCatalog() {
 
   return (
     <div className="ai-tools-catalog">
-      <Link to="/" className="back-link">← Back to Home</Link>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
 
       <div className="atc-header">
-        <h1 className="chapter-title">🤖 AI Tools & Agents Catalog</h1>
+        <div className="page-header-row">
+          <h1 className="chapter-title">🤖 {t('AI Tools & Agents Catalog')}</h1>
+          <FetchButton onFetch={() => { setSearch(''); setActiveCategory('All') }} label={t('Fetch Latest')} staticMode />
+        </div>
         <p className="chapter-preview">
           {AI_TOOLS_CATALOG.length} AI tools & agents across {TOOL_CATEGORIES.length} categories — coding, video, voice, business, research, and more.
           Compiled May 2026 from Edureka AI Knowledge Hub.
@@ -28,13 +34,13 @@ export default function AiToolsCatalog() {
           className={`atc-tab ${activeTab === 'tools' ? 'atc-tab-active' : ''}`}
           onClick={() => setActiveTab('tools')}
         >
-          🤖 AI Tools
+          🤖 {t('AI Tools')}
         </button>
         <button
           className={`atc-tab ${activeTab === 'matrix' ? 'atc-tab-active' : ''}`}
           onClick={() => setActiveTab('matrix')}
         >
-          🌐 Industry Matrix
+          🌐 {t('Industry Matrix')}
         </button>
       </div>
 
@@ -55,6 +61,7 @@ export default function AiToolsCatalog() {
 }
 
 function ToolsView({ search, setSearch, activeCategory, setActiveCategory, gridRef, categoryRefs }) {
+  const { t } = useLang()
   const categoryCounts = useMemo(() => {
     const counts = { All: AI_TOOLS_CATALOG.length }
     AI_TOOLS_CATALOG.forEach(t => {
@@ -111,8 +118,8 @@ function ToolsView({ search, setSearch, activeCategory, setActiveCategory, gridR
       </div>
 
       <div className="atc-stats">
-        <span className="stat-badge">🤖 <strong>{filteredTools.length}</strong> Tools</span>
-        <span className="stat-badge">📂 <strong>{Object.keys(groupedTools).length}</strong> Categories</span>
+        <span className="stat-badge">🤖 <strong>{filteredTools.length}</strong> {t('Tools')}</span>
+        <span className="stat-badge">📂 <strong>{Object.keys(groupedTools).length}</strong> {t('Categories')}</span>
       </div>
 
       <div className="atc-layout">
@@ -123,7 +130,7 @@ function ToolsView({ search, setSearch, activeCategory, setActiveCategory, gridR
             onClick={() => scrollToCategory('All')}
           >
             <span className="atc-sidebar-icon">🌐</span>
-            <span className="atc-sidebar-label">All</span>
+            <span className="atc-sidebar-label">{t('All')}</span>
             <span className="atc-sidebar-count">{categoryCounts.All}</span>
           </button>
           {TOOL_CATEGORIES.map(cat => {
@@ -154,7 +161,7 @@ function ToolsView({ search, setSearch, activeCategory, setActiveCategory, gridR
               onClick={() => scrollToCategory('All')}
             >
               <span className="atc-cat-icon">🌐</span>
-              <span>All</span>
+              <span>{t('All')}</span>
               <span className="atc-cat-count">{categoryCounts.All}</span>
             </button>
             {TOOL_CATEGORIES.map(cat => {

@@ -3,7 +3,9 @@ import { useParams, Link } from 'react-router-dom'
 import CodeBlock from '../components/CodeBlock'
 import DataTable from '../components/DataTable'
 import PipelineDiagram from '../components/PipelineDiagram'
-import { getChapter } from '../api'
+import { getChapter, fetchLiveChapter } from '../api'
+import FetchButton from '../components/FetchButton'
+import { useLang } from '../i18n'
 
 function SectionRenderer({ sec }) {
   const items = []
@@ -73,6 +75,7 @@ function SectionRenderer({ sec }) {
 }
 
 export default function ChapterView() {
+  const { t } = useLang()
   const { id } = useParams()
   const [ch, setCh] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -86,16 +89,23 @@ export default function ChapterView() {
     }).catch(e => { setError(e.message); setLoading(false) })
   }, [id])
 
-  if (loading) return <div className="loading">⏳ Loading chapter…</div>
+  if (loading) return <div className="loading">⏳ {t('Loading chapter…')}</div>
   if (error) return <div className="error">❌ {error}</div>
-  if (!ch) return <div className="error">Chapter not found</div>
+  if (!ch) return <div className="error">{t('Chapter not found')}</div>
 
   const hasContent = ch.sections && ch.sections.length > 0
 
   return (
     <div className="chapter-detail">
-      <Link to="/" className="back-link">← Back to Home</Link>
-      <h2 className="chapter-title"><span className="ch-num">{ch.num}.</span> {ch.icon} {ch.title}</h2>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
+      <div className="page-header-row">
+        <h2 className="chapter-title"><span className="ch-num">{ch.num}.</span> {ch.icon} {ch.title}</h2>
+        <FetchButton onFetch={async () => {
+          const d = await fetchLiveChapter(id)
+          if (d && !d.error) { setCh(d); return `Refreshed from backend (${(d.sections || []).length} sections)` }
+          throw new Error((d && d.error) || 'Chapter not found')
+        }} label={t('Fetch Latest')} />
+      </div>
       {ch.preview && <p className="chapter-preview">{ch.preview}</p>}
 
       <div className="tag-list">

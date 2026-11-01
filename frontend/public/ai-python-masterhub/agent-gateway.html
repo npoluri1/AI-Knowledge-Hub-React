@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Gateways — Routing &amp; Control Plane — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Agent Gateways — Routing &amp; Control Plane</span><span class="spacer"></span>
+<a class="navlink" href="tool-calling.html">&larr; Tool / Function Calling</a> <a class="navlink" href="mcp.html">MCP &rarr;</a></nav>
+<header class="hero"><div class="mono">GW</div><div><h1>Agent Gateways — Routing &amp; Control Plane</h1>
+<p class="tagline">A unified ingress layer that sits between your agents and LLM providers, solving key management, vendor lock-in, cost visibility, and traffic control in a single architectural component.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>An LLM gateway is the control plane for every outbound model call in your organization. This chapter covers why gateways exist, how to deploy one, the routing and governance policies they enable, and the enterprise architecture required to run them in production.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Gateway concept, LiteLLM proxy, model aliasing, virtual keys, basic fallback, logging</td><td>You can proxy LLM traffic through a single gateway with basic controls</td></tr>
+<tr><td>Tier 2</td><td>Routing policies, retries, budgets, semantic routing, caching, streaming, auth, audit</td><td>You can implement intelligent routing and governance policies</td></tr>
+<tr><td>Tier 3</td><td>Load balancing, circuit breakers, hedging, guardrails, MCP federation, cost allocation</td><td>You can build a resilient, observable, cost-accounted gateway</td></tr>
+<tr><td>Tier 4</td><td>Control-plane/data-plane split, HA, zero-trust, key vaults, FinOps, building vs buying</td><td>You can architect and operate an enterprise gateway platform</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have production-ready gateway implementations</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Gateway concept, LiteLLM, aliasing, keys, fallback, logging</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>What an LLM Gateway Is: Unified Ingress for Model Traffic</h3>
+<p><strong>What &amp; why.</strong> An LLM gateway is a proxy server that sits between your application code and every LLM provider (OpenAI, Anthropic, Google, AWS Bedrock). Instead of each service embedding provider API keys and calling providers directly, all traffic routes through the gateway. This centralizes authentication, routing, observability, and policy enforcement in one place.</p>
+<pre class="code"><code># Application code points to ONE endpoint
+import openai
+
+client = openai.OpenAI(
+    base_url="https://gateway.internal/v1",
+    api_key="virtual-key-team-alpha"
+)
+
+# The gateway handles which real provider receives the call
+resp = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Summarize this report."}]
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any organization running more than one LLM model or provider benefits from a gateway. It eliminates per-service key management and gives platform teams a single control point for all AI traffic.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway translates virtual keys into real provider credentials, applies routing logic, and returns the response. Your application code never sees real API keys or provider-specific quirks.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Problems a Gateway Solves: Key Sprawl, Lock-in, No Visibility</h3>
+<p><strong>What &amp; why.</strong> Without a gateway, each team manages its own provider keys, costs are invisible at the org level, switching providers requires code changes, and there is no central place to enforce rate limits or audit usage. Key sprawl means dozens of API keys scattered across env files, secret managers, and developer machines.</p>
+<pre class="code"><code># Without gateway: every service hard-codes provider details
+# service-a/.env
+OPENAI_API_KEY=sk-real-key-1
+OPENAI_MODEL=gpt-4o
+
+# service-b/.env
+ANTHROPIC_API_KEY=sk-ant-real-key-2
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
+
+# With gateway: all services point to one endpoint
+# All services use:
+GATEWAY_URL=https://gateway.internal/v1
+VIRTUAL_KEY=virtual-key-team-alpha</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Key sprawl is the most common driver for gateway adoption. Once keys leak into logs, CI configs, or developer environments, revoking them requires chasing every copy. A gateway eliminates this attack surface.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway stores real provider credentials encrypted at rest. Applications receive short-lived virtual tokens scoped to specific models and budgets. Revoking a virtual key instantly cuts off access without touching provider dashboards.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Direct Call vs. Gateway Architecture</h3>
+<p><strong>What &amp; why.</strong> In a direct-call architecture, each application embeds provider keys and calls provider APIs directly. In a gateway architecture, all calls flow through a proxy that owns the provider credentials. The trade-off is added network hop (typically 2-10ms) versus centralized control, auditability, and credential isolation.</p>
+<pre class="code"><code># Direct call: app talks to provider
+# [App] -----> [OpenAI API]
+# [App] -----> [Anthropic API]
+# [App] -----> [Google API]
+
+# Gateway: app talks to gateway, gateway talks to providers
+# [App] -----> [Gateway] -----> [OpenAI API]
+# [App] -----> [Gateway] -----> [Anthropic API]
+# [App] -----> [Gateway] -----> [Google API]
+
+# Benefits accumulated at the gateway:
+# - One place for logging, auth, rate limits, fallbacks
+# - Provider credentials never leave the gateway
+# - Swapping providers requires zero application changes</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Direct calls work for prototypes with a single provider. The gateway pattern becomes necessary when you hit two providers, two teams, or any compliance requirement for credential management.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway introduces a single point of failure. Production deployments must be highly available (multi-instance, health checks, graceful degradation) to avoid becoming a bottleneck.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>LiteLLM Proxy: Quickstart Configuration</h3>
+<p><strong>What &amp; why.</strong> LiteLLM provides an open-source proxy that exposes an OpenAI-compatible API and routes to 100+ LLM providers. A single YAML config file defines your model catalog, virtual keys, and routing rules. The proxy can run as a Python process or Docker container.</p>
+<pre class="code"><code># litellm_config.yaml
+model_list:
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+litellm_settings:
+  drop_params: ["stop"]
+  set_verbose: false</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LiteLLM proxy is the fastest path to a working gateway. Deploy it in under 10 minutes and immediately gain model aliasing, key management, and usage tracking across providers.</div>
+<div class="callout hood"><span>Under the hood</span>LiteLLM translates between provider-specific API formats (Anthropic messages, Google Gemini, Bedrock Converse) and the OpenAI chat/completions format, so your application code only needs to speak one API.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Model Aliasing: Map Logical Names to Real Models</h3>
+<p><strong>What &amp; why.</strong> Model aliasing lets you define logical names (like "primary" or "fast") that map to actual provider models. When you upgrade from GPT-4o to a newer model, you update the alias in one place and all consumers pick it up. This decouples application code from specific model versions.</p>
+<pre class="code"><code># LiteLLM alias config
+model_list:
+  - model_name: primary
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: primary
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_key: os.environ/ANTHROPIC_API_KEY
+      api_base: https://api.anthropic.com
+
+  - model_name: fast
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: cheap
+    litellm_params:
+      model: openai/gpt-4.1-nano-2025-04-14
+      api_key: os.environ/OPENAI_API_KEY
+
+# Application code uses aliases:
+# model="primary" -> gateway routes to configured model
+# model="fast" -> lightweight model for simple tasks</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Aliasing is critical for zero-downtime model upgrades. When a new model drops, you update the alias mapping and test with a canary before shifting all traffic.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway maintains a model catalog with metadata (context window, pricing tier, capabilities). Alias resolution happens at request time, allowing dynamic re-routing without redeploying consumers.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>OpenAI-Compatible /chat/completions Surface</h3>
+<p><strong>What &amp; why.</strong> The gateway exposes a standard OpenAI-compatible /v1/chat/completions endpoint. This means any SDK, library, or tool that works with OpenAI can talk to your gateway without modification. The compatibility layer translates requests and responses between provider-specific formats.</p>
+<pre class="code"><code># Any OpenAI-compatible client works with the gateway
+import openai
+
+client = openai.OpenAI(
+    base_url="https://gateway.internal/v1",
+    api_key="virtual-key-team-alpha"
+)
+
+# Standard OpenAI call - gateway handles provider translation
+response = client.chat.completions.create(
+    model="claude-sonnet",  # alias mapped by gateway
+    messages=[{"role": "user", "content": "Hello"}],
+    temperature=0.7,
+    max_tokens=1024
+)
+
+# Streaming also works identically
+stream = client.chat.completions.create(
+    model="primary",
+    messages=[{"role": "user", "content": "Tell me a story"}],
+    stream=True
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>OpenAI compatibility is the de facto standard. LangChain, LlamaIndex, CrewAI, and virtually every agent framework speaks this protocol. A gateway that implements it gets instant ecosystem compatibility.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway must handle subtle differences: Anthropic uses "system" as a top-level parameter (not a message role), Google uses "parts" instead of "content", and Bedrock wraps everything in a Converse API. The compatibility layer normalizes all of these.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Virtual Keys: Per-Team Scoped Credentials</h3>
+<p><strong>What &amp; why.</strong> Virtual keys are gateway-issued credentials that map to a specific team, project, or environment. They carry embedded policies: which models are allowed, what budget limits apply, and what rate caps are enforced. Revoking a virtual key instantly cuts off access without touching provider dashboards.</p>
+<pre class="code"><code># LiteLLM virtual key creation
+# POST /key/generate with policies
+{
+    "metadata": {"team": "ml-research"},
+    "models": ["gpt-4o", "claude-sonnet"],
+    "max_budget": 500,
+    "budget_duration": "30d",
+    "rpm_limit": 100,
+    "tpm_limit": 100000,
+    "max_parallel_requests": 5
+}
+
+# List keys with usage data
+# GET /key/info?key=sk-virtual-xxx
+{
+    "key": "sk-virtual-xxx",
+    "metadata": {"team": "ml-research"},
+    "models": ["gpt-4o", "claude-sonnet"],
+    "spend": 127.43,
+    "max_budget": 500
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Virtual keys replace the pattern of sharing a single provider key across teams. Each team gets its own key with scoped access, making cost attribution and access control trivial.</div>
+<div class="callout hood"><span>Under the hood</span>Virtual keys are typically JWT tokens or database-stored records with embedded policies. The gateway validates the key on every request, enforces limits, and logs usage against the key's metadata.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Basic Fallback Chain: Provider Failover</h3>
+<p><strong>What &amp; why.</strong> A fallback chain defines an ordered list of providers to try if the primary fails. If OpenAI returns a 503, the gateway automatically retries on Anthropic or Google. This provides resilience against provider outages without any application-level logic.</p>
+<pre class="code"><code># LiteLLM fallback configuration
+model_list:
+  - model_name: primary
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: primary
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+  retry_after: 5
+  allowed_fails: 3
+  cooldown_time: 30
+
+# When openai/gpt-4o fails, gateway tries anthropic/claude-sonnet
+# automatically, transparent to the calling application</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fallback chains are essential for production reliability. Provider outages happen regularly; a well-configured chain keeps your application running with minimal latency impact.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway tracks provider health with circuit breakers. After multiple consecutive failures, a provider enters cooldown and is skipped for subsequent requests until it recovers.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Spend Tracking: Headers and Usage Attribution</h3>
+<p><strong>What &amp; why.</strong> The gateway logs token usage and cost for every request, attributed to the virtual key that made it. Spend data flows to dashboards showing per-team, per-model, and per-feature costs. Custom headers can tag requests for finer-grained attribution (e.g., which feature or experiment triggered the call).</p>
+<pre class="code"><code># Custom spend headers passed through gateway
+headers = {
+    "x-spend-group": "feature-search",
+    "x-experiment": "rag-v2-test",
+    "x-request-id": "req-abc-123"
+}
+
+response = client.chat.completions.create(
+    model="primary",
+    messages=messages,
+    extra_headers=headers
+)
+
+# Gateway logs (structured JSON per request):
+# {
+#   "request_id": "req-abc-123",
+#   "virtual_key": "sk-virtual-xxx",
+#   "team": "ml-research",
+#   "model": "gpt-4o",
+#   "prompt_tokens": 1247,
+#   "completion_tokens": 583,
+#   "cost_usd": 0.0184,
+#   "latency_ms": 2340,
+#   "x_spend_group": "feature-search"
+# }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Spend tracking headers let you attribute costs to specific features, experiments, or customers. This is critical for FinOps teams building chargeback models and for product teams optimizing AI feature costs.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway intercepts the response's usage field (prompt_tokens, completion_tokens) and multiplies by the model's current pricing. Structured logs are exported to your observability stack (Datadog, BigQuery, or S3).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Simple Rate Limiting Per Key</h3>
+<p><strong>What &amp; why.</strong> Rate limiting protects both your budget and the gateway itself. Limits can be expressed as requests per minute (RPM), tokens per minute (TPM), or requests per day (RPD). When a key exceeds its limit, the gateway returns a 429 Too Many Requests with a Retry-After header.</p>
+<pre class="code"><code># Virtual key with rate limits
+{
+    "key": "sk-virtual-key-abc",
+    "models": ["primary", "fast"],
+    "rpm_limit": 60,
+    "tpm_limit": 90000,
+    "max_budget": 200,
+    "budget_duration": "30d"
+}
+
+# 429 response when limit exceeded:
+# {
+#   "error": {
+#     "type": "rate_limit_error",
+#     "message": "Rate limit reached for key sk-virtual-xxx. "
+#                "Retry after 12 seconds.",
+#     "param": null,
+#     "code": "rate_limit_exceeded"
+#   }
+# }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Rate limits prevent runaway loops, abuse, and budget overruns. Set conservative limits for development keys and higher limits for production workloads.</div>
+<div class="callout hood"><span>Under the hood</span>Most gateways implement sliding-window rate limiters using Redis. The counter decrements as the window slides, providing smooth rate enforcement without the burstiness of fixed windows.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Logging All Requests Through the Gateway</h3>
+<p><strong>What &amp; why.</strong> The gateway captures every request's full lifecycle: incoming payload, routing decision, provider call, response, latency, token counts, and cost. Structured logs (JSON lines) enable post-hoc analysis, debugging, and compliance auditing. Logs can be streamed to external systems for real-time monitoring.</p>
+<pre class="code"><code># LiteLLM logging configuration
+litellm_settings:
+  set_verbose: true
+  failure_callback:
+    - litellm.utils.failure_callback
+
+# Custom callback for structured logging
+import litellm
+
+def custom_success_callback(response, **kwargs):
+    print(f"MODEL: {response.model}")
+    print(f"TOKENS: {response.usage.prompt_tokens} in / "
+          f"{response.usage.completion_tokens} out")
+    print(f"COST: ${response._hidden_params.get('cost', 0):.6f}")
+
+litellm.success_callback = [custom_success_callback]
+
+# Logs structured as JSON for ingestion:
+# {"ts": "2025-07-15T10:30:00Z", "key": "sk-xxx",
+#  "model": "gpt-4o", "tokens_in": 500, "tokens_out": 200,
+#  "latency_ms": 1800, "cost": 0.007, "status": 200}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Request logging is mandatory for compliance (SOC 2, GDPR) and essential for debugging. The gateway is the only place you get a complete picture of every LLM interaction across all services.</div>
+<div class="callout hood"><span>Under the hood</span>Logs are typically written to stdout as JSON lines and collected by a log shipper (Fluentd, Vector, Datadog Agent). For sensitive data, the gateway can redact message content while preserving metadata.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>When You Need a Gateway: Decision Criteria</h3>
+<p><strong>What &amp; why.</strong> Not every project needs a gateway. You likely need one when you hit two or more of these triggers: multiple LLM providers in use, multiple teams sharing provider accounts, compliance requirements for credential management, cost visibility needs beyond provider dashboards, or the need for fallback routing during outages.</p>
+<pre class="code"><code># Decision checklist - if you answer yes to 2+, you need a gateway
+
+checklist = {
+    "multiple_providers": True,       # Using 2+ LLM providers
+    "multiple_teams": True,           # 3+ teams share provider keys
+    "compliance_required": False,     # SOC2 / GDPR / audit needs
+    "cost_visibility": True,          # Need org-wide cost breakdown
+    "need_fallback": True,            # Provider outage resilience
+    "production_agents": True,        # Agents in prod serving users
+    "evaluation_pipeline": False,     # Need to compare models
+}
+
+triggers = sum(checklist.values())
+if triggers >= 2:
+    print("Gateway recommended. Start with LiteLLM proxy.")
+else:
+    print("Direct provider calls are fine for now.")
+    print("Revisit when you hit 2+ triggers.")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Teams often add a gateway after their second provider outage or their first monthly bill surprise. The decision criteria help you time the adoption correctly without premature complexity.</div>
+<div class="callout hood"><span>Under the hood</span>Most organizations adopt a gateway between 2-5 LLM models in production. Earlier adoption (prototyping) adds unnecessary latency. Later adoption means retrofitting key management across existing services.</div>
+</article>
+
+</section>
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Routing, retries, budgets, semantic routing, caching, streaming, auth, audit</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Routing Policies: Cheapest-First and Latency-Based</h3>
+<p><strong>What &amp; why.</strong> Routing policies determine which provider or model handles a request. Cheapest-first routes to the lowest-cost model that satisfies the task. Latency-based routing selects the provider with the fastest response time. These policies can be combined with weighted round-robin for gradual traffic shifts.</p>
+<pre class="code"><code># LiteLLM routing strategies
+router_settings:
+  routing_strategy: latency-based-routing
+  num_retries: 2
+  allowed_fails: 3
+  cooldown_time: 30
+
+model_list:
+  - model_name: smart
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: smart
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+# latency-based: gateway pings providers, routes to fastest
+# cheapest-first: gateway uses pricing table, routes to lowest cost
+# usage-based: routes based on current provider utilization</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Latency-based routing is critical for real-time applications (chat, voice). Cheapest-first is ideal for batch workloads and background tasks where cost optimization matters more than speed.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway maintains a latency heatmap per provider, updated with each request's response time. Routing decisions use a sliding window average (typically 30-60 seconds) to smooth out transient spikes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Retries with Provider Failover</h3>
+<p><strong>What &amp; why.</strong> Retries handle transient failures: rate limits (429), server errors (500/503), and timeouts. The gateway implements exponential backoff with jitter, retries on the same provider first, then fails over to the next provider in the chain. This is transparent to the calling application.</p>
+<pre class="code"><code># Retry configuration in LiteLLM router
+router_settings:
+  num_retries: 3
+  retry_after: 5           # seconds between retries
+  allowed_fails: 3         # circuit breaker threshold
+  cooldown_time: 60        # seconds to skip failed provider
+
+# Retry behavior:
+# Attempt 1: openai/gpt-4o -> 429 rate limited
+# Wait 5s
+# Attempt 2: openai/gpt-4o -> 429 rate limited
+# Wait 10s (exponential backoff)
+# Attempt 3: openai/gpt-4o -> 500 server error
+# Failover: anthropic/claude-sonnet -> success
+
+# Status code routing
+retry_status_codes = [408, 429, 500, 502, 503, 504]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Transient failures are common. A well-tuned retry policy eliminates 95% of user-visible errors. Without retries, every provider hiccup becomes a user-facing failure.</div>
+<div class="callout hood"><span>Under the hood</span>Jitter prevents thundering herd when multiple clients retry simultaneously. The gateway tracks failure rates per provider and automatically opens circuit breakers when failure rates exceed thresholds.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Budgets and Quota Enforcement Per Key</h3>
+<p><strong>What &amp; why.</strong> Budgets cap spending per virtual key over a time period. Quotas limit the number of requests or tokens. The gateway enforces these limits at request time, rejecting calls that would exceed the budget. This prevents runaway costs from loops, bugs, or abuse.</p>
+<pre class="code"><code># Virtual key with budget and quota
+{
+    "key": "sk-virtual-key-beta",
+    "models": ["primary"],
+    "max_budget": 100,           # $100 USD total
+    "budget_duration": "30d",    # resets monthly
+    "rpm_limit": 30,             # 30 requests per minute
+    "tpm_limit": 50000,          # 50k tokens per minute
+    "max_parallel_requests": 3,  # concurrent limit
+    "model_rpm_limit": {         # per-model limits
+        "gpt-4o": 10,
+        "gpt-4o-mini": 20
+    }
+}
+
+# Budget exceeded response:
+# {"error": {"message": "Budget exceeded for key sk-xxx. "
+#   "Current spend: $100.00 / $100.00. Contact admin.",
+#   "type": "budget_exceeded"}}
+
+# Usage tracking endpoint
+# GET /key/info?key=sk-xxx
+# Returns: spend, remaining, usage_by_model, usage_by_date</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Budget enforcement is the most requested gateway feature. It catches runaway loops before they burn through your monthly budget. Set conservative limits and adjust based on actual usage patterns.</div>
+<div class="callout hood"><span>Under the hood</span>Budget tracking uses a token bucket or sliding window counter in Redis. The gateway updates the counter after each request completes (using actual token counts), not before (which would be speculative).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Semantic Router: Intent-to-Model Mapping</h3>
+<p><strong>What &amp; why.</strong> A semantic router analyzes the user's input and selects the most appropriate model based on task complexity. Simple questions go to fast/cheap models, complex reasoning goes to powerful/expensive models. This optimizes cost without sacrificing quality where it matters.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer
+import numpy as np
+
+# Define route examples for each model tier
+routes = {
+    "fast": [
+        "What is 2+2?", "Convert 100 USD to SGD",
+        "What time is it in Tokyo?", "Define machine learning"
+    ],
+    "standard": [
+        "Summarize this article about climate change",
+        "Explain how transformers work in NLP",
+        "Write a Python function for data validation"
+    ],
+    "powerful": [
+        "Analyze the ethical implications of this policy",
+        "Design a distributed system architecture",
+        "Debug this complex multi-threaded race condition"
+    ]
+}
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+route_embeddings = {k: model.encode(v) for k, v in routes.items()}
+
+def select_model(user_query: str) -> str:
+    query_emb = model.encode([user_query])[0]
+    best_route, best_score = "standard", -1
+    for route_name, embeddings in route_embeddings.items():
+        similarity = max(np.dot(query_emb, e) for e in embeddings)
+        if similarity > best_score:
+            best_route, best_score = route_name, similarity
+    return {"fast": "fast", "standard": "primary", "powerful": "smart"}[best_route]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Semantic routing can reduce costs by 60-80% for workloads with many simple queries. It's most effective when task complexity varies widely within a single application.</div>
+<div class="callout hood"><span>Under the hood</span>The router uses embedding similarity between the query and route examples. More examples per route improve accuracy. The classification adds ~5ms latency (one small embedding call).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Caching: Identical Prompts and Prefix Caching</h3>
+<p><strong>What &amp; why.</strong> Caching stores responses for repeated identical prompts, avoiding redundant provider calls. Prefix caching (supported by OpenAI, Anthropic, and Google) caches the KV cache for prompt prefixes, reducing latency and cost for requests that share common system prompts or context.</p>
+<pre class="code"><code># LiteLLM caching configuration
+litellm_settings:
+  cache: true
+  cache_params:
+    type: "redis"
+    host: "redis.internal"
+    port: 6379
+    ttl: 3600           # cache for 1 hour
+    suffix: "litellm"
+
+# Cache behavior:
+# Request 1: "Summarize this 10-page report" -> cache MISS, call provider
+# Request 2: "Summarize this 10-page report" -> cache HIT, return stored
+
+# Prefix caching (provider-side):
+# Long system prompt + short user query
+# Provider caches the system prompt KV cache
+# Subsequent requests reuse cached prefix
+# OpenAI: automatic for prompts > 1024 tokens
+# Anthropic: prompt_caching=True on messages</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Caching is highest-impact for repeated system prompts and identical user queries. Agent loops with fixed system instructions benefit greatly from prefix caching, reducing both latency and token costs.</div>
+<div class="callout hood"><span>Under the hood</span>Redis-backed caching uses content hashing for cache keys. Non-deterministic outputs (temperature > 0) should only cache based on the prompt hash. Provider-side prefix caching is transparent and managed by the provider's infrastructure.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Streaming Passthrough: SSE Relay</h3>
+<p><strong>What &amp; why.</strong> The gateway must relay streaming responses (Server-Sent Events) without buffering. Each token chunk flows through the gateway to the client in real time. The gateway can still log token counts and costs even for streaming responses by accumulating usage data from the final chunk.</p>
+<pre class="code"><code># Gateway streaming passthrough
+import httpx
+
+async def stream_with_gateway(query: str):
+    async with httpx.AsyncClient() as client:
+        async with client.stream(
+            "POST",
+            "https://gateway.internal/v1/chat/completions",
+            json={
+                "model": "primary",
+                "messages": [{"role": "user", "content": query}],
+                "stream": True
+            },
+            headers={"Authorization": "Bearer sk-virtual-key-xxx"}
+        ) as resp:
+            async for line in resp.aiter_lines():
+                if line.startswith("data: "):
+                    chunk = line[6:]
+                    if chunk == "[DONE]":
+                        yield chunk
+                        break
+                    # Each chunk relayed in real time
+                    yield f"data: {chunk}\n\n"
+
+# Usage logging happens after stream completes
+# Gateway accumulates token counts from final usage chunk</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Streaming is required for responsive chat interfaces. The gateway must not add latency to individual chunks, which means no buffering. Each chunk should pass through within 1-2ms.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway opens a streaming connection to the provider and a streaming connection to the client, piping bytes between them. Usage data is extracted from the final [DONE] chunk's usage field when available.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Authentication: API Keys and JWT for Agents</h3>
+<p><strong>What &amp; why.</strong> The gateway authenticates callers using virtual API keys or JWT tokens. API keys are simpler; JWTs carry embedded policies (allowed models, budget, expiry) and don't require a lookup on every request. For machine-to-machine agent communication, JWTs with short TTLs provide better security.</p>
+<pre class="code"><code># Virtual API key (simple auth)
+curl -H "Authorization: Bearer sk-virtual-key-xxx" \
+  https://gateway.internal/v1/chat/completions
+
+# JWT token (richer, self-contained)
+import jwt, time
+
+payload = {
+    "sub": "agent-orchestrator",
+    "team": "ml-platform",
+    "models": ["primary", "fast"],
+    "max_cost": 50,
+    "iat": int(time.time()),
+    "exp": int(time.time()) + 3600  # 1 hour TTL
+}
+token = jwt.encode(payload, gateway_secret, algorithm="HS256")
+
+# Gateway validates JWT on every request:
+# 1. Check signature
+# 2. Check expiry
+# 3. Extract policies from claims
+# 4. Enforce model allowlist and budget</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>JWT tokens are preferred for agent-to-agent communication because they're self-contained and short-lived. API keys work well for human-developed services with longer lifecycles.</div>
+<div class="callout hood"><span>Under the hood</span>JWT validation adds ~1ms overhead per request. The gateway caches validation results for the token's TTL to avoid repeated signature verification.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Multi-Tenancy: Isolation Between Teams and Projects</h3>
+<p><strong>What &amp; why.</strong> Multi-tenancy ensures that Team A cannot see Team B's logs, spend data, or use Team B's virtual keys. Each tenant gets isolated model access, budget tracking, and audit logs. The gateway enforces tenant boundaries at every layer: auth, routing, logging, and data storage.</p>
+<pre class="code"><code># Tenant isolation configuration
+tenants = {
+    "ml-research": {
+        "models": ["gpt-4o", "claude-sonnet", "gemini-pro"],
+        "max_budget": 5000,
+        "allowed_regions": ["us-east-1", "eu-west-1"],
+        "data_residency": "eu",
+        "log_retention_days": 90
+    },
+    "product-app": {
+        "models": ["gpt-4o-mini", "fast"],
+        "max_budget": 500,
+        "allowed_regions": ["us-east-1"],
+        "data_residency": "us",
+        "log_retention_days": 30
+    }
+}
+
+# Each tenant's virtual keys are scoped:
+# - model allowlist
+# - budget limits
+# - data residency requirements
+# - log retention policies
+# - separate audit logs</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-tenancy is critical for organizations with multiple teams. It prevents cost surprises (one team's spend affecting another's budget) and enables accurate departmental chargeback.</div>
+<div class="callout hood"><span>Under the hood</span>Tenant isolation is enforced at the gateway layer through virtual key metadata. All downstream systems (logs, dashboards, billing) filter by tenant ID to maintain isolation boundaries.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Audit Log Schema: Who Called What and at What Cost</h3>
+<p><strong>What &amp; why.</strong> The audit log records every gateway interaction with enough detail for compliance and debugging: who (virtual key/team), what (model/prompt), when (timestamp), how much (tokens/cost), and the outcome (success/error). This is the foundation for SOC 2, GDPR data access logs, and internal FinOps reporting.</p>
+<pre class="code"><code># Audit log schema (JSON lines format)
+{
+    "event_id": "evt-2025-07-15-001",
+    "timestamp": "2025-07-15T10:30:00.123Z",
+    "virtual_key_id": "sk-xxx",
+    "team": "ml-research",
+    "project": "rag-pipeline",
+    "model_requested": "primary",
+    "model_actual": "gpt-4o",
+    "provider": "openai",
+    "prompt_tokens": 1500,
+    "completion_tokens": 450,
+    "total_tokens": 1950,
+    "cost_usd": 0.0285,
+    "latency_ms": 2100,
+    "status": "success",
+    "error_type": null,
+    "request_id": "req-abc-123",
+    "ip_address": "10.0.1.42",
+    "user_agent": "python-sdk/1.30.0"
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Audit logs are mandatory for SOC 2 compliance and essential for incident response. When a cost spike occurs, the audit log tells you exactly which team, model, and request caused it.</div>
+<div class="callout hood"><span>Under the hood</span>Audit logs are append-only and stored in immutable storage (S3 with versioning, or a dedicated log database). Log integrity can be verified with hash chains for tamper evidence.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Model Catalog: Metadata, Context Windows, and Pricing</h3>
+<p><strong>What &amp; why.</strong> The gateway maintains a catalog of all available models with metadata: context window size, input/output pricing, capabilities (vision, function calling, streaming), and status. This catalog powers routing decisions, cost calculations, and budget enforcement.</p>
+<pre class="code"><code># Model catalog entries
+model_catalog = {
+    "gpt-4o": {
+        "provider": "openai",
+        "context_window": 128000,
+        "input_cost_per_1k": 0.0025,
+        "output_cost_per_1k": 0.01,
+        "capabilities": ["vision", "function_calling", "streaming"],
+        "max_output_tokens": 16384,
+        "status": "active"
+    },
+    "claude-sonnet-4-20250514": {
+        "provider": "anthropic",
+        "context_window": 200000,
+        "input_cost_per_1k": 0.003,
+        "output_cost_per_1k": 0.015,
+        "capabilities": ["vision", "function_calling", "streaming"],
+        "max_output_tokens": 8192,
+        "status": "active"
+    },
+    "gpt-4o-mini": {
+        "provider": "openai",
+        "context_window": 128000,
+        "input_cost_per_1k": 0.00015,
+        "output_cost_per_1k": 0.0006,
+        "capabilities": ["function_calling", "streaming"],
+        "max_output_tokens": 16384,
+        "status": "active"
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The model catalog is the source of truth for all cost calculations. When providers change pricing, updating the catalog automatically corrects all downstream cost tracking.</div>
+<div class="callout hood"><span>Under the hood</span>The catalog should be versioned and updated through CI/CD. Providers publish pricing via API (OpenAI), but many require manual updates. Automate catalog refresh with scheduled jobs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Canary Deployments: Percentage Rollout for New Models</h3>
+<p><strong>What &amp; why.</strong> When a new model is available, you don't switch all traffic at once. Canary routing sends a small percentage (e.g., 5%) of traffic to the new model while the rest stays on the proven model. Monitor quality metrics before increasing the percentage. This minimizes blast radius of bad model behavior.</p>
+<pre class="code"><code># Canary routing configuration
+model_list:
+  - model_name: primary
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+    weight: 95  # 95% of traffic
+
+  - model_name: primary
+    litellm_params:
+      model: openai/gpt-5
+      api_key: os.environ/OPENAI_API_KEY
+    weight: 5   # 5% canary
+
+# Progressive rollout:
+# Week 1: 5% canary, monitor error rates and quality
+# Week 2: 25% if metrics look good
+# Week 3: 50%
+# Week 4: 100% (fully migrated)
+
+# Rollback: set canary weight to 0 instantly
+# All traffic returns to stable model</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Canary deployments are standard for model upgrades. They catch quality regressions before they affect all users. The gateway makes canary management a config change, not a code deployment.</div>
+<div class="callout hood"><span>Under the hood</span>Weighted routing uses consistent hashing or random selection weighted by the configured percentages. The gateway logs which model handled each request so you can compare quality metrics across canary and stable.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>PII Scrubbing Hook at the Gateway Edge</h3>
+<p><strong>What &amp; why.</strong> PII scrubbing detects and redacts personally identifiable information (names, emails, phone numbers, NRIC) before requests leave your network. The gateway runs regex or ML-based PII detection on every outbound request, replacing sensitive data with placeholders. This prevents PII from reaching external providers.</p>
+<pre class="code"><code>import re
+from litellm import ModelResponse
+
+# PII patterns for Singapore context
+PII_PATTERNS = {
+    "email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
+    "phone": r"\b(?:\+65\s?)?\d{4}\s?\d{4}\b",
+    "nric": r"\b[STFG]\d{7}[A-Z]\b",
+    "credit_card": r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b"
+}
+
+def scrub_pii(text: str) -> tuple[str, list[str]]:
+    """Redact PII from text, return scrubbed text and list of redacted types."""
+    redacted = []
+    for pii_type, pattern in PII_PATTERNS.items():
+        if re.search(pattern, text):
+            text = re.sub(pattern, f"[REDACTED_{pii_type.upper()}]", text)
+            redacted.append(pii_type)
+    return text, redacted
+
+# Gateway hook: run before forwarding to provider
+def pre_request_hook(request):
+    for msg in request["messages"]:
+        if isinstance(msg.get("content"), str):
+            msg["content"], redacted = scrub_pii(msg["content"])
+            if redacted:
+                log_pii_redaction(request, redacted)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>PII scrubbing is essential for compliance with PDPA (Singapore), GDPR (EU), and HIPAA (US). The gateway is the last line of defense before data leaves your network.</div>
+<div class="callout hood"><span>Under the hood</span>The scrubbing hook runs synchronously before the request is forwarded. It adds 5-20ms depending on message length. For high-throughput scenarios, use compiled regex or spaCy NER for more accurate detection.</div>
+</article>
+
+</section>
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Load balancing, circuit breakers, hedging, guardrails, MCP federation, cost allocation</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Token-Based Load Balancing Across Keys and Regions</h3>
+<p><strong>What &amp; why.</strong> Token-based load balancing distributes requests across multiple API keys and regions based on current token consumption rather than request count. This is important because rate limits are typically expressed in tokens per minute (TPM), not requests per minute. A few long requests can exhaust a key's token budget while others sit idle.</p>
+<pre class="code"><code># Multiple keys for the same model, different regions
+model_list:
+  - model_name: primary
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_KEY_US
+    model_info:
+      region: us-east-1
+  - model_name: primary
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_KEY_EU
+    model_info:
+      region: eu-west-1
+
+router_settings:
+  routing_strategy: usage-based-routing
+  # Routes to the key/region with lowest current token utilization
+  # Balances across keys and geographic regions
+  # Respects per-key TPM limits</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-key load balancing is essential when single-key TPM limits are insufficient. It's common for production workloads to spread traffic across 3-10 keys per model provider.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway tracks real-time token consumption per key using Redis counters. Routing decisions query current utilization and select the least-loaded key, preventing any single key from hitting its TPM limit.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Circuit Breakers and Provider Health Checks</h3>
+<p><strong>What &amp; why.</strong> Circuit breakers prevent the gateway from repeatedly calling a failing provider. After a threshold of consecutive failures, the circuit opens and all requests are routed elsewhere. Periodic health checks detect when the provider recovers. This prevents cascading failures and reduces latency during outages.</p>
+<pre class="code"><code>import time
+from enum import Enum
+
+class CircuitState(Enum):
+    CLOSED = "closed"      # Normal operation
+    OPEN = "open"          # Failing, skip this provider
+    HALF_OPEN = "half_open" # Testing recovery
+
+class CircuitBreaker:
+    def __init__(self, failure_threshold=5, recovery_timeout=60):
+        self.state = CircuitState.CLOSED
+        self.failure_count = 0
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.last_failure_time = 0
+
+    def record_failure(self):
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        if self.failure_count >= self.failure_threshold:
+            self.state = CircuitState.OPEN
+
+    def record_success(self):
+        self.failure_count = 0
+        self.state = CircuitState.CLOSED
+
+    def should_allow(self) -> bool:
+        if self.state == CircuitState.CLOSED:
+            return True
+        if self.state == CircuitState.OPEN:
+            if time.time() - self.last_failure_time > self.recovery_timeout:
+                self.state = CircuitState.HALF_OPEN
+                return True  # Allow one test request
+            return False
+        return True  # HALF_OPEN: allow test request</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Circuit breakers are essential for multi-provider setups. Without them, a failing provider causes cascading timeouts as every request waits for a provider that will never respond.</div>
+<div class="callout hood"><span>Under the hood</span>The circuit breaker uses a state machine: CLOSED (normal), OPEN (failing), HALF_OPEN (testing recovery). The half-open state allows a single test request to verify the provider has recovered before resuming traffic.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Request Hedging for Tail-Latency Mitigation</h3>
+<p><strong>What &amp; why.</strong> Request hedging sends the same request to multiple providers simultaneously and uses the first complete response. This eliminates tail-latency outliers caused by slow GC pauses, network jitter, or provider queuing. The extra cost is offset by consistently low latency.</p>
+<pre class="code"><code># Hedging configuration
+router_settings:
+  routing_strategy: usage-based-routing
+  enable_request_hedging: true
+  hedge_latency_threshold_ms: 3000
+  # If first response takes > 3s, send to backup provider
+  # Use whichever response arrives first
+
+import asyncio, time
+
+async def hedged_request(query: str, providers: list):
+    """Send to multiple providers, return first complete response."""
+    async def call_with_timeout(provider, timeout):
+        start = time.time()
+        try:
+            result = await provider.complete(query)
+            return result, time.time() - start
+        except Exception:
+            return None, time.time() - start
+
+    # Send to primary and backup simultaneously
+    tasks = [call_with_timeout(p, 5) for p in providers[:2]]
+    done, pending = await asyncio.wait(
+        tasks, timeout=5, return_when=asyncio.FIRST_COMPLETED
+    )
+
+    for task in pending:
+        task.cancel()
+
+    return done.pop().result()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hedging is used by latency-sensitive applications (real-time chat, voice agents) where P99 latency matters more than cost. It typically adds 30-50% cost but eliminates tail-latency spikes.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway sends identical requests to 2-3 providers concurrently. The first response wins; others are discarded. This is effective because provider latency distributions have long tails caused by queuing, GC, and network issues.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Guardrails Integration: Pre and Post Hooks</h3>
+<p><strong>What &amp; why.</strong> Guardrails are validation and transformation functions that run before (pre-hooks) and after (post-hooks) the LLM call. Pre-hooks validate input, scrub PII, and check policy compliance. Post-hooks validate output for hallucination, policy violations, or format correctness. The gateway is the natural enforcement point.</p>
+<pre class="code"><code># Pre-hook: input validation and PII scrubbing
+def pre_hook(request):
+    messages = request["messages"]
+    for msg in messages:
+        content = msg.get("content", "")
+        # Check for prompt injection attempts
+        if detect_injection(content):
+            raise PolicyViolation("Potential prompt injection detected")
+        # Scrub PII before sending to provider
+        msg["content"] = scrub_pii(content)
+    return request
+
+# Post-hook: output validation
+def post_hook(response, request):
+    content = response.choices[0].message.content
+    # Check for PII leakage in response
+    if contains_pii(content):
+        response.choices[0].message.content = redact_pii(content)
+    # Check for toxicity
+    if toxicity_score(content) > 0.8:
+        raise PolicyViolation("Response flagged for toxicity")
+    # Check format compliance
+    if request.get("response_format"):
+        validate_format(response, request["response_format"])
+    return response
+
+# Gateway registration
+gateway.add_pre_hook(pre_hook)
+gateway.add_post_hook(post_hook)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Guardrails at the gateway level ensure consistent policy enforcement across all services. Individual teams don't need to implement their own validation logic.</div>
+<div class="callout hood"><span>Under the hood</span>Pre-hooks add latency to the request path (5-50ms depending on complexity). Post-hooks add latency to the response path. Keep hooks fast and move heavy processing to async pipelines.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>MCP Server Federation Behind the Gateway</h3>
+<p><strong>What &amp; why.</strong> The gateway can federate multiple MCP (Model Context Protocol) servers, presenting a unified tool catalog to agents while routing tool calls to the appropriate backend server. This centralizes MCP server management, authentication, and observability behind the gateway's control plane.</p>
+<pre class="code"><code># Gateway federates multiple MCP servers
+mcp_servers = {
+    "file-system": {
+        "transport": "stdio",
+        "command": "python",
+        "args": ["-m", "mcp_filesystem", "/data"],
+        "capabilities": ["tools", "resources"]
+    },
+    "database": {
+        "transport": "streamable-http",
+        "url": "https://mcp-db.internal/mcp",
+        "capabilities": ["tools", "resources"],
+        "auth_token": os.environ["DB_MCP_TOKEN"]
+    },
+    "slack": {
+        "transport": "streamable-http",
+        "url": "https://mcp-slack.internal/mcp",
+        "capabilities": ["tools"],
+        "rate_limit": 100  # requests per minute
+    }
+}
+
+# Agent calls gateway -> gateway routes to correct MCP server
+# Agent sees unified tool catalog across all servers
+# Gateway handles auth, rate limiting, and logging per server</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Federating MCP servers behind a gateway prevents agents from needing direct access to each server. The gateway handles authentication, load balancing, and failure routing across the MCP fleet.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway aggregates tool listings from all configured MCP servers during initialization. Tool names are namespaced (e.g., "file-system.read_file") to prevent collisions across servers.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Cost Allocation: Showback and Chargeback Reports</h3>
+<p><strong>What &amp; why.</strong> Showback reports show teams their AI costs without actually billing them. Chargeback reports feed into the organization's financial system for actual billing. The gateway's per-key audit logs provide the raw data for both. Cost allocation rules map shared costs (e.g., a common agent serving multiple teams) to responsible parties.</p>
+<pre class="code"><code># Monthly cost allocation report
+def generate_cost_report(audit_logs, period="2025-07"):
+    """Generate per-team cost allocation from audit logs."""
+    team_costs = {}
+    for log in audit_logs.filter(period=period):
+        team = log["team"]
+        if team not in team_costs:
+            team_costs[team] = {
+                "total_cost": 0,
+                "requests": 0,
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "by_model": {}
+            }
+        tc = team_costs[team]
+        tc["total_cost"] += log["cost_usd"]
+        tc["requests"] += 1
+        tc["tokens_in"] += log["prompt_tokens"]
+        tc["tokens_out"] += log["completion_tokens"]
+        model = log["model_actual"]
+        tc["by_model"].setdefault(model, 0)
+        tc["by_model"][model] += log["cost_usd"]
+
+    # Sort by total cost descending
+    return dict(sorted(team_costs.items(),
+                       key=lambda x: x[1]["total_cost"], reverse=True))
+
+# Output: {"ml-research": {"total_cost": 2847.32, ...},
+#          "product-app": {"total_cost": 412.18, ...}}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost allocation reports drive FinOps conversations. When teams see exactly how much they spend per model, they make informed decisions about model selection and prompt optimization.</div>
+<div class="callout hood"><span>Under the hood</span>Cost reports are generated from structured audit logs (JSON lines). Use columnar storage (Parquet, BigQuery) for efficient aggregation over large log volumes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Policy-as-Code: OPA-Style Rules for Gateway Governance</h3>
+<p><strong>What &amp; why.</strong> Policy-as-code encodes governance rules in a declarative language (like Open Policy Agent's Rego) rather than scattered if-statements. Policies define which models teams can use, what data classifications are allowed, maximum costs, and time-based restrictions. Policies are version-controlled, tested, and deployed alongside gateway configuration.</p>
+<pre class="code"><code># Example OPA-style policy rules
+# policy.rego
+
+package gateway
+
+default allow = false
+
+# Allow if model is in team's allowlist
+allow {
+    input.team in data.teams[input.key].allowed_teams
+    input.model in data.teams[input.key].allowed_models
+}
+
+# Deny if request contains classified data
+deny {
+    input.data_classification == "confidential"
+    not input.team in ["security", "compliance"]
+}
+
+# Deny if cost exceeds team's remaining budget
+deny {
+    input.estimated_cost > data.teams[input.key].remaining_budget
+}
+
+# Time-based restriction: no batch jobs during peak hours
+deny {
+    input.request_type == "batch"
+    now := time.now_ns()
+    hour := time.clock(now)[0]
+    hour >= 9; hour <= 17  # 9 AM to 5 PM
+}
+
+# Policy deployment via gateway config
+gateway_settings:
+  policy_engine: "opa"
+  policy_url: "https://policy.internal/v1/data/gateway"
+  enforce_policies: true</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Policy-as-code eliminates governance drift. When policies are code, they're tested, reviewed, and version-controlled. Changing a governance rule is a pull request, not a manual configuration change.</div>
+<div class="callout hood"><span>Under the hood</span>OPA evaluates policies in <1ms for simple rules. The gateway caches policy decisions for repeated inputs. Policy updates are fetched periodically or via webhook from the policy server.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Response Transformation: Normalization Across Vendors</h3>
+<p><strong>What &amp; why.</strong> Different providers return slightly different response formats. The gateway normalizes these into a consistent OpenAI-compatible format. This includes standardizing error formats, usage fields, content structures, and streaming event formats. Applications never need provider-specific parsing logic.</p>
+<pre class="code"><code># Provider response differences normalized by gateway
+
+# OpenAI response format:
+# {"choices": [{"message": {"content": "..."}}], "usage": {"prompt_tokens": 100}}
+
+# Anthropic response format:
+# {"content": [{"type": "text", "text": "..."}], "usage": {"input_tokens": 100}}
+
+# Gateway normalizes everything to OpenAI format:
+# {
+#   "choices": [{"message": {"role": "assistant", "content": "..."}}],
+#   "usage": {
+#     "prompt_tokens": 100,
+#     "completion_tokens": 50,
+#     "total_tokens": 150
+#   },
+#   "model": "claude-sonnet-4-20250514",
+#   "provider": "anthropic",
+#   "latency_ms": 2100
+# }
+
+# Error normalization:
+# {"error": {"type": "...", "message": "...", "code": "..."}}
+# Consistent across all providers after gateway transformation</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Response normalization is what makes model aliasing work. When "primary" can resolve to any provider, the response format must be identical regardless of which provider handled the request.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway maintains a normalization layer per provider. Each layer maps provider-specific fields to the OpenAI format. This adds minimal latency (1-2ms) but eliminates significant application complexity.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Observability Export: OpenTelemetry Traces</h3>
+<p><strong>What &amp; why.</span> The gateway exports OpenTelemetry traces for every request, capturing the full lifecycle: routing decision, provider call, latency breakdown, token counts, and error details. Traces integrate with existing observability stacks (Datadog, Jaeger, Grafana) for end-to-end visibility.</p>
+<pre class="code"><code># OpenTelemetry integration in gateway
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+
+tracer = trace.get_tracer("llm-gateway")
+
+def handle_request(request):
+    with tracer.start_as_current_span("llm.gateway") as span:
+        span.set_attribute("model.requested", request.model)
+        span.set_attribute("team", request.virtual_key.team)
+        span.set_attribute("token_count", request.estimated_tokens)
+
+        with tracer.start_as_current_span("provider.call") as provider_span:
+            provider_span.set_attribute("provider", "openai")
+            provider_span.set_attribute("model.actual", "gpt-4o")
+            response = call_provider(request)
+            provider_span.set_attribute("latency_ms", response.latency_ms)
+            provider_span.set_attribute("tokens.used", response.usage.total_tokens)
+
+        span.set_attribute("cost.usd", response.cost)
+        span.set_attribute("status", "success" if response.ok else "error")
+        return response
+
+# Traces exported to collector -> Jaeger/Datadog/Grafana
+# Enable correlation with application traces via trace context propagation</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>OpenTelemetry traces connect LLM gateway latency to end-user experience. When a user complains about slow responses, you can trace from the user request through the gateway to the provider and back.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway creates spans for routing, provider call, and post-processing. Span attributes include model, provider, tokens, and cost. This data feeds into dashboards showing gateway health, provider performance, and cost trends.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Chaos Drills: Provider Outage Game-Day Exercises</h3>
+<p><strong>What &amp; why.</strong> Chaos drills simulate provider outages to verify that fallback chains, circuit breakers, and retry policies work as expected. During a drill, you artificially block requests to a provider and observe the gateway's behavior. This builds confidence in resilience before a real outage occurs.</p>
+<pre class="code"><code># Chaos drill script
+import httpx
+import time
+
+class ProviderChaosSimulator:
+    def __init__(self, gateway_url):
+        self.gateway = gateway_url
+        self.blocked_providers = set()
+
+    def block_provider(self, provider: str):
+        """Inject fault: route requests to /dev/null for this provider."""
+        # In practice: modify gateway routing to return 503 for this provider
+        self.blocked_providers.add(provider)
+        print(f"BLOCKED: {provider} - all requests will fail")
+
+    def run_drill(self, duration_seconds=300):
+        """Run chaos drill for specified duration."""
+        print(f"Starting chaos drill for {duration_seconds}s")
+        start = time.time()
+        results = {"success": 0, "failover": 0, "error": 0}
+
+        while time.time() - start < duration_seconds:
+            resp = httpx.post(f"{self.gateway}/v1/chat/completions",
+                json={"model": "primary", "messages": [{"role": "user", "content": "ping"}]},
+                headers={"Authorization": "Bearer sk-virtual-test"})
+            if resp.status_code == 200:
+                results["success"] += 1
+            elif resp.status_code == 503:
+                results["error"] += 1
+            else:
+                results["failover"] += 1
+            time.sleep(1)
+
+        print(f"Drill results: {results}")
+        return results</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Chaos drills should run monthly. They verify that fallback chains actually work and that monitoring alerts fire correctly. Real provider outages are unpredictable; drills ensure you're prepared.</div>
+<div class="callout hood"><span>Under the hood</span>Chaos drills use fault injection at the network level (iptables rules, DNS poisoning) or at the application level (gateway routing overrides). Network-level injection more closely simulates real outages.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Benchmarking Gateway Overhead: Added Milliseconds</h3>
+<p><strong>What &amp; why.</strong> Every proxy adds latency. Benchmark the gateway's overhead to ensure it stays within acceptable bounds (typically 2-10ms for non-streaming, &lt;1ms per chunk for streaming). Measure both P50 and P99 latency to catch tail-latency issues introduced by the gateway.</p>
+<pre class="code"><code>import time
+import statistics
+
+def benchmark_gateway_overhead(gateway_url, provider_url, iterations=100):
+    """Compare direct provider latency vs gateway latency."""
+    gateway_latencies = []
+    direct_latencies = []
+
+    for _ in range(iterations):
+        # Gateway call
+        start = time.perf_counter()
+        resp = httpx.post(f"{gateway_url}/v1/chat/completions",
+            json={"model": "fast", "messages": [{"role": "user", "content": "Say hi"}]},
+            headers={"Authorization": "Bearer sk-virtual-bench"})
+        gateway_latencies.append((time.perf_counter() - start) * 1000)
+
+        # Direct call
+        start = time.perf_counter()
+        resp = httpx.post(f"{provider_url}/v1/chat/completions",
+            json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Say hi"}]},
+            headers={"Authorization": f"Bearer {real_api_key}"})
+        direct_latencies.append((time.perf_counter() - start) * 1000)
+
+    print(f"Direct  P50: {statistics.median(direct_latencies):.1f}ms")
+    print(f"Gateway P50: {statistics.median(gateway_latencies):.1f}ms")
+    print(f"Overhead P50: {statistics.median(gateway_latencies) - statistics.median(direct_latencies):.1f}ms")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Benchmark before deploying to production. Typical gateway overhead is 3-8ms. If overhead exceeds 15ms, investigate network topology, DNS resolution, or gateway resource allocation.</div>
+<div class="callout hood"><span>Under the hood</span>Most gateway overhead comes from: TLS handshake (amortized), request parsing, policy evaluation, and response transformation. Connection pooling to providers eliminates repeated TLS handshakes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>SLO Definitions: Availability and Time-to-First-Token</h3>
+<p><strong>What &amp; why.</strong> SLOs (Service Level Objectives) define measurable targets for gateway performance. Common SLOs include: 99.9% request availability, P99 latency under 5 seconds, and time-to-first-token (TTFT) under 500ms for streaming. SLOs drive engineering priorities and inform capacity planning.</p>
+<pre class="code"><code># Gateway SLO definitions
+slo_config = {
+    "availability": {
+        "target": 0.999,  # 99.9%
+        "measurement_window": "30d",
+        "error_budget_hours": 0.72  # 43 minutes per month
+    },
+    "latency": {
+        "p50_target_ms": 1500,
+        "p95_target_ms": 3000,
+        "p99_target_ms": 5000,
+        "exclude_errors": True
+    },
+    "time_to_first_token": {
+        "p50_target_ms": 200,
+        "p95_target_ms": 500,
+        "p99_target_ms": 1000,
+        "stream_only": True
+    },
+    "cost_accuracy": {
+        "target": 0.99,  # 99% of reported costs match provider invoices
+        "reconciliation_window": "7d"
+    }
+}
+
+# SLO monitoring: alert when error budget is burning too fast
+# "At current error rate, we'll exhaust 30d budget in 12 days"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SLOs transform vague reliability goals into measurable targets. They drive decisions about redundancy, fallback configuration, and capacity planning. Without SLOs, reliability is a feeling, not a metric.</div>
+<div class="callout hood"><span>Under the hood</span>SLOs are tracked using SLI (Service Level Indicators) calculated from gateway logs. Error budgets are consumed by downtime, latency violations, and correctness failures. Alert when burn rate exceeds the budget allocation.</div>
+</article>
+
+</section>
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Control plane, HA, zero-trust, key vaults, FinOps, build vs buy</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Control-Plane vs. Data-Plane Split</h3>
+<p><strong>What &amp; why.</strong> In a production gateway, the control plane (key management, policy evaluation, catalog updates) is separated from the data plane (request routing, streaming, logging). The data plane must be fast and highly available; the control plane can tolerate brief delays. Splitting them allows independent scaling and deployment.</p>
+<pre class="code"><code># Architecture: control plane and data plane separation
+
+# Control Plane (can be a single instance or small cluster):
+# - Key management CRUD
+# - Policy evaluation and caching
+# - Model catalog updates
+# - Usage analytics and reporting
+# - Admin API
+
+# Data Plane (horizontal scaling, multiple instances):
+# - Request routing and proxying
+# - Streaming passthrough
+# - Rate limiting (Redis-backed)
+# - Logging and trace export
+# - Circuit breaker state (Redis-shared)
+
+# Deployment:
+# Control Plane: 2-3 instances behind load balancer
+# Data Plane: N instances (auto-scale based on request volume)
+# Shared State: Redis cluster for rate limits, circuit breakers</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The split becomes necessary at scale (1000+ RPM). Without it, a control plane operation (like updating a key) can briefly block data plane requests. Separation eliminates this interference.</div>
+<div class="callout hood"><span>Under the hood</span>The data plane caches policies and keys from the control plane. Cache refresh happens every 30-60 seconds via polling or pub/sub. Brief stale data is acceptable; the trade-off is data plane independence.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>HA Deployment: Multi-Region Active-Active</h3>
+<p><strong>What &amp; why.</strong> High availability requires the gateway to survive entire region failures. Multi-region active-active deployment runs gateway instances in multiple regions, each capable of handling all traffic. Health checks and global load balancing route traffic away from unhealthy regions. Provider API keys must be available in all regions.</p>
+<pre class="code"><code># Multi-region gateway deployment
+regions = {
+    "us-east-1": {
+        "instances": 4,
+        "redis": "redis-us.internal:6379",
+        "providers": ["openai", "anthropic", "google"]
+    },
+    "eu-west-1": {
+        "instances": 4,
+        "redis": "redis-eu.internal:6379",
+        "providers": ["openai", "anthropic", "google"]
+    },
+    "ap-southeast-1": {
+        "instances": 3,
+        "redis": "redis-sg.internal:6379",
+        "providers": ["openai", "anthropic"]
+    }
+}
+
+# Global load balancer (Cloudflare, Route53, etc.)
+# - Health checks every 10s
+# - Failover in < 30s
+# - Latency-based routing: user in SG -> SG gateway
+# - Each region has its own Redis for rate limits
+# - Usage logs aggregated to central data store</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-region HA is required for SLAs above 99.9%. Single-region deployments can't survive AWS/Azure/GCP regional outages, which happen 2-3 times per year.</div>
+<div class="callout hood"><span>Under the hood</span>The challenge is state synchronization: rate limits, circuit breaker state, and usage counters. Redis CRDTs (Conflict-free Replicated Data Types) or async replication handle eventual consistency across regions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>Zero-Trust Service Mesh and mTLS</h3>
+<p><strong>What &amp; why.</strong> In a zero-trust model, every connection between services must be authenticated and encrypted, even within the same network. The gateway uses mTLS (mutual TLS) for connections to providers and service mesh adjacency for connections to internal services. This prevents credential theft and man-in-the-middle attacks.</p>
+<pre class="code"><code># mTLS configuration for gateway
+# Gateway <-> Provider connections
+provider_tls_config = {
+    "openai": {
+        "certfile": "/certs/gateway.pem",
+        "keyfile": "/certs/gateway-key.pem",
+        "ca_cert": "/certs/openai-ca.pem",
+        "verify": True
+    },
+    "anthropic": {
+        "certfile": "/certs/gateway.pem",
+        "keyfile": "/certs/gateway-key.pem",
+        "ca_cert": "/certs/anthropic-ca.pem",
+        "verify": True
+    }
+}
+
+# Service mesh (Istio/Linkerd) handles mTLS for internal traffic
+# Gateway pod annotations for Istio:
+# sidecar.istio.io/inject: "true"
+# traffic.sidecar.istio.io/includeOutboundPorts: "443"
+
+# Zero-trust principles applied:
+# 1. All external connections use mTLS
+# 2. All internal connections use service mesh mTLS
+# 3. No shared secrets (short-lived tokens, workload identity)
+# 4. Least-privilege access per service</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Zero-trust is increasingly required by government and enterprise compliance frameworks (IM8 in Singapore, FedRAMP in US). The gateway is a natural enforcement point for mTLS.</div>
+<div class="callout hood"><span>Under the hood</span>Service mesh sidecars (Envoy, Linkerd-proxy) handle mTLS transparently. The gateway application sees plain TCP connections; the sidecar handles certificate negotiation and encryption.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>Key Vault and HSM Integration for Secret Rotation</h3>
+<p><strong>What &amp; why.</strong> Provider API keys must never be stored in plaintext configuration files. The gateway integrates with a key vault (AWS Secrets Manager, Azure Key Vault, HashiCorp Vault) for secure storage and automatic rotation. HSM (Hardware Security Module) integration provides FIPS 140-2 compliant key protection.</p>
+<pre class="code"><code># AWS Secrets Manager integration
+import boto3
+import json
+
+class KeyVault:
+    def __init__(self):
+        self.client = boto3.client("secretsmanager")
+        self.cache = {}
+
+    def get_provider_key(self, provider: str) -> str:
+        if provider in self.cache:
+            return self.cache[provider]
+
+        secret = self.client.get_secret_value(
+            SecretId=f"gateway/providers/{provider}/api-key"
+        )
+        key = json.loads(secret["SecretString"])["api_key"]
+        self.cache[provider] = key
+        return key
+
+    def rotate_key(self, provider: str, new_key: str):
+        """Update key in vault and refresh cache."""
+        self.client.update_secret(
+            SecretId=f"gateway/providers/{provider}/api-key",
+            SecretString=json.dumps({"api_key": new_key})
+        )
+        self.cache.pop(provider, None)
+
+# Automatic rotation schedule:
+# - Rotate provider keys every 90 days
+# - Gateway fetches new keys on TTL expiry
+# - Zero-downtime rotation: old and new keys both valid during transition</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Key vault integration eliminates hardcoded secrets. Automatic rotation reduces operational burden and limits the blast radius of key compromise.</div>
+<div class="callout hood"><span>Under the hood</span>Secrets are fetched on startup and cached in memory with a TTL. On cache miss or expiry, the gateway re-fetches from the vault. HSM-backed keys never leave the hardware boundary.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">41</span>Compliance Evidence Exports: SOC 2 and ISO 27001</h3>
+<p><strong>What &amp; why.</strong> SOC 2 and ISO 27001 audits require evidence of access controls, change management, monitoring, and incident response. The gateway generates compliance artifacts: access logs showing who used which keys, configuration change history, monitoring dashboards, and incident reports. These exports accelerate audit preparation.</p>
+<pre class="code"><code># Compliance evidence generation
+class ComplianceExporter:
+    def __init__(self, audit_store):
+        self.audit = audit_store
+
+    def export_access_logs(self, period: str) -> dict:
+        """SOC 2 CC6.1: Logical access controls."""
+        return {
+            "control": "CC6.1 - Logical Access",
+            "period": period,
+            "evidence": {
+                "total_api_calls": self.audit.count(period),
+                "unique_virtual_keys": self.audit.unique_keys(period),
+                "keys_revoked": self.audit.revoked_keys(period),
+                "access_denied_count": self.audit.denied_count(period),
+                "admin_actions": self.audit.admin_actions(period)
+            }
+        }
+
+    def export_change_log(self, period: str) -> dict:
+        """SOC 2 CC8.1: Change management."""
+        return {
+            "control": "CC8.1 - Change Management",
+            "period": period,
+            "evidence": {
+                "config_changes": self.audit.config_changes(period),
+                "key_rotations": self.audit.key_rotations(period),
+                "policy_updates": self.audit.policy_updates(period),
+                "all_changes_approved": True
+            }
+        }
+
+    def export_monitoring(self, period: str) -> dict:
+        """SOC 2 CC7.2 - Monitoring."""
+        return {
+            "control": "CC7.2 - Monitoring",
+            "slo_met": self.check_slo(period),
+            "alerts_fired": self.alerts(period),
+            "incidents_resolved": self.incidents(period)
+        }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Compliance exports save weeks of audit preparation. Automated evidence generation from gateway logs replaces manual screenshot collection and spreadsheet tracking.</div>
+<div class="callout hood"><span>Under the hood</span>The audit store (append-only database or S3) retains logs for the compliance retention period (typically 1-7 years). Exports are generated as structured JSON or PDF for auditor consumption.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">42</span>FinOps Unit Economics: Per-Feature Team Costs</h3>
+<p><strong>What &amp; why.</strong> FinOps goes beyond showing costs; it drives optimization decisions. Per-feature cost tracking tells you exactly how much each AI feature costs to run, enabling ROI calculations. When feature X costs $0.02 per call and generates $0.15 in revenue, the economics are clear. Without this, AI costs are opaque overhead.</p>
+<pre class="code"><code># Per-feature cost tracking
+class FeatureCostTracker:
+    def __init__(self):
+        self.feature_costs = defaultdict(list)
+
+    def track(self, feature: str, cost: float, tokens: int, latency: int):
+        self.feature_costs[feature].append({
+            "cost": cost,
+            "tokens": tokens,
+            "latency_ms": latency,
+            "timestamp": time.time()
+        })
+
+    def report(self, feature: str) -> dict:
+        records = self.feature_costs[feature]
+        costs = [r["cost"] for r in records]
+        return {
+            "feature": feature,
+            "total_calls": len(records),
+            "total_cost_usd": sum(costs),
+            "avg_cost_per_call": statistics.mean(costs),
+            "p95_latency_ms": sorted([r["latency_ms"] for r in records])[int(len(records) * 0.95)],
+            "cost_per_1k_calls": statistics.mean(costs) * 1000
+        }
+
+# Example output for "search-agent" feature:
+# {"total_calls": 15000, "total_cost_usd": 2847.32,
+#  "avg_cost_per_call": 0.1898, "cost_per_1k_calls": 189.82}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>FinOps unit economics enable product managers to make informed decisions about AI feature investments. "This feature costs $190 per 1K calls" is actionable; "AI costs are $15K/month" is not.</div>
+<div class="callout hood"><span>Under the hood</span>Feature tracking requires request tagging at the application layer (x-spend-group headers). The gateway propagates these tags through to audit logs, enabling per-feature aggregation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">43</span>Gateway SDKs: Building an Internal Golden Path</h3>
+<p><strong>What &amp; why.</strong> An internal SDK wraps the gateway's API in a language-specific client with built-in best practices: automatic retries, streaming helpers, cost tracking, and telemetry. The golden path SDK makes the right way the easy way, reducing friction for teams adopting the gateway.</p>
+<pre class="code"><code># Internal gateway SDK example
+from gateway_sdk import GatewayClient, RouteConfig
+
+# Auto-configured with retry, timeout, streaming, and telemetry
+client = GatewayClient(
+    gateway_url="https://gateway.internal/v1",
+    virtual_key="sk-virtual-team-alpha",
+    default_model="primary",
+    timeout=30,
+    max_retries=3
+)
+
+# Simple completion with automatic retry and cost tracking
+response = client.complete(
+    messages=[{"role": "user", "content": "Summarize this document"}],
+    model="primary"  # optional, uses default_model
+)
+print(response.content)
+print(f"Cost: ${response.cost:.4f}")
+print(f"Latency: {response.latency_ms}ms")
+
+# Streaming with helpers
+for chunk in client.stream(
+    messages=[{"role": "user", "content": "Tell me a story"}],
+    on_token=lambda t: print(t, end="", flush=True)
+):
+    pass
+
+# The SDK handles:
+# - Retry with exponential backoff
+# - Streaming SSE parsing
+# - Cost calculation and logging
+# - OpenTelemetry trace propagation
+# - Timeout management</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Golden path SDKs reduce gateway adoption time from days to minutes. They embed organizational best practices (retry policies, telemetry, cost tracking) as defaults.</div>
+<div class="callout hood"><span>Under the hood</span>The SDK wraps the OpenAI client with gateway-specific additions. It inherits OpenAI SDK compatibility while adding retry, streaming, and observability features specific to the gateway.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">44</span>Versioned API Contracts and Deprecation Policy</h3>
+<p><strong>What &amp; why.</strong> The gateway's API must evolve without breaking existing consumers. Versioned endpoints (v1, v2) allow new features while maintaining backward compatibility. A deprecation policy (e.g., 6-month notice, sunset headers) gives consumers time to migrate. Breaking changes require a new version.</p>
+<pre class="code"><code># Gateway API versioning strategy
+# v1: Current stable (OpenAI-compatible /v1/chat/completions)
+# v2: Next version with new features (prompt caching controls, etc.)
+
+# Version routing
+routes = {
+    "/v1/*": "v1_handler",  # Current stable
+    "/v2/*": "v2_handler",  # New features
+}
+
+# Deprecation headers on v1 responses:
+# Deprecation: Sat, 01 Mar 2026 00:00:00 GMT
+# Sunset: Mon, 01 Sep 2026 00:00:00 GMT
+# Link: &lt;https://gateway.internal/docs/v2-migration&gt;; rel="successor-version"
+
+# Deprecation policy:
+# 1. New version announced 6 months before sunset
+# 2. Deprecation headers added on old version responses
+# 3. Migration guide published
+# 4. Old version receives security patches only
+# 5. Old version removed after sunset date
+
+# Contract testing:
+# - Schema validation on all API responses
+# - Backward compatibility checks in CI
+# - Consumer-driven contract tests</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>API versioning prevents breaking changes from cascading through dependent services. The deprecation policy gives teams predictable migration timelines.</div>
+<div class="callout hood"><span>Under the hood</span>The gateway routes requests to version-specific handlers. Each version's response schema is tested for backward compatibility. Breaking changes always go to a new version number.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">45</span>Multi-Cloud Egress Strategy</h3>
+<p><strong>What &amp; why.</strong> A multi-cloud egress strategy routes LLM traffic through different cloud providers based on cost, latency, data residency, and availability. For example, traffic to OpenAI might egress through AWS, while Anthropic traffic uses GCP. This avoids single-cloud dependency and optimizes egress costs.</p>
+<pre class="code"><code># Multi-cloud egress configuration
+egress_routes = {
+    "openai": {
+        "egress_provider": "aws",
+        "region": "us-east-1",
+        "vpc_endpoint": "vpce-openai.us-east-1.vpce.amazonaws.com",
+        "data_residency": "us"
+    },
+    "anthropic": {
+        "egress_provider": "gcp",
+        "region": "us-central1",
+        "vpc_endpoint": "anthropic.us-central1.googleapis.com",
+        "data_residency": "us"
+    },
+    "google-vertex": {
+        "egress_provider": "gcp",
+        "region": "asia-southeast1",
+        "vpc_endpoint": "aiplatform.googleapis.com",
+        "data_residency": "sg"
+    }
+}
+
+# Benefits:
+# - No single cloud vendor dependency
+# - Optimize egress costs per provider
+# - Meet data residency requirements per region
+# - Failover to alternate cloud if primary is down</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-cloud egress is critical for government deployments with data residency requirements. It also provides resilience against cloud provider outages.</div>
+<div class="callout hood"><span>Under the hood</span>VPC endpoints or private links eliminate public internet egress for LLM traffic. This reduces latency (fewer network hops) and improves security (traffic never leaves the cloud backbone).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">46</span>Building vs. Buying: LiteLLM, Portkey, Helicone, OpenRouter, Custom</h3>
+<p><strong>What &amp; why.</strong> The gateway landscape ranges from open-source (LiteLLM) to commercial (Portkey, Helicone, OpenRouter) to fully custom builds. Each option has trade-offs in cost, control, features, and operational burden. The decision depends on team size, scale, compliance requirements, and feature needs.</p>
+<pre class="code"><code># Gateway options comparison
+options = {
+    "litellm": {
+        "type": "open-source",
+        "cost": "free (self-hosted)",
+        "features": ["routing", "fallback", "keys", "spending"],
+        "best_for": "small-medium teams, fast start",
+        "limitation": "limited enterprise features"
+    },
+    "portkey": {
+        "type": "commercial",
+        "cost": "usage-based pricing",
+        "features": ["routing", "guardrails", "analytics", "keys"],
+        "best_for": "medium teams, managed service preference",
+        "limitation": "vendor dependency"
+    },
+    "helicone": {
+        "type": "commercial",
+        "cost": "usage-based pricing",
+        "features": ["observability", "routing", "analytics"],
+        "best_for": "observability-first teams",
+        "limitation": "proxy model (adds latency)"
+    },
+    "custom": {
+        "type": "build your own",
+        "cost": "engineering time",
+        "features": "whatever you build",
+        "best_for": "large teams with specific compliance needs",
+        "limitation": "significant engineering investment"
+    }
+}
+
+# Decision framework:
+# < 5 models, < 3 teams -> LiteLLM
+# 5-20 models, need managed -> Portkey
+# Observability focus -> Helicone
+# Compliance/custom needs -> Build custom</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Most teams start with LiteLLM and migrate to commercial or custom solutions as their needs grow. The key factor is usually operational burden: can your team maintain a self-hosted gateway?</div>
+<div class="callout hood"><span>Under the hood</span>Open-source gateways give full control but require DevOps investment. Commercial gateways reduce operational burden but add vendor dependency and cost. Custom builds solve unique requirements but require a dedicated platform team.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">47</span>Future Standards: Agentic Payment and Quota Protocols</h3>
+<p><strong>What &amp; why.</strong> Emerging standards aim to standardize how agents pay for services and manage quotas across providers. The Agent Payments Protocol (AP2) and similar efforts define how agents can make micropayments, negotiate pricing, and manage multi-provider quotas through a standardized interface. The gateway will be the enforcement point for these protocols.</p>
+<pre class="code"><code># Future: agent-initiated payments through gateway
+# Hypothetical AP2 protocol flow
+
+agent_payment_flow = {
+    "step_1": "Agent requests tool from gateway",
+    "step_2": "Gateway checks agent's payment balance",
+    "step_3": "Gateway estimates cost from provider pricing",
+    "step_4": "Agent approves cost threshold",
+    "step_5": "Gateway executes request with payment hold",
+    "step_6": "Gateway settles payment with provider",
+    "step_7": "Usage deducted from agent's quota"
+}
+
+# Quota management across providers
+quota_registry = {
+    "openai": {
+        "daily_limit_usd": 100,
+        "remaining": 67.42,
+        "reset_at": "2025-07-16T00:00:00Z"
+    },
+    "anthropic": {
+        "daily_limit_usd": 50,
+        "remaining": 42.18,
+        "reset_at": "2025-07-16T00:00:00Z"
+    }
+}
+
+# Gateway enforces quotas and routes to available providers</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Agentic payment standards are still emerging but will become important as autonomous agents gain budget authority. The gateway is the natural place to enforce spending controls.</div>
+<div class="callout hood"><span>Under the hood</span>These standards are in early development (2025-2026). The gateway's role will be to translate between standard payment protocols and provider-specific billing APIs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">48</span>Reference Blueprint: Enterprise Gateway Architecture</h3>
+<p><strong>What &amp; why.</strong> An enterprise gateway blueprint combines all previous concepts into a deployable architecture: control plane + data plane, multi-region HA, key vault integration, policy engine, observability stack, and compliance reporting. This is the target architecture for organizations operating LLM gateways at scale.</p>
+<pre class="code"><code># Enterprise gateway blueprint
+architecture = {
+    "control_plane": {
+        "components": ["key-management", "policy-engine", "model-catalog", "admin-ui"],
+        "deployment": "2-3 instances, multi-AZ",
+        "storage": "PostgreSQL (config), Redis (cache)"
+    },
+    "data_plane": {
+        "components": ["proxy", "router", "rate-limiter", "logger"],
+        "deployment": "N instances, auto-scaled, multi-region",
+        "storage": "Redis Cluster (limits, circuit breakers)"
+    },
+    "observability": {
+        "traces": "OpenTelemetry -> Jaeger/Datadog",
+        "logs": "JSON lines -> Vector -> Elasticsearch",
+        "metrics": "Prometheus -> Grafana",
+        "costs": "Audit logs -> BigQuery -> Looker"
+    },
+    "security": {
+        "auth": "Virtual keys + JWT",
+        "encryption": "mTLS everywhere",
+        "secrets": "HashiCorp Vault / AWS Secrets Manager",
+        "compliance": "SOC 2, ISO 27001, PDPA"
+    },
+    "resilience": {
+        "multi_region": "us, eu, ap-southeast",
+        "circuit_breakers": "Redis-backed, per-provider",
+        "fallbacks": "Primary -> secondary -> tertiary",
+        "chaos_drills": "Monthly provider outage simulation"
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This blueprint is the end-state for enterprise gateway adoption. Start with LiteLLM and progressively add components as your needs grow. Not every organization needs the full blueprint.</div>
+<div class="callout hood"><span>Under the hood</span>The blueprint is designed for teams of 5+ engineers supporting 50+ LLM-powered services. Smaller teams should simplify by using managed services for components they can't operate themselves.</div>
+</article>
+
+</section>
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Startup AI Gateway with 3 Providers and Dashboards</h3>
+<p>A lightweight gateway for a startup using OpenAI, Anthropic, and Google Gemini. Includes virtual keys per team, basic routing, spend tracking dashboards, and Slack alerts for budget thresholds. Deployed as a Docker container on a single VM.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Deploy LiteLLM proxy with Docker, configure YAML for three providers</li><li>Create virtual keys for each team (engineering, product, research) with per-team budgets</li><li>Set up model aliasing: primary (GPT-4o), fast (GPT-4o-mini), creative (Claude Sonnet)</li><li>Configure fallback chains: OpenAI fails over to Anthropic, Anthropic to Google</li><li>Build a Grafana dashboard from structured logs showing per-team spend, latency, and error rates</li><li>Set up Slack webhook alerts when any team reaches 80% of monthly budget</li><li>Add basic PII scrubbing hook for outbound requests</li><li>Deploy with docker-compose: gateway + Redis (rate limits) + PostgreSQL (key store)</li></ol>
+<pre class="code"><code># docker-compose.yml for startup gateway
+version: "3.9"
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    ports: ["4000:4000"]
+    volumes: ["./config.yaml:/app/config.yaml"]
+    environment:
+      - LITELLM_MASTER_KEY=${MASTER_KEY}
+      - OPENAI_API_KEY=${OPENAI_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_KEY}
+    command: ["--config", "/app/config.yaml"]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  grafana:
+    image: grafana/grafana:latest
+    ports: ["3000:3000"]
+    volumes: ["./grafana/dashboards:/var/lib/grafana/dashboards"]</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>LiteLLM proxy deployment with Docker Compose</li><li>Multi-provider configuration with virtual keys and budgets</li><li>Grafana dashboards for cost and performance monitoring</li><li>Slack alerts for budget threshold notifications</li><li>Basic PII scrubbing at the gateway edge</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Enterprise Multi-Team Gateway with Budgets and Audit</h3>
+<p>An enterprise-grade gateway supporting 10+ teams with hierarchical budgets (org -> department -> team -> project), full audit logging, policy-as-code enforcement, and SOC 2 compliance evidence exports. Includes admin API for key management and automated compliance reports.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Deploy gateway in control-plane/data-plane split across 3 AWS regions</li><li>Integrate HashiCorp Vault for provider API key storage and automatic 90-day rotation</li><li>Implement hierarchical budget model: org ($10K/mo) -> departments -> teams -> projects</li><li>Deploy OPA policy engine with rules for model access, data classification, and time restrictions</li><li>Build admin API for virtual key CRUD with approval workflow (key creation requires manager approval)</li><li>Implement hash-chain audit logs with tamper-evident verification</li><li>Build SOC 2 compliance exporter: access logs, change logs, monitoring evidence</li><li>Set up monthly cost allocation reports with per-department chargeback data</li></ol>
+<pre class="code"><code># Hierarchical budget enforcement
+class HierarchicalBudget:
+    def __init__(self):
+        self.budgets = {
+            "org": {"limit": 10000, "used": 6247},
+            "engineering": {"limit": 5000, "parent": "org", "used": 3891},
+            "ml-platform": {"limit": 2000, "parent": "engineering", "used": 1456},
+            "product-ai": {"limit": 1500, "parent": "engineering", "used": 892}
+        }
+
+    def check_budget(self, team: str, estimated_cost: float) -> bool:
+        node = self.budgets[team]
+        if node["used"] + estimated_cost > node["limit"]:
+            return False
+        if "parent" in node:
+            return self.check_budget(node["parent"], estimated_cost)
+        return True</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Control-plane/data-plane separation with regional deployment</li><li>Secrets management with automatic key rotation</li><li>Hierarchical budget models with departmental chargeback</li><li>Policy-as-code governance with OPA integration</li><li>SOC 2 compliance evidence automation</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Resilient Voice-Agent Gateway with Low-Latency Tuning</h3>
+<p>A gateway optimized for real-time voice agents where time-to-first-token (TTFT) is critical. Includes request hedging, pre-warmed connections, prefix caching, semantic routing to select fast vs. smart models, and chaos drills for provider outage resilience. Target: P99 TTFT under 400ms.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Deploy gateway with request hedging enabled: primary + backup provider called simultaneously</li><li>Configure pre-warmed connection pools to all providers (eliminate cold-start TLS overhead)</li><li>Enable prefix caching for long system prompts used across voice sessions</li><li>Implement semantic router to direct simple voice commands to fast model, complex queries to smart model</li><li>Tune streaming: enable chunk-level logging, set chunk relay timeout to 50ms</li><li>Set up synthetic monitoring: synthetic voice queries every 30s to measure TTFT</li><li>Build chaos drill runner: monthly provider blackout tests with automatic failover verification</li><li>Deploy in same region as voice infrastructure to minimize network hops (target &lt;5ms gateway overhead)</li></ol>
+<pre class="code"><code># Voice-agent optimized gateway config
+voice_gateway_config = {
+    "hedging": {
+        "enabled": True,
+        "providers": ["openai", "anthropic"],
+        "timeout_ms": 2000
+    },
+    "connection_pool": {
+        "min_connections": 10,
+        "max_connections": 100,
+        "keepalive_seconds": 300
+    },
+    "prefix_cache": {
+        "enabled": True,
+        "system_prompt_ttl": 3600
+    },
+    "routing": {
+        "semantic": True,
+        "simple_model": "fast",
+        "complex_model": "smart",
+        "classification_latency_ms": 5
+    },
+    "streaming": {
+        "chunk_timeout_ms": 50,
+        "relay_mode": "passthrough"
+    },
+    "slo": {
+        "ttft_p99_ms": 400,
+        "availability": 0.9999
+    }
+}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Request hedging for tail-latency elimination</li><li>Connection pooling and pre-warming for low-latency streaming</li><li>Semantic routing for cost-performance optimization</li><li>Chaos drills for resilience verification</li><li>SLO-driven performance engineering for real-time applications</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>LLM Gateway</td><td>Unified proxy between agents and LLM providers</td><td>base_url="https://gateway.internal/v1"</td></tr>
+<tr><td>Model Aliasing</td><td>Logical names (primary, fast) mapped to real models</td><td>model_name: "primary" in config.yaml</td></tr>
+<tr><td>Virtual Keys</td><td>Scoped credentials with per-team budgets and model access</td><td>POST /key/generate with models and max_budget</td></tr>
+<tr><td>Fallback Chain</td><td>Ordered list of providers tried on failure</td><td>routing_strategy, num_retries in router_settings</td></tr>
+<tr><td>Rate Limiting</td><td>RPM/TPM caps per virtual key</td><td>rpm_limit, tpm_limit on key creation</td></tr>
+<tr><td>Request Logging</td><td>Structured JSON logs for every gateway interaction</td><td>success_callback, failure_callback in config</td></tr>
+<tr><td>Routing Policies</td><td>Cheapest-first, latency-based, usage-based selection</td><td>routing_strategy: "latency-based-routing"</td></tr>
+<tr><td>Semantic Router</td><td>Embedding-based intent classification for model selection</td><td>select_model(query) -&gt; model alias</td></tr>
+<tr><td>Prefix Caching</td><td>Provider-side KV cache reuse for shared system prompts</td><td>prompt_caching=True on messages</td></tr>
+<tr><td>Streaming SSE</td><td>Server-Sent Events passthrough without buffering</td><td>stream=True, async for line in aiter_lines()</td></tr>
+<tr><td>JWT Auth</td><td>Self-contained tokens with embedded policies</td><td>jwt.encode(payload, secret, algorithm="HS256")</td></tr>
+<tr><td>Multi-Tenancy</td><td>Isolated teams with separate budgets and logs</td><td>metadata: {"team": "ml-research"} on keys</td></tr>
+<tr><td>Audit Logs</td><td>Append-only records: who, what, when, cost</td><td>JSON lines with event_id, virtual_key_id, cost</td></tr>
+<tr><td>Model Catalog</td><td>Metadata store: context windows, pricing, capabilities</td><td>model_catalog dict with provider info</td></tr>
+<tr><td>Canary Deploy</td><td>Weighted traffic split for gradual model rollouts</td><td>weight: 95 / weight: 5 in model_list</td></tr>
+<tr><td>PII Scrubbing</td><td>Regex/ML detection and redaction before provider call</td><td>pre_request_hook with PII_PATTERNS</td></tr>
+<tr><td>Circuit Breaker</td><td>State machine preventing calls to failing providers</td><td>CircuitBreaker(failure_threshold=5)</td></tr>
+<tr><td>Request Hedging</td><td>Parallel calls to multiple providers, first wins</td><td>asyncio.wait(FIRST_COMPLETED)</td></tr>
+<tr><td>Guardrails</td><td>Pre/post hooks for input validation and output checking</td><td>gateway.add_pre_hook(), add_post_hook()</td></tr>
+<tr><td>MCP Federation</td><td>Unified tool catalog from multiple MCP servers</td><td>mcp_servers dict in gateway config</td></tr>
+<tr><td>Cost Allocation</td><td>Per-team, per-feature cost reports from audit logs</td><td>generate_cost_report(audit_logs, period)</td></tr>
+<tr><td>Policy-as-Code</td><td>Declarative governance rules (OPA Rego style)</td><td>policy_engine: "opa" in gateway_settings</td></tr>
+<tr><td>Response Normalization</td><td>Transform all provider responses to OpenAI format</td><td>Normalization layer per provider</td></tr>
+<tr><td>OTel Traces</td><td>OpenTelemetry spans for full request lifecycle</td><td>tracer.start_as_current_span("llm.gateway")</td></tr>
+<tr><td>Chaos Drills</td><td>Simulated provider outages for resilience testing</td><td>block_provider("openai"), run_drill(300)</td></tr>
+<tr><td>Gateway Overhead</td><td>Proxy adds 2-10ms; benchmark with P50/P99</td><td>benchmark_gateway_overhead(url, iterations)</td></tr>
+<tr><td>SLOs</td><td>Availability (99.9%), latency (P99 &lt;5s), TTFT (&lt;500ms)</td><td>slo_config dict with targets</td></tr>
+<tr><td>Control/Data Plane</td><td>Separate management from request routing</td><td>Control: keys/policies, Data: proxy/router</td></tr>
+<tr><td>Multi-Region HA</td><td>Active-active across regions for 99.99% availability</td><td>regions dict with instances and redis per region</td></tr>
+<tr><td>mTLS</td><td>Mutual TLS for all provider and service connections</td><td>certfile, keyfile, ca_cert in tls_config</td></tr>
+<tr><td>Key Vault</td><td>Encrypted secret storage with automatic rotation</td><td>get_secret_value(SecretId=path)</td></tr>
+<tr><td>SOC 2 Exports</td><td>Automated compliance evidence from audit logs</td><td>export_access_logs(period) dict</td></tr>
+<tr><td>FinOps Unit Economics</td><td>Per-feature cost tracking for ROI calculations</td><td>FeatureCostTracker.track(feature, cost)</td></tr>
+<tr><td>Golden Path SDK</td><td>Internal client with built-in best practices</td><td>GatewayClient(gateway_url, virtual_key)</td></tr>
+<tr><td>API Versioning</td><td>Versioned endpoints with deprecation policy</td><td>/v1/*, /v2/* with Sunset headers</td></tr>
+<tr><td>Build vs Buy</td><td>LiteLLM (OSS) vs Portkey (commercial) vs custom</td><td>Decision: team size, scale, compliance needs</td></tr>
+<tr><td>Agentic Payments</td><td>Emerging standards for agent micropayments and quotas</td><td>AP2 protocol, quota_registry</td></tr>
+<tr><td>Enterprise Blueprint</td><td>Reference architecture: CP/DP split, multi-region, vault, OPA</td><td>architecture dict with all components</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="tool-calling.html">&larr; Tool / Function Calling</a><a href="mcp.html">MCP &rarr;</a></footer>
+</body></html>

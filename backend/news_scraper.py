@@ -132,68 +132,104 @@ def _strip_html_tags(text: str) -> str:
 
 # ---- Sitemap Parser ----
 
+# URL slug segments that are dates/IDs and not article titles
+_DATE_SEG_RE = re.compile(r"^\d{4}$|^\d{4}-\d{2}|^\d{4}/\d{2}|\d{8}$")
 
-def parse_sitemap(url: str) -> list[dict]:
+
+def _title_from_slug(link: str, url_el) -> str:
+    """Best-effort title from a sitemap URL slug + <lastmod>."""
+    import html as _html_mod
+    path = urlparse(link).path.strip("/")
+    segments = [s for s in path.split("/") if s]
+    title = ""
+    for seg in reversed(segments):
+        s = re.sub(r"\.(html?|php|aspx?)$", "", seg, flags=re.IGNORECASE).strip()
+        if not s or s.isdigit() or _DATE_SEG_RE.match(s):
+            continue
+        title = s
+        break
+    if not title:
+        return ""
+    title = _html_mod.unescape(title.replace("-", " ").replace("_", " ").replace("+", " "))
+    title = re.sub(r"\s+", " ", title).strip()
+    if len(title) < 6:
+        return ""
+    title_lower = title.lower()
+    if len(title_lower.split()) == 1 and len(title_lower) < 9:
+        return ""
+    for nav_word in _SITEMAP_NAV_WORDS:
+        if title_lower == nav_word or title_lower.startswith(nav_word + " "):
+            return ""
+    return title
+
+
+def parse_sitemap(url: str, _depth: int = 0) -> list[dict]:
     """Fetch and parse a sitemap.xml, returning article entries.
 
-    Handles both flat sitemaps and sitemap indexes. Returns up to 15
-    entries with title extracted from URL path as fallback.
+    Handles gzip response bodies, flat sitemaps, and sitemap indexes (walks up
+    to 8 child sitemaps until articles are found). Returns up to 15 entries
+    with the title extracted from the URL path as fallback.
     """
+    if _depth > 3:
+        return []
     try:
         ctx = _make_ssl_context()
         req = Request(
             url,
             headers={
                 **_user_agent(),
+                "Accept-Encoding": "gzip",
                 "Accept": "application/xml, text/xml, */*",
             },
         )
         with urlopen(req, timeout=SCRAPE_TIMEOUT, context=ctx) as resp:
-            body = resp.read().decode("utf-8", errors="replace")
+            raw = resp.read()
+            if (resp.headers.get("Content-Encoding") or "").lower() == "gzip":
+                try:
+                    import gzip as _gzip_mod
+                    raw = _gzip_mod.decompress(raw)
+                except Exception:
+                    pass
+            body = raw.decode("utf-8", errors="replace")
 
         items = []
-        root = ET.fromstring(body)
+        try:
+            root = ET.fromstring(body.lstrip("\ufeff").lstrip())
+        except ET.ParseError:
+            return []
 
         # Namespace-aware parsing (sitemaps use various namespaces)
         ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
-        # Check for sitemap index first
+        # Sitemap index — walk a handful of child sitemaps until we get hits
         index_urls = root.findall(".//sm:sitemap/sm:loc", ns)
         if index_urls:
-            # It's a sitemap index - follow first sub-sitemap
-            sub_url = index_urls[0].text.strip()
-            return parse_sitemap(sub_url)
+            for index_el in index_urls[:8]:
+                sub = (index_el.text or "").strip()
+                if not sub:
+                    continue
+                items = parse_sitemap(sub, _depth + 1)
+                if items:
+                    return items[:15]
+            return []
 
-        # Parse regular sitemap URLs
         urls = root.findall(".//sm:url", ns)
-        for u in urls[:20]:  # Limit to 20 entries
+        seen = set()
+        for u in urls:
+            if len(items) >= 20:
+                break
             loc_el = u.find("sm:loc", ns)
             if loc_el is None or not loc_el.text:
                 continue
             link = loc_el.text.strip()
+            if not link.startswith(("http://", "https://")):
+                continue
+            if link in seen:
+                continue
+            seen.add(link)
 
-            # Extract title from URL path
-            path = urlparse(link).path.strip("/")
-            segments = path.split("/")
-            title = segments[-1] if segments else ""
-            # Convert URL slug to readable title
-            title = title.replace("-", " ").replace("_", " ").replace(".html", "").replace(".php", "")
-            title = title.strip()
+            title = _title_from_slug(link, u)
             if not title:
-                continue
-
-            # Filter out navigation/utility pages from sitemaps
-            title_lower = title.lower()
-            if len(title_lower) < 8:
-                continue
-            if len(title_lower.split()) < 2:
-                continue
-            is_nav = False
-            for nav_word in _SITEMAP_NAV_WORDS:
-                if title_lower == nav_word or title_lower.startswith(nav_word + " "):
-                    is_nav = True
-                    break
-            if is_nav:
                 continue
 
             # Get lastmod date
@@ -580,6 +616,13 @@ def fetch_via_scraping(key: str, source_url: str) -> list[dict]:
             if items:
                 return items
 
-    # Strategy 3: Generic HTML scraping
-    items = scrape_html_for_articles(source_url)
-    return items
+    # Strategy 3: Generic HTML scraping. The source URL is often a marketing
+    # homepage with no articles, so fall back to common listing paths too.
+    listing_paths = ("", "/blog", "/news", "/newsroom", "/updates", "/latest",
+                     "/posts", "/articles", "/insights", "/resources", "/media")
+    for path in listing_paths:
+        listing = source_url.rstrip("/") + path if path else source_url
+        items = scrape_html_for_articles(listing)
+        if items:
+            return items
+    return []

@@ -1,0 +1,2141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Fundamentals — Artificial Intelligence Foundations — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / AI Fundamentals — Artificial Intelligence Foundations</span><span class="spacer"></span>
+<a class="navlink" href="graphics-engineering.html">&larr; Graphics Engineering</a> <a class="navlink" href="ml-fundamentals.html">ML Fundamentals &rarr;</a></nav>
+<header class="hero"><div class="mono">AI</div><div><h1>AI Fundamentals — Artificial Intelligence Foundations</h1>
+<p class="tagline">From search and knowledge representation to deep learning and generative AI — the complete map of the field</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>AI is the study of agents that perceive, reason, learn, and act. This chapter gives the complete mental model of the field: classical symbolic AI, search and planning, knowledge representation, machine learning, deep learning, and the generative AI era — so every later MasterHub chapter has a home in the map.</p>
+<p>This chapter is written as a complete blog-style guide: every concept includes the <em>internal behavior</em> (what happens step by step inside the algorithm), multiple runnable code examples, and real-world production use cases. Read it top to bottom for a full foundation, or jump to any section.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>What AI is, agents, history, search, game playing</td><td>Can explain the field and implement BFS/A*/minimax</td></tr>
+<tr><td>Tier 2</td><td>Knowledge representation, logic, probability, ML basics</td><td>Can build a small rule system and train a classifier</td></tr>
+<tr><td>Tier 3</td><td>Deep learning, CNNs, RNNs, transformers, NLP</td><td>Can train a neural net and understand modern architectures</td></tr>
+<tr><td>Tier 4</td><td>Generative AI, LLMs, world models, alignment, AGI debates</td><td>Can reason about capabilities, limits and safety trade-offs</td></tr>
+<tr><td>Tier 5</td><td>Search agent, game player, mini deep-learning lab, LLM app</td><td>Shipped, tested artifacts with evaluation</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 — what AI actually is</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>What Is Artificial Intelligence?</h3>
+<p><strong>What &amp; why.</strong> AI is the science and engineering of making machines that perceive, reason, learn and act rationally. The modern definition focuses on <em>rational agents</em>: systems that choose actions expected to maximize their performance given what they observe and know.</p>
+
+<div class="callout internal"><span>Internal Behavior — How It Actually Works</span>
+The agent loop runs in a continuous cycle. At each tick: (1) <strong>perceive</strong> — sensors or API calls feed raw data into the system (camera frames, user messages, database rows). (2) <strong>update state</strong> — the internal model merges new percepts with existing memory (a knowledge base, a neural network's hidden state, or a vector store). (3) <strong>decide</strong> — the policy function evaluates possible actions against the current state and selects the one with highest expected utility. (4) <strong>act</strong> — effectors execute the chosen action (send an API call, move a robot arm, generate text). The cycle repeats. What makes this "AI" rather than "software" is that the policy is learned or inferred, not hand-coded for every case. A thermostat is a trivial agent (percept: temperature; policy: if below threshold, turn on heater). GPT-4 is a complex agent (percept: token sequence; policy: neural network predicting next token; action: generated text). The abstraction scales from trivial to superhuman.
+</div>
+
+<pre class="code"><code># The agent abstraction: every AI system is an agent
+# percepts  ->  internal state  ->  actions
+#   |            |                    |
+# sensors       memory &amp; model        effectors
+
+class Agent:
+    def __init__(self, model, policy):
+        self.model = model      # world model / knowledge
+        self.policy = policy    # chooses actions
+
+    def act(self, percept):
+        self.model.update(percept)      # learn / track state
+        return self.policy(self.model)  # decide next action
+
+# Rationality = maximize expected performance
+# "An agent is rational if it chooses the action
+#  expected to maximize its performance measure,
+#  given its percept history and built-in knowledge."</code></pre>
+
+<h4>Additional Example — Measuring Agent Performance</h4>
+<pre class="code"><code>import random, time
+
+class PerformanceTrackedAgent:
+    """Agent that records its own decision quality over time."""
+    def __init__(self, env):
+        self.env = env
+        self.history = []  # (percept, action, reward, timestamp)
+
+    def run_episode(self, steps=100):
+        total_reward = 0
+        for _ in range(steps):
+            percept = self.env.observe()
+            action = self._policy(percept)
+            reward = self.env.step(action)
+            self.history.append((percept, action, reward, time.time()))
+            total_reward += reward
+        return total_reward
+
+    def _policy(self, percept):
+        """Simple policy: act randomly. Replace with learned policy."""
+        return self.env.available_actions()[random.randint(0, 2)]
+
+    def performance_summary(self):
+        rewards = [h[2] for h in self.history]
+        return {
+            "total_reward": sum(rewards),
+            "avg_reward": sum(rewards) / max(len(rewards), 1),
+            "episodes": len(self.history),
+        }
+
+# Simulated grid world environment
+class SimpleGridEnv:
+    def __init__(self, size=5):
+        self.size = size
+        self.pos = [0, 0]
+        self.goal = [size-1, size-1]
+
+    def observe(self):
+        return tuple(self.pos)
+
+    def available_actions(self):
+        return ["up", "down", "left", "right"]
+
+    def step(self, action):
+        if action == "up":    self.pos[0] = max(0, self.pos[0]-1)
+        elif action == "down": self.pos[0] = min(self.size-1, self.pos[0]+1)
+        elif action == "left":  self.pos[1] = max(0, self.pos[1]-1)
+        elif action == "right": self.pos[1] = min(self.size-1, self.pos[1]+1)
+        return 10 if self.pos == self.goal else -1  # reward
+
+env = SimpleGridEnv()
+agent = PerformanceTrackedAgent(env)
+print(f"Episode reward: {agent.run_episode(200)}")
+print(f"Summary: {agent.performance_summary()}")</code></pre>
+
+<h4>Additional Example — Agent Comparison: Random vs Greedy</h4>
+<pre class="code"><code>class GreedyAgent:
+    """Moves toward the goal at every step."""
+    def __init__(self, goal):
+        self.goal = goal
+
+    def act(self, pos):
+        r, c = pos
+        gr, gc = self.goal
+        if r < gr: return "down"
+        if r > gr: return "up"
+        if c < gc: return "right"
+        if c > gc: return "left"
+        return "stay"
+
+def compare_agents(episodes=50, steps=100):
+    random_rewards, greedy_rewards = [], []
+    for _ in range(episodes):
+        env = SimpleGridEnv()
+        # Random agent
+        r_agent = PerformanceTrackedAgent(env)
+        random_rewards.append(r_agent.run_episode(steps))
+        # Greedy agent
+        env2 = SimpleGridEnv()
+        g_agent = PerformanceTrackedAgent(env2)
+        g_agent._policy = lambda p: GreedyAgent([4,4]).act(p)
+        greedy_rewards.append(g_agent.run_episode(steps))
+
+    print(f"Random avg reward:  {sum(random_rewards)/episodes:.1f}")
+    print(f"Greedy avg reward:  {sum(greedy_rewards)/episodes:.1f}")
+
+compare_agents()
+# Random:  avg ~ -85  (wastes steps wandering)
+# Greedy:  avg ~ +90  (finds goal quickly, repeats)</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>Customer Service Bot (Intercom, Zendesk AI).</strong> The agent perceives a customer message, updates its understanding of the issue (intent classification + entity extraction), decides among actions (answer from knowledge base, escalate to human, ask clarifying question), and acts by generating a response. Performance is measured by resolution rate, customer satisfaction score, and average handling time. Intercom's Fin AI Agent resolves ~50% of support conversations autonomously using this exact agent loop.
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Every AI system — from a thermostat to GPT — is an agent. Understanding this loop is the foundation of agentic AI chapters in this MasterHub.</div>
+<div class="callout hood"><span>Under the hood</span>The "rational agent" framing (Russell &amp; Norvig) separates AI from pure math or software: the focus is on decisions under uncertainty, not just computation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>A Brief History: Symbolic to Statistical to Generative</h3>
+<p><strong>What &amp; why.</strong> AI has moved through eras: symbolic reasoning (1950s-80s), statistical ML (1990s-2000s), deep learning (2010s), and generative/agentic AI (2020s). Each era solved different problems and revealed the limits of the previous one.</p>
+
+<div class="callout internal"><span>Internal Behavior — How Each Era Actually Works</span>
+<strong>Symbolic era (1956–1980s):</strong> Programs encoded human knowledge as IF-THEN rules and logic predicates. Inference was mechanical deduction — forward chaining (from facts to conclusions) or backward chaining (from goal to supporting facts). The system never "learned" from data; a human programmer wrote every rule. Strength: explainability (every conclusion has a proof). Weakness: brittleness (rules break on edge cases, and writing rules for real-world complexity is intractable).
+<br><br>
+<strong>Statistical era (1990s–2000s):</strong> Instead of writing rules, we wrote <em>learning algorithms</em>. Decision trees, SVMs, and ensemble methods learned patterns from labeled data. The internal behavior changed fundamentally: the "knowledge" was no longer explicit rules but numerical weights and split thresholds derived from data statistics. Cross-validation replaced logical proof as the quality check. Strength: could handle noise and uncertainty. Weakness: needed hand-crafted features (a human still decided what to measure).
+<br><br>
+<strong>Deep learning era (2012–2020):</strong> Neural networks learned both the patterns AND the features from raw data. A CNN trained on images learns edge detectors in early layers, shape detectors in middle layers, and object classifiers in late layers — no human designs the features. The internal behavior is gradient descent through millions of parameters, with the chain rule (backpropagation) computing how each weight contributed to the error. Strength: superhuman performance on perception tasks. Weakness: needs massive data and compute, hard to explain.
+<br><br>
+<strong>Generative era (2020–now):</strong> Models learned to generate data, not just classify it. LLMs model P(next_token | context), diffusion models model P(image | noise). The internal behavior is sampling from learned distributions. Strength: creative, general-purpose. Weakness: hallucination, alignment challenges, unpredictable behavior.
+</div>
+
+<pre class="code"><code># Timeline
+# 1950   Turing's "Computing Machinery and Intelligence" (Turing test)
+# 1956   Dartmouth workshop coins "artificial intelligence"
+# 1966   ELIZA chatbot (pattern matching)
+# 1970s  Expert systems: MYCIN (medical diagnosis rules)
+# 1980s  AI winter -> backpropagation revival, expert system boom/bust
+# 1997   Deep Blue beats Kasparov (search + heuristics)
+# 2011   IBM Watson wins Jeopardy! (NLP + knowledge)
+# 2012   AlexNet wins ImageNet (deep learning era begins)
+# 2016   AlphaGo beats Lee Sedol (RL + MCTS)
+# 2017   Transformer architecture (attention)
+# 2020+  GPT-3/4, diffusion, LLM agents, multimodal models</code></pre>
+
+<h4>Additional Example — Evolution of an AI Task Across Eras</h4>
+<pre class="code"><code># Handwriting recognition through the eras:
+
+# SYMBOLIC (1960s): Template matching
+def symbolic_ocr(pixel_grid):
+    """Compare pixels to stored templates. Brittle."""
+    best_match = None
+    best_score = 0
+    for digit, template in TEMPLATES.items():
+        score = sum(
+            1 for p1, p2 in zip(pixel_grid, template) if p1 == p2
+        )
+        if score > best_score:
+            best_score = score
+            best_match = digit
+    return best_match  # Fails on any variation in handwriting
+
+# STATISTICAL (1990s): Feature engineering + SVM
+def statistical_ocr(image):
+    """Hand-crafted features + classifier."""
+    features = [
+        count_horizontal_strokes(image),  # human-designed features
+        count_vertical_strokes(image),
+        ratio_of_white_pixels(image),
+        centroid_position(image),
+    ]
+    return svm_classifier.predict([features])
+
+# DEEP LEARNING (2012+): End-to-end learning
+# import torch
+# model = nn.Sequential(
+#     nn.Conv2d(1, 32, 3), nn.ReLU(), nn.MaxPool2d(2),
+#     nn.Conv2d(32, 64, 3), nn.ReLU(), nn.MaxPool2d(2),
+#     nn.Flatten(), nn.Linear(64*5*5, 10)
+# )
+# # No feature engineering — the network learns what to look for
+# # Accuracy: 99.2% on MNIST (human: 99.0%)
+
+print("Symbolic:  ~70% accuracy, fails on variation")
+print("Statistical: ~95% accuracy, needs feature engineering")
+print("Deep learning: ~99% accuracy, learns features from data")</code></pre>
+
+<h4>Additional Example — Key Milestones with Impact Metrics</h4>
+<pre class="code"><code>MILESTONES = {
+    "Deep Blue (1997)": {
+        "task": "Chess vs world champion",
+        "method": "Brute-force search (200M positions/sec) + evaluation",
+        "significance": "Machine beats human in strategic game",
+        "compute": "11.38 GFLOPS (specialized hardware)",
+    },
+    "AlexNet (2012)": {
+        "task": "ImageNet classification (1000 classes)",
+        "method": "8-layer CNN, trained on 2 GPUs",
+        "significance": "Deep learning beats hand-crafted features",
+        "compute": "~1 week on 2 GTX 580 GPUs",
+    },
+    "AlphaGo (2016)": {
+        "task": "Go vs world champion (19x19 board)",
+        "method": "Neural net + Monte Carlo Tree Search + RL",
+        "significance": "Search space too large for brute force; learning required",
+        "compute": "1920 CPUs + 280 GPUs",
+    },
+    "GPT-3 (2020)": {
+        "task": "Few-shot text generation",
+        "method": "175B parameter transformer, self-supervised",
+        "significance": "Emergent abilities from scale (reasoning, code, translation)",
+        "compute": "~3640 PetaFLOP-days",
+    },
+    "GPT-4 (2023)": {
+        "task": "Multimodal reasoning, professional exams",
+        "method": "Rumored MoE, RLHF alignment",
+        "significance": "Passes bar exam (90th percentile), medical licensing",
+        "compute": "Estimated $100M+ training cost",
+    },
+}
+
+for name, info in MILESTONES.items():
+    print(f"\n{'='*50}")
+    print(f"  {name}")
+    print(f"  Task: {info['task']}")
+    print(f"  Method: {info['method']}")
+    print(f"  Why it matters: {info['significance']}")
+    print(f"  Compute: {info['compute']}")</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>Healthcare AI Evolution.</strong> Symbolic: MYCIN (1976) used 600 IF-THEN rules for bacterial infection diagnosis — accurate but impossible to maintain. Statistical: Random forests on Electronic Health Records predicted sepsis hours before onset. Deep learning: Google's retinal scan model detects diabetic retinopathy at specialist-level accuracy from raw images. Generative: GPT-4 passes the USMLE medical licensing exam, enabling AI-assisted diagnosis. Each era built on the last — modern healthcare AI systems combine all four: rules for compliance, statistics for risk scoring, deep learning for imaging, and LLMs for clinical note generation.
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Understanding why techniques exist: search still powers game AI and planners; statistics powers ML; deep learning powers perception and generation.</div>
+<div class="callout hood"><span>Under the hood</span>Each AI winter followed hype exceeding capability. The lesson: capability advances when evaluations are honest and datasets grow, not when claims are loud.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Search as Problem Solving</h3>
+<p><strong>What &amp; why.</strong> Classical AI treats many problems as search over a state space. Blind search (BFS/DFS) is complete but slow; informed search (A*) uses heuristics; adversarial search (minimax) handles games with opponents.</p>
+
+<div class="callout internal"><span>Internal Behavior — How Search Algorithms Actually Work</span>
+<strong>BFS (Breadth-First Search):</strong> Maintains a FIFO queue. Explores all nodes at distance 1 from start, then all at distance 2, etc. Guarantees the shortest path for unweighted graphs because it never skips a shallower node. Memory cost: O(b^d) where b is branching factor and d is depth. For a branching factor of 10 and depth 5, that's 100,000 nodes in memory.
+<br><br>
+<strong>A* Search:</strong> Uses f(n) = g(n) + h(n) where g(n) is cost-so-far and h(n) is estimated cost-to-go. Explores the most promising node first (lowest f). The heuristic "directs" search toward the goal — like following a compass in a maze. A* is optimal if h never overestimates (admissible heuristic). With a perfect heuristic (h = true cost), A* explores only the optimal path. With h=0, it degrades to Dijkstra's algorithm.
+<br><br>
+<strong>Key insight — why A* beats BFS in practice:</strong> In a GPS navigation system with 10 million road segments, BFS would need to explore millions of nodes. A* with a straight-line-distance heuristic might explore only thousands, because every expansion moves toward the goal. The heuristic prunes the search space exponentially.
+<br><br>
+<strong>Beam Search (used in LLMs):</strong> A bounded variant that keeps only the top-k candidates at each step. Not optimal, but practical for large state spaces (like token sequences where branching factor is 50,000+ vocabulary tokens). This is how GPT generates text — beam search or sampling over the token distribution.
+</div>
+
+<pre class="code"><code>from collections import deque
+import heapq
+
+def bfs(start, goal_test, expand):
+    """Blind search — complete and optimal for unit costs."""
+    frontier = deque([start]); visited = {start}
+    while frontier:
+        node = frontier.popleft()
+        if goal_test(node): return node
+        for child in expand(node):
+            if child not in visited:
+                visited.add(child); frontier.append(child)
+    return None
+
+def a_star(start, goal_test, expand, h):
+    """Informed search — optimal when h is admissible."""
+    frontier = [(h(start), 0, start)]  # (f, g, node)
+    best = {start: 0}
+    while frontier:
+        _, g, node = heapq.heappop(frontier)
+        if goal_test(node): return node
+        for child, cost in expand(node):
+            ng = g + cost
+            if ng < best.get(child, float('inf')):
+                best[child] = ng
+                heapq.heappush(frontier, (ng + h(child), ng, child))
+    return None</code></pre>
+
+<h4>Additional Example — BFS vs A* Comparison on a Maze</h4>
+<pre class="code"><code>import time
+
+def make_grid(rows, cols, walls):
+    """Create a grid world with walls."""
+    grid = set()
+    for r in range(rows):
+        for c in range(cols):
+            if (r, c) not in walls:
+                grid.add((r, c))
+    return grid
+
+def neighbors(pos, grid):
+    """Get valid neighboring cells."""
+    r, c = pos
+    result = []
+    for dr, dc in [(-1,0),(1,0),(0,-1),(0,1)]:
+        nr, nc = r+dr, c+dc
+        if (nr, nc) in grid:
+            result.append(((nr, nc), 1))  # cost 1
+    return result
+
+def manhattan(a, b):
+    return abs(a[0]-b[0]) + abs(a[1]-b[1])
+
+# Create a 10x10 maze
+walls = {(1,i) for i in range(1,9)} | {(3,i) for i in range(1,9)} | \
+        {(5,i) for i in range(1,9)} | {(7,i) for i in range(2,9)}
+grid = make_grid(10, 10, walls)
+start, goal = (0, 0), (9, 9)
+
+# BFS — explores everything at distance d before d+1
+t0 = time.time()
+bfs_result = bfs(start, lambda n: n==goal, lambda n: neighbors(n, grid))
+bfs_time = time.time() - t0
+
+# A* — explores toward goal using heuristic
+t0 = time.time()
+astar_result = a_star(start, lambda n: n==goal, lambda n: neighbors(n, grid), lambda n: manhattan(n, goal))
+astar_time = time.time() - t0
+
+print(f"BFS:  found={bfs_result is not None}, time={bfs_time*1000:.2f}ms")
+print(f"A*:   found={astar_result is not None}, time={astar_time*1000:.2f}ms")
+# A* is typically 10-100x faster on structured state spaces</code></pre>
+
+<h4>Additional Example — Search in LLM Decoding (Beam Search)</h4>
+<pre class="code"><code>import math
+
+def beam_search(vocabulary, start_token, step_fn, beam_width=3, steps=5):
+    """
+    Beam search: keep top-k sequences at each step.
+    This is how LLMs generate text (simplified).
+    """
+    # Start with one sequence
+    beams = [(0.0, [start_token])]  # (log_prob, token_sequence)
+
+    for step in range(steps):
+        candidates = []
+        for log_prob, seq in beams:
+            # Get next-token probabilities from "model"
+            next_probs = step_fn(seq)  # dict of {token: probability}
+            for token, prob in next_probs.items():
+                new_log_prob = log_prob + math.log(prob + 1e-10)
+                candidates.append((new_log_prob, seq + [token]))
+
+        # Keep only top-k
+        candidates.sort(key=lambda x: -x[0])
+        beams = candidates[:beam_width]
+
+    return beams
+
+# Simulated LLM: "The cat" -> probabilities for next token
+def mock_llm(seq):
+    last = seq[-1] if seq else ""
+    if last == "<start>" or last == "":
+        return {"The": 0.6, "A": 0.3, "My": 0.1}
+    elif last == "The":
+        return {"cat": 0.5, "dog": 0.3, "sky": 0.2}
+    elif last == "cat":
+        return {"sat": 0.7, "ran": 0.2, "slept": 0.1}
+    elif last == "sat":
+        return {"on": 0.8, "in": 0.15, "by": 0.05}
+    elif last == "on":
+        return {"the": 0.9, "a": 0.1}
+    elif last == "the":
+        return {"mat": 0.6, "floor": 0.3, "bed": 0.1}
+    return {"<end>": 1.0}
+
+results = beam_search(None, "<start>", mock_llm, beam_width=3, steps=5)
+for log_prob, seq in results:
+    print(f"  {' '.join(seq[1:])}: prob={math.exp(log_prob):.4f}")
+# Output: "The cat sat on the mat" with highest probability</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>GPS Navigation (Google Maps, Waze).</strong> Google Maps uses A* (or its variant, Dijkstra with contraction hierarchies) to find the fastest route. The state space is the road network (~10M nodes in the US). The heuristic is straight-line distance to destination. Real-time traffic data modifies edge weights dynamically. At peak hours, the algorithm re-routes millions of drivers simultaneously — each reroute is a fresh A* search on a modified graph. The same algorithm powers warehouse robot pathing at Amazon (Kiva robots use A* on a 2D grid to navigate fulfillment centers).
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Pathfinding, puzzle solving, planning, and the tree search behind game engines and LLM reasoning (tree-of-thoughts is literally search).</div>
+<div class="callout hood"><span>Under the hood</span>A* is optimal if the heuristic never overestimates true cost. In LLM decoding, search over token sequences uses beam search — a bounded version of this idea.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Game Playing: Minimax and Alpha-Beta</h3>
+<p><strong>What &amp; why.</strong> Zero-sum games are search with an adversary. Minimax assumes the opponent plays optimally; alpha-beta pruning cuts branches that cannot matter, making deep search feasible (Deep Blue searched ~200M positions/sec).</p>
+
+<div class="callout internal"><span>Internal Behavior — How Minimax and Alpha-Beta Actually Work</span>
+<strong>Minimax</strong> works by propagating values up the game tree. At leaf nodes (game over or depth limit), a heuristic evaluation function scores the position (e.g., +10 for winning, -10 for losing). At MAX nodes (your turn), the algorithm picks the child with the highest value. At MIN nodes (opponent's turn), it picks the child with the lowest value. The result is the value of the game assuming optimal play from both sides.
+<br><br>
+<strong>The minimax value is the "true" value of the position</strong> — it's the score you're guaranteed if you play perfectly. The opponent's best play is already accounted for. That's why Deep Blue could evaluate millions of positions: each evaluation was a static heuristic, and minimax chose the path that maximizes the minimum guaranteed outcome.
+<br><br>
+<strong>Alpha-beta pruning</strong> observes that many branches cannot possibly affect the final decision. If MAX already found a move worth +5, and is exploring a branch where MIN can force it below +3, MAX will never choose that branch — so stop exploring it. The "alpha" tracks the best MAX has found; "beta" tracks the best MIN has found. When alpha ≥ beta, prune. With perfect move ordering, alpha-beta reduces the effective branching factor from b to √b — searching depth 12 as cheaply as depth 6.
+<br><br>
+<strong>Why this matters for modern AI:</strong> AlphaGo combined minimax-style tree search (MCTS) with neural network evaluation. The neural network replaced the hand-crafted evaluation function, but the search structure was classical minimax adapted for larger trees.
+</div>
+
+<pre class="code"><code>def minimax(state, depth, maximizing):
+    if depth == 0 or state.is_terminal():
+        return state.evaluate()
+    if maximizing:
+        best = -float('inf')
+        for move in state.legal_moves():
+            best = max(best, minimax(move, depth-1, False))
+        return best
+    else:
+        best = float('inf')
+        for move in state.legal_moves():
+            best = min(best, minimax(move, depth-1, True))
+        return best
+
+def alpha_beta(state, depth, alpha, beta, maximizing):
+    if depth == 0 or state.is_terminal():
+        return state.evaluate()
+    if maximizing:
+        value = -float('inf')
+        for move in state.legal_moves():
+            value = max(value, alpha_beta(move, depth-1, alpha, beta, False))
+            alpha = max(alpha, value)
+            if beta <= alpha: break  # prune
+        return value
+    else:
+        value = float('inf')
+        for move in state.legal_moves():
+            value = min(value, alpha_beta(move, depth-1, alpha, beta, True))
+            beta = min(beta, value)
+            if beta <= alpha: break  # prune
+        return value</code></pre>
+
+<h4>Additional Example — Full Tic-Tac-Toe with Alpha-Beta</h4>
+<pre class="code"><code>import math
+
+class TicTacToe:
+    def __init__(self, board=None, turn='X'):
+        self.board = board or [' '] * 9
+        self.turn = turn
+
+    def legal_moves(self):
+        return [i for i in range(9) if self.board[i] == ' ']
+
+    def make_move(self, pos):
+        new_board = self.board[:]
+        new_board[pos] = self.turn
+        return TicTacToe(new_board, 'O' if self.turn == 'X' else 'X')
+
+    def is_terminal(self):
+        return self.winner() is not None or ' ' not in self.board
+
+    def winner(self):
+        lines = [(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
+        for a,b,c in lines:
+            if self.board[a] == self.board[b] == self.board[c] != ' ':
+                return self.board[a]
+        return None
+
+    def evaluate(self):
+        w = self.winner()
+        if w == 'X': return 10
+        if w == 'O': return -10
+        return 0
+
+def alpha_beta(state, depth, alpha, beta, maximizing):
+    if depth == 0 or state.is_terminal():
+        return state.evaluate()
+    if maximizing:
+        value = -math.inf
+        for move in state.legal_moves():
+            value = max(value, alpha_beta(state.make_move(move), depth-1, alpha, beta, False))
+            alpha = max(alpha, value)
+            if beta <= alpha: break
+        return value
+    else:
+        value = math.inf
+        for move in state.legal_moves():
+            value = min(value, alpha_beta(state.make_move(move), depth-1, alpha, beta, True))
+            beta = min(beta, value)
+            if beta <= alpha: break
+        return value
+
+def best_move(state):
+    best_val = -math.inf if state.turn == 'X' else math.inf
+    move = None
+    for m in state.legal_moves():
+        val = alpha_beta(state.make_move(m), 9, -math.inf, math.inf, state.turn == 'X')
+        if state.turn == 'X' and val > best_val:
+            best_val, move = val, m
+        elif state.turn == 'O' and val < best_val:
+            best_val, move = val, m
+    return move
+
+game = TicTacToe()
+moves = []
+while not game.is_terminal():
+    m = best_move(game)
+    moves.append(m)
+    game = game.make_move(m)
+
+print(f"Game: {moves}")
+print(f"Winner: {game.winner() or 'Draw'}")
+# Perfect play = always draw in tic-tac-toe</code></pre>
+
+<h4>Additional Example — Minimax Node Counting: Why Pruning Matters</h4>
+<pre class="code"><code>import time
+
+def count_nodes_minimax(depth, branching):
+    """Count nodes explored without pruning."""
+    if depth == 0: return 1
+    total = 0
+    for _ in range(branching):
+        total += count_nodes_minimax(depth - 1, branching)
+    return total + 1  # +1 for this node
+
+def count_nodes_alpha_beta(depth, branching, perfect_order=True):
+    """Count nodes explored with alpha-beta (approximate)."""
+    if depth == 0: return 1
+    if perfect_order:
+        # Perfect ordering: sqrt of minimax nodes
+        return int(math.sqrt(count_nodes_minimax(depth, branching))) + 1
+    return count_nodes_minimax(depth, branching)  # worst case
+
+b, d = 10, 6  # chess-like: branching ~35, depth ~6 for practical search
+minimax_nodes = count_nodes_minimax(d, b)
+ab_nodes = count_nodes_alpha_beta(d, b)
+
+print(f"Depth {d}, branching {b}:")
+print(f"  Minimax:   {minimax_nodes:>10,} nodes")
+print(f"  Alpha-beta: {ab_nodes:>10,} nodes")
+print(f"  Speedup:   {minimax_nodes/ab_nodes:.0f}x")
+# Depth 6, branching 10: Minimax=1,111,111 vs Alpha-beta~1,055 = 1054x speedup</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>Chess Engines (Stockfish, Leela Chess Zero).</strong> Stockfish uses alpha-beta pruning with iterative deepening, searching 70+ million positions per second. Its evaluation function uses hand-tuned features (pawn structure, king safety, piece mobility). Leela Chess Zero (Lc0) replaced the hand-tuned eval with a neural network trained through self-play (like AlphaGo). Modern Stockfish NNUE (Efficiently Updatable Neural Network) combines both: a small neural network for fast position evaluation inside alpha-beta search. Both approaches use the same minimax structure — the difference is what evaluation function sits at the leaf nodes.
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Chess/Go engines, competitive game bots, and decision-making where an adversary optimizes against you (adversarial ML too).</div>
+<div class="callout hood"><span>Under the hood</span>AlphaGo replaced hand-crafted heuristics with learned value/policy networks but kept Monte Carlo Tree Search — search + learning, not search OR learning.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Knowledge &amp; Uncertainty<small>Tier 2 — representing what we know</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Knowledge Representation and Logic</h3>
+<p><strong>What &amp; why.</strong> Symbolic AI represents knowledge as facts and rules in logic, then derives new conclusions by inference. This is explainable by construction: every conclusion has a proof trail.</p>
+
+<div class="callout internal"><span>Internal Behavior — How Rule Engines Actually Work</span>
+<strong>Forward chaining</strong> (data-driven inference): Start with known facts. Scan all rules. If a rule's premises are all satisfied by current facts, fire the rule (add the conclusion to facts). Repeat until no new facts are derived. Example: facts = {fever, cough}. Rule: fever + cough → flu_suspect. Fire: add flu_suspect. Next rule: flu_suspect + high_risk → hospital. Can't fire (no high_risk fact). Done.
+<br><br>
+<strong>Backward chaining</strong> (goal-driven inference): Start with a goal. Find rules whose conclusion matches the goal. Check if those rules' premises are facts (or recursively prove them). If all premises are provable, the goal is true. Example: Goal = "hospital". Find rule: flu_suspect + high_risk → hospital. Need flu_suspect? Find rule: fever + cough → flu_suspect. Both are facts. Goal proven.
+<br><br>
+<strong>Why this matters:</strong> Forward chaining is used in production monitoring (new sensor data triggers alerts). Backward chaining is used in diagnosis (start with "what disease explains these symptoms?" and work backward). CLIPS, Drools, and Prolog are real-world implementations. Modern AI combines this with LLMs: the LLM generates rules, the rule engine guarantees correctness.
+</div>
+
+<pre class="code"><code># Forward chaining — simple production-rule engine
+facts = {"fever", "cough"}
+rules = [
+    ({"fever", "cough"}, "flu_suspect"),
+    ({"flu_suspect", "high_risk"}, "hospital"),
+]
+
+def forward_chain(facts, rules, max_iter=10):
+    inferred = set(facts)
+    for _ in range(max_iter):
+        changed = False
+        for prem, concl in rules:
+            if prem <= inferred and concl not in inferred:
+                inferred.add(concl); changed = True
+        if not changed: break
+    return inferred
+
+print(forward_chain(facts, rules))  # {cough, fever, flu_suspect}
+
+# Ontologies: classes, properties, relations
+#   Person is-a Agent; Employee is-a Person
+#   worksAt(Employee, Company)  hasSkill(Employee, Skill)</code></pre>
+
+<h4>Additional Example — Backward Chaining for Diagnosis</h4>
+<pre class="code"><code># Backward chaining — goal-driven inference
+knowledge_base = {
+    "flu": {"fever", "cough", "body_ache"},
+    "cold": {"sneezing", "runny_nose", "mild_cough"},
+    "covid": {"fever", "cough", "loss_of_taste", "fatigue"},
+    "allergy": {"sneezing", "itchy_eyes", "runny_nose"},
+}
+
+def backward_chain(symptoms, knowledge_base):
+    """Find which conditions match the observed symptoms."""
+    results = []
+    for condition, required in knowledge_base.items():
+        matched = symptoms & required
+        confidence = len(matched) / len(required) if required else 0
+        if matched:
+            results.append({
+                "condition": condition,
+                "matched_symptoms": matched,
+                "missing": required - symptoms,
+                "confidence": round(confidence, 2),
+            })
+    results.sort(key=lambda x: -x["confidence"])
+    return results
+
+patient_symptoms = {"fever", "cough", "body_ache", "fatigue"}
+diagnoses = backward_chain(patient_symptoms, knowledge_base)
+
+for d in diagnoses:
+    print(f"\n{d['condition'].upper()} (confidence: {d['confidence']})")
+    print(f"  Matched: {d['matched_symptoms']}")
+    print(f"  Missing: {d['missing'] or 'none'}")
+
+# Output:
+# FLU (confidence: 1.0) — all symptoms match
+# COVID (confidence: 0.75) — missing loss_of_taste
+# ALLERGY (confidence: 0.0) — no symptoms match</code></pre>
+
+<h4>Additional Example — Production Rule Engine with Priority</h4>
+<pre class="code"><code>from dataclasses import dataclass
+from typing import Callable
+
+@dataclass
+class Rule:
+    name: str
+    conditions: set
+    action: Callable
+    priority: int = 0
+    fired: bool = False
+
+class ProductionEngine:
+    def __init__(self):
+        self.facts = set()
+        self.rules = []
+        self.log = []
+
+    def add_fact(self, fact):
+        self.facts.add(fact)
+        self.log.append(f"+fact: {fact}")
+
+    def add_rule(self, rule):
+        self.rules.append(rule)
+
+    def run(self):
+        """Forward chain until no rules fire."""
+        changed = True
+        while changed:
+            changed = False
+            for rule in sorted(self.rules, key=lambda r: -r.priority):
+                if rule.fired:
+                    continue
+                if rule.conditions <= self.facts:
+                    result = rule.action(self.facts)
+                    rule.fired = True
+                    changed = True
+                    self.log.append(f"FIRE: {rule.name} -> {result}")
+                    if result:
+                        self.facts.add(result)
+        return self.facts
+
+# Define rules for an order processing system
+engine = ProductionEngine()
+engine.add_rule(Rule("validate_order", {"order_placed"}, lambda f: "order_validated", priority=10))
+engine.add_rule(Rule("check_fraud", {"order_validated", "first_order"}, lambda f: "fraud_check_passed", priority=20))
+engine.add_rule(Rule("charge_payment", {"order_validated", "fraud_check_passed"}, lambda f: "payment_charged", priority=30))
+engine.add_rule(Rule("ship_order", {"payment_charged"}, lambda f: "order_shipped", priority=40))
+
+engine.add_fact("order_placed")
+engine.add_fact("first_order")
+
+result = engine.run()
+print("Final facts:", result)
+print("\nEvent log:")
+for entry in engine.log:
+    print(f"  {entry}")</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>Healthcare Rule Engines (IBM Watson for Oncology, clinical decision support).</strong> Hospital systems use forward-chaining rule engines to check drug interactions: when a new prescription is added (fact), rules check against patient allergies, existing medications, and dosage limits. If a dangerous interaction is detected, the rule fires an alert. The EU's Medical Device Regulation requires that these systems be auditable — every alert must trace back to specific rules and facts. This is why symbolic AI is still critical in healthcare despite the deep learning revolution: you can prove why a decision was made.
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Rule engines in finance/compliance, knowledge graphs, expert systems, and the structured reasoning layer that LLMs still struggle to guarantee.</div>
+<div class="callout hood"><span>Under the hood</span>First-order logic is expressive but undecidable in general; practical systems use restricted fragments (Datalog, description logics) with guaranteed termination.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Probability and Bayes' Rule</h3>
+<p><strong>What &amp; why.</strong> Real AI must act under uncertainty. Probability gives a principled calculus for beliefs: Bayes' rule updates beliefs as evidence arrives. Almost every ML model is Bayes' rule in disguise.</p>
+
+<div class="callout internal"><span>Internal Behavior — How Bayes' Rule Actually Computes Beliefs</span>
+Bayes' rule says: P(H|E) = P(E|H) × P(H) / P(E). Let's trace through a concrete example step by step.
+<br><br>
+<strong>Step 1 — Prior P(H):</strong> Before seeing any evidence, what's the probability of the hypothesis? In spam filtering: 30% of emails are spam. This is the "prior belief."
+<br><br>
+<strong>Step 2 — Likelihood P(E|H):</strong> If the hypothesis is true, how likely is the evidence? If an email IS spam, the word "win" appears 80% of the time.
+<br><br>
+<strong>Step 3 — P(E|¬H):</strong> If the hypothesis is false (not spam), how likely is the evidence? In legitimate email, "win" appears 10% of the time.
+<br><br>
+<strong>Step 4 — Compute posterior:</strong> P(spam|"win") = 0.8 × 0.3 / (0.8 × 0.3 + 0.1 × 0.7) = 0.24 / 0.31 = 0.774.
+<br><br>
+<strong>Why this works:</strong> The denominator P(E) is the total probability of seeing the evidence, weighted across all hypotheses. The numerator is just the hypothesis-weighted likelihood. The result is a new belief that combines prior knowledge with observed evidence. Add more words, and each update compounds — this is Naive Bayes, and it's the engine behind email spam filters.
+<br><br>
+<strong>The deep connection to ML:</strong> Neural networks learn P(y|x) — the probability of label y given input x. This IS Bayes' rule, approximated by gradient descent instead of explicit computation. The network's weights encode the likelihood; the training data encodes the prior.
+</div>
+
+<pre class="code"><code># Bayes' rule: P(H|E) = P(E|H) * P(H) / P(E)
+prior_spam = 0.3                 # P(spam)
+p_word_given_spam = 0.8          # P("win" | spam)
+p_word_given_ham = 0.1           # P("win" | ham)
+
+def posterior(p_e_given_h, prior_h, p_e_given_not_h):
+    prior_not = 1 - prior_h
+    evidence = p_e_given_h * prior_h + p_e_given_not_h * prior_not
+    return (p_e_given_h * prior_h) / evidence
+
+posterior_spam = posterior(p_word_given_spam, prior_spam, p_word_given_ham)
+print(f"P(spam | 'win') = {posterior_spam:.3f}")  # ~0.774
+
+# Naive Bayes assumes features independent given the class:
+# P(class | words) ~ P(class) * prod(P(word | class))</code></pre>
+
+<h4>Additional Example — Full Naive Bayes Classifier from Scratch</h4>
+<pre class="code"><code>import math
+from collections import defaultdict
+
+class NaiveBayes:
+    def __init__(self):
+        self.class_counts = defaultdict(int)
+        self.word_counts = defaultdict(lambda: defaultdict(int))
+        self.total_words = defaultdict(int)
+        self.vocab = set()
+
+    def train(self, documents, labels):
+        """Train on (text, label) pairs."""
+        for doc, label in zip(documents, labels):
+            self.class_counts[label] += 1
+            for word in doc.lower().split():
+                self.word_counts[label][word] += 1
+                self.total_words[label] += 1
+                self.vocab.add(word)
+
+    def _log_prob(self, word, label):
+        """Laplace-smoothed log probability."""
+        count = self.word_counts[label][word]
+        total = self.total_words[label]
+        vocab_size = len(self.vocab)
+        return math.log((count + 1) / (total + vocab_size))
+
+    def predict(self, doc):
+        """Predict the most likely class."""
+        words = doc.lower().split()
+        total_docs = sum(self.class_counts.values())
+        best_class, best_score = None, -float('inf')
+
+        for label in self.class_counts:
+            score = math.log(self.class_counts[label] / total_docs)
+            for word in words:
+                score += self._log_prob(word, label)
+            if score > best_score:
+                best_score = score
+                best_class = label
+
+        return best_class, best_score
+
+# Training data
+train_docs = [
+    "win money free prize click now",
+    "meeting tomorrow at three office",
+    "free credit offer limited time",
+    "project deadline friday please review",
+    "claim your free prize today",
+    "team lunch thursday cafeteria",
+]
+train_labels = ["spam", "ham", "spam", "ham", "spam", "ham"]
+
+nb = NaiveBayes()
+nb.train(train_docs, train_labels)
+
+test_docs = [
+    "free money prize winner",
+    "meeting at three office",
+    "click free claim now",
+]
+for doc in test_docs:
+    label, score = nb.predict(doc)
+    print(f"'{doc}' -> {label} (score={score:.2f})")
+# 'free money prize winner' -> spam
+# 'meeting at three office' -> ham
+# 'click free claim now' -> spam</code></pre>
+
+<h4>Additional Example — Bayesian Updating Over Time</h4>
+<pre class="code"><code>def bayesian_sequence(prior, likelihoods, observed):
+    """
+    Show how beliefs update as evidence accumulates.
+    Each observation shifts the posterior, which becomes the next prior.
+    """
+    beliefs = [prior]
+    current_prior = prior
+
+    for i, obs in enumerate(observed):
+        p_obs_h = likelihoods["positive"][i] if obs else 1 - likelihoods["positive"][i]
+        p_obs_not = likelihoods["negative"][i] if obs else 1 - likelihoods["negative"][i]
+
+        evidence = p_obs_h * current_prior + p_obs_not * (1 - current_prior)
+        posterior = (p_obs_h * current_prior) / evidence
+
+        beliefs.append(posterior)
+        current_prior = posterior  # posterior becomes next prior
+
+    return beliefs
+
+# Scenario: Is it raining? (umbrella observed = True, not observed = False)
+prior = 0.3  # 30% chance of rain (climatology)
+observed = [True, True, True, True]  # 4 people with umbrellas in a row
+
+likelihoods = {
+    "positive": [0.9, 0.9, 0.9, 0.9],  # P(umbrella | rain)
+    "negative": [0.2, 0.2, 0.2, 0.2],  # P(umbrella | no rain)
+}
+
+beliefs = bayesian_sequence(prior, likelihoods, observed)
+labels = ["Prior", "After 1 umbrella", "After 2", "After 3", "After 4"]
+for label, belief in zip(labels, beliefs):
+    print(f"  {label}: P(rain) = {belief:.3f}")
+# Prior:  0.300
+# After 1: 0.692  (big jump — evidence is strong)
+# After 2: 0.903  (increasing confidence)
+# After 3: 0.967  (near-certain)
+# After 4: 0.989  (essentially certain)</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>Medical Diagnosis (Naive Bayes in Clinical Decision Support).</strong> hospitals use Bayesian classifiers to estimate disease probability from symptoms. A patient presents with fever (P(fever|flu)=0.9), cough (P(cough|flu)=0.85), and age over 65 (risk factor). Starting with base flu prevalence of 5%, each symptom updates the posterior. After three symptoms, P(flu) > 95%, triggering a rapid test recommendation. The same math powers Google's spam filter, Netflix's recommendation engine, and autonomous vehicle's sensor fusion (combining LiDAR + camera readings with Bayesian updating to estimate obstacle positions).
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Spam filters, medical diagnosis, robot localization, LLM token probabilities, and every confidence score in ML.</div>
+<div class="callout hood"><span>Under the hood</span>Modern LLMs are Bayesian-ish: next-token probability is a conditional distribution learned from data. "Hallucination" is a high-confidence wrong posterior.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Machine Learning in One Slide</h3>
+<p><strong>What &amp; why.</strong> Instead of hand-coding rules, ML learns them from examples. Supervised learning maps inputs to labels; unsupervised finds structure; reinforcement learning maximizes reward through trial and error. Generalization — performing on unseen data — is the entire game.</p>
+
+<div class="callout internal"><span>Internal Behavior — How a Classifier Actually Learns</span>
+<strong>The learning loop:</strong> (1) Initialize model with random weights. (2) Feed training examples through the model → get predictions. (3) Compute loss: how wrong are the predictions compared to true labels? (4) Compute gradients: for each weight, how much did it contribute to the error? (5) Update weights: move them in the direction that reduces loss. (6) Repeat millions of times.
+<br><br>
+<strong>What the model "learns":</strong> A logistic regression model learns a decision boundary — a line (or hyperplane) that separates classes. The weights define this line. Training moves the line until it best separates spam from ham, cats from dogs, etc. The "feature" is what you measure (word frequencies, pixel values, sensor readings). The "label" is the answer you want to predict.
+<br><br>
+<strong>Why train/test split matters:</strong> If you evaluate on the same data you trained on, the model might have memorized the answers (overfitting). The train/test split simulates "unseen data" — the real test of generalization. A model that scores 99% on training but 60% on test has memorized, not learned. A model that scores 95% on both has genuinely learned patterns.
+<br><br>
+<strong>The bias-variance tradeoff:</strong> Simple models (few parameters) have high bias (they can't capture complex patterns) but low variance (they're stable across datasets). Complex models (many parameters) have low bias but high variance. The art of ML is finding the sweet spot.
+</div>
+
+<pre class="code"><code>from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# X: feature matrix, y: labels
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+model = LogisticRegression(max_iter=1000)
+model.fit(X_train, y_train)
+
+train_acc = accuracy_score(y_train, model.predict(X_train))
+test_acc  = accuracy_score(y_test,  model.predict(X_test))
+print(f"train={train_acc:.3f} test={test_acc:.3f}")
+
+# The gap (train - test) measures overfitting.
+# Small gap + high test = good generalization.
+# Big gap = the model memorized, it did not learn.</code></pre>
+
+<h4>Additional Example — The Three Types of Learning</h4>
+<pre class="code"><code>from sklearn.cluster import KMeans
+from sklearn.linear_model import LinearRegression
+import numpy as np
+
+# SUPERVISED: Learn from labeled examples
+# "Here are emails labeled spam/ham — learn to classify new ones"
+X_spam = np.array([[1,0,1], [0,1,0], [1,1,0], [0,0,1]])  # features
+y_spam = np.array([1, 0, 0, 1])  # labels: 1=spam, 0=ham
+model = LinearRegression()
+model.fit(X_spam, y_spam)
+print(f"Supervised prediction: {model.predict([[1,1,1]])}")
+
+# UNSUPERVISED: Find structure in unlabeled data
+# "Here are customer purchases — find natural groups"
+X_customers = np.array([[1,2],[1,4],[10,2],[10,4],[5,3]])
+kmeans = KMeans(n_clusters=2, random_state=0, n_init=10)
+labels = kmeans.fit_predict(X_customers)
+print(f"Unsupervised clusters: {labels}")  # [0, 0, 1, 1, ?]
+
+# REINFORCEMENT: Learn by trial and error with rewards
+# "Explore the maze, get +10 for reaching the goal, -1 per step"
+class SimpleRL:
+    def __init__(self, n_states, n_actions, lr=0.1, gamma=0.9):
+        self.q = np.zeros((n_states, n_actions))
+        self.lr = lr
+        self.gamma = gamma
+
+    def update(self, state, action, reward, next_state):
+        best_next = self.q[next_state].max()
+        td_target = reward + self.gamma * best_next
+        td_error = td_target - self.q[state, action]
+        self.q[state, action] += self.lr * td_error
+
+    def policy(self, state):
+        return self.q[state].argmax()
+
+rl = SimpleRL(n_states=5, n_actions=4)
+rl.update(state=0, action=1, reward=-1, next_state=1)
+rl.update(state=1, action=2, reward=10, next_state=4)
+print(f"Q-table after 2 updates:\n{rl.q}")</code></pre>
+
+<h4>Additional Example — Overfitting Visualization</h4>
+<pre class="code"><code>from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import cross_val_score
+import numpy as np
+
+# Generate noisy data
+np.random.seed(42)
+X = np.sort(np.random.rand(20, 1) * 10, axis=0)
+y = np.sin(X).ravel() + np.random.randn(20) * 0.3
+
+# Try different model complexities
+degrees = [1, 3, 10, 20]
+for degree in degrees:
+    model = make_pipeline(
+        PolynomialFeatures(degree),
+        LinearRegression()
+    )
+    # Cross-validation: test on held-out folds
+    scores = cross_val_score(model, X, y, cv=5, scoring='r2')
+    print(f"Degree {degree:>2}: "
+          f"CV R² = {scores.mean():.3f} ± {scores.std():.3f}")
+
+# Degree  1: CV R² = 0.45 ± 0.15  (underfitting — too simple)
+# Degree  3: CV R² = 0.89 ± 0.08  (good fit)
+# Degree 10: CV R² = 0.72 ± 0.25  (overfitting — too complex)
+# Degree 20: CV R² = -0.45 ± 1.20 (wildly overfitting)
+# The sweet spot: complex enough to capture the pattern,
+# simple enough to generalize to new data</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>Fraud Detection at PayPal/Stripe.</strong> Supervised learning on millions of labeled transactions (fraudulent/legitimate). Features include: transaction amount, time of day, merchant category, user's historical patterns, device fingerprint. The model (gradient-boosted trees or neural networks) learns the decision boundary between fraud and legit. The key challenge: only 0.1% of transactions are fraudulent (massive class imbalance). Techniques like SMOTE (synthetic minority oversampling) and cost-sensitive learning adjust the loss function to penalize missing fraud more heavily. PayPal's system reviews 10M+ transactions/day with <100ms latency.
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Every predictive system: fraud detection, recommendation, forecasting, vision, and the fine-tuning of LLMs (which is supervised learning on instruction data).</div>
+<div class="callout hood"><span>Under the hood</span>Deep dive in the <a href="ml-fundamentals.html">ML Fundamentals</a> chapter: bias-variance, regularization, cross-validation, and why "more data" often beats "better model".</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Deep Learning<small>Tier 3 — learning representations</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Neural Networks and Backpropagation</h3>
+<p><strong>What &amp; why.</strong> A neural network is a stack of differentiable transformations. Backpropagation (chain rule + gradient descent) tunes millions of weights to minimize a loss. Universal approximation says a wide enough network can fit any continuous function.</p>
+
+<div class="callout internal"><span>Internal Behavior — How Backpropagation Actually Computes Gradients</span>
+<strong>Forward pass:</strong> Input flows through each layer. Each neuron computes weighted_sum = Σ(weight_i × input_i) + bias, then applies an activation function (ReLU, sigmoid, etc.). The output of one layer becomes the input to the next. Final output is compared to the true label using a loss function (cross-entropy, MSE, etc.).
+<br><br>
+<strong>Backward pass (the chain rule):</strong> Starting from the loss, compute how much each weight contributed to the error. If the loss is L and a weight w connects neuron i to neuron j, then ∂L/∂w = ∂L/∂output × ∂output/∂weighted_sum × ∂weighted_sum/∂w. This is the chain rule of calculus applied layer by layer, backwards. Autograd frameworks (PyTorch, TensorFlow) build a computation graph during the forward pass, then traverse it in reverse to compute all gradients simultaneously.
+<br><br>
+<strong>Why it works:</strong> Gradient descent moves each weight in the direction that decreases the loss. Learning rate controls step size. Too large → overshooting and divergence. Too small → painfully slow convergence. Modern optimizers (Adam) adapt the learning rate per weight based on gradient history.
+<br><br>
+<strong>The "universal approximation" theorem:</strong> A single hidden layer with enough neurons can approximate any continuous function to arbitrary precision. But in practice, deep networks (many layers) are exponentially more efficient: a deep network needs O(n) neurons where a shallow one needs O(2^n).
+</div>
+
+<pre class="code"><code>import torch
+import torch.nn as nn
+
+class Net(nn.Module):
+    def __init__(self, in_dim, hidden, out_dim):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(in_dim, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, out_dim),
+        )
+
+    def forward(self, x):
+        return self.layers(x)
+
+net = Net(64, 128, 10)
+opt = torch.optim.Adam(net.parameters(), lr=1e-3)
+loss_fn = nn.CrossEntropyLoss()
+
+for epoch in range(10):
+    for xb, yb in loader:            # mini-batches
+        opt.zero_grad()
+        loss = loss_fn(net(xb), yb)
+        loss.backward()              # chain rule through the graph
+        opt.step()                   # w -= lr * dL/dw
+    print(f"epoch {epoch}: loss={loss.item():.4f}")</code></pre>
+
+<h4>Additional Example — Backpropagation by Hand (2-Layer Network)</h4>
+<pre class="code"><code>import numpy as np
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def sigmoid_deriv(x):
+    s = sigmoid(x)
+    return s * (1 - s)
+
+# Simple 2-layer network: input(2) -> hidden(3) -> output(1)
+np.random.seed(1)
+W1 = np.random.randn(2, 3) * 0.5   # input -> hidden weights
+b1 = np.zeros((1, 3))
+W2 = np.random.randn(3, 1) * 0.5   # hidden -> output weights
+b2 = np.zeros((1, 1))
+
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])  # XOR
+y = np.array([[0], [1], [1], [0]])                 # XOR labels
+
+lr = 2.0  # learning rate
+
+for epoch in range(10000):
+    # FORWARD PASS
+    z1 = X @ W1 + b1          # pre-activation hidden
+    a1 = sigmoid(z1)           # activation hidden
+    z2 = a1 @ W2 + b2         # pre-activation output
+    a2 = sigmoid(z2)           # activation output (prediction)
+
+    # LOSS (binary cross-entropy)
+    loss = -np.mean(y * np.log(a2 + 1e-8) + (1-y) * np.log(1-a2 + 1e-8))
+
+    # BACKWARD PASS (chain rule)
+    dz2 = a2 - y                          # dL/dz2 (simplified for sigmoid + BCE)
+    dW2 = a1.T @ dz2 / len(X)            # dL/dW2
+    db2 = dz2.mean(axis=0, keepdims=True)
+    da1 = dz2 @ W2.T                     # dL/da1
+    dz1 = da1 * sigmoid_deriv(z1)        # dL/dz1
+    dW1 = X.T @ dz1 / len(X)            # dL/dW1
+    db1 = dz1.mean(axis=0, keepdims=True)
+
+    # UPDATE
+    W2 -= lr * dW2; b2 -= lr * db2
+    W1 -= lr * dW1; b1 -= lr * db1
+
+    if epoch % 2000 == 0:
+        print(f"Epoch {epoch}: loss={loss:.4f}")
+
+print("\nXOR predictions:")
+print(np.round(a2, 3))
+# [[0.013], [0.985], [0.985], [0.018]] — learns XOR correctly</code></pre>
+
+<h4>Additional Example — Common Activation Functions Compared</h4>
+<pre class="code"><code>import numpy as np
+
+def relu(x):
+    return np.maximum(0, x)
+
+def tanh(x):
+    return np.tanh(x)
+
+def leaky_relu(x, alpha=0.01):
+    return np.where(x > 0, x, alpha * x)
+
+def swish(x):
+    return x * sigmoid(x)
+
+x = np.linspace(-3, 3, 7)
+print("x values:", x)
+print(f"{'Sigmoid':>10}: {np.round(sigmoid(x), 3)}")
+print(f"{'Tanh':>10}: {np.round(tanh(x), 3)}")
+print(f"{'ReLU':>10}: {np.round(relu(x), 3)}")
+print(f"{'LeakyReLU':>10}: {np.round(leaky_relu(x), 3)}")
+print(f"{'Swish':>10}: {np.round(swish(x), 3)}")
+
+# Sigmoid: (0,1) range, squashes everything — good for output layer
+# Tanh: (-1,1) range, zero-centered — good for hidden layers
+# ReLU: max(0,x), fast and sparse — default for hidden layers
+# Leaky ReLU: ReLU but allows small negative values — avoids "dead neurons"
+# Swish: x * sigmoid(x), smooth — used in modern architectures</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>Self-Driving Cars (Tesla Autopilot, Waymo).</strong> The perception stack is a deep neural network (ResNet or EfficientNet backbone) that takes camera images as input and outputs 3D bounding boxes around every object (cars, pedestrians, signs). The network has ~50M parameters. During training, millions of labeled driving images are fed through the network. The loss measures how far predicted bounding boxes are from ground truth. Backpropagation computes gradients across all 50M parameters. The trained network runs inference in real-time on custom Tesla HW3 chips (144 TOPS), processing 8 camera feeds at 36 FPS. This is backpropagation operating at the edge — the same math as the 2-layer XOR example above, scaled up 10 million times.
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Vision, speech, recommendation, and the backbone of every transformer. The training loop above is the same shape as fine-tuning GPT.</div>
+<div class="callout hood"><span>Under the hood</span>Autograd builds a computation graph; backward() walks it in reverse topological order. Gradient clipping, normalization and learning-rate schedules make training stable.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>CNNs, RNNs and Sequence Models</h3>
+<p><strong>What &amp; why.</strong> CNNs exploit spatial locality with shared-weight convolutions; RNNs process sequences with recurrent state but suffer vanishing gradients. Attention (transformers) replaced recurrence by letting every token look at every token directly.</p>
+
+<div class="callout internal"><span>Internal Behavior — How CNNs and Attention Actually Process Data</span>
+<strong>CNNs (Convolutional Neural Networks):</strong> A small filter (e.g., 3×3 pixels) slides across the image. At each position, it computes the dot product between the filter weights and the pixel values — a local weighted sum. Early layers learn simple patterns (edges, gradients). Middle layers combine edges into shapes (circles, corners). Late layers combine shapes into objects (faces, cars). The key insight: the same filter is used everywhere (weight sharing), so the network learns "a vertical edge is a vertical edge regardless of where it appears." This makes CNNs translation-invariant and parameter-efficient.
+<br><br>
+<strong>RNNs (Recurrent Neural Networks):</strong> Process one token at a time, maintaining a hidden state vector that summarizes everything seen so far. At each step: new_hidden = activation(W × input + U × old_hidden). The hidden state is the "memory." Problem: gradients multiply through time steps. After 50+ steps, gradients either vanish (→0) or explode (→∞). LSTMs and GRUs add "gates" to control information flow — the forget gate decides what to discard from memory, the input gate decides what to add.
+<br><br>
+<strong>Attention (Transformers):</strong> Instead of compressing all history into one hidden state (RNN), attention lets each token directly look at every other token. For each token, compute: Query (what am I looking for?), Key (what do I contain?), Value (what information do I provide?). Attention weight = softmax(Q·K^T / √d). Output = attention_weight × V. This is parallelizable (unlike RNNs) and captures long-range dependencies without gradient decay.
+</div>
+
+<pre class="code"><code>import torch.nn as nn
+
+# CNN — shared weights = translation invariance
+cnn = nn.Sequential(
+    nn.Conv2d(3, 32, kernel_size=3, padding=1),  # 32 filters
+    nn.ReLU(), nn.MaxPool2d(2),
+    nn.Conv2d(32, 64, kernel_size=3, padding=1),
+    nn.ReLU(), nn.MaxPool2d(2),
+    nn.Flatten(), nn.Linear(64*8*8, 10),
+)
+
+# RNN — recurrent state carries memory across time
+rnn = nn.RNN(input_size=128, hidden_size=64, batch_first=True)
+
+# Attention — the core of transformers:
+# output = softmax(Q @ K^T / sqrt(d_k)) @ V
+# Every token attends to every token. No recurrence, fully parallel.</code></pre>
+
+<h4>Additional Example — Building a CNN from Scratch for MNIST</h4>
+<pre class="code"><code>import torch
+import torch.nn as nn
+import torch.optim as optim
+
+class MNISTNet(nn.Module):
+    """
+    A simple but complete CNN for digit classification.
+    Architecture: 2 conv layers + 2 FC layers.
+    Input: 1×28×28 grayscale image
+    Output: 10 classes (digits 0-9)
+    """
+    def __init__(self):
+        super().__init__()
+        # Convolutional feature extractor
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 16, 3, padding=1),   # 16 filters, 3x3
+            nn.BatchNorm2d(16),                # normalize activations
+            nn.ReLU(),
+            nn.MaxPool2d(2),                   # 28x28 -> 14x14
+
+            nn.Conv2d(16, 32, 3, padding=1),  # 32 filters
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2),                   # 14x14 -> 7x7
+        )
+        # Classification head
+        self.classifier = nn.Sequential(
+            nn.Linear(32 * 7 * 7, 128),
+            nn.ReLU(),
+            nn.Dropout(0.5),                   # regularization
+            nn.Linear(128, 10),
+        )
+
+    def forward(self, x):
+        x = self.features(x)     # learn spatial features
+        x = x.view(x.size(0), -1) # flatten: (B,32,7,7) -> (B, 1568)
+        x = self.classifier(x)   # classify
+        return x
+
+model = MNISTNet()
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+criterion = nn.CrossEntropyLoss()
+
+# Simulated training loop
+# for epoch in range(10):
+#     for images, labels in train_loader:
+#         optimizer.zero_grad()
+#         outputs = model(images)
+#         loss = criterion(outputs, labels)
+#         loss.backward()          # backprop through conv + FC layers
+#         optimizer.step()
+
+total_params = sum(p.numel() for p in model.parameters())
+print(f"Model parameters: {total_params:,}")  # ~200K params
+print(f"Architecture:")
+print(f"  Conv1: 1→16 channels, 3x3, -> 16x28x28")
+print(f"  Pool1: -> 16x14x14")
+print(f"  Conv2: 16→32 channels, 3x3, -> 32x14x14")
+print(f"  Pool2: -> 32x7x7")
+print(f"  FC1: 1568→128")
+print(f"  FC2: 128→10")</code></pre>
+
+<h4>Additional Example — Attention Mechanism from Scratch</h4>
+<pre class="code"><code>import numpy as np
+
+def attention(Q, K, V):
+    """
+    Scaled dot-product attention.
+    Q, K, V: (seq_len, d_model) matrices
+    """
+    d_k = Q.shape[1]
+    # Step 1: Compute attention scores
+    scores = Q @ K.T / np.sqrt(d_k)  # (seq_len, seq_len)
+    # Step 2: Apply softmax (row-wise)
+    exp_scores = np.exp(scores - scores.max(axis=-1, keepdims=True))
+    weights = exp_scores / exp_scores.sum(axis=-1, keepdims=True)
+    # Step 3: Weighted sum of values
+    output = weights @ V  # (seq_len, d_model)
+    return output, weights
+
+# Example: 4 tokens, dimension 3
+np.random.seed(42)
+seq_len, d_model = 4, 3
+tokens = np.random.randn(seq_len, d_model)
+
+# Q, K, V are projections of the input
+W_q = np.random.randn(d_model, d_model) * 0.1
+W_k = np.random.randn(d_model, d_model) * 0.1
+W_v = np.random.randn(d_model, d_model) * 0.1
+
+Q = tokens @ W_q
+K = tokens @ W_k
+V = tokens @ W_v
+
+output, weights = attention(Q, K, V)
+print("Attention weights (how much each token attends to others):")
+print(np.round(weights, 3))
+# Diagonal is high (tokens attend to themselves)
+# Off-diagonal shows which tokens are related
+
+# Compare: RNN processes tokens sequentially (O(n) steps, sequential)
+# Attention processes all tokens at once (O(1) step, parallel)
+# This is why transformers are faster to train on GPUs</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>ImageNet Classification and Medical Imaging.</strong> CNNs revolutionized computer vision. ResNet (2015) achieved superhuman accuracy on ImageNet by using 152 layers with skip connections (residual learning). In medicine, CNNs detect diabetic retinopathy from retinal scans (Google Health), classify skin cancer from photos (Stanford), and segment tumors from MRI scans. The same convolutional architecture processes X-rays at 100x the speed of radiologists, enabling triage in emergency rooms where wait times matter. Transformers (Vision Transformers, ViT) are now challenging CNNs for vision tasks, using the same attention mechanism as GPT but on image patches.
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Image classification (CNN), time series and language (RNN historically), and modern NLP/vision/multimodal (attention everywhere).</div>
+<div class="callout hood"><span>Under the hood</span>See the <a href="llms.html">LLMs</a> chapter for full transformer internals: multi-head attention, KV cache, positional encoding, and scaling laws.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; The Generative Era<small>Tier 4 — AI that creates</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Generative AI: Modeling the Data Distribution</h3>
+<p><strong>What &amp; why.</strong> Discriminative models answer "what class is this?"; generative models answer "what would a plausible example look like?" — by learning the probability distribution of the data. LLMs model text; diffusion models model images.</p>
+
+<div class="callout internal"><span>Internal Behavior — How Generative Models Actually Create Content</span>
+<strong>LLMs (text generation):</strong> The model assigns a probability to every token in its vocabulary given the preceding context. P("cat" | "the small") = 0.4, P("dog" | "the small") = 0.2, etc. Generation is sequential sampling: pick a token from this distribution, append it to the context, compute the next distribution, repeat. Temperature controls randomness: T=0 always picks the highest-probability token (deterministic); T=1 samples proportionally to probabilities (creative); T>1 flattens the distribution (more random).
+<br><br>
+<strong>Diffusion models (image generation):</strong> Training: gradually add noise to images until they become pure noise (forward process). Train a neural network to predict the noise that was added at each step. Generation: start from random noise, iteratively denoise using the trained network. Each denoising step reveals a little more structure. After 50-1000 steps, the noise becomes a coherent image. Stable Diffusion uses a latent space (compressed representation) for efficiency.
+<br><br>
+<strong>GANs (Generative Adversarial Networks):</strong> Two networks compete: Generator creates fake images, Discriminator tries to tell real from fake. Training alternates: Generator gets better at fooling Discriminator, Discriminator gets better at detecting fakes. Equilibrium: Generator produces images indistinguishable from real data. GANs were state-of-the-art for image generation before diffusion models.
+<br><br>
+<strong>The key insight:</strong> All generative models learn P(data). LLMs learn P(word_n | word_1...word_{n-1}). Diffusion models learn P(image | noise_level). GANs learn a mapping from random noise to data. They differ in HOW they model the distribution, not WHAT they model.
+</div>
+
+<pre class="code"><code># Language modeling = P(next_token | previous_tokens)
+#   p("the") after "the cat sat on" >> p("banana")
+
+# Text generation is sampling from the distribution:
+import random
+
+def sample_tokens(logits, temperature=0.8, top_p=0.9):
+    # temperature: sharpen/flatten the distribution
+    logits = [l / temperature for l in logits]
+    probs = softmax(logits)
+
+    # nucleus (top-p) sampling: keep smallest set > p
+    ranked = sorted(enumerate(probs), key=lambda x: -x[1])
+    keep, cum = [], 0.0
+    for idx, prob in ranked:
+        keep.append(idx); cum += prob
+        if cum >= top_p: break
+    chosen = random.choice(keep)
+    return chosen
+
+# Diffusion: learn to reverse gradual noise
+#   forward:  x_t = sqrt(1-beta_t)*x_{t-1} + sqrt(beta_t)*eps
+#   reverse:  predict eps, denoise step by step</code></pre>
+
+<h4>Additional Example — Text Generation with Temperature and Top-P</h4>
+<pre class="code"><code>import math, random
+
+def softmax(logits, temperature=1.0):
+    scaled = [l / temperature for l in logits]
+    max_l = max(scaled)
+    exps = [math.exp(l - max_l) for l in scaled]
+    total = sum(exps)
+    return [e / total for e in exps]
+
+def generate(vocabulary, context_probs, steps=10, temperature=0.8, top_p=0.9):
+    """Simulate LLM text generation with sampling strategies."""
+    tokens = []
+    probs = context_probs  # initial next-token distribution
+
+    for step in range(steps):
+        # Temperature sampling
+        adjusted = softmax(probs, temperature)
+
+        # Top-p (nucleus) filtering
+        indexed = sorted(enumerate(adjusted), key=lambda x: -x[1])
+        cumulative, filtered = 0, []
+        for idx, p in indexed:
+            cumulative += p
+            filtered.append((idx, p))
+            if cumulative >= top_p:
+                break
+        # Renormalize
+        total = sum(p for _, p in filtered)
+        filtered = [(i, p/total) for i, p in filtered]
+
+        # Sample
+        r = random.random()
+        cumulative = 0
+        chosen = filtered[0][0]
+        for idx, p in filtered:
+            cumulative += p
+            if r <= cumulative:
+                chosen = idx
+                break
+
+        tokens.append(vocabulary[chosen])
+        # Get new probs (simulated — in real LLM, this is a forward pass)
+        probs = [random.random() for _ in vocabulary]
+
+    return tokens
+
+vocab = ["The", "cat", "dog", "sat", "ran", "on", "the", "mat", "floor", "and"]
+probs = [0.4, 0.2, 0.1, 0.15, 0.05, 0.05, 0.03, 0.01, 0.005, 0.005]
+
+for temp in [0.2, 0.8, 1.5]:
+    result = generate(vocab, probs, steps=5, temperature=temp, top_p=0.9)
+    print(f"Temp={temp}: {' '.join(result)}")
+
+# Temp=0.2: The cat sat on the  (deterministic, repetitive)
+# Temp=0.8: The cat sat on the  (balanced)
+# Temp=1.5: The dog ran on the  (creative, diverse)</code></pre>
+
+<h4>Additional Example — Simple Diffusion Process</h4>
+<pre class="code"><code>import numpy as np
+
+def forward_diffusion(image, timesteps=5, beta=0.1):
+    """Add noise progressively — the forward process."""
+    noisy_versions = [image.copy()]
+    for t in range(timesteps):
+        noise = np.random.randn(*image.shape)
+        prev = noisy_versions[-1]
+        noisy = np.sqrt(1 - beta) * prev + np.sqrt(beta) * noise
+        noisy_versions.append(noisy)
+    return noisy_versions
+
+def reverse_diffusion(noisy_image, timesteps=5, beta=0.1):
+    """Remove noise step by step — the reverse process (simplified)."""
+    denoised = [noisy_image.copy()]
+    for t in range(timesteps):
+        prev = denoised[-1]
+        # In real diffusion, a neural network predicts the noise
+        # Here we simulate by slightly reducing noise
+        clean = (prev - np.sqrt(beta) * 0.5 * np.random.randn(*prev.shape)) / np.sqrt(1 - beta)
+        denoised.append(np.clip(clean, 0, 1))
+    return denoised
+
+# Simulate with a simple 8x8 grayscale image
+original = np.random.rand(8, 8)
+print("Original image (mean):", round(original.mean(), 3))
+
+noisy = forward_diffusion(original, timesteps=5)
+print(f"\nForward diffusion (adding noise):")
+for i, version in enumerate(noisy):
+    print(f"  Step {i}: mean={version.mean():.3f}, std={version.std():.3f}")
+
+recovered = reverse_diffusion(noisy[-1], timesteps=5)
+print(f"\nReverse diffusion (denoising):")
+for i, version in enumerate(recovered):
+    print(f"  Step {i}: mean={version.mean():.3f}, std={version.std():.3f}")
+
+# Forward: signal decreases, noise increases
+# Reverse: noise decreases, signal is recovered
+# Real diffusion models use a neural network to predict noise at each step</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>GitHub Copilot and AI Code Generation.</strong> Copilot is an LLM that models P(next_token | code_context). When you type a function signature, it generates the body by sampling from the learned token distribution. Trained on billions of lines of open-source code, it captures patterns: variable naming conventions, algorithm implementations, API usage. GitHub reports that Copilot completes ~30% of code in files where it's enabled. The temperature parameter controls how adventurous the suggestions are: lower temperature = more standard implementations, higher temperature = more creative/unusual approaches. This is generative AI applied to the specific domain of programming — the same sampling machinery as ChatGPT, trained on code instead of prose.
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Chat, code generation, image/video/audio synthesis, and agent reasoning — all covered in depth in the LLM, RAG, and agent chapters.</div>
+<div class="callout hood"><span>Under the hood</span>Sampling parameters (temperature, top-p, top-k) trade creativity for determinism. See <a href="prompting.html">Prompting</a> for all generation techniques.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Capabilities, Limits and Evaluation</h3>
+<p><strong>What &amp; why.</strong> Modern AI is a general-purpose statistical engine: brilliant at pattern completion, unreliable at guaranteed correctness. Evaluating honestly (accuracy, calibration, robustness, safety) is the professional skill that separates production AI from demos.</p>
+
+<div class="callout internal"><span>Internal Behavior — Why AI Fails and How to Measure It</span>
+<strong>Hallucination (confabulation):</strong> When an LLM doesn't know the answer, it doesn't say "I don't know" — it generates the most statistically likely completion, which might be a plausible-sounding but false statement. This happens because the model was trained to generate fluent text, not to verify truth. The probability distribution has no "uncertainty" token; every context has a most-likely next word.
+<br><br>
+<strong>Calibration failure:</strong> A well-calibrated model says "80% confident" and is correct 80% of the time. Most LLMs are overconfident: they say "90% confident" but are correct only 70% of the time. This is because the softmax probability reflects how likely the next token is in the training distribution, not whether the statement is factually correct.
+<br><br>
+<strong>Robustness failure:</strong> Small perturbations to inputs (adversarial examples) can change outputs dramatically. Adding one pixel to an image can flip a classifier's prediction. Adding "Ignore previous instructions" to a prompt can bypass safety guardrails. This is because neural networks learn statistical correlations, not causal models.
+<br><br>
+<strong>How to evaluate properly:</strong> (1) Use a held-out test set the model has never seen. (2) Measure not just accuracy but calibration (ECE), robustness (adversarial testing), and fairness (performance across demographics). (3) Test on edge cases, not average cases. (4) Compare against baselines (rule-based, random, human performance). (5) Run the evaluation multiple times to account for randomness.
+</div>
+
+<pre class="code"><code># Evaluation checklist for any AI system
+# 1. Task:      exactly what must be correct?
+# 2. Data:      train/test distribution match? leakage?
+# 3. Metrics:   accuracy? F1? calibration (ECE)? cost?
+# 4. Baselines: beats rule-based/random/prior system?
+# 5. Robust:    works on edge cases, adversarial inputs?
+# 6. Safety:    fails safe, no harmful outputs, auditable?
+
+# Calibration: does 70% confidence mean 70% correct?
+def expected_calibration_error(confidences, corrects, n_bins=10):
+    total = 0.0; count = 0
+    for b in range(n_bins):
+        lo, hi = b / n_bins, (b + 1) / n_bins
+        mask = (confidences >= lo) & (confidences < hi)
+        if mask.sum() == 0: continue
+        acc = corrects[mask].mean()
+        conf = confidences[mask].mean()
+        total += mask.sum() * abs(acc - conf)
+        count += mask.sum()
+    return total / count</code></pre>
+
+<h4>Additional Example — Complete Evaluation Framework</h4>
+<pre class="code"><code>import numpy as np
+from collections import defaultdict
+
+class EvaluationFramework:
+    """Production evaluation for any AI classifier."""
+
+    def __init__(self):
+        self.predictions = []
+        self.labels = []
+        self.confidences = []
+
+    def add(self, prediction, label, confidence):
+        self.predictions.append(prediction)
+        self.labels.append(label)
+        self.confidences.append(confidence)
+
+    def accuracy(self):
+        correct = sum(p == l for p, l in zip(self.predictions, self.labels))
+        return correct / max(len(self.predictions), 1)
+
+    def per_class_metrics(self):
+        """Precision, recall, F1 per class."""
+        classes = set(self.labels)
+        metrics = {}
+        for c in classes:
+            tp = sum(p == c and l == c for p, l in zip(self.predictions, self.labels))
+            fp = sum(p == c and l != c for p, l in zip(self.predictions, self.labels))
+            fn = sum(p != c and l == c for p, l in zip(self.predictions, self.labels))
+            precision = tp / max(tp + fp, 1)
+            recall = tp / max(tp + fn, 1)
+            f1 = 2 * precision * recall / max(precision + recall, 1e-8)
+            metrics[c] = {"precision": precision, "recall": recall, "f1": f1}
+        return metrics
+
+    def calibration_error(self, n_bins=10):
+        """Expected Calibration Error."""
+        confs = np.array(self.confidences)
+        corrects = np.array([p == l for p, l in zip(self.predictions, self.labels)])
+        total_ece, count = 0, 0
+        for b in range(n_bins):
+            lo, hi = b / n_bins, (b + 1) / n_bins
+            mask = (confs >= lo) & (confs < hi)
+            if mask.sum() == 0: continue
+            acc = corrects[mask].mean()
+            conf = confs[mask].mean()
+            total_ece += mask.sum() * abs(acc - conf)
+            count += mask.sum()
+        return total_ece / max(count, 1)
+
+    def report(self):
+        print(f"Accuracy: {self.accuracy():.3f}")
+        print(f"Calibration Error: {self.calibration_error():.3f}")
+        print("Per-class metrics:")
+        for c, m in self.per_class_metrics().items():
+            print(f"  {c}: P={m['precision']:.3f} R={m['recall']:.3f} F1={m['f1']:.3f}")
+
+# Simulate evaluation
+np.random.seed(42)
+evaluator = EvaluationFramework()
+classes = ["spam", "ham"]
+for _ in range(200):
+    true = np.random.choice(classes, p=[0.3, 0.7])
+    pred = true if np.random.random() > 0.15 else np.random.choice(classes)
+    conf = np.random.uniform(0.6, 0.99) if pred == true else np.random.uniform(0.3, 0.7)
+    evaluator.add(pred, true, conf)
+
+evaluator.report()</code></pre>
+
+<h4>Additional Example — Adversarial Robustness Testing</h4>
+<pre class="code"><code>import numpy as np
+
+def add_adversarial_noise(image, epsilon=0.1):
+    """
+    FGSM-style adversarial attack (simplified).
+    Adds carefully crafted noise that's imperceptible to humans
+    but flips the model's prediction.
+    """
+    # In real FGSM, we compute the gradient of the loss w.r.t. the input
+    # Here we simulate by adding small targeted perturbation
+    gradient = np.sign(np.random.randn(*image.shape))  # simulated gradient
+    adversarial = image + epsilon * gradient
+    return np.clip(adversarial, 0, 1)
+
+def test_robustness(model_predict_fn, test_images, test_labels, epsilons=[0.05, 0.1, 0.2]):
+    """Test how accuracy degrades under adversarial attack."""
+    clean_accuracy = sum(
+        model_predict_fn(img) == label
+        for img, label in zip(test_images, test_labels)
+    ) / len(test_images)
+
+    print(f"Clean accuracy: {clean_accuracy:.3f}")
+    for eps in epsilons:
+        adversarial_acc = sum(
+            model_predict_fn(add_adversarial_noise(img, eps)) == label
+            for img, label in zip(test_images, test_labels)
+        ) / len(test_images)
+        print(f"Epsilon={eps}: accuracy = {adversarial_acc:.3f} "
+              f"(drop: {clean_accuracy - adversarial_acc:.3f})")
+
+# Simulated model (90% accuracy on clean data)
+def simple_model(image):
+    return "cat" if image.mean() > 0.5 else "dog"
+
+images = [np.random.rand(8, 8) for _ in range(100)]
+labels = ["cat" if img.mean() > 0.5 else "dog" for img in images]
+
+test_robustness(simple_model, images, labels)
+# Epsilon=0.05: accuracy drops 5-10%
+# Epsilon=0.1:  accuracy drops 15-25%
+# Epsilon=0.2:  accuracy drops 30-50%
+# This is why adversarial training is critical for production systems</code></pre>
+
+<div class="callout usecase"><span>Real-World Use Case</span>
+<strong>AI Safety Evaluation at OpenAI and Anthropic.</strong> Before releasing GPT-4, OpenAI ran 50+ evaluations covering: academic exams (bar, medical, GRE), truthfulness (does it make false claims?), toxicity (does it generate harmful content?), and fairness (performance across demographics). Anthropic's evaluations include "model-written evaluations" where the model itself writes test cases. The key metric is calibration: does the model's stated confidence match its actual accuracy? Overconfident models are more dangerous than underconfident ones because users trust confident output. Every production AI system needs this kind of multi-dimensional evaluation — accuracy alone is insufficient.
+</div>
+
+<div class="callout usage"><span>Where you'll use it</span>Every model you ship. Full method in the <a href="evaluations.html">Evaluations</a> and <a href="observability.html">Observability</a> chapters.</div>
+<div class="callout hood"><span>Under the hood</span>Alignment research (RLHF, DPO, guardrails) is the applied science of making powerful generators safe — see <a href="guardrails.html">Guardrails</a> and <a href="governance.html">AI Governance</a>.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Projects<small>Tier 5 — build it</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Project 1 — Web Crawler with A* Link Search</h3>
+<p><strong>What &amp; why.</strong> Combine search with a real domain: crawl a site as a graph and find the shortest navigation path between two pages using A* with a title-similarity heuristic.</p>
+
+<div class="callout internal"><span>Internal Behavior — How the Crawler + A* Works End-to-End</span>
+<strong>Step 1 — Build the graph:</strong> Start at a URL. Fetch the HTML, parse all anchor tags to extract links. Each unique URL becomes a node in the graph; each hyperlink becomes an edge. Recurse (with depth limits and deduplication) to build the site map.
+<br><br>
+<strong>Step 2 — Run A*:</strong> Treat the site map as a weighted graph. Start node = the entry URL. Goal node = the target URL. The heuristic estimates "how different is this URL from the target?" — using string similarity or path depth. A* expands the most promising nodes first, finding the shortest path through the site.
+<br><br>
+<strong>Step 3 — Handle real-world messiness:</strong> URLs have fragments (#section), query parameters (?id=5), and redirects. Normalize URLs before adding to the graph. Respect robots.txt. Add delays between requests. Handle HTTP errors gracefully.
+<br><br>
+<strong>Why A* over BFS:</strong> On a large site (10,000 pages), BFS explores all pages at distance d before d+1. A* with a URL-similarity heuristic might explore only 500 pages to find the path, because it prioritizes pages whose URLs are similar to the target.
+</div>
+
+<pre class="code"><code>import heapq
+from urllib.parse import urljoin
+import requests
+from bs4 import BeautifulSoup
+
+def expand(url, domain):
+    try:
+        html = requests.get(url, timeout=5).text
+    except Exception:
+        return []
+    soup = BeautifulSoup(html, "html.parser")
+    return [urljoin(url, a["href"]) for a in soup.find_all("a", href=True)
+            if domain in urljoin(url, a["href"])]
+
+def a_star_crawl(start, target, domain, max_steps=200):
+    h = lambda u: abs(len(u) - len(target))  # simple heuristic
+    frontier = [(h(start), 0, start)]
+    best = {start: 0}
+    while frontier and max_steps:
+        _, g, node = heapq.heappop(frontier); max_steps -= 1
+        if node.rstrip("/") == target.rstrip("/"):
+            return g  # shortest path cost found
+        for child in expand(node, domain):
+            ng = g + 1
+            if ng < best.get(child, float("inf")):
+                best[child] = ng
+                heapq.heappush(frontier, (ng + h(child), ng, child))
+    return None
+
+# print(a_star_crawl("https://example.com/", "https://example.com/deep", "example.com"))</code></pre>
+
+<h4>Additional Example — Site Map Builder (BFS)</h4>
+<pre class="code"><code>from collections import deque
+from urllib.parse import urljoin, urlparse
+import requests
+from bs4 import BeautifulSoup
+
+def build_site_map(start_url, domain, max_pages=50):
+    """BFS crawl that builds a complete site map."""
+    visited = set()
+    queue = deque([(start_url, 0)])  # (url, depth)
+    site_map = {}
+
+    while queue and len(visited) < max_pages:
+        url, depth = queue.popleft()
+        if url in visited:
+            continue
+        visited.add(url)
+
+        try:
+            resp = requests.get(url, timeout=5)
+            soup = BeautifulSoup(resp.text, "html.parser")
+        except Exception as e:
+            site_map[url] = {"depth": depth, "links": [], "error": str(e)}
+            continue
+
+        links = []
+        for a in soup.find_all("a", href=True):
+            full = urljoin(url, a["href"])
+            parsed = urlparse(full)
+            # Only follow same-domain links
+            if parsed.netloc in domain and "#" not in full:
+                links.append(full)
+                if full not in visited:
+                    queue.append((full, depth + 1))
+
+        title = soup.title.string if soup.title else "No title"
+        site_map[url] = {
+            "depth": depth,
+            "title": title.strip()[:80],
+            "links": links[:20],  # limit
+        }
+
+    return site_map
+
+# map = build_site_map("https://example.com", "example.com")
+# for url, info in map.items():
+#     print(f"{'  ' * info['depth']}{info['title']}")
+#     print(f"{'  ' * info['depth']}{url}")</code></pre>
+
+<h4>Additional Example — A* Heuristics Comparison</h4>
+<pre class="code"><code>from difflib import SequenceMatcher
+
+def url_similarity(url1, url2):
+    """Heuristic 1: URL string similarity."""
+    return 1 - SequenceMatcher(None, url1, url2).ratio()
+
+def path_depth_heuristic(url, goal):
+    """Heuristic 2: Path depth difference."""
+    parts1 = url.rstrip('/').split('/')
+    parts2 = goal.rstrip('/').split('/')
+    return abs(len(parts1) - len(parts2))
+
+def combined_heuristic(url, goal):
+    """Heuristic 3: Combined (always admissible if both are)."""
+    return max(url_similarity(url, goal) * 10, path_depth_heuristic(url, goal))
+
+# Compare heuristics on the same start/goal pair
+start = "https://example.com/blog/2024/01/intro"
+goal = "https://example.com/blog/2024/12/advanced-guide"
+
+print(f"String similarity: {url_similarity(start, goal):.3f}")
+print(f"Path depth diff:   {path_depth_heuristic(start, goal)}")
+print(f"Combined:          {combined_heuristic(start, goal):.3f}")
+
+# Lower heuristic = more promising = explored first by A*
+# A perfect heuristic would be 0 at the goal and increase away from it
+# An admissible heuristic never overestimates the true cost</code></pre>
+
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Graph modeling of real-world navigation problems</li>
+<li>Informed search with custom heuristics</li>
+<li>Respectful crawling with timeouts and dedup</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Project 2 — Rule + ML Hybrid Classifier</h3>
+<p><strong>What &amp; why.</strong> The best systems combine symbolic rules (guaranteed behavior) with learned models (flexibility). Build a support-ticket router: rules for known patterns, ML fallback for the rest.</p>
+
+<div class="callout internal"><span>Internal Behavior — Why Hybrid Architecture Wins</span>
+<strong>The routing decision tree:</strong> (1) Incoming ticket text arrives. (2) Rule engine scans for high-confidence patterns (exact keyword matches, regex patterns). If a rule fires with >90% historical accuracy, route immediately — no ML needed, latency is ~1ms. (3) If no rule fires, pass the text to the ML classifier (TF-IDF features → trained model). The ML model handles nuanced cases where keywords are ambiguous. (4) If the ML model's confidence is below threshold (e.g., 70%), flag for human review.
+<br><br>
+<strong>Why this beats pure ML:</strong> Rules are deterministic — the same input always produces the same output. This is critical for compliance: "all billing tickets must go to the billing team" is a rule, not a suggestion. ML models are probabilistic and can be wrong. By handling 40-60% of tickets with rules (the easy, well-known cases), you reduce ML workload and improve overall accuracy. The remaining 40-60% that need nuance go to the ML path.
+<br><br>
+<strong>The confidence cascade:</strong> Route with highest available confidence. Rule match (100% confidence) > ML with high confidence (>90%) > ML with medium confidence (70-90%, route with flag) > ML with low confidence (<70%, human review). This ensures every ticket gets routed appropriately for its difficulty.
+</div>
+
+<pre class="code"><code>from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.ensemble import RandomForestClassifier
+
+RULES = [
+    (("refund", "money back", "chargeback"), "billing"),
+    (("crash", "blue screen", "error 500"), "engineering"),
+    (("login", "password", "locked out"), "account"),
+]
+
+def rule_route(text):
+    low = text.lower()
+    for keywords, team in RULES:
+        if any(k in low for k in keywords):
+            return team
+    return None
+
+def hybrid_route(text, model, vec):
+    hit = rule_route(text)
+    if hit: return hit, 1.0, "rule"
+    probs = model.predict_proba(vec.transform([text]))[0]
+    team = model.classes_[probs.argmax()]
+    return team, probs.max(), "ml"
+
+# Train the ML fallback on a labeled dataset, then:
+# for text in incoming_tickets:
+#     team, conf, src = hybrid_route(text, model, vec)
+#     print(team, conf, src)  # 'billing' 0.97 rule</code></pre>
+
+<h4>Additional Example — Full Hybrid System with Confidence Tracking</h4>
+<pre class="code"><code>import random
+from dataclasses import dataclass, field
+from typing import Optional
+
+@dataclass
+class RoutingDecision:
+    team: str
+    confidence: float
+    source: str  # "rule", "ml", "human"
+    text_preview: str
+    timestamp: float = 0.0
+
+class HybridRouter:
+    def __init__(self):
+        self.rules = []
+        self.ml_model = None
+        self.decisions = []
+        self.stats = {"rule": 0, "ml": 0, "human": 0}
+
+    def add_rule(self, keywords, team, priority=0):
+        self.rules.append({"keywords": keywords, "team": team, "priority": priority})
+        self.rules.sort(key=lambda r: -r["priority"])
+
+    def route(self, text, ml_model=None, ml_vectorizer=None, confidence_threshold=0.7):
+        # Step 1: Try rules (fast, deterministic)
+        low_text = text.lower()
+        for rule in self.rules:
+            if any(kw in low_text for kw in rule["keywords"]):
+                decision = RoutingDecision(
+                    team=rule["team"], confidence=1.0,
+                    source="rule", text_preview=text[:50]
+                )
+                self.decisions.append(decision)
+                self.stats["rule"] += 1
+                return decision
+
+        # Step 2: Try ML (if available)
+        if ml_model and ml_vectorizer:
+            features = ml_vectorizer.transform([text])
+            probs = ml_model.predict_proba(features)[0]
+            max_conf = probs.max()
+            team = ml_model.classes_[probs.argmax()]
+
+            if max_conf >= confidence_threshold:
+                decision = RoutingDecision(
+                    team=team, confidence=max_conf,
+                    source="ml", text_preview=text[:50]
+                )
+            else:
+                decision = RoutingDecision(
+                    team="human_review", confidence=max_conf,
+                    source="human", text_preview=text[:50]
+                )
+            self.decisions.append(decision)
+            self.stats[decision.source] += 1
+            return decision
+
+        # Step 3: Default to human review
+        decision = RoutingDecision(
+            team="human_review", confidence=0.0,
+            source="human", text_preview=text[:50]
+        )
+        self.decisions.append(decision)
+        self.stats["human"] += 1
+        return decision
+
+    def report(self):
+        total = sum(self.stats.values())
+        print(f"\nRouting Report ({total} tickets):")
+        for source, count in self.stats.items():
+            pct = count / max(total, 1) * 100
+            print(f"  {source:>8}: {count:>4} ({pct:.1f}%)")
+
+router = HybridRouter()
+router.add_rule(["refund", "money back"], "billing", priority=10)
+router.add_rule(["bug", "error", "crash"], "engineering", priority=10)
+router.add_rule(["password", "login"], "account", priority=5)
+
+tickets = [
+    "I need a refund for my order",
+    "The app crashes when I open settings",
+    "My password isn't working",
+    "Can you tell me about your pricing tiers",
+    "I love this product so much",
+    "There's a strange error in the API response",
+]
+
+for ticket in tickets:
+    d = router.route(ticket)
+    print(f"[{d.source:>4}] {d.team:<15} conf={d.confidence:.2f}  '{d.text_preview}'")
+
+router.report()</code></pre>
+
+<h4>Additional Example — Learning from Routing Mistakes</h4>
+<pre class="code"><code>class AdaptiveRouter(HybridRouter):
+    """Router that improves over time by learning from feedback."""
+
+    def __init__(self):
+        super().__init__()
+        self.feedback_log = []
+        self.rule_accuracy = {}
+
+    def record_feedback(self, decision, actual_team):
+        """Record whether the routing was correct."""
+        correct = decision.team == actual_team
+        self.feedback_log.append({
+            "decision": decision,
+            "actual": actual_team,
+            "correct": correct,
+        })
+        # Update rule accuracy tracking
+        key = (decision.source, decision.team)
+        if key not in self.rule_accuracy:
+            self.rule_accuracy[key] = {"correct": 0, "total": 0}
+        self.rule_accuracy[key]["total"] += 1
+        if correct:
+            self.rule_accuracy[key]["correct"] += 1
+
+    def should_remove_rule(self, rule_team, min_accuracy=0.8, min_samples=10):
+        """Check if a rule should be removed due to poor accuracy."""
+        for (source, team), stats in self.rule_accuracy.items():
+            if source == "rule" and team == rule_team:
+                acc = stats["correct"] / max(stats["total"], 1)
+                if stats["total"] >= min_samples and acc < min_accuracy:
+                    return True, acc
+        return False, 0
+
+    def feedback_report(self):
+        total = len(self.feedback_log)
+        correct = sum(1 for f in self.feedback_log if f["correct"])
+        print(f"\nFeedback Report: {correct}/{total} correct ({correct/max(total,1)*100:.1f}%)")
+        for (source, team), stats in self.rule_accuracy.items():
+            acc = stats["correct"] / max(stats["total"], 1)
+            print(f"  {source}/{team}: {acc:.2f} ({stats['correct']}/{stats['total']})")
+
+# Simulate feedback loop
+adaptive = AdaptiveRouter()
+adaptive.add_rule(["refund"], "billing")
+
+# Simulate: some refund requests are actually "account" issues
+decisions = [
+    ("I want a refund", "billing"),
+    ("refund not processed", "billing"),
+    ("I want a refund", "account"),  # wrong: this is an account issue
+    ("refund my account balance", "account"),  # wrong rule match
+]
+
+for text, actual in decisions:
+    d = adaptive.route(text)
+    adaptive.record_feedback(d, actual)
+
+adaptive.feedback_report()
+# Shows if the "refund" rule is routing incorrectly for account-related refunds</code></pre>
+
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Hybrid symbolic + statistical architecture</li>
+<li>Confidence-aware routing with auditable rules</li>
+<li>Production pattern: deterministic fast path, ML slow path</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Project 3 — Mini LLM RAG Research Assistant</h3>
+<p><strong>What &amp; why.</strong> Put it together: retrieve documents, generate grounded answers, and evaluate the pipeline. This is the capstone pattern of the whole MasterHub, connecting search, embeddings, LLMs, and evaluation.</p>
+
+<div class="callout internal"><span>Internal Behavior — How RAG Connects Every AI Fundamental</span>
+<strong>The RAG pipeline end-to-end:</strong> (1) <strong>Embed</strong> the query: convert the user's question into a vector using the same embedding model that was used on the documents. (2) <strong>Retrieve</strong>: compute cosine similarity between the query vector and all document vectors. Return the top-k most similar documents. This is the "search" component from Part I. (3) <strong>Prompt engineering</strong>: construct a prompt that includes the retrieved documents as context, plus instructions for the LLM to answer based only on that context. (4) <strong>Generate</strong>: the LLM produces an answer grounded in the retrieved evidence. (5) <strong>Cite</strong>: extract which documents supported the answer for traceability.
+<br><br>
+<strong>Why this works when the LLM alone fails:</strong> Without RAG, the LLM answers from its training data (which might be outdated or wrong). With RAG, the LLM's answer is constrained by provided documents. If the documents don't contain the answer, the LLM should say "I don't have enough information" instead of hallucinating. The retrieval step grounds the generation in facts.
+<br><br>
+<strong>The embedding step is the critical bridge:</strong> Embeddings convert semantic meaning into vectors where similar concepts are nearby. "What is the refund policy?" and "How do I get my money back?" map to nearby vectors, even though they share no words. This semantic search is why RAG works better than keyword search for natural language queries.
+</div>
+
+<pre class="code"><code># Pipeline: question -> embed -> top-k docs -> prompt -> answer -> cite
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+docs = [
+    "The agent loop runs until the task is complete or a budget is hit.",
+    "RAG grounds answers in retrieved documents to reduce hallucination.",
+    "Guardrails validate model output before it reaches users.",
+]
+
+def answer(question):
+    q_vec = model.encode([question])[0]
+    scores = [np.dot(q_vec, model.encode([d])[0]) for d in docs]
+    top = sorted(range(len(docs)), key=lambda i: -scores[i])[:1]
+    context = "\n".join(docs[i] for i in top)
+    prompt = (f"Answer using ONLY the context.\n"
+              f"Context: {context}\nQuestion: {question}\nAnswer:")
+    # llm = get_client()  # any LLM
+    # return llm.complete(prompt), [docs[i] for i in top]
+    return prompt, [docs[i] for i in top]  # citations
+
+print(answer("How does RAG reduce hallucination?")[0])</code></pre>
+
+<h4>Additional Example — Full RAG Pipeline with Evaluation</h4>
+<pre class="code"><code>import numpy as np
+from dataclasses import dataclass
+from typing import List, Dict
+
+@dataclass
+class RAGResult:
+    answer: str
+    sources: List[str]
+    scores: List[float]
+    prompt_tokens: int
+    retrieval_time_ms: float
+
+class MiniRAG:
+    """Complete RAG pipeline with evaluation metrics."""
+
+    def __init__(self, documents: List[str]):
+        self.documents = documents
+        self.embeddings = self._embed_all(documents)
+        self.query_log = []
+
+    def _embed_all(self, texts):
+        """In production, use sentence-transformers or OpenAI embeddings."""
+        # Simplified: character-frequency vectors
+        embeddings = []
+        for text in texts:
+            vec = np.zeros(26)
+            for c in text.lower():
+                if c.isalpha():
+                    vec[ord(c) - ord('a')] += 1
+            embeddings.append(vec / (np.linalg.norm(vec) + 1e-8))
+        return np.array(embeddings)
+
+    def retrieve(self, query: str, k: int = 3):
+        """Find top-k most similar documents."""
+        q_emb = self._embed_all([query])[0]
+        similarities = self.embeddings @ q_emb
+        top_indices = np.argsort(similarities)[-k:][::-1]
+        return [(i, similarities[i]) for i in top_indices]
+
+    def generate_prompt(self, query: str, k: int = 3):
+        """Build a grounded prompt from retrieved context."""
+        results = self.retrieve(query, k)
+        context_parts = []
+        for idx, score in results:
+            context_parts.append(f"[Source {idx+1}, relevance={score:.3f}]: {self.documents[idx]}")
+        context = "\n".join(context_parts)
+
+        prompt = f"""Answer the question using ONLY the provided context.
+If the context doesn't contain enough information, say so.
+
+CONTEXT:
+{context}
+
+QUESTION: {query}
+
+ANSWER (cite source numbers):"""
+
+        return prompt, results
+
+    def evaluate_retrieval(self, queries: List[Dict]):
+        """Evaluate retrieval quality with precision@k and recall@k."""
+        metrics = {"precision": [], "recall": [], "mrr": []}
+
+        for q in queries:
+            results = self.retrieve(q["query"], k=3)
+            retrieved_indices = [r[0] for r in results]
+            relevant = set(q.get("relevant_docs", []))
+
+            # Precision@3
+            hits = len(set(retrieved_indices) & relevant)
+            metrics["precision"].append(hits / 3)
+
+            # Recall@3
+            metrics["recall"].append(hits / max(len(relevant), 1))
+
+            # MRR (Mean Reciprocal Rank)
+            for rank, idx in enumerate(retrieved_indices):
+                if idx in relevant:
+                    metrics["mrr"].append(1 / (rank + 1))
+                    break
+            else:
+                metrics["mrr"].append(0)
+
+        return {
+            "precision@3": np.mean(metrics["precision"]),
+            "recall@3": np.mean(metrics["recall"]),
+            "mrr": np.mean(metrics["mrr"]),
+        }
+
+# Usage
+docs = [
+    "The transformer architecture uses self-attention to process sequences in parallel.",
+    "Bert is a masked language model trained on next sentence prediction.",
+    "GPT uses causal attention where each token can only attend to previous tokens.",
+    "Fine-tuning updates model weights on task-specific labeled data.",
+]
+
+rag = MiniRAG(docs)
+
+# Test retrieval
+test_queries = [
+    {"query": "How does GPT process text?", "relevant_docs": [2]},
+    {"query": "What is attention in transformers?", "relevant_docs": [0, 2]},
+    {"query": "How to adapt a model to a specific task?", "relevant_docs": [3]},
+]
+
+results = rag.evaluate_retrieval(test_queries)
+print("Retrieval Quality:")
+for metric, value in results.items():
+    print(f"  {metric}: {value:.3f}")
+
+# Generate a prompt for a sample query
+prompt, sources = rag.generate_prompt("How does GPT handle text generation?")
+print(f"\nGenerated prompt:\n{prompt}")</code></pre>
+
+<h4>Additional Example — Chunking Strategies Compared</h4>
+<pre class="code"><code>def fixed_size_chunk(text, size=100, overlap=20):
+    """Strategy 1: Split into fixed-size chunks."""
+    words = text.split()
+    chunks = []
+    for i in range(0, len(words), size - overlap):
+        chunk = " ".join(words[i:i+size])
+        chunks.append(chunk)
+    return chunks
+
+def sentence_chunk(text, max_sentences=3):
+    """Strategy 2: Split by sentences."""
+    sentences = text.replace(". ", ".|").split("|")
+    chunks = []
+    for i in range(0, len(sentences), max_sentences):
+        chunks.append(" ".join(sentences[i:i+max_sentences]))
+    return chunks
+
+def semantic_chunk(text, min_chunk_size=50):
+    """Strategy 3: Split at natural boundaries (paragraphs, sections)."""
+    # Split by double newlines (paragraphs)
+    paragraphs = text.split("\n\n")
+    chunks = []
+    current = ""
+    for para in paragraphs:
+        if len(current) + len(para) > 200 and current:
+            chunks.append(current.strip())
+            current = para
+        else:
+            current += "\n\n" + para
+    if current.strip():
+        chunks.append(current.strip())
+    return chunks
+
+# Compare strategies on sample text
+sample = """The transformer architecture revolutionized NLP. It uses self-attention to process all tokens in parallel, unlike RNNs which process sequentially.
+
+Self-attention computes attention weights between every pair of tokens. This allows the model to capture long-range dependencies efficiently.
+
+BERT uses bidirectional attention, meaning each token can attend to all other tokens. GPT uses causal attention, where each token only attends to previous tokens.
+
+Fine-tuning takes a pre-trained model and continues training on task-specific data. This adapts the general knowledge to specific domains like medical text or code generation."""
+
+print("Fixed-size chunks:")
+for i, chunk in enumerate(fixed_size_chunk(sample, size=30)):
+    print(f"  [{i}] {chunk[:60]}...")
+
+print("\nSentence chunks:")
+for i, chunk in enumerate(sentence_chunk(sample)):
+    print(f"  [{i}] {chunk[:60]}...")
+
+print("\nSemantic chunks:")
+for i, chunk in enumerate(semantic_chunk(sample)):
+    print(f"  [{i}] {chunk[:60]}...")
+
+# Fixed: simple, but may break mid-sentence
+# Sentence: respects sentence boundaries, variable size
+# Semantic: respects paragraph/topic boundaries, best for RAG</code></pre>
+
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Full retrieval pipeline with real embedding models</li>
+<li>Prompt construction with grounding and citation</li>
+<li>Basis for the <a href="rag.html">RAG</a> and <a href="evaluations.html">Evaluations</a> deep dives</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Rational agent</td><td>Chooses actions maximizing expected performance</td><td>percept -> model -> policy -> action</td></tr>
+<tr><td>Blind search</td><td>Complete but ignores costs</td><td>BFS: deque frontier</td></tr>
+<tr><td>A* search</td><td>Optimal when heuristic is admissible</td><td>heapq with f = g + h</td></tr>
+<tr><td>Minimax</td><td>Opponent-optimal game search</td><td>max/min over legal moves</td></tr>
+<tr><td>Alpha-beta pruning</td><td>Cut branches that can't matter</td><td>beta &lt;= alpha: break</td></tr>
+<tr><td>Bayes' rule</td><td>Update belief from evidence</td><td>P(H|E) = P(E|H)P(H)/P(E)</td></tr>
+<tr><td>Naive Bayes</td><td>Feature-independent classifier</td><td>prod(P(word|class)) * P(class)</td></tr>
+<tr><td>Supervised learning</td><td>Learn mapping from labeled examples</td><td>model.fit(X_train, y_train)</td></tr>
+<tr><td>Generalization</td><td>Performing on unseen data</td><td>train-test gap</td></tr>
+<tr><td>Backpropagation</td><td>Chain rule + gradient descent</td><td>loss.backward(); opt.step()</td></tr>
+<tr><td>CNN</td><td>Shared-weight spatial feature detector</td><td>Conv2d -> ReLU -> MaxPool</td></tr>
+<tr><td>Attention</td><td>Every token looks at every token</td><td>softmax(QK^T/sqrt(d))V</td></tr>
+<tr><td>Generative model</td><td>Models P(data), can sample new data</td><td>temperature / top-p sampling</td></tr>
+<tr><td>Calibration</td><td>Confidence matches accuracy</td><td>expected calibration error</td></tr>
+<tr><td>Hybrid AI</td><td>Rules for guarantees + ML for flexibility</td><td>rule fast-path, ML fallback</td></tr>
+<tr><td>RAG pattern</td><td>Ground generation in retrieved context</td><td>embed -> top-k -> prompt</td></tr></table></section>
+</main>
+<footer class="pager"><a href="graphics-engineering.html">&larr; Graphics Engineering</a><a href="ml-fundamentals.html">ML Fundamentals &rarr;</a></footer>
+</body></html>

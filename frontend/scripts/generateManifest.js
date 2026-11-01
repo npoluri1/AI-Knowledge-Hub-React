@@ -49,10 +49,24 @@ _loadDotEnv()
 const PUBLIC_DIR = path.resolve(__dirname, '../public')
 
 // Built-in scan sources (served by Vite / static host at their URL prefix).
+// `edurekha_docs` (project-root canonical folder) is scanned as a static-synced
+// source: every manifest run copies its files into public/edurekha_docs/ and
+// serves them at /edurekha_docs/… so the Edureka Docs page works without the
+// backend (dev + preview). The root folder stays the canonical source.
 const BUILTIN_SOURCES = [
   { dir: path.join(PUBLIC_DIR, 'images'), url: '/images', slug: 'images', label: 'images', kind: 'public' },
   { dir: path.join(PUBLIC_DIR, 'data'),   url: '/data',   slug: 'data',   label: 'data',   kind: 'public' },
 ]
+const EDUREKHA_ROOT = path.resolve(__dirname, '../../edurekha_docs')
+if (fs.existsSync(EDUREKHA_ROOT)) {
+  BUILTIN_SOURCES.push({
+    dir: EDUREKHA_ROOT,
+    url: '/api/raw/edurekha_docs',
+    slug: 'edurekha_docs',
+    label: 'edurekha_docs',
+    kind: 'extra', // gets the static-sync copy treatment (see STATIC_EXTRAS below)
+  })
+}
 
 // Reserved slugs (must match the Python backend's _RESERVED_SLUGS).
 const RESERVED_SLUGS = new Set(['images', 'data', 'documents'])

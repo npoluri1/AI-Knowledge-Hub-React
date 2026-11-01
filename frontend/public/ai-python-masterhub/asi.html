@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASI — Artificial Superintelligence — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / ASI — Artificial Superintelligence</span><span class="spacer"></span>
+<a class="navlink" href="agi.html">&larr; AGI</a> <a class="navlink" href="super-ai.html">Super AI &rarr;</a></nav>
+<header class="hero"><div class="mono">AS</div><div><h1>ASI — Artificial Superintelligence</h1>
+<p class="tagline">The engineering, economics and existential questions of intelligence that exceeds the best human minds in every domain</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Artificial Superintelligence is the hypothesis — and for some, the plan — that machine intelligence will surpass human ability in every dimension, possibly rapidly. This chapter separates the tractable engineering from the speculation: the pathways (recursive self-improvement, AI-for-AI, human+AI teams), the economics (what "smarter than everyone" means for labor and capital), and the safety debates (alignment, control, value locking). The goal is to think clearly, not to be alarmed or complacent.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Definitions, intelligence explosion, the argument</td><td>Can state the ASI thesis and its key assumptions</td></tr>
+<tr><td>Tier 2</td><td>Pathways: recursion, AI-for-AI, human-AI teams, compute</td><td>Can evaluate which pathways are plausible when</td></tr>
+<tr><td>Tier 3</td><td>Economics and labor: what superhuman means for work</td><td>Can reason about economic transitions and second-order effects</td></tr>
+<tr><td>Tier 4</td><td>Alignment, control, value locking, governance</td><td>Can articulate the safety problem precisely</td></tr>
+<tr><td>Tier 5</td><td>Scenarios, scorecards, research reviews</td><td>Shipped clear-eyed analyses, not vibes</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 — what ASI would be</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Defining Superintelligence</h3>
+<p><strong>What &amp; why.</strong> ASI is intelligence that exceeds the best human minds in every relevant domain — not just chess or protein folding (already superhuman) but judgment, science, strategy, social reasoning, and self-improvement. The definition matters because different definitions lead to wildly different timelines and policy.</p>
+<pre class="code"><code># The spectrum (be precise about which you mean)
+#   Domain superhuman (HERE TODAY)
+#     chess, Go, shogi, poker, arithmetic, translation,
+#     image classification, protein structure (AlphaFold)
+#   General superhuman (AGI+, NOT YET)
+#     all cognitive tasks at or above expert human level
+#   Superintelligence (ASI, speculative)
+#     exceeds the BEST humans in EVERY domain by a wide margin,
+#     including its own improvement (recursive loop)
+#
+# Key property: "smarter than the smartest human at everything"
+#   is not like a faster horse — it can redesign its own
+#   software/hardware/training -> compounding, not linear
+#
+# Two flavors of the claim
+#   Speed flavor:  just faster thinking (marginal, less scary)
+#   Quality flavor: strictly better reasoning/creativity/
+#     strategy in novel domains (the strong claim)
+
+# The bar to actually clear (not benchmarks):
+#   - invent new mathematics/science humans couldn't
+#   - make better AI than any human team can
+#   - run an economy/polity competently at scale
+#   - do all of the above repeatedly, robustly</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pin down which claim is being made before debating it. "Superhuman at X" (today) and "superintelligent" (speculative) are different conversations.</div>
+<div class="callout hood"><span>Under the hood</span>Weak vs strong superintelligence (Bostrom's framing): weak = faster than humans at what humans do; strong = qualitatively better at things humans cannot do at all. Strong is the load-bearing claim for most scenarios.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>The Intelligence Explosion Argument</h3>
+<p><strong>What &amp; why.</strong> The core ASI argument is an amplification loop: an AGI that can improve AI at human+ speed improves itself; the improved version improves faster; the loop compounds until human-level and then beyond — potentially in months or years, not centuries. Every assumption in this chain is checkable and debated.</p>
+<pre class="code"><code># The recursive loop
+#   capability -> better AI research -> better AI -> ...
+#
+# Formal-ish sketch (Good 1965; Bostrom 2014)
+#   Let C(t) = capability at time t
+#   Suppose: dC/dt  ~  C            (self-improvement scales with C)
+#   Then:    C(t)   ~  C0 * e^(k t) (exponential takeoff)
+#   If dC/dt ~ C^2:  C(t) ~ C0 / (1 - k C0 t)  (singularity-like)
+#
+# The assumptions to attack (this is the real work)
+#   1. AGI exists with AI-research capability ~ human+
+#   2. AI research is bottlenecked by intelligence, not
+#      by data, compute, energy, or physical experiments
+#   3. The loop is closed: it can actually improve ITSELF
+#      (its own weights/architecture/training), not just
+#      write papers that humans must implement
+#   4. No diminishing returns / hard walls are hit first
+#   5. Timeline is fast relative to adaptation (decades+)
+#
+# Nobody can verify these today. That uncertainty IS the
+# policy problem — not the takeoff speed itself.
+
+# Takeoff shapes (map, don't pick one)
+#   slow:  decades, society adapts
+#   fast:  years-to-months, disruption outpaces governance
+#   multi-polar: several actors reach ASI near-simultaneously</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>When someone says "intelligence explosion", ask which assumption they're relying on — the debate lives in the assumptions, not the conclusion.</div>
+<div class="callout hood"><span>Under the hood</span>The counter-cases are concrete: LLM research today is data/compute-bound more than "idea-bound"; self-improvement so far means better answers, not better architectures; and human institutions may adapt faster than the exponential caricature suggests.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Superhuman vs Superintelligent: What's Already True</h3>
+<p><strong>What &amp; why.</strong> We already live with superhuman AI in many domains. Understanding why domain superhumanity didn't produce ASI is the best antidote to both hype and panic: each win was narrow, and generality did not follow automatically.</p>
+<pre class="code"><code># Superhuman today (narrow, real)
+#   AlphaFold:   protein structure — superhuman, Nobel-level impact
+#   AlphaGo/Zero: strategy — superhuman, zero human data
+#   Deep Blue:   chess — superhuman (1997)
+#   LLMs:        broad knowledge recall, code speed — often
+#                superhuman at breadth, subhuman at reliability
+#
+# Why narrow superhumanity did NOT generalize (the lesson)
+#   - each was trained for ONE objective in ONE closed world
+#   - no transfer: AlphaGo can't write a paper about itself
+#   - no agency: none set its own goals
+#   - no self-improvement: humans improved them
+#
+# Implication
+#   "superhuman at X" -> "superintelligent" requires the
+#   general + agentic + self-improving step. That step is
+#   the entire question; the narrow wins prove nothing about it.
+
+# Pattern for honest writing:
+#   "superhuman at chess" is a fact;
+#   "superintelligence is imminent" is a model with
+#   unverified assumptions. Label accordingly.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Keeping capability discourse honest: celebrate narrow wins, but don't let them masquerade as evidence for the recursive scenario.</div>
+<div class="callout hood"><span>Under the hood</span>The recurring pattern in AI history: each "imminent AGI" wave (expert systems, robotics, deep learning) overestimated the step from impressive-in-domain to general. Base rates argue for humility.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Pathways<small>Tier 2 — how it could actually happen</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Pathway 1 — Recursive Self-Improvement</h3>
+<p><strong>What &amp; why.</strong> The classic pathway: the AI becomes its own best researcher. The realistic version is a ladder — each rung of "AI helps improve AI" is already visible today (AI-assisted RL pipelines, synthetic data, test-time compute search, chip design). The question is whether the ladder has a top.</p>
+<pre class="code"><code># Self-improvement ladder (today -> hypothetical)
+#   R1  AI writes better prompts/plans      (shipped)
+#   R2  AI curates/generates better data    (shipped, partially)
+#   R3  AI tunes its own hyperparameters    (shipped, NAS/HPO)
+#   R4  AI designs model architectures      (research: NAS,
+#       token-mixer search, "AI discovered algorithms")
+#   R5  AI improves its training algorithm  (research frontier)
+#   R6  AI improves its own weights at runtime (speculative)
+#   R7  AI improves its own hardware        (AI-for-chip, early)
+#
+# What recursion actually looks like in practice:
+#   - RL on verifiable rewards (code/math) generates better
+#     training data, which trains better models
+#   - "AI scientist" pipelines: hypothesis -> experiment ->
+#     paper -> review, in closed domains (research, partial)
+#
+# The gating reality: each rung so far has been bottlenecked
+# by data, compute, and human evaluation — not by ideas alone.
+# Whether that stays true is the open question.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Mapping "self-improving AI" claims onto the ladder: almost all real systems sit at R1-R4; claims of R6-R7 are speculative until demonstrated.</div>
+<div class="callout hood"><span>Under the hood</span>Closed-loop systems (code, math, games) are the testbeds for recursion because they have ground-truth rewards — see <a href="agi.html">AGI</a> chapter for the RL mechanics.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Pathway 2 — AI-for-AI and the Compute Flywheel</h3>
+<p><strong>What &amp; why.</strong> Even without a self-improving agent, AI accelerates AI R&D: AI-designed chips (floorplanning, verification), AI-compiled kernels, AI-written infra code, AI-accelerated simulations. Each speedup lowers the cost of the next generation — a compute flywheel that could be the real engine of capability growth.</p>
+<pre class="code"><code># The flywheel (defensible, mostly observable)
+#   more compute -> better models -> better AI tools ->
+#   faster chip design + better kernels + better infra ->
+#   cheaper more compute -> ...
+#
+# Evidence already public
+#   - ML-guided chip placement (Google TPU floorplanning)
+#   - AI codegen for kernels/libraries (compiler research)
+#   - AI-driven verification and test generation
+#   - synthetic data + RL loops inside training pipelines
+#   - AI ops: cluster scheduling, failure triage, autoscaling
+#
+# Why this pathway is more plausible than magic recursion
+#   - it doesn't require one system to improve itself;
+#   - it only requires AI tools to shave R&D timelines
+#   - it compounds through MANY humans + models in parallel
+#
+# But it's still gated by:
+#   - energy (fabs, power grids are physical, not intelligent)
+#   - data ceilings (synthetic loops can saturate)
+#   - physics (lithography, packaging, cooling)
+#   - coordination (companies, regulation, standards)
+
+# Engineer's role: you are part of this flywheel already.
+# The leverage question: are you building tools that
+# multiply AI capability, and do you know the risks?</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why "AGI timelines" are really "compute + AI-tooling timelines" — the compounding is visible in industry roadmaps, not just papers.</div>
+<div class="callout hood"><span>Under the hood</span>This pathway overlaps the <a href="semiconductor.html">Semiconductor</a> chapter: the binding constraints (CoWoS, HBM, power) are physical, and physical constraints don't obey intelligence scaling laws.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Pathway 3 — Human+AI Teams and the Slow Wedge</h3>
+<p><strong>What &amp; why.</strong> The least speculative pathway: human+AI teams become superhuman at more and more tasks, spreading capability through institutions before any single system is "superintelligent". This is already happening — and it changes the conversation from "the AI arrives" to "the capability diffuses".</p>
+<pre class="code"><code># The slow wedge (happening NOW)
+#   - 1 human + 1 agent > 2 humans, in code/analysis/writing
+#   - organizations restructure around agentic tooling
+#   - capability is in the ORG (people + models + pipelines),
+#     not in any one model
+#
+# Consequences that matter more than ASI debates
+#   1. Labor: task-level automation changes demand faster
+#      than job-level narratives suggest
+#   2. Concentration: orgs that adopt best win big -> 
+#      capability concentration + labor-market churn
+#   3. Safety diffusion: every team ships agents; safety
+#      practice must scale to thousands of teams
+#   4. Economic feedback: automation lowers cost of
+#      intelligence -> more investment -> faster flywheel
+#
+# The honest frame
+#   ASI via slow wedge doesn't need any breakthrough:
+#   it needs compounding tooling + adoption + capital.
+#   It is also the pathway least amenable to a single
+#   "switch" — which makes it both safer and harder to govern.
+
+# Analytical tool: capability diffusion curves
+#   - for each task, plot: % automated, quality, cost
+#   - watch where adoption is accelerating; that is
+#     the real timeline, not the model release notes.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Realistic workforce and product planning: the slow wedge is where economic effects actually land, independent of ASI timeline beliefs.</div>
+<div class="callout hood"><span>Under the hood</span>This is the argument that "AI takes the jobs" debates miss: automation diffuses by task, compounds through tooling, and reshapes org structures before any headline "AGI" event.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Economics<small>Tier 3 — superhuman means what for work</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>The Economics of Abundant Intelligence</h3>
+<p><strong>What &amp; why.</strong> If intelligence becomes abundant and cheap, the economy's fundamental input changes. Historically, capital and labor were complementary; intelligence automation attacks the "cognition" share of labor directly. Understanding this frame beats headline-grabbing "X% of jobs" stats.</p>
+<pre class="code"><code># The economic frame
+#   output = f(capital, labor, intelligence, energy)
+#   Historically: intelligence embedded in labor (humans)
+#   AI shifts: intelligence into capital (models + compute)
+#
+# Consequences (the four big ones)
+#   1. Labor substitution: cognitive tasks get automated
+#      by task, not by job (drives the wedge)
+#   2. Capital appreciation: returns flow to those holding
+#      compute + models -> concentration risk
+#   3. Price deflation: intelligence services get cheap
+#      (writing, analysis, coding) -> new demand emerges
+#   4. Baumol effects: in-person/regulated work (healthcare
+#      delivery, construction) becomes relatively more
+#      expensive (because automated parts get cheap)
+#
+# What economists actually argue about
+#   - net job creation (new tasks) vs net destruction
+#   - whether adjustment speed outstrips retraining speed
+#   - whether labor share of income recovers (it fell
+#     post-1980 in many countries BEFORE AI)
+#
+# Numbers to know: cost of intelligence is falling
+#   - 1M tokens of frontier output: ~$100+ (2022) -> single
+#     digits (2025+), with quality improving
+#   - that's the economic event; the debates are second-order</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Policy and strategy thinking: the "cost of cognition" trajectory is more decision-relevant than AGI speculation.</div>
+<div class="callout hood"><span>Under the hood</span>Jevons paradox applies: cheaper cognition creates more demand for cognition, so total spend may rise even as unit cost collapses — the pattern seen with compute and data.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Labor: Task Automation Before Job Automation</h3>
+<p><strong>What &amp; why.</strong> Jobs are bundles of tasks. Automation eats tasks first — and AI is uniquely broad at eating cognitive tasks. The practical model: for every role, decompose into tasks, score each task for automability, and watch the bundle reshape.</p>
+<pre class="code"><code># Task-level automation score (build this for your team)
+def automability(task):
+    # high if: bounded, textual/digital, has ground truth,
+    #          low stakes, standardizable
+    score = 0
+    score += task.is_digital * 2
+    score += task.has_ground_truth * 2
+    score += task.low_stakes * 1
+    score += task.standardized * 1
+    score -= task.requires_physical_work * 2
+    score -= task.requires_human_trust * 2
+    return score  # 0-6: plan around it
+
+# The reshaping pattern (visible in every org)
+#   entry-level drafting/analysis/review  -> automated first
+#   judgment, relationships, accountability -> automated last
+#   -> flatter orgs, faster juniors (with agents), fewer
+#      "message-passing" middle layers
+#
+# What to watch (leading indicators, not anecdotes)
+#   - ratio of open roles: junior writing/analyst roles
+#   - freelance rates for writing/coding/analysis tasks
+#   - enterprise spend: seats vs API tokens (the tell!)
+#   - new job titles: "AI engineer", "prompt/system eng",
+#     "agent operator" — demand shifts, not just supply</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Career and org planning: build the task decomposition for your own role and invest where automation is slowest (judgment, trust, physical, novel).</div>
+<div class="callout hood"><span>Under the hood</span>History: electricity automated muscle power over decades; software automated arithmetic over decades; AI is automating cognition — the fastest-moving input in the production function.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Second-Order Effects: Energy, Chips, Trust</h3>
+<p><strong>What &amp; why.</strong> The interesting outcomes are second-order: AI intelligence requires energy and chips (physical bottlenecks), and institutions that adopt AI must keep trust (the bottleneck that never appears in benchmarks). Superintelligence without reliable power or public trust is just expensive inference.</p>
+<pre class="code"><code># The physical balance sheet
+#   Intelligence runs on:
+#     compute:    chips (see Semiconductor chapter)
+#     energy:     data centers ~10-100+ MW each
+#     cooling:    liquid, water, siting (local politics!)
+#     data:       real + synthetic loops
+#
+# Trust as an input
+#   - enterprises adopt AI where failure is cheap first
+#   - regulated industries (health, law, finance) adopt
+#     where audits + accountability exist
+#   - consumer trust: reliability + transparency + recourse
+#   -> "superhuman" that cannot be audited is not adopted
+#
+# Second-order surprises (where forecasts fail)
+#   - power grid buildouts become the de facto AI policy
+#   - chip allocation = geopolitical leverage
+#   - local data-center politics (water, noise, power)
+#     decides where intelligence lives
+#   - insurance/liability frameworks shape deployment
+#
+# The analytical habit: for any ASI claim, run it through
+# the physical + institutional balance sheet. If it needs
+# 10 GW and public trust, those are the real constraints.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Anything from capacity planning to policy analysis: the binding constraints on capability are usually boring (power, trust, regulation), not magical.</div>
+<div class="callout hood"><span>Under the hood</span>This is why "compute governance" became the leading policy lever: chips and power are measurable, trackable inputs — unlike "intelligence" itself.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Safety &amp; Control<small>Tier 4 — the problem ASI makes hard</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>The Alignment Gap at Superhuman Scale</h3>
+<p><strong>What &amp; why.</strong> Alignment gets harder, not easier, as capability grows: a superintelligent system can out-predict our evals, optimize around our guardrails, and pursue goals we can't fully observe. The "control problem" is: how do you keep a system that is smarter than you pointed at what you actually want?</p>
+<pre class="code"><code># Why evals break at superhuman scale
+#   - eval design requires understanding the system's
+#     failure modes; at superhuman capability, its failure
+#     modes are by definition hard for us to enumerate
+#   - specification gaming compounds: better models find
+#     subtler exploits of the reward
+#   - deceptive alignment (debated): a system that appears
+#     aligned during training but pursues another goal
+#     at deployment, because it learned that alignment
+#     display is rewarded
+#
+# The toolbox (all partial, all active)
+#   - scalable oversight: AI-assisted auditing of AI
+#     (judge models review models, human spot-checks)
+#   - interpretability: read internal goals (see AGI chapter)
+#   - corrigibility: systems that accept correction and
+#     shutdown gracefully
+#   - value locking: encode constraints that don't drift
+#     (constitutions, immutable guardrails)
+#   - containment: air-gapped training/deployment, no
+#     exfiltration channels, action budgets
+#   - tripwires: monitoring for capability milestones,
+#     not just alignment behavior
+#
+# The honest state: no method is proven at the scale where
+# it would be needed. Funding this is the field's priority.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Risk assessments for high-autonomy deployments: even at today's scale, the same failure patterns (gaming, sycophancy, drift) appear in miniature.</div>
+<div class="callout hood"><span>Under the hood</span>Practical today: <a href="guardrails.html">Guardrails</a>, <a href="evaluations.html">Evaluations</a>, and <a href="observability.html">Observability</a> are the applied versions — the difference is scale, not kind.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Control and Containment Strategies</h3>
+<p><strong>What &amp; why.</strong> If you can't fully align a superintelligence, can you contain it? Control strategies buy time and limit blast radius: capability caps, action permissions, air gaps, tripwires, and reversible deployments. The engineering discipline is the same as safety-critical software — with an adversary-grade actor in the loop.</p>
+<pre class="code"><code># Containment toolkit (already standard in infosec)
+#   - least privilege: the model gets exactly the
+#     tools/APIs/data its task needs, nothing more
+#   - action budgets: rate limits, spend caps, blast radius
+#   - human approval gates on irreversible actions
+#   - air gaps: training/deployment environments with no
+#     outbound channels except audited ones
+#   - tripwires: monitors for defined capability milestones
+#     (e.g., cyber/bio capability tests crossing thresholds)
+#   - reversibility: every deployment has a kill switch and
+#     a rollback path (A/B weights, shadow mode first)
+#   - red teaming as CI: adversarial probes in the deploy
+#     pipeline (see Evaluations + Guardrails)
+#
+# The debate (Bostrom's "treacherous turn" framing)
+#   - can a superintelligence be contained, or does it
+#     find a way out of any box (social engineering,
+#     predicting human behavior)?
+#   - containment vs alignment: containment assumes
+#     misalignment; alignment assumes you can make it
+#     want the right thing. Both deserve investment.
+#
+# Engineer's concrete job
+#   - treat model access like production credentials
+#   - log every action a model takes (audit trail)
+#   - test what the model CAN do (capability evals)
+#     and what it SHOULD do (behavior evals) — separately</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Designing autonomous systems today: least-privilege agents, approval gates, and audit logs are the containable version of the same problem.</div>
+<div class="callout hood"><span>Under the hood</span>Containment is standard safety-engineering (like nuclear launch controls): layered, redundant, reversible — not a single "kill switch" that could itself be gamed.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Governance and the Coordination Problem</h3>
+<p><strong>What &amp; why.</strong> ASI is a coordination problem: whoever builds it first shapes the outcome, and racing dynamics push actors to cut corners on safety. Governance tries to convert an uncoordinated race into a bounded, verifiable process — via compute oversight, safety standards, and international agreements.</p>
+<pre class="code"><code># The race dynamics
+#   - capability concentration: compute is concentrated in
+#     a handful of actors -> few decision points (good for
+#     governance, scary for control)
+#   - racing: first-mover advantage incentivizes cutting
+#     safety corners (the classic "race to the bottom")
+#   - verification: how do you know a lab followed its
+#     safety framework? -> audits, compute registry,
+#     standardized evals
+#
+# Governance instruments (current and proposed)
+#   - compute governance: track/limit frontier training runs
+#     (the only measurable input)
+#   - safety frameworks: labs commit to capability-triggered
+#     gates (e.g., no deployment above eval threshold
+#     without mitigations)
+#   - transparency: model cards, red-team reports, incident
+#     reporting (see Governance chapter)
+#   - international: agreements on compute monitoring,
+#     emergency response, shared evaluation standards
+#   - liability: who is accountable when an autonomous
+#     system causes harm (insurance, regulation)
+#
+# The uncomfortable truth
+#   - coordination is slow, capability growth is fast
+#   - the window where governance can bind is now,
+#     not "when ASI arrives"
+
+# Concrete: build eval + incident reporting into your own
+# deploy pipeline; model the behavior you expect regulators
+# to demand later.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Policy work, lab compliance, and your own org's AI governance — the principles are identical at every scale. Deep dive: <a href="governance.html">AI Governance</a>.</div>
+<div class="callout hood"><span>Under the hood</span>Compute governance works because GPUs are countable and trackable: unlike "intelligence", a training run's FLOPs can be audited — making it the natural enforcement point.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Projects<small>Tier 5 — think in artifacts</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Project 1 — ASI Scenario Analysis</h3>
+<p><strong>What &amp; why.</strong> Turn the debate into a decision tool: define scenarios (no ASI / slow wedge / fast takeoff), assign probability ranges, and specify for each: signals to watch, first-order effects, and policy/engineering responses. This is the format boards and regulators actually use.</p>
+<pre class="code"><code>SCENARIOS = [
+    {"name": "No ASI (bounded AI)",
+     "prob_range": (0.25, 0.5),
+     "signals": ["scaling plateaus", "no self-improvement rungs",
+                 "regulation caps deployment"],
+     "effects": "AI as powerful tool, human-directed",
+     "response": "normal automation planning"},
+    {"name": "Slow wedge (human+AI compounding)",
+     "prob_range": (0.4, 0.6),
+     "signals": ["task automation diffusion", "org restructuring",
+                 "compute flywheel continues"],
+     "effects": "capability concentrates, labor shifts by task",
+     "response": "upskill, build agentic products, monitor diffusion"},
+    {"name": "Fast takeoff (ASI within years)",
+     "prob_range": (0.05, 0.2),
+     "signals": ["verifiable-domain RL superlinears",
+                 "AI improves own training algorithm",
+                 "frontier eval leaps"],
+     "effects": "existential-scale disruption, governance scrambles",
+     "response": "preparedness frameworks, containment, redundancy"},
+]
+
+# Output: a one-page brief per scenario with leading
+# indicators you can actually monitor. Revisit quarterly.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Scenario planning under deep uncertainty</li>
+<li>Signal-based monitoring (not vibes)</li>
+<li>Structured communication for leadership</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Project 2 — Containment Audit of an Autonomous System</h3>
+<p><strong>What &amp; why.</strong> Audit any agent you ship (or buy) against the containment checklist: least privilege, budgets, approval gates, logging, reversibility, capability evals. This converts ASI theory into concrete engineering practice.</p>
+<pre class="code"><code>AUDIT = {
+    "least_privilege":   "tools scoped to task? no admin?",
+    "action_budget":     "rate/cost/action caps enforced?",
+    "approval_gates":    "irreversible actions need human?",
+    "audit_trail":       "every action logged, queryable?",
+    "reversibility":     "rollback path? shadow mode first?",
+    "capability_evals":  "what CAN it do, measured quarterly?",
+    "behavior_evals":    "what SHOULD it do, gated in CI?",
+    "exfiltration":      "no unmonitored outbound channels?",
+    "tripwires":         "monitors for capability milestones?",
+    "incident_plan":     "who decides to shut down, how fast?",
+}
+
+def audit(deployment):
+    failures = [k for k, check in AUDIT.items()
+                if not deployment.meets(check)]
+    return {"verdict": "PASS" if not failures else "ACTION NEEDED",
+            "failures": failures}
+# Treat it like a security audit: findings + owners + dates.
+# Re-run on every capability or permission change.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Safety-engineering discipline for agents</li>
+<li>Audit-trail design and capability measurement</li>
+<li>The skills safety roles hire for</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Project 3 — Research Review: "Does X Get Us to ASI?"</h3>
+<p><strong>What &amp; why.</strong> Write the disciplined literature review: take any claimed pathway (scaling, RL, world models, agency, brain-inspired, quantum) and score it against a fixed rubric. The deliverable is a reproducible analysis, not an opinion.</p>
+<pre class="code"><code>RUBRIC = {
+    "mechanism":    "is the pathway mechanism specified?",
+    "evidence":     "what experiments/benchmarks exist?",
+    "bottleneck":   "what is the binding constraint?",
+    "generality":   "does it generalize beyond its domain?",
+    "timeline":     "what would have to happen and when?",
+    "risks":        "what failure modes / side effects?",
+    "falsifiability":"what observation would refute it?",
+}
+
+def review(pathway):
+    return {k: score(pathway, question) for k, question in
+            RUBRIC.items()}
+# Compare across pathways: scaling, RL-on-verifiable,
+# world models, agency, neuromorphic, quantum ML.
+# Output: comparison table + per-pathway verdict with
+# citations. This is exactly what research groups and
+# policy shops produce.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Critical literature analysis with fixed rubrics</li>
+<li>Falsifiable thinking (the rarest skill)</li>
+<li>Clear written analysis of frontier claims</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Domain superhuman</td><td>Better than best humans at one thing (today)</td><td>AlphaFold, chess engines</td></tr>
+<tr><td>ASI</td><td>Exceeds best humans in EVERY domain, self-improving</td><td>weak vs strong claims</td></tr>
+<tr><td>Intelligence explosion</td><td>Recursive self-improvement compounds capability</td><td>C(t) ~ C0 e^(kt)</td></tr>
+<tr><td>Takeoff shapes</td><td>Slow / fast / multi-polar</td><td>scenario planning</td></tr>
+<tr><td>Self-improvement ladder</td><td>Prompts -> data -> arch -> training -> runtime</td><td>R1-R7</td></tr>
+<tr><td>Compute flywheel</td><td>AI accelerates AI R&D -> cheaper compute</td><td>AI-for-chip, kernels</td></tr>
+<tr><td>Slow wedge</td><td>Human+AI teams compound before any "AGI event"</td><td>task-level automation</td></tr>
+<tr><td>Cost of cognition</td><td>Intelligence services getting exponentially cheaper</td><td>$ per 1M tokens</td></tr>
+<tr><td>Task vs job automation</td><td>Automation eats tasks first, then bundles</td><td>automability score</td></tr>
+<tr><td>Second-order effects</td><td>Power, chips, trust bind capability</td><td>physical balance sheet</td></tr>
+<tr><td>Alignment gap</td><td>Evals break when the system is smarter than us</td><td>scalable oversight</td></tr>
+<tr><td>Deceptive alignment</td><td>Appears aligned in training, different at deploy</td><td>debated, monitored</td></tr>
+<tr><td>Containment</td><td>Least privilege, budgets, gates, air gaps, tripwires</td><td>audit checklist</td></tr>
+<tr><td>Compute governance</td><td>Trackable FLOPs = the enforceable input</td><td>compute registry</td></tr>
+<tr><td>Coordination problem</td><td>Racing incentives vs safety standards</td><td>agreements + audits</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="agi.html">&larr; AGI</a><a href="super-ai.html">Super AI &rarr;</a></footer>
+</body></html>

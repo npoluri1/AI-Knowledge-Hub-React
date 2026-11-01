@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useId } from 'react'
 import CodeBlock from './CodeBlock'
 
 const NODE_DETAILS = {
@@ -295,10 +295,10 @@ const DIAGRAMS = {
   },
 }
 
-function Arrow({ x1, y1, x2, y2, color = '#45475a' }) {
+function Arrow({ x1, y1, x2, y2, color = '#45475a', arrowId }) {
   return (
     <g>
-      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth="2" markerEnd="url(#arrowhead)" />
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth="2" markerEnd={`url(#${arrowId})`} />
     </g>
   )
 }
@@ -347,6 +347,7 @@ function NodeBox({ node, onClick, isActive }) {
 }
 
 export default function PipelineDiagram({ diagramKey: externalKey = 'rag-pipeline', compact = false, onDiagramChange }) {
+  const arrowId = `pipeline-arrow-${useId().replace(/:/g, '')}`
   const [internalKey, setInternalKey] = useState(externalKey)
   const [activeNode, setActiveNode] = useState(null)
 
@@ -414,7 +415,7 @@ export default function PipelineDiagram({ diagramKey: externalKey = 'rag-pipelin
           style={{ maxHeight: compact ? '400px' : Math.min(diagram.height, 500) + 'px' }}
         >
           <defs>
-            <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <marker id={arrowId} markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
               <polygon points="0 0, 8 3, 0 6" fill="#45475a" />
             </marker>
           </defs>
@@ -430,6 +431,7 @@ export default function PipelineDiagram({ diagramKey: externalKey = 'rag-pipelin
                 x1={from.x} y1={from.y + 26}
                 x2={to.x} y2={to.y - 26}
                 color={active ? '#89b4fa' : '#45475a'}
+                arrowId={arrowId}
               />
             )
           })}
@@ -444,13 +446,14 @@ export default function PipelineDiagram({ diagramKey: externalKey = 'rag-pipelin
                 x1={prev.x} y1={prev.y + 22}
                 x2={node.x} y2={node.y - 22}
                 color={active ? '#89b4fa' : '#45475a'}
+                arrowId={arrowId}
               />
             )
           })}
 
           {diagramKey === 'react-agent' && (
             <>
-              <path d="M 120 66 Q 50 200 120 374" fill="none" stroke="#45475a" strokeWidth="2" strokeDasharray="6,3" markerEnd="url(#arrowhead)" />
+              <path d="M 120 66 Q 50 200 120 374" fill="none" stroke="#45475a" strokeWidth="2" strokeDasharray="6,3" markerEnd={`url(#${arrowId})`} />
               <text x="55" y="220" fill="#585b70" fontSize="10" textAnchor="end">Retry</text>
             </>
           )}

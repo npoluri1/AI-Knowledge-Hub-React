@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Loops — The Run Cycle — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Agent Loops — The Run Cycle</span><span class="spacer"></span>
+<a class="navlink" href="ai-agents.html">&larr; AI Agents</a> <a class="navlink" href="memory-management.html">Memory Management &rarr;</a></nav>
+<header class="hero"><div class="mono">AL</div><div><h1>Agent Loops — The Run Cycle</h1>
+<p class="tagline">The iterative while-loop that turns a language model from a single-shot predictor into an autonomous agent capable of multi-step reasoning, tool use, and self-directed problem solving.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>An agent loop is the core execution pattern that lets an LLM observe its environment, decide on actions, execute them, and iterate until a task is complete. This chapter builds from the simplest while-loop through provider-specific tool-call round-trips to advanced patterns like hierarchical orchestration and crash-consistent journaling.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>While-loop essence, pseudocode, termination, state management, basic demos</td><td>You can write a working agent loop from scratch</td></tr>
+<tr><td>Tier 2</td><td>Provider round-trips, async loops, token budgets, backoff, checkpointing</td><td>You can build robust loops with production error handling</td></tr>
+<tr><td>Tier 3</td><td>State machines, recursive loops, priority scheduling, caching, watchdogs</td><td>You can design sophisticated multi-level loop architectures</td></tr>
+<tr><td>Tier 4</td><td>Termination proofs, hierarchical orchestration, idempotency, adaptive limits</td><td>You can operate loops with formal guarantees and distributed coordination</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready agent loop applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Core loop mechanics, pseudocode, termination, state, costs</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>The While-Loop Essence of Agency</h3>
+<p><strong>What &amp; why.</strong> Agency is not a single LLM call but a cycle: observe, think, act, observe again. A while-loop is the simplest construct that captures this cycle. Each iteration lets the model consume all prior observations and decide whether to act again or stop. Without the loop, the model can only respond once; with it, the model can pursue goals that require multiple steps.</p>
+<pre class="code"><code># The simplest agent loop
+messages = [{"role": "user", "content": prompt}]
+while True:
+    response = client.chat.completions.create(
+        model="gpt-4o", messages=messages
+    )
+    answer = response.choices[0].message
+    messages.append(answer)
+    if answer.content:
+        print(answer.content)
+        break</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every chatbot, coding assistant, and autonomous agent framework reduces to this pattern at its core. Understanding the while-loop demystifies all agent frameworks.</div>
+<div class="callout hood"><span>Under the hood</span>The loop manages a growing list of messages that serves as the agent's working memory. The LLM receives the full list each iteration, so context window size directly limits how many iterations are practical.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Pseudocode of a Generic Agent Loop</h3>
+<p><strong>What &amp; why.</strong> Before writing real code, a clear pseudocode blueprint prevents design errors. The generic loop has four phases: build prompt from state, call LLM, parse the response for actions, execute actions and append observations. This separation of concerns makes each phase independently testable and replaceable.</p>
+<pre class="code"><code># Pseudocode blueprint
+state = initial_state(user_query)
+for i in range(MAX_ITERATIONS):
+    prompt = build_prompt(state)
+    raw = llm_call(prompt)
+    action = parse_action(raw)
+    if action.type == "final_answer":
+        return action.content
+    observation = execute(action)
+    state.append_observation(observation)
+raise MaxIterationsExceeded</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Framework authors use this exact blueprint. LangGraph nodes, CrewAI agents, and AutoGen loops all implement these four phases, making this pseudocode the universal reference design.</div>
+<div class="callout hood"><span>Under the hood</span>The parse_action phase is where tool-call detection happens. For OpenAI-style APIs the response carries a finish_reason and optional tool_calls; for Anthropic it carries stop_reason and content blocks of type tool_use.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>LLM Call &rarr; Parse Action &rarr; Execute &rarr; Append Observation</h3>
+<p><strong>What &amp; why.</strong> These four steps are the irreducible core of any agent loop. The LLM call sends messages and receives a response. Parsing extracts whether the model wants to use a tool or is done. Execution runs the tool and captures its output. Appending adds the tool result as a new message so the model sees it next iteration.</p>
+<pre class="code"><code>import openai, json
+
+client = openai.OpenAI()
+messages = [{"role": "user", "content": query}]
+tools = [{"type": "function", "function": get_weather_def}]
+
+for _ in range(10):
+    resp = client.chat.completions.create(
+        model="gpt-4o", messages=messages, tools=tools
+    )
+    msg = resp.choices[0].message
+    messages.append(msg)
+    if resp.choices[0].finish_reason == "stop":
+        return msg.content
+    if msg.tool_calls:
+        for tc in msg.tool_calls:
+            result = run_tool(tc.function.name, tc.function.arguments)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This four-step pattern appears in every production agent: customer-support bots that lookup accounts, coding agents that edit files, and data-pipeline agents that query databases.</div>
+<div class="callout hood"><span>Under the hood</span>The append step is critical: if the tool result is not added as a message, the model has no way to see what happened and will either repeat the action or hallucinate an outcome.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Max Iterations Guard</h3>
+<p><strong>What &amp; why.</strong> Without a hard limit, a confused agent can loop indefinitely, burning tokens and money. A max-iterations guard is a mandatory safety rail. It converts a potentially infinite loop into a bounded one and should raise a clear exception when the limit is reached.</p>
+<pre class="code"><code>MAX_ITER = 15
+budget_spent = 0.0
+
+for iteration in range(MAX_ITER):
+    resp = client.chat.completions.create(model="gpt-4o", messages=messages)
+    budget_spent += estimate_cost(resp.usage)
+    messages.append(resp.choices[0].message)
+    if resp.choices[0].finish_reason == "stop":
+        break
+    if resp.choices[0].finish_reason == "tool_calls":
+        for tc in resp.choices[0].message.tool_calls:
+            result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+else:
+    raise RuntimeError(f"Agent exceeded {MAX_ITER} iterations, spent ${budget_spent:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production agents always set iteration limits. OpenAI Assistants API defaults to 10 tool rounds. Anthropic recommends setting explicit maximums for any agentic workflow.</div>
+<div class="callout hood"><span>Under the hood</span>The for/else construct in Python fires the else block only if the loop completes without a break, making it a clean pattern for detecting exhausted iteration budgets.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Termination Detection and final_answer Convention</h3>
+<p><strong>What &amp; why.</strong> A well-designed loop needs a clear stopping signal. The common convention is a final_answer function the model can call to signal task completion. When the parser sees this function call, the loop returns its content instead of executing it as a tool.</p>
+<pre class="code"><code>final_answer_tool = {
+    "type": "function",
+    "function": {
+        "name": "final_answer",
+        "description": "Call this when you have the final answer. Do not use any other tool after.",
+        "parameters": {"type": "object", "properties": {
+            "answer": {"type": "string", "description": "The final response"}
+        }, "required": ["answer"]}
+    }
+}
+
+def parse_response(msg):
+    if msg.tool_calls:
+        for tc in msg.tool_calls:
+            if tc.function.name == "final_answer":
+                args = json.loads(tc.function.arguments)
+                return {"done": True, "answer": args["answer"]}
+            else:
+                return {"done": False, "tool": tc}
+    return {"done": True, "answer": msg.content}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The final_answer pattern is used by frameworks like SmolAgents and LangGraph. It gives the model explicit control over when to stop, which is more reliable than heuristic termination.</div>
+<div class="callout hood"><span>Under the hood</span>Without explicit termination the model may keep calling tools after it already has the answer. The final_answer convention prevents unnecessary iterations and costs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Loop State: The State List</h3>
+<p><strong>What &amp; why.</strong> The messages list is the loop's state. It grows each iteration with the model's response and any tool results. This append-only design makes state inspection trivial: you can print, log, or serialize the list at any point to understand exactly what the model has seen.</p>
+<pre class="code"><code>from dataclasses import dataclass, field
+
+@dataclass
+class LoopState:
+    messages: list = field(default_factory=list)
+    iterations: int = 0
+    total_tokens: int = 0
+    tool_results: list = field(default_factory=list)
+
+    def append_assistant(self, msg):
+        self.messages.append(msg)
+        self.iterations += 1
+
+    def append_tool_result(self, tool_call_id: str, content: str):
+        self.messages.append({"role": "tool", "tool_call_id": tool_call_id, "content": content})
+        self.tool_results.append({"id": tool_call_id, "output": content})
+
+    def snapshot(self) -> dict:
+        return {"iterations": self.iterations, "tokens": self.total_tokens, "turns": len(self.messages)}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>A structured state object makes debugging agent failures far easier than a raw list. It also enables checkpointing, replay, and analytics on loop behavior.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph formalizes this as a TypedDict or Pydantic model that is passed between nodes. Each node reads from and writes to the state, making the loop a graph traversal.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Printing vs Streaming Iterations</h3>
+<p><strong>What &amp; why.</strong> In a basic loop you print the model's response after each iteration. For better UX you can stream tokens as they arrive. Streaming within a loop requires collecting the full response for tool-call parsing while simultaneously yielding partial text to the UI.</p>
+<pre class="code"><code>for iteration in range(MAX_ITER):
+    stream = client.chat.completions.create(
+        model="gpt-4o", messages=messages, stream=True
+    )
+    full_content = ""
+    tool_calls_acc = {}
+    for chunk in stream:
+        delta = chunk.choices[0].delta
+        if delta.content:
+            full_content += delta.content
+            print(delta.content, end="", flush=True)
+        if delta.tool_calls:
+            for tc in delta.tool_calls:
+                idx = tc.index
+                if idx not in tool_calls_acc:
+                    tool_calls_acc[idx] = {"id": tc.id, "name": "", "args": ""}
+                tool_calls_acc[idx]["name"] += tc.function.name or ""
+                tool_calls_acc[idx]["args"] += tc.function.arguments or ""
+    print()
+    if tool_calls_acc:
+        handle_tool_calls(tool_calls_acc, messages)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Streaming gives users immediate feedback during long iterations. ChatGPT, Claude, and every major chat UI stream within their agent loops.</div>
+<div class="callout hood"><span>Under the hood</span>Tool-call deltas arrive across multiple chunks. The accumulator pattern merges partial function names and argument strings into complete objects before execution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Toy Echo-Tool Loop Demo</h3>
+<p><strong>What &amp; why.</strong> A minimal demo with an echo tool proves the loop mechanics without external dependencies. The echo tool simply returns its input, letting you verify that the full cycle works: LLM call, tool-call parsing, execution, observation append, and re-invocation.</p>
+<pre class="code"><code>import openai, json
+
+client = openai.OpenAI()
+echo_tool = {"type": "function", "function": {
+    "name": "echo", "description": "Echoes input back",
+    "parameters": {"type": "object", "properties": {
+        "text": {"type": "string"}}, "required": ["text"]}
+}}
+
+def run_echo(text: str) -> str: return f"Echo: {text}"
+
+messages = [{"role": "system", "content": "Use echo to repeat the user message, then give final answer."},
+            {"role": "user", "content": "Hello world"}]
+
+for i in range(5):
+    resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=[echo_tool])
+    msg = resp.choices[0].message
+    messages.append(msg)
+    if resp.choices[0].finish_reason == "stop":
+        print(f"Done in {i+1} iterations: {msg.content}")
+        break
+    for tc in msg.tool_calls:
+        result = run_echo(json.loads(tc.function.arguments)["text"])
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Echo-tool demos are standard for testing agent loop scaffolding before integrating real tools. They verify message formatting, tool-call routing, and observation handling.</div>
+<div class="callout hood"><span>Under the hood</span>The echo tool is the "hello world" of agent loops. It isolates loop mechanics from tool complexity, making it ideal for unit tests and CI pipelines.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Iteration Costs Accumulate</h3>
+<p><strong>What &amp; why.</strong> Each loop iteration makes a full LLM API call with the entire message history. Costs scale quadratically with iteration count because each new message is sent in every subsequent call. Without cost tracking, a simple 10-iteration loop can cost significantly more than a single call.</p>
+<pre class="code"><code>import tiktoken
+
+encoder = tiktoken.encoding_for_model("gpt-4o")
+
+def estimate_cost(messages: list, model: str = "gpt-4o") -> float:
+    total_tokens = sum(len(encoder.encode(m.get("content", "") or "")) for m in messages)
+    if "gpt-4o" in model:
+        return total_tokens * 2.5 / 1_000_000
+    elif "gpt-4o-mini" in model:
+        return total_tokens * 0.15 / 1_000_000
+    return total_tokens * 1.0 / 1_000_000
+
+cumulative = 0.0
+for iteration in range(MAX_ITER):
+    cost = estimate_cost(messages)
+    cumulative += cost
+    print(f"Iter {iteration}: +${cost:.6f} cumulative=${cumulative:.6f}")
+    resp = client.chat.completions.create(model="gpt-4o", messages=messages)
+    # ... process response ...
+    if cumulative > BUDGET_LIMIT:
+        raise RuntimeError(f"Budget exceeded: ${cumulative:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost tracking prevents bill shock in production. Multi-agent systems running hundreds of loops per hour need per-loop cost accounting to stay within budgets.</div>
+<div class="callout hood"><span>Under the hood</span>The quadratic cost growth comes from sending the full message history each iteration. Ten iterations with 5 messages each means 150 messages sent total (5+10+15+...+50).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Common Beginner Bug: Forgetting to Append</h3>
+<p><strong>What &amp; why.</strong> The most common agent-loop bug is failing to append the tool result to messages. Without it the model never sees the observation and will either repeat the same tool call or hallucinate an answer. This bug produces loops that run to the iteration limit without making progress.</p>
+<pre class="code"><code># BUGGY: tool result not appended
+for i in range(MAX_ITER):
+    resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+    msg = resp.choices[0].message
+    messages.append(msg)  # append assistant message
+    if resp.choices[0].finish_reason == "stop":
+        break
+    for tc in msg.tool_calls:
+        result = execute_tool(tc)
+        # MISSING: messages.append({"role": "tool", ...})
+        # Model never sees result, loops forever
+
+# FIXED: tool result appended correctly
+        messages.append({
+            "role": "tool",
+            "tool_call_id": tc.id,
+            "content": str(result)
+        })</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This bug accounts for a large fraction of agent loop bugs in early development. Linters and type checkers cannot catch it because the append is syntactically valid but semantically wrong.</div>
+<div class="callout hood"><span>Under the hood</span>The OpenAI API requires alternating assistant/tool messages. Skipping a tool append breaks this alternation, causing API errors or silent misbehavior where the model ignores the tool result.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Sleep and Rate Limiting Between Calls</h3>
+<p><strong>What &amp; why.</strong> API providers enforce rate limits measured in requests per minute and tokens per minute. A tight loop with no delays can hit these limits and receive 429 errors. Inserting sleep or using provider-recommended backoff prevents rate-limit failures in iterative loops.</p>
+<pre class="code"><code>import time
+
+def call_with_retry(messages, model="gpt-4o", max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return client.chat.completions.create(model=model, messages=messages)
+        except openai.RateLimitError as e:
+            wait = 2 ** attempt
+            print(f"Rate limited, waiting {wait}s (attempt {attempt+1})")
+            time.sleep(wait)
+    raise RuntimeError("Rate limit exceeded after retries")
+
+for i in range(MAX_ITER):
+    resp = call_with_retry(messages)
+    # ... process ...
+    time.sleep(0.5)  # gentle pacing between iterations</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Rate limiting is essential for loops running against tier-1 providers. OpenAI's free tier allows 500 RPM; a loop without pacing can exhaust this in seconds.</div>
+<div class="callout hood"><span>Under the hood</span>Exponential backoff with jitter is the standard pattern. The retry-after header from the API tells you exactly how long to wait, but falling back to exponential backoff covers cases where it is missing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Manual Stepping: Debugger-Style Loops</h3>
+<p><strong>What &amp; why.</strong> During development you often want to step through an agent loop one iteration at a time, inspecting state before each LLM call. A generator-based or breakpoint-based loop lets you pause at each step, examine messages, and optionally override the model's decision.</p>
+<pre class="code"><code>def agent_loop_generator(messages, tools):
+    """Yields (iteration, messages_copy) before each LLM call."""
+    for i in range(MAX_ITER):
+        yield i, [m.copy() for m in messages]  # snapshot for inspection
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        for tc in msg.tool_calls:
+            result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+
+# Debugger usage
+loop = agent_loop_generator(messages, tools)
+for iteration, snapshot in loop:
+    print(f"=== Iteration {iteration} ===")
+    for m in snapshot:
+        print(f"  {m.get('role')}: {str(m.get('content', ''))[:120]}")
+    input("Press Enter to continue...")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Generator-based stepping is invaluable for debugging agent behavior. It lets you identify exactly where the model makes wrong decisions without restarting the entire loop.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph implements a similar concept with breakpoints that pause graph execution. The generator pattern achieves the same result with plain Python, making it portable across frameworks.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Provider round-trips, async, budgets, backoff, checkpointing</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>OpenAI Tool-Call Round-Trip Loop with finish_reason</h3>
+<p><strong>What &amp; why.</strong> The OpenAI API signals tool-use intent via finish_reason="tool_calls" and a non-null message.tool_calls array. A robust loop reads this signal to decide whether to execute tools or return the final answer. Each tool call carries a unique id that must be echoed back in the tool-result message.</p>
+<pre class="code"><code>def openai_agent_loop(query: str, tools: list, model="gpt-4o") -> str:
+    messages = [{"role": "user", "content": query}]
+    for _ in range(15):
+        resp = client.chat.completions.create(model=model, messages=messages, tools=tools)
+        choice = resp.choices[0]
+        msg = choice.message
+        messages.append(msg)
+        if choice.finish_reason == "stop":
+            return msg.content
+        if choice.finish_reason == "tool_calls":
+            for tc in msg.tool_calls:
+                result = execute_tool(tc.function.name, tc.function.arguments)
+                messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})
+    return "Reached iteration limit without final answer."</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This is the standard OpenAI agent loop pattern used in production by ChatGPT plugins, OpenAI Assistants, and most third-party OpenAI-compatible agent frameworks.</div>
+<div class="callout hood"><span>Under the hood</span>The finish_reason field is the API's mechanism for telling the client what happened. "stop" means natural completion; "tool_calls" means the model wants to call tools; "length" means token limit hit.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Anthropic stop_reason tool_use Loop</h3>
+<p><strong>What &amp; why.</strong> Anthropic's Messages API structures tool use differently. Tool calls arrive as content blocks with type="tool_use", and the stop_reason is "tool_use" when tools should be executed. The tool result must be sent as a content block of type="tool_result" within a user message, not as a separate message role.</p>
+<pre class="code"><code>import anthropic
+
+aclient = anthropic.Anthropic()
+
+def anthropic_agent_loop(query: str, tools: list, model="claude-sonnet-4-20250514") -> str:
+    messages = [{"role": "user", "content": query}]
+    for _ in range(15):
+        resp = aclient.messages.create(model=model, max_tokens=4096, messages=messages, tools=tools)
+        messages.append({"role": "assistant", "content": resp.content})
+        if resp.stop_reason == "end_turn":
+            text_blocks = [b.text for b in resp.content if b.type == "text"]
+            return "\n".join(text_blocks)
+        if resp.stop_reason == "tool_use":
+            tool_results = []
+            for block in resp.content:
+                if block.type == "tool_use":
+                    result = execute_tool(block.name, block.input)
+                    tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(result)})
+            messages.append({"role": "user", "content": tool_results})
+    return "Reached iteration limit."</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Anthropic's tool_use format is the basis for Claude's computer use and tool-calling capabilities. Understanding the content-block structure is essential for Claude-based agents.</div>
+<div class="callout hood"><span>Under the hood</span>Unlike OpenAI's separate message role for tool results, Anthropic bundles them as content blocks within a user message. This design keeps the conversation flat rather than introducing a new role type.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Parallel Tool Calls: Handling Batch Results</h3>
+<p><strong>What &amp; why.</strong> Models may request multiple tool calls in a single response. These arrive as an array of tool_calls (OpenAI) or multiple tool_use blocks (Anthropic). Executing them sequentially wastes time; parallel execution with gather or ThreadPoolExecutor handles them concurrently and appends all results.</p>
+<pre class="code"><code>import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+def execute_parallel_tools(tool_calls, messages, max_workers=4):
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {}
+        for tc in tool_calls:
+            future = executor.submit(execute_tool, tc.function.name, tc.function.arguments)
+            futures[tc.id] = future
+        for tc_id, future in futures.items():
+            result = future.result()
+            messages.append({"role": "tool", "tool_call_id": tc_id, "content": str(result)})
+
+async def execute_parallel_tools_async(tool_calls, messages):
+    tasks = [asyncio.to_thread(execute_tool, tc.function.name, tc.function.arguments) for tc in tool_calls]
+    results = await asyncio.gather(*tasks)
+    for tc, result in zip(tool_calls, results):
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Parallel tool execution is critical for agents that query multiple data sources simultaneously. Research agents, data-analysis pipelines, and multi-API orchestrations all benefit.</div>
+<div class="callout hood"><span>Under the hood</span>OpenAI sets parallel_tool_calls=true by default. The model learns to batch independent calls, reducing round-trips from N to 1 when multiple tools are needed simultaneously.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Async Loop with asyncio.gather Observations</h3>
+<p><strong>What &amp; why.</strong> An async agent loop allows other tasks to run while waiting for LLM responses. Using asyncio.gather for the LLM call and tool execution enables high-concurrency agents that can serve multiple users or manage multiple sub-tasks without blocking.</p>
+<pre class="code"><code>import asyncio, openai
+
+async_client = openai.AsyncOpenAI()
+
+async def async_agent_loop(query: str, tools: list) -> str:
+    messages = [{"role": "user", "content": query}]
+    for _ in range(15):
+        resp = await async_client.chat.completions.create(
+            model="gpt-4o", messages=messages, tools=tools
+        )
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        if resp.choices[0].finish_reason == "tool_calls":
+            tasks = [asyncio.to_thread(execute_tool, tc.function.name, tc.function.arguments)
+                     for tc in msg.tool_calls]
+            results = await asyncio.gather(*tasks)
+            for tc, result in zip(msg.tool_calls, results):
+                messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})
+    return "Limit reached"
+
+# Run multiple agents concurrently
+results = await asyncio.gather(
+    async_agent_loop("Query A", tools),
+    async_agent_loop("Query B", tools),
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Async loops power concurrent agent servers. FastAPI endpoints returning StreamingResponse while running agent loops, and multi-agent systems coordinating via asyncio queues, both use this pattern.</div>
+<div class="callout hood"><span>Under the hood</span>The openai library's async client uses aiohttp under the hood, enabling true non-blocking I/O. Tool execution is wrapped in asyncio.to_thread because most tools involve blocking I/O operations.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Exponential Backoff Around Provider Errors</h3>
+<p><strong>What &amp; why.</strong> Provider APIs can fail transiently due to overload, network issues, or rate limits. Exponential backoff with jitter retries failed requests, waiting progressively longer between attempts. This pattern transforms flaky loops into resilient ones that survive transient failures.</p>
+<pre class="code"><code>import random, time
+
+def resilient_call(messages, model="gpt-4o", max_retries=5):
+    for attempt in range(max_retries):
+        try:
+            return client.chat.completions.create(model=model, messages=messages)
+        except openai.APIStatusError as e:
+            if e.status_code in (429, 500, 502, 503, 504):
+                base_wait = min(2 ** attempt, 60)
+                jitter = random.uniform(0, base_wait * 0.5)
+                wait = base_wait + jitter
+                retry_after = getattr(e.response.headers, "get", lambda k, d: d)("retry-after", None)
+                if retry_after:
+                    wait = max(wait, float(retry_after))
+                print(f"Retry {attempt+1}/{max_retries} after {wait:.1f}s (HTTP {e.status_code})")
+                time.sleep(wait)
+            else:
+                raise
+    raise RuntimeError(f"All {max_retries} retries exhausted")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production agent loops without backoff are fragile. OpenAI recommends retry-after-based backoff; Anthropic recommends exponential backoff with jitter as best practice.</div>
+<div class="callout hood"><span>Under the hood</span>Jitter prevents thundering-herd problems where many clients retry at the same intervals. The decorrelated jitter formula is: wait = min(cap, random(base, prev_wait * 3)).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Token Budget Meter Per Iteration</h3>
+<p><strong>What &amp; why.</strong> Beyond a total budget cap, you may want per-iteration token tracking to detect when a single iteration is consuming excessive tokens. This meter tracks input/output tokens separately and can trigger early termination or model downgrade if an iteration exceeds its allocation.</p>
+<pre class="code"><code>@dataclass
+class TokenBudget:
+    total_limit: int = 100_000
+    per_iter_limit: int = 10_000
+    spent: int = 0
+
+    def check(self, usage) -> bool:
+        self.spent += usage.total_tokens
+        if usage.total_tokens > self.per_iter_limit:
+            print(f"Warning: iteration used {usage.total_tokens} tokens (limit {self.per_iter_limit})")
+        return self.spent <= self.total_limit
+
+budget = TokenBudget()
+for i in range(MAX_ITER):
+    resp = client.chat.completions.create(model="gpt-4o", messages=messages)
+    if not budget.check(resp.usage):
+        print(f"Budget exhausted: {budget.spent}/{budget.total_limit} tokens used")
+        break
+    # ... process ...</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Token budgeting prevents runaway costs in production. Per-iteration limits catch pathological cases where the model generates extremely long responses or enters a degenerate loop pattern.</div>
+<div class="callout hood"><span>Under the hood</span>OpenAI returns usage.prompt_tokens and usage.completion_tokens per response. Tracking these separately lets you identify whether high costs come from large inputs (growing message history) or verbose outputs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Infinite Loop Detector: Repeated-Action Hash</h3>
+<p><strong>What &amp; why.</strong> Even with iteration limits, a confused agent may repeat the same action in every iteration, wasting all its budget on useless work. A repeated-action hash detects when the model produces the same tool call multiple times and stops the loop early.</p>
+<pre class="code"><code>import hashlib
+
+def action_hash(msg) -> str:
+    if not msg.tool_calls:
+        return hashlib.md5((msg.content or "").encode()).hexdigest()
+    calls = sorted([(tc.function.name, tc.function.arguments) for tc in msg.tool_calls])
+    return hashlib.md5(str(calls).encode()).hexdigest()
+
+seen_hashes = []
+repetition_count = 0
+
+for i in range(MAX_ITER):
+    resp = client.chat.completions.create(model="gpt-4o", messages=messages)
+    msg = resp.choices[0].message
+    h = action_hash(msg)
+    if h in seen_hashes:
+        repetition_count += 1
+        if repetition_count >= 3:
+            print(f"Loop detected: same action repeated {repetition_count} times")
+            break
+    else:
+        repetition_count = 0
+    seen_hashes.append(h)
+    messages.append(msg)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Repetition detection catches loops where the model repeatedly calls the same failing tool or returns identical answers. It is a cheap safety net that prevents most infinite-loop pathologies.</div>
+<div class="callout hood"><span>Under the hood</span>A sliding window of recent hashes (rather than unbounded history) is more practical: if the same action appears 3 times in the last 5 iterations, the loop is likely stuck.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Graceful Degradation: Fallback Answers</h3>
+<p><strong>What &amp; why.</strong> When a loop hits its iteration limit or encounters an unrecoverable error, it should produce a best-effort answer rather than raising an exception. Graceful degradation returns the best available response from the model's last attempt, even if the task was not fully completed.</p>
+<pre class="code"><code>def agent_loop_with_fallback(query: str, tools: list) -> str:
+    messages = [{"role": "user", "content": query}]
+    best_answer = None
+    for i in range(MAX_ITER):
+        try:
+            resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        except Exception as e:
+            if best_answer:
+                return best_answer
+            return f"I encountered an error and could not complete the task: {e}"
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if msg.content and len(msg.content) > len(best_answer or ""):
+            best_answer = msg.content
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        for tc in (msg.tool_calls or []):
+            result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})
+    return best_answer or "Unable to complete the task within the allowed iterations."</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Customer-facing agents must never crash. Graceful degradation ensures users always receive a response, even if it is partial or admits the limitation.</div>
+<div class="callout hood"><span>Under the hood</span>Tracking the "best answer" across iterations assumes the model's partial progress is valuable. For some tasks, partial answers are acceptable; for others, they may be misleading.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Checkpoint: Mid-Loop Serialize and Resume</h3>
+<p><strong>What &amp; why.</strong> Long-running loops can be interrupted by network failures, process restarts, or timeouts. Checkpointing serializes the full message list to disk or a database at each iteration, enabling the loop to resume from the last checkpoint rather than starting over.</p>
+<pre class="code"><code>import json, os
+
+CHECKPOINT_DIR = "/tmp/agent_checkpoints"
+
+def save_checkpoint(loop_id: str, messages: list, iteration: int):
+    os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+    path = f"{CHECKPOINT_DIR}/{loop_id}.json"
+    with open(path, "w") as f:
+        json.dump({"iteration": iteration, "messages": messages}, f)
+
+def load_checkpoint(loop_id: str) -> tuple:
+    path = f"{CHECKPOINT_DIR}/{loop_id}.json"
+    if os.path.exists(path):
+        with open(path) as f:
+            data = json.load(f)
+        return data["messages"], data["iteration"]
+    return [], 0
+
+def resumable_loop(query: str, loop_id: str) -> str:
+    messages, start = load_checkpoint(loop_id)
+    if not messages:
+        messages = [{"role": "user", "content": query}]
+    for i in range(start, MAX_ITER):
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages)
+        messages.append(resp.choices[0].message)
+        save_checkpoint(loop_id, messages, i + 1)
+        if resp.choices[0].finish_reason == "stop":
+            return resp.choices[0].message.content</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Checkpointing is critical for long-running research agents and batch processing loops. LangGraph provides built-in checkpointing via SqliteSaver and PostgresSaver.</div>
+<div class="callout hood"><span>Under the hood</span>The checkpoint must capture the full message list, not just the latest response, because the model needs the complete history on resume. Idempotent tool execution is essential for safe resume.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Progress Events and UI Callbacks</h3>
+<p><strong>What &amp; why.</strong> Users need visibility into agent loop progress. A callback system emits events at each iteration start, tool call, tool result, and completion. The UI subscribes to these events to display progress bars, log steps, and show intermediate results.</p>
+<pre class="code"><code>from dataclasses import dataclass
+from typing import Callable
+
+@dataclass
+class LoopCallbacks:
+    on_iteration_start: Callable[[int], None] = None
+    on_tool_call: Callable[[str, str], None] = None
+    on_tool_result: Callable[[str, str], None] = None
+    on_complete: Callable[[str], None] = None
+
+def agent_loop(query: str, tools: list, callbacks: LoopCallbacks = None) -> str:
+    cb = callbacks or LoopCallbacks()
+    messages = [{"role": "user", "content": query}]
+    for i in range(MAX_ITER):
+        if cb.on_iteration_start: cb.on_iteration_start(i)
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            if cb.on_complete: cb.on_complete(msg.content)
+            return msg.content
+        for tc in (msg.tool_calls or []):
+            if cb.on_tool_call: cb.on_tool_call(tc.function.name, tc.function.arguments)
+            result = execute_tool(tc)
+            if cb.on_tool_result: cb.on_tool_result(tc.id, result)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Streaming UIs, Slack bots, and monitoring dashboards all consume progress events. Without callbacks, the loop is a black box that gives no feedback until completion.</div>
+<div class="callout hood"><span>Under the hood</span>LangChain's callback system (on_llm_start, on_tool_start, on_tool_end) implements this pattern. The callbacks can also emit metrics to observability backends like LangSmith or Langfuse.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Timeout Wrapping Tools</h3>
+<p><strong>What &amp; why.</strong> Tools that call external APIs or execute code can hang indefinitely. Wrapping each tool in a timeout prevents one slow tool from blocking the entire agent loop. When a timeout fires, the tool returns an error message that the model can reason about.</p>
+<pre class="code"><code>import signal
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
+
+def tool_with_timeout(func, args, timeout_sec=30):
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(func, *args)
+        try:
+            return future.result(timeout=timeout_sec)
+        except TimeoutError:
+            return f"Error: tool timed out after {timeout_sec}s"
+
+# Usage in loop
+for tc in msg.tool_calls:
+    result = tool_with_timeout(execute_tool, (tc.function.name, tc.function.arguments), timeout_sec=30)
+    messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Web-scraping tools, database queries, and third-party API calls are common timeout candidates. Production agents set per-tool timeouts proportional to expected latency.</div>
+<div class="callout hood"><span>Under the hood</span>ThreadPoolExecutor with timeout is the standard Python pattern. For async loops, asyncio.wait_for provides the same functionality. Signal-based timeouts only work on Unix main threads.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Structured Step Log in JSONL</h3>
+<p><strong>What &amp; why.</strong> Logging each loop step as a structured JSONL line enables post-hoc analysis of agent behavior. Each line records the iteration number, messages sent, response received, tool executed, and timing. This log is invaluable for debugging, evaluation, and cost auditing.</p>
+<pre class="code"><code>import json, time
+
+def log_step(log_file, iteration, messages, response, tool_calls=None, tool_results=None):
+    entry = {
+        "iteration": iteration,
+        "timestamp": time.time(),
+        "message_count": len(messages),
+        "finish_reason": response.choices[0].finish_reason,
+        "tokens": {"input": response.usage.prompt_tokens, "output": response.usage.completion_tokens},
+        "tool_calls": [{"name": tc.function.name, "args": tc.function.arguments} for tc in (tool_calls or [])],
+        "tool_results": tool_results or [],
+    }
+    log_file.write(json.dumps(entry) + "\n")
+    log_file.flush()
+
+with open("agent_trace.jsonl", "w") as logf:
+    for i in range(MAX_ITER):
+        log_step(logf, i, messages, resp, msg.tool_calls, results)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>JSONL step logs feed into evaluation pipelines, cost dashboards, and incident investigations. LangSmith and Langfuse both ingest structured traces in similar formats.</div>
+<div class="callout hood"><span>Under the hood</span>JSONL (one JSON object per line) is preferred over JSON arrays because it supports streaming writes and does not require trailing commas. Each line is independently parseable.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — State machines, recursion, scheduling, caching, watchdogs</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>State-Machine Driven Loops with Explicit Transitions</h3>
+<p><strong>What &amp; why.</strong> A state machine replaces the implicit while-loop with explicit named states and transition rules. Each state represents a phase (planning, executing, observing, deciding) and transitions are triggered by events (tool result received, error, timeout). This makes complex loop behaviors auditable and debuggable.</p>
+<pre class="code"><code>from enum import Enum
+
+class AgentState(Enum):
+    PLANNING = "planning"
+    EXECUTING = "executing"
+    OBSERVING = "observing"
+    DECIDING = "deciding"
+    DONE = "done"
+    FAILED = "failed"
+
+TRANSITIONS = {
+    AgentState.PLANNING: AgentState.EXECUTING,
+    AgentState.EXECUTING: AgentState.OBSERVING,
+    AgentState.OBSERVING: AgentState.DECIDING,
+    AgentState.DECIDING: AgentState.EXECUTING,  # loop back or DONE
+}
+
+state = AgentState.PLANNING
+while state not in (AgentState.DONE, AgentState.FAILED):
+    if state == AgentState.PLANNING:
+        plan = llm_plan(messages)
+        state = AgentState.EXECUTING
+    elif state == AgentState.EXECUTING:
+        tool_result = execute(next_action)
+        state = AgentState.OBSERVING
+    elif state == AgentState.OBSERVING:
+        messages.append(tool_result)
+        state = AgentState.DECIDING
+    elif state == AgentState.DECIDING:
+        if task_complete(messages):
+            state = AgentState.DONE
+        else:
+            next_action = llm_decide(messages)
+            state = AgentState.EXECUTING</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>State machines formalize agent loops for compliance-heavy industries. Each transition can be logged, audited, and gated by policy checks.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph models agent loops as directed graphs where nodes are states and edges are transitions. The explicit state machine is equivalent but uses a simpler enum-based approach.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Recursive Task Loops: Spawn Child Contexts</h3>
+<p><strong>What &amp; why.</strong> When a task decomposes into sub-tasks, a parent loop can spawn child loops. Each child gets its own message history and iteration budget. When the child completes, its result becomes an observation in the parent loop. This recursive pattern enables hierarchical problem solving.</p>
+<pre class="code"><code>def child_loop(task: str, tools: list, max_iter: int = 5) -> str:
+    """Run a sub-agent to solve a sub-task."""
+    messages = [{"role": "user", "content": task}]
+    for i in range(max_iter):
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        for tc in (msg.tool_calls or []):
+            result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})
+    return "Sub-task incomplete"
+
+def parent_loop(query: str, tools: list) -> str:
+    messages = [{"role": "user", "content": f"Break down: {query}. Use child_task tool for sub-tasks."}]
+    for i in range(10):
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        for tc in (msg.tool_calls or []):
+            if tc.function.name == "child_task":
+                sub_result = child_loop(json.loads(tc.function.arguments)["task"], tools)
+            else:
+                sub_result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(sub_result)})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-step research, data pipelines, and code-generation agents naturally decompose into parent-child loops. CrewAI and AutoGen implement this pattern with hierarchical agent teams.</div>
+<div class="callout hood"><span>Under the hood</span>Each child context is isolated: it has its own message history, token budget, and iteration limit. This prevents sub-task failures from corrupting the parent's state.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Plan-Act-Observe-Replan Full Cycle</h3>
+<p><strong>What &amp; why.</strong> The ReAct pattern (Reasoning + Acting) structures each iteration as four explicit phases: plan the next step, act by calling a tool, observe the result, and replan based on what happened. This structured cycle prevents the model from skipping steps or losing track of its strategy.</p>
+<pre class="code"><code>def react_loop(query: str, tools: list) -> str:
+    messages = [
+        {"role": "system", "content": "For each step: (1) think about what to do, "
+         "(2) choose a tool, (3) see the result, (4) decide next step or give answer."},
+        {"role": "user", "content": query}
+    ]
+    for i in range(MAX_ITER):
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        # Act + Observe
+        for tc in (msg.tool_calls or []):
+            observation = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(observation)})
+        # Replan: model sees observation in next iteration and decides</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The ReAct pattern is the most widely used agent loop structure. It is the default in LangGraph, SmolAgents, and most research-agent implementations.</div>
+<div class="callout hood"><span>Under the hood</span>The system prompt explicitly instructs the model to follow the plan-act-observe-replan cycle. The model learns to include a "thought" or "reasoning" step before each tool call, which improves decision quality.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Event-Driven Loop vs Request Loop</h3>
+<p><strong>What &amp; why.</strong> A request loop starts when a user sends a message and runs until a response is ready. An event-driven loop runs continuously, processing events from a queue (messages, timers, webhooks). Event-driven loops are more complex but enable proactive agents that act without user prompts.</p>
+<pre class="code"><code>import asyncio
+
+async def event_driven_agent(event_queue: asyncio.Queue):
+    """Agent that processes events continuously."""
+    while True:
+        event = await event_queue.get()
+        if event["type"] == "user_message":
+            response = await agent_loop(event["content"], tools)
+            await send_response(event["user_id"], response)
+        elif event["type"] == "timer":
+            await proactive_check(event["context"])
+        elif event["type"] == "webhook":
+            await handle_notification(event["payload"])
+        elif event["type"] == "shutdown":
+            break</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Proactive monitoring agents, chatbot servers, and workflow engines use event-driven loops. They sit idle until events arrive, then process each event through the agent cycle.</div>
+<div class="callout hood"><span>Under the hood</span>Event-driven loops require careful memory management because they persist across many events. Session isolation ensures one user's context does not leak into another's.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Priority Queues for Scheduling Agent Work</h3>
+<p><strong>What &amp; why.</strong> When an agent handles multiple tasks simultaneously, a priority queue ensures the most important or most urgent tasks are processed first. Tasks can be prioritized by user tier, deadline, or dependency count. This prevents low-priority tasks from blocking critical work.</p>
+<pre class="code"><code>import heapq
+from dataclasses import dataclass, field
+
+@dataclass(order=True)
+class AgentTask:
+    priority: int
+    created_at: float = field(compare=False)
+    task_id: str = field(compare=False)
+    query: str = field(compare=False)
+
+async def prioritized_loop(task_queue: asyncio.PriorityQueue):
+    active_tasks = {}
+    while not task_queue.empty():
+        task = await task_queue.get()
+        print(f"Processing {task.task_id} (priority {task.priority})")
+        result = await agent_loop(task.query, tools)
+        active_tasks[task.task_id] = result
+        await deliver_result(task.task_id, result)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-tenant agent platforms, customer-support escalation systems, and CI/CD pipeline agents all use priority scheduling to manage workloads fairly.</div>
+<div class="callout hood"><span>Under the hood</span>Python's heapq implements a min-heap, so lower priority numbers are processed first. For deadline-based scheduling, priority = deadline_timestamp ensures earliest-deadline-first ordering.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Human Gate: Every N Steps Pattern</h3>
+<p><strong>What &amp; why.</strong> For high-stakes actions, the loop pauses every N iterations to request human approval. This pattern balances autonomy (the agent works freely for N steps) with safety (humans review before critical actions). It is essential for agents that modify production systems.</p>
+<pre class="code"><code>def human_gated_loop(query: str, tools: list, gate_interval: int = 3) -> str:
+    messages = [{"role": "user", "content": query}]
+    for i in range(MAX_ITER):
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        for tc in (msg.tool_calls or []):
+            if needs_approval(tc.function.name):
+                print(f"Iter {i}: Agent wants to call {tc.function.name}")
+                print(f"  Args: {tc.function.arguments}")
+                approved = input("Approve? (y/n/modify): ")
+                if approved == "n":
+                    result = "User denied this action."
+                elif approved == "modify":
+                    result = execute_tool(tc)  # or let user modify
+                else:
+                    result = execute_tool(tc)
+            else:
+                result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Agents that deploy code, modify databases, or spend money require human gates. The every-N-steps pattern provides a predictable review cadence.</div>
+<div class="callout hood"><span>Under the hood</span>The gate can be implemented as a tool call (approve_action) that blocks until a human responds via a webhook or message queue, enabling asynchronous human-in-the-loop workflows.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Speculative Pre-Execution and Preview</h3>
+<p><strong>What &amp; why.</strong> Instead of waiting for the model to decide what to do, speculative execution previews the likely next steps based on the current state. If the prediction is correct, the result is already available. If wrong, the speculatively executed work is discarded. This reduces perceived latency.</p>
+<pre class="code"><code>import asyncio
+
+async def speculative_loop(query: str, tools: list):
+    messages = [{"role": "user", "content": query}]
+    while True:
+        resp = await async_client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        # Execute current tool calls
+        tasks = [asyncio.to_thread(execute_tool, tc.function.name, tc.function.arguments)
+                 for tc in msg.tool_calls]
+        results = await asyncio.gather(*tasks)
+        for tc, result in zip(msg.tool_calls, results):
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Speculative execution reduces latency for agents that make predictable tool calls. Search agents can pre-fetch likely next queries while the model decides.</div>
+<div class="callout hood"><span>Under the hood</span>The risk of speculative execution is wasted compute. For tools with side effects, speculation must be deferred until confirmed. Stateless read-only tools are safe candidates for speculation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Loop-Level Caching for Identical Subtasks</h3>
+<p><strong>What &amp; why.</strong> If the same tool is called with the same arguments in different iterations or different loops, caching the result avoids redundant work. A simple dict cache keyed by tool name and arguments can dramatically reduce execution time and API calls for repetitive tasks.</p>
+<pre class="code"><code>import hashlib, json
+
+tool_cache: dict[str, str] = {}
+
+def cached_execute_tool(tc) -> str:
+    key = hashlib.md5(json.dumps({"name": tc.function.name, "args": tc.function.arguments}).encode()).hexdigest()
+    if key in tool_cache:
+        return tool_cache[key]
+    result = execute_tool(tc.function.name, tc.function.arguments)
+    tool_cache[key] = result
+    return result
+
+def invalidate_cache(pattern: str):
+    """Remove cached entries matching a pattern (e.g., after write operations)."""
+    keys_to_remove = [k for k, v in tool_cache.items() if pattern in v]
+    for k in keys_to_remove:
+        del tool_cache[k]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Caching eliminates redundant API calls in loops where the model re-queries the same data. It also reduces costs for expensive tools like web searches or database queries.</div>
+<div class="callout hood"><span>Under the hood</span>Cache invalidation is essential for write tools. A weather query can be cached safely; a database update must invalidate related cache entries to prevent stale reads.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Backpressure for Slow Consumers</h3>
+<p><strong>What &amp; why.</strong> When the agent produces results faster than the consumer (UI, database, downstream service) can process them, backpressure mechanisms prevent unbounded memory growth. Techniques include bounded queues, semaphore-limited parallelism, and explicit flow control.</p>
+<pre class="code"><code>import asyncio
+
+class BackpressureAgent:
+    def __init__(self, max_concurrent: int = 5, queue_size: int = 20):
+        self.semaphore = asyncio.Semaphore(max_concurrent)
+        self.queue = asyncio.Queue(maxsize=queue_size)
+
+    async def process_task(self, task):
+        await self.queue.put(task)  # blocks if queue full
+        async with self.semaphore:
+            result = await agent_loop(task["query"], task["tools"])
+            await self.emit_result(result)
+
+    async def run(self):
+        while True:
+            task = await self.queue.get()
+            asyncio.create_task(self.process_task(task))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Agent servers handling concurrent requests need backpressure to prevent OOM. When one user's agent loop runs many iterations, it should not starve others.</div>
+<div class="callout hood"><span>Under the hood</span>asyncio.Queue with maxsize provides natural backpressure: put() blocks when the queue is full, and get() blocks when it is empty. This balances producer and consumer rates automatically.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Watchdog Timers: External Loop Killer</h3>
+<p><strong>What &amp; why.</strong> A watchdog timer is an external process that kills the agent loop if it runs too long. Unlike an internal iteration limit, a watchdog works even if the loop logic itself is broken (e.g., an infinite loop caused by a bug in iteration handling).</p>
+<pre class="code"><code>import threading, signal, sys
+
+class Watchdog:
+    def __init__(self, timeout_sec: int):
+        self.timeout = timeout_sec
+        self.timer = None
+
+    def start(self, callback=None):
+        def _kill():
+            print(f"Watchdog triggered after {self.timeout}s, terminating loop")
+            if callback: callback()
+            sys.exit(1)
+        self.timer = threading.Timer(self.timeout, _kill)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def reset(self):
+        if self.timer: self.timer.cancel()
+        self.start()
+
+    def stop(self):
+        if self.timer: self.timer.cancel()
+
+# Usage
+watchdog = Watchdog(timeout_sec=120)
+watchdog.start()
+for i in range(MAX_ITER):
+    resp = client.chat.completions.create(model="gpt-4o", messages=messages)
+    watchdog.reset()  # reset timer on each iteration
+    # ... process ...
+watchdog.stop()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Watchdogs are safety nets for production agents. They catch bugs that internal guards miss, such as infinite loops caused by incorrect tool-call parsing.</div>
+<div class="callout hood"><span>Under the hood</span>The watchdog runs on a separate thread, making it independent of the main loop's state. Even if the main thread is blocked by a hanging API call, the watchdog can terminate the process.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Trajectory Replay from Logs</h3>
+<p><strong>What &amp; why.</strong> Structured loop logs (JSONL) enable replaying the exact sequence of LLM calls and tool results. Replay is useful for debugging (what did the model see?), evaluation (would a different model make better decisions?), and regression testing (does a code change produce different behavior?).</p>
+<pre class="code"><code>import json
+
+def replay_trajectory(log_path: str, mock_llm=None):
+    """Replay a logged agent trajectory, optionally with a different LLM."""
+    with open(log_path) as f:
+        steps = [json.loads(line) for line in f]
+    messages = []
+    for step in steps:
+        # Reconstruct messages from step
+        for msg in step["messages_snapshot"]:
+            messages.append(msg)
+        if mock_llm:
+            # Use different model for evaluation
+            resp = mock_llm.create(messages=messages)
+            print(f"Original: {step['finish_reason']} | Replay: {resp.finish_reason}")
+        else:
+            print(f"Iter {step['iteration']}: {step['finish_reason']}, "
+                  f"tokens={step['tokens']}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Trajectory replay is standard in agent evaluation pipelines. It enables model-comparison studies and regression testing without re-executing tools.</div>
+<div class="callout hood"><span>Under the hood</span>Full replay requires logging the complete messages list at each step, not just deltas. This increases log size but makes replay straightforward and deterministic.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Metrics Per Loop: Success Rate and Iteration Distribution</h3>
+<p><strong>What &amp; why.</strong> Aggregating metrics across many loop runs reveals performance patterns. Track success rate (task completed vs failed), iteration count distribution (median, p95, p99), and cost per task. These metrics guide optimization decisions like model selection and iteration limits.</p>
+<pre class="code"><code>import statistics
+
+@dataclass
+class LoopMetrics:
+    results: list = field(default_factory=list)
+
+    def record(self, success: bool, iterations: int, cost: float, latency: float):
+        self.results.append({"success": success, "iterations": iterations, "cost": cost, "latency": latency})
+
+    def summary(self) -> dict:
+        iters = [r["iterations"] for r in self.results]
+        costs = [r["cost"] for r in self.results]
+        successes = sum(1 for r in self.results if r["success"])
+        return {
+            "total_runs": len(self.results),
+            "success_rate": successes / len(self.results) if self.results else 0,
+            "iterations": {"median": statistics.median(iters), "p95": sorted(iters)[int(len(iters)*0.95)]},
+            "cost": {"total": sum(costs), "avg": statistics.mean(costs), "p95": sorted(costs)[int(len(costs)*0.95)]},
+        }
+
+metrics = LoopMetrics()
+for query in test_queries:
+    start = time.time()
+    result = agent_loop(query, tools)
+    metrics.record(success=result is not None, iterations=iteration_count,
+                   cost=estimate_cost(messages), latency=time.time()-start)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Metrics drive model selection (gpt-4o-mini succeeds 85% of the time in 3 iterations vs gpt-4o at 95% in 2 iterations), budget planning, and SLO definition.</div>
+<div class="callout hood"><span>Under the hood</span>The iteration distribution reveals whether the model is efficient (tight distribution around low counts) or inconsistent (wide distribution with long tail). Inconsistency often indicates prompt engineering issues.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Termination proofs, hierarchical orchestration, distributed loops, durability</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Formal Termination Proofs: Intuition</h3>
+<p><strong>What &amp; why.</strong> An agent loop terminates if (a) it has a finite iteration bound, (b) the state space is finite, or (c) a progress measure strictly decreases each iteration. Most practical loops rely on the iteration bound alone, but understanding the formal conditions helps design loops that provably terminate.</p>
+<pre class="code"><code>def loop_with_progress_measure(query: str, tools: list) -> str:
+    """Loop that tracks a progress measure to guarantee termination."""
+    remaining_subtasks = decompose(query)  # finite set of subtasks
+    messages = [{"role": "user", "content": query}]
+    seen_results = set()  # state space bound
+    for i in range(MAX_ITER):
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        for tc in (msg.tool_calls or []):
+            result_hash = hash(tc.function.arguments)
+            if result_hash in seen_results:
+                messages.append({"role": "tool", "tool_call_id": tc.id, "content": "Already computed."})
+                continue
+            seen_results.add(result_hash)
+            result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Formal termination reasoning prevents costly infinite loops in production. It is essential for agents operating autonomously without human oversight.</div>
+<div class="callout hood"><span>Under the hood</span>Most agent loops rely on the iteration bound as the termination guarantee. The progress-measure approach is stronger: it proves termination even without an explicit bound by showing the problem gets strictly smaller each step.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Budget-Aware Planners: Allocating Tokens Across Steps</h3>
+<p><strong>What &amp; why.</strong> A budget-aware planner pre-allocates token budgets across planned steps. If the total budget is 50K tokens and the plan has 5 steps, each step gets 10K. This prevents one expensive step from starving later steps and ensures the plan can be fully executed within budget.</p>
+<pre class="code"><code>def budget_aware_loop(query: str, tools: list, total_budget: int = 50_000) -> str:
+    plan = llm_plan(query)  # model generates step list
+    per_step_budget = total_budget // len(plan.steps)
+    messages = [{"role": "user", "content": query}]
+    spent = 0
+    for step in plan.steps:
+        step_budget = per_step_budget
+        for i in range(5):  # max iterations per step
+            resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+            spent += resp.usage.total_tokens
+            if spent >= total_budget:
+                return f"Budget exhausted at step {step.name}: {spent}/{total_budget} tokens"
+            msg = resp.choices[0].message
+            messages.append(msg)
+            if resp.choices[0].finish_reason == "stop":
+                return msg.content
+            for tc in (msg.tool_calls or []):
+                result = execute_tool(tc)
+                messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Budget-aware planning is critical for API-cost-sensitive deployments. It ensures every task gets a fair share of the total budget.</div>
+<div class="callout hood"><span>Under the hood</span>The plan step itself consumes tokens. A practical planner accounts for the planning overhead and reserves tokens for the final answer when allocating per-step budgets.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>Hierarchical Loops: Orchestrator-Worker Nesting</h3>
+<p><strong>What &amp; why.</strong> An orchestrator loop delegates sub-tasks to worker loops. The orchestrator plans at a high level, spawns worker loops for each sub-task, and aggregates results. This separation of concerns enables specialization: the orchestrator is strategic, workers are tactical.</p>
+<pre class="code"><code>async def worker_loop(task: str, tools: list) -> str:
+    messages = [{"role": "user", "content": task}]
+    for i in range(5):
+        resp = await async_client.chat.completions.create(model="gpt-4o-mini", messages=messages, tools=tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        for tc in (msg.tool_calls or []):
+            result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})
+
+async def orchestrator_loop(query: str, tools: list) -> str:
+    messages = [{"role": "user", "content": f"Plan and delegate: {query}"}]
+    for i in range(5):
+        resp = await async_client.chat.completions.create(model="gpt-4o", messages=messages, tools=orchestrator_tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            return msg.content
+        for tc in (msg.tool_calls or []):
+            if tc.function.name == "delegate_to_worker":
+                worker_result = await worker_loop(json.loads(tc.function.arguments)["task"], tools)
+            else:
+                worker_result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(worker_result)})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Enterprise agent platforms use orchestrator-worker patterns for complex workflows. The orchestrator uses a powerful model; workers use cheaper, faster models.</div>
+<div class="callout hood"><span>Under the hood</span>Each worker runs its own loop with independent state. The orchestrator aggregates worker outputs without seeing their internal reasoning, providing natural separation of concerns.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>Distributed Loops: Leader Election Sketch</h3>
+<p><strong>What &amp; why.</strong> In multi-instance deployments, multiple agents may pick up the same task from a shared queue. Leader election ensures only one agent processes each task. This prevents duplicate execution, which is especially dangerous for tools with side effects.</p>
+<pre class="code"><code>import redis
+
+r = redis.Redis()
+
+def try_acquire_task(task_id: str, agent_id: str, ttl: int = 300) -> bool:
+    """Attempt to claim a task using Redis SETNX for leader election."""
+    lock_key = f"agent_lock:{task_id}"
+    acquired = r.set(lock_key, agent_id, nx=True, ex=ttl)
+    return bool(acquired)
+
+def release_task(task_id: str, agent_id: str):
+    lock_key = f"agent_lock:{task_id}"
+    current = r.get(lock_key)
+    if current and current.decode() == agent_id:
+        r.delete(lock_key)
+
+def distributed_loop(task_id: str, query: str, tools: list):
+    agent_id = f"agent-{os.getpid()}"
+    if not try_acquire_task(task_id, agent_id):
+        print(f"Another agent is handling {task_id}")
+        return
+    try:
+        result = agent_loop(query, tools)
+        save_result(task_id, result)
+    finally:
+        release_task(task_id, agent_id)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Distributed agent systems (Kubernetes pods, serverless functions) need leader election for task deduplication. Redis SETNX with TTL is the simplest production-proven pattern.</div>
+<div class="callout hood"><span>Under the hood</span>The TTL ensures that if an agent crashes without releasing the lock, the task becomes available again after the TTL expires. This provides crash safety without complex coordination.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">41</span>Exactly-Once Side Effects: Idempotency Keys</h3>
+<p><strong>What &amp; why.</strong> Agent loops may retry after failures, causing tools with side effects to execute multiple times. Idempotency keys ensure that repeated calls to a tool with the same key produce the same result as a single call. This is essential for payment, email, and database-update tools.</p>
+<pre class="code"><code>import uuid
+
+def idempotent_tool_call(tool_name: str, args: dict, idempotency_key: str = None):
+    """Execute a tool with an idempotency key to prevent duplicate side effects."""
+    key = idempotency_key or str(uuid.uuid4())
+    cache_key = f"idempotent:{tool_name}:{key}"
+    cached = r.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    result = execute_tool(tool_name, args)
+    r.setex(cache_key, 86400, json.dumps(result))  # cache for 24h
+    return result
+
+# In agent loop
+for tc in msg.tool_calls:
+    key = hashlib.md5(json.dumps({"name": tc.function.name, "args": tc.function.arguments}).encode()).hexdigest()
+    result = idempotent_tool_call(tc.function.name, json.loads(tc.function.arguments), key)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Idempotency keys are mandatory for payment processing (Stripe, PayPal), email sending (SendGrid), and database writes in retry-prone agent loops.</div>
+<div class="callout hood"><span>Under the hood</span>The idempotency key must be deterministic based on the tool name and arguments. If the key is random, every retry generates a new key and defeats the purpose.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">42</span>Crash-Consistent Journaling: WAL Pattern for Agents</h3>
+<p><strong>What &amp; why.</strong> A write-ahead log (WAL) records each planned action before execution. If the agent crashes mid-action, the WAL enables recovery by replaying actions or rolling back incomplete ones. This pattern provides durability guarantees similar to databases.</p>
+<pre class="code"><code>import sqlite3, json, time
+
+class AgentWAL:
+    def __init__(self, db_path: str):
+        self.conn = sqlite3.connect(db_path)
+        self.conn.execute("""CREATE TABLE IF NOT EXISTS wal (
+            id INTEGER PRIMARY KEY, timestamp REAL, action TEXT, status TEXT, result TEXT)""")
+
+    def log_action(self, action: dict) -> int:
+        cursor = self.conn.execute(
+            "INSERT INTO wal (timestamp, action, status) VALUES (?, ?, ?)",
+            (time.time(), json.dumps(action), "pending"))
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def complete(self, wal_id: int, result: str):
+        self.conn.execute("UPDATE wal SET status='done', result=? WHERE id=?", (result, wal_id))
+        self.conn.commit()
+
+    def recover(self) -> list:
+        pending = self.conn.execute("SELECT id, action FROM wal WHERE status='pending'").fetchall()
+        return [{"id": row[0], "action": json.loads(row[1])} for row in pending]
+
+# Usage in loop
+wal = AgentWAL("agent.wal")
+for i in range(MAX_ITER):
+    for tc in (msg.tool_calls or []):
+        action = {"tool": tc.function.name, "args": tc.function.arguments}
+        wal_id = wal.log_action(action)
+        try:
+            result = execute_tool(tc)
+            wal.complete(wal_id, result)
+        except Exception as e:
+            print(f"Action failed, WAL entry {wal_id} will be retried on recovery")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Long-running batch agents benefit from WAL-based recovery. Instead of restarting from scratch after a crash, the agent resumes from the last incomplete action.</div>
+<div class="callout hood"><span>Under the hood</span>SQLite is a practical WAL backend for single-instance agents. For distributed agents, Kafka or PostgreSQL provide the same durability with horizontal scalability.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">43</span>Adaptive Iteration Limits via Confidence</h3>
+<p><strong>What &amp; why.</strong> Instead of a fixed iteration limit, adaptive limits adjust based on the model's confidence in its answer. If the model expresses high confidence early, the loop stops. If confidence is low, the limit increases to allow more exploration. This balances speed with thoroughness.</p>
+<pre class="code"><code>def adaptive_loop(query: str, tools: list) -> str:
+    min_iter, max_iter = 3, 20
+    messages = [{"role": "user", "content": query}]
+    for i in range(max_iter):
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            confidence = extract_confidence(msg.content)
+            if confidence >= 0.9 or i >= min_iter:
+                return msg.content
+            # Low confidence: add instruction to think harder
+            messages.append({"role": "user", "content": "Are you confident in this answer? If not, investigate further."})
+        for tc in (msg.tool_calls or []):
+            result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Adaptive limits optimize cost for easy questions (1-2 iterations) while allowing thoroughness for hard ones. Research agents and diagnostic tools benefit from this approach.</div>
+<div class="callout hood"><span>Under the hood</span>Confidence can be extracted from the model's own output (e.g., asking it to rate its confidence) or estimated from response characteristics like tool-call count and hedging language.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">44</span>Chaos Testing Loops: Injected Failures</h3>
+<p><strong>What &amp; why.</strong> Chaos testing intentionally injects failures (API timeouts, tool errors, malformed responses) into agent loops to verify that error handling works correctly. This practice, borrowed from distributed systems engineering, ensures loops are robust before deployment.</p>
+<pre class="code"><code>import random
+
+class ChaosInjector:
+    def __init__(self, failure_rate: float = 0.1):
+        self.failure_rate = failure_rate
+
+    def wrap_llm_call(self, real_call):
+        def wrapped(*args, **kwargs):
+            if random.random() < self.failure_rate:
+                raise openai.APIStatusError("Chaos: simulated failure", response=None, code=None)
+            return real_call(*args, **kwargs)
+        return wrapped
+
+    def wrap_tool(self, real_tool):
+        def wrapped(name, args):
+            if random.random() < self.failure_rate:
+                return "Chaos: tool failed with timeout"
+            return real_tool(name, args)
+        return wrapped
+
+# Run chaos tests
+chaos = ChaosInjector(failure_rate=0.2)
+chaos_llm = chaos.wrap_llm_call(client.chat.completions.create)
+for query in test_queries:
+    try:
+        result = chaos_agent_loop(query, tools, llm_call=chaos_llm)
+        print(f"Survived chaos: {result[:100]}")
+    except Exception as e:
+        print(f"Failed under chaos: {e}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Chaos testing is standard practice for production agent systems. It reveals failure modes that normal testing misses, like incorrect retry behavior or silent data corruption.</div>
+<div class="callout hood"><span>Under the hood</span>The failure rate should be tunable and start low (1-5%) in production chaos testing. Higher rates (20-50%) are appropriate for pre-deployment validation suites.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Web Research Loop with Budget Cap and Report</h3>
+<p>A research agent that searches the web, reads pages, and compiles a structured report, all within a configurable token and dollar budget. The loop terminates when the report is complete or the budget is exhausted, producing the best available report either way.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define a token budget (e.g., 30K tokens) and per-iteration limit (e.g., 3K)</li><li>Build a message list with a system prompt instructing the model to plan, search, read, and synthesize</li><li>Implement a search tool that returns snippets and a read tool that returns page content</li><li>Run the agent loop with budget tracking: subtract tokens from remaining budget each iteration</li><li>When budget falls below a threshold, instruct the model to synthesize what it has into a final report</li><li>Log every iteration to JSONL for cost analysis and trajectory review</li><li>Save the final report as markdown with source citations</li></ol>
+<pre class="code"><code>def research_loop(topic: str, budget: int = 30_000) -> str:
+    tools = [search_web, read_page, final_answer]
+    messages = [
+        {"role": "system", "content": "Research the topic using search and read tools. "
+         "Synthesize findings into a structured report with citations."},
+        {"role": "user", "content": topic}
+    ]
+    remaining = budget
+    for i in range(15):
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+        tokens_used = resp.usage.total_tokens
+        remaining -= tokens_used
+        messages.append(resp.choices[0].message)
+        if resp.choices[0].finish_reason == "stop":
+            return resp.choices[0].message.content
+        if remaining &lt; 3000:
+            messages.append({"role": "user", "content": "Budget is nearly exhausted. Write your report now."})
+        for tc in (resp.choices[0].message.tool_calls or []):
+            result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Budget-aware agent loop design with token accounting</li><li>Research agent architecture with search and read tools</li><li>Trajectory logging and post-hoc cost analysis</li><li>Graceful degradation under budget constraints</li><li>Structured report generation from multi-source synthesis</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Self-Healing Data-Fix Loop with Approvals</h3>
+<p>A data-cleaning agent that detects anomalies in a dataset, proposes fixes, and executes approved corrections. The loop includes human approval gates for destructive operations and rollback support for failed fixes.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Load the dataset and run anomaly-detection rules to identify issues</li><li>Format anomalies as a structured prompt asking the model to propose fixes</li><li>Implement tools: preview_fix (shows before/after), apply_fix (writes change), rollback_fix (reverts)</li><li>Run the loop with a human approval gate for every apply_fix call</li><li>After each fix, re-run anomaly detection to verify the fix did not introduce new issues</li><li>Use WAL-based journaling to track all fixes and enable rollback</li><li>Generate a summary report of all changes made, with before/after snapshots</li></ol>
+<pre class="code"><code>def data_fix_loop(dataset_path: str) -> dict:
+    data = load_dataset(dataset_path)
+    anomalies = detect_anomalies(data)
+    messages = [{"role": "user", "content": f"Fix these anomalies:\n{format_anomalies(anomalies)}"}]
+    fixes_applied = []
+    for i in range(10):
+        resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=fix_tools)
+        msg = resp.choices[0].message
+        messages.append(msg)
+        if resp.choices[0].finish_reason == "stop":
+            break
+        for tc in (msg.tool_calls or []):
+            if tc.function.name == "apply_fix":
+                approved = input(f"Approve fix: {tc.function.arguments}? (y/n): ")
+                if approved != "y":
+                    result = "Fix rejected by user"
+                else:
+                    result = execute_tool(tc)
+                    fixes_applied.append(result)
+            else:
+                result = execute_tool(tc)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})
+    return {"fixes": fixes_applied, "report": generate_report(fixes_applied)}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Human-in-the-loop agent design with approval gates</li><li>Self-healing patterns with rollback and verification</li><li>WAL-based action journaling for crash recovery</li><li>Anomaly-to-fix pipeline with validation feedback</li><li>Audit trail generation for data modification compliance</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Loop Simulator and Benchmark: Comparing Loop Policies</h3>
+<p>A simulation harness that runs the same set of tasks through different loop configurations (iteration limits, model choices, backoff strategies, caching policies) and produces comparison charts showing success rate, latency, and cost.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define a benchmark suite of 20+ tasks with known correct answers and difficulty ratings</li><li>Implement multiple loop policies: fixed-limit, adaptive, budget-capped, with/without caching</li><li>Build a mock LLM server that returns pre-recorded responses for reproducible testing</li><li>Run each task through each policy, recording iterations, tokens, latency, and success</li><li>Aggregate metrics into a comparison table with medians and p95 values</li><li>Generate ASCII or markdown charts comparing policies across all metrics</li><li>Produce a recommendation report identifying the best policy per task difficulty</li></ol>
+<pre class="code"><code>import time, json, statistics
+
+class LoopSimulator:
+    def __init__(self, tasks: list, policies: dict):
+        self.tasks = tasks
+        self.policies = policies
+        self.results = []
+
+    def run(self):
+        for policy_name, policy_fn in self.policies.items():
+            for task in self.tasks:
+                start = time.time()
+                result, metrics = policy_fn(task)
+                self.results.append({
+                    "policy": policy_name, "task": task["id"],
+                    "success": result == task["expected"],
+                    "iterations": metrics["iterations"],
+                    "tokens": metrics["tokens"],
+                    "latency": time.time() - start
+                })
+
+    def compare(self) -> dict:
+        by_policy = {}
+        for r in self.results:
+            by_policy.setdefault(r["policy"], []).append(r)
+        return {policy: {
+            "success_rate": sum(r["success"] for r in runs) / len(runs),
+            "avg_iterations": statistics.mean(r["iterations"] for r in runs),
+            "p95_latency": sorted(r["latency"] for r in runs)[int(len(runs)*0.95)],
+            "total_tokens": sum(r["tokens"] for r in runs)
+        } for policy, runs in by_policy.items()}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Agent loop benchmarking methodology with reproducible fixtures</li><li>Policy comparison across multiple dimensions (speed, cost, accuracy)</li><li>Mock LLM server design for deterministic testing</li><li>Statistical analysis of loop behavior distributions</li><li>Data-driven loop configuration for production deployment</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Agent while-loop</td><td>Core pattern: observe, think, act, repeat</td><td>while True: resp = llm_call(messages)</td></tr>
+<tr><td>Pseudocode blueprint</td><td>Build prompt, call LLM, parse, execute, append</td><td>state = build_prompt(); action = parse(resp)</td></tr>
+<tr><td>Max iterations guard</td><td>Hard limit prevents infinite loops</td><td>for i in range(MAX_ITER):</td></tr>
+<tr><td>final_answer convention</td><td>Model signals task completion explicitly</td><td>if tc.function.name == "final_answer": return</td></tr>
+<tr><td>State list</td><td>Append-only messages list = working memory</td><td>messages.append(msg); messages.append(tool_result)</td></tr>
+<tr><td>Streaming in loop</td><td>Token-by-token output during each iteration</td><td>stream=True, accumulate deltas</td></tr>
+<tr><td>Echo tool demo</td><td>Minimal test loop verifying cycle mechanics</td><td>run_echo(text) returns f"Echo: {text}"</td></tr>
+<tr><td>Cost accumulation</td><td>Quadratic cost growth with iteration count</td><td>tiktoken encoding, usage.prompt_tokens</td></tr>
+<tr><td>Forgetting to append</td><td>Most common bug: tool result never seen by model</td><td>messages.append({"role": "tool", ...})</td></tr>
+<tr><td>Rate limiting</td><td>sleep or backoff between API calls</td><td>time.sleep(0.5); exponential backoff</td></tr>
+<tr><td>Debugger-style stepping</td><td>Generator-based loop for manual inspection</td><td>yield i, messages_snapshot</td></tr>
+<tr><td>OpenAI round-trip</td><td>finish_reason="tool_calls" triggers tool execution</td><td>choice.finish_reason, msg.tool_calls</td></tr>
+<tr><td>Anthropic tool_use</td><td>Content blocks with type="tool_use"</td><td>resp.stop_reason, block.type == "tool_use"</td></tr>
+<tr><td>Parallel tool calls</td><td>Batch tool execution with ThreadPoolExecutor</td><td>asyncio.gather(*tasks)</td></tr>
+<tr><td>Async agent loop</td><td>Non-blocking loop with AsyncOpenAI</td><td>await async_client.chat.completions.create()</td></tr>
+<tr><td>Exponential backoff</td><td>Retry with jitter on provider errors</td><td>wait = min(2**attempt, 60) + jitter</td></tr>
+<tr><td>Token budget meter</td><td>Per-iteration and total token tracking</td><td>usage.total_tokens, budget.check()</td></tr>
+<tr><td>Repeated-action hash</td><td>Detect stuck loops by hashing actions</td><td>hashlib.md5(str(calls).encode())</td></tr>
+<tr><td>Graceful degradation</td><td>Return best available answer on failure</td><td>best_answer = max(partial, key=len)</td></tr>
+<tr><td>Checkpoint serialize</td><td>Save message list to disk for resume</td><td>json.dump({"iteration": i, "messages": msgs})</td></tr>
+<tr><td>Progress callbacks</td><td>Emit events at each loop phase</td><td>on_iteration_start(i), on_tool_call(name)</td></tr>
+<tr><td>Tool timeout</td><td>Prevent hanging tools from blocking loop</td><td>ThreadPoolExecutor with timeout parameter</td></tr>
+<tr><td>JSONL step log</td><td>Structured trace for analysis and replay</td><td>json.dumps(entry) + "\n"</td></tr>
+<tr><td>State-machine loop</td><td>Explicit named states and transitions</td><td>class AgentState(Enum): PLANNING, EXECUTING</td></tr>
+<tr><td>Recursive child loops</td><td>Parent spawns sub-agent loops for sub-tasks</td><td>child_loop(sub_task, tools)</td></tr>
+<tr><td>ReAct pattern</td><td>Plan-Act-Observe-Replan structured cycle</td><td>system prompt with step instructions</td></tr>
+<tr><td>Event-driven loop</td><td>Continuous processing from event queue</td><td>event = await queue.get()</td></tr>
+<tr><td>Priority queue</td><td>Process important tasks first</td><td>heapq.heappush(queue, AgentTask(priority))</td></tr>
+<tr><td>Human gate</td><td>Pause every N steps for approval</td><td>input("Approve? (y/n): ")</td></tr>
+<tr><td>Loop caching</td><td>Avoid redundant tool calls with dict cache</td><td>cache[key] = result; if key in cache</td></tr>
+<tr><td>Backpressure</td><td>Bounded queues prevent memory overflow</td><td>asyncio.Queue(maxsize=N)</td></tr>
+<tr><td>Watchdog timer</td><td>External process kills stuck loops</td><td>threading.Timer(timeout, kill_fn)</td></tr>
+<tr><td>Trajectory replay</td><td>Replay logged steps for debugging</td><td>json.loads(line) for line in log_file</td></tr>
+<tr><td>Loop metrics</td><td>Track success rate and iteration distribution</td><td>statistics.median(iters), p95 calculation</td></tr>
+<tr><td>Termination proof</td><td>Progress measure decreases each iteration</td><td>remaining_subtasks = decompose(query)</td></tr>
+<tr><td>Budget-aware planner</td><td>Allocate tokens across planned steps</td><td>per_step = total_budget // len(steps)</td></tr>
+<tr><td>Orchestrator-worker</td><td>High-level planner delegates to sub-loops</td><td>worker_loop(sub_task, tools)</td></tr>
+<tr><td>Leader election</td><td>Prevent duplicate task execution</td><td>r.set(lock_key, agent_id, nx=True, ex=ttl)</td></tr>
+<tr><td>Idempotency keys</td><td>Prevent duplicate side effects on retries</td><td>r.setex(cache_key, 86400, result)</td></tr>
+<tr><td>WAL journaling</td><td>Write-ahead log for crash recovery</td><td>wal.log_action(action); wal.complete(id, result)</td></tr>
+<tr><td>Adaptive iteration limits</td><td>Adjust max iterations based on confidence</td><td>if confidence >= 0.9: return early</td></tr>
+<tr><td>Chaos testing</td><td>Inject failures to test error handling</td><td>random.random() &lt; failure_rate: raise</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="ai-agents.html">&larr; AI Agents</a><a href="memory-management.html">Memory Management &rarr;</a></footer>
+</body></html>

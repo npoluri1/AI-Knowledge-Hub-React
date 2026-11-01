@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LlamaIndex — Data Framework for LLMs — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / LlamaIndex — Data Framework for LLMs</span><span class="spacer"></span>
+<a class="navlink" href="rag.html">&larr; RAG</a> <a class="navlink" href="langchain.html">LangChain &rarr;</a></nav>
+<header class="hero"><div class="mono">LI</div><div><h1>LlamaIndex — Data Framework for LLMs</h1>
+<p class="tagline">A specialized framework for connecting LLMs with external data through structured indexing, retrieval, and query engines, purpose-built for RAG and data-augmented applications.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>LlamaIndex is the most mature data framework for LLM applications, providing first-class abstractions for document loading, indexing, retrieval, and query engines. This chapter covers the full stack from basic indexing through production deployment with evaluation and observability.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</td></tr>
+<tr><td>Tier 1</td><td>Core abstractions, Document/Node model, basic indexing, query engines, persistence</td><td>You can build a minimal LlamaIndex app with vector search</td></tr>
+<tr><td>Tier 2</td><td>Data connectors, splitters, metadata extraction, multiple index types, router engines</td><td>You can build multi-source RAG with sophisticated query routing</td></tr>
+<tr><td>Tier 3</td><td>Storage backends, composable graphs, agents, evaluation, LlamaParse, observability</td><td>You can architect production LlamaIndex systems with evaluation</td></tr>
+<tr><td>Tier 4</td><td>Property graphs, workflow events, deployment, cost control, upgrade management</td><td>You can operate LlamaIndex at enterprise scale with governance</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready LlamaIndex applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Framework purpose, core model, indexing, query, persistence</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Framework Purpose vs Raw Code</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex provides structured abstractions (Document, Node, Index, QueryEngine) that eliminate the boilerplate of building RAG systems from scratch. While raw OpenAI + ChromaDB code works for simple cases, LlamaIndex adds automatic chunking, metadata extraction, multi-index routing, and evaluation hooks that become essential as complexity grows.</p>
+<pre class="code"><code># Raw RAG: ~30 lines of manual orchestration
+# LlamaIndex: ~5 lines with the same functionality
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+# Load documents from a directory
+documents = SimpleDirectoryReader("./data").load_data()
+
+# Build vector index (handles chunking, embedding, storage automatically)
+index = VectorStoreIndex.from_documents(documents)
+
+# Query the index
+query_engine = index.as_query_engine()
+response = query_engine.query("What is the refund policy?")
+print(response)
+print(f"Sources: {[n.metadata for n in response.source_nodes]}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LlamaIndex is the default choice when your application is primarily about querying data: knowledge bases, document search, data analysis chatbots, and any system where the core value is connecting LLMs to structured or unstructured data.</div>
+<div class="callout hood"><span>Under the hood</span>LlamaIndex's simplicity hides a sophisticated pipeline: documents are parsed into Nodes (chunks with metadata and relationships), embedded with a configurable model, stored in a configurable backend, and retrieved via configurable similarity search with automatic prompt construction.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Document and Node Model</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex models data as Documents (raw source files with metadata) and Nodes (chunked pieces with relationships to other Nodes). Documents are the input; Nodes are the indexed units. Each Node carries metadata, a reference to its source Document, and relationships (next, previous, parent, child) that enable traversal and context assembly.</p>
+<pre class="code"><code>from llama_index.core import Document
+
+# Create a Document directly
+doc = Document(
+    text="The refund policy allows returns within 30 days of purchase.",
+    metadata={"source": "policy.pdf", "page": 1, "department": "legal"},
+    id_="policy_doc_1",
+)
+
+# Documents get split into Nodes during indexing
+# Each Node inherits metadata and adds positional info
+# Node.text = chunk of the document text
+# Node.metadata = parent document metadata + chunk info
+# Node.relationships = {NEXT: node_2, PREVIOUS: None, SOURCE: doc}
+
+print(f"Document: {doc.id_}, text length: {len(doc.text)}")
+print(f"Metadata: {doc.metadata}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The Document/Node model is the foundation of all LlamaIndex operations. Understanding it is essential for custom metadata handling, relationship traversal, and building multi-document architectures.</div>
+<div class="callout hood"><span>Under the hood</span>Documents and Nodes are Pydantic models with built-in serialization, embedding storage, and hash-based deduplication. The relationship graph enables parent-child retrieval (small-to-big) and sibling traversal (getting surrounding context).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>SimpleDirectoryReader: Loading Documents</h3>
+<p><strong>What &amp; why.</strong> SimpleDirectoryReader is the quickest way to load documents from a local directory. It auto-detects file types (PDF, TXT, Markdown, DOCX) and delegates to appropriate parsers. For custom file types or remote sources, use the 160+ data connectors available through LlamaHub.</p>
+<pre class="code"><code>from llama_index.core import SimpleDirectoryReader
+
+# Load all files from a directory
+documents = SimpleDirectoryReader("./knowledge_base").load_data()
+print(f"Loaded {len(documents)} documents")
+
+# Filter by file type
+pdf_docs = SimpleDirectoryReader(
+    "./docs",
+    required_exts=[".pdf", ".txt"],
+).load_data()
+
+# Load with metadata extraction
+docs = SimpleDirectoryReader(
+    "./docs",
+    recursive=True,
+    exclude=["**/temp/*", "**/.git/*"],
+).load_data()
+
+# Each document has auto-extracted metadata
+for doc in docs[:3]:
+    print(f"File: {doc.metadata.get('file_name', 'unknown')}, "
+          f"Size: {len(doc.text)} chars")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SimpleDirectoryReader covers 90% of document loading needs for prototypes. For production systems with remote sources (S3, GCS, Confluence, Notion), use LlamaHub readers instead.</div>
+<div class="callout hood"><span>Under the hood</span>SimpleDirectoryReader uses a registry of file-type handlers: PdfReader for PDFs, DocxReader for DOCX, MarkdownReader for Markdown. Each handler extracts text and metadata, returning Document objects ready for indexing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>VectorStoreIndex Creation</h3>
+<p><strong>What &amp; why.</strong> VectorStoreIndex is the most common index type in LlamaIndex. It chunks documents, embeds each chunk, and stores them in a vector store for similarity search. The index handles chunking strategy, embedding model selection, and storage backend configuration through a single creation call.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, Settings
+from llama_index.llms.openai import OpenAI
+from llama_index.embeddings.openai import OpenAIEmbedding
+
+# Configure global settings
+Settings.llm = OpenAI(model="gpt-4o", temperature=0)
+Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
+
+# Create index from documents
+documents = SimpleDirectoryReader("./data").load_data()
+index = VectorStoreIndex.from_documents(
+    documents,
+    chunk_size=600,
+    chunk_overlap=60,
+    show_progress=True,
+)
+
+# The index is now ready for querying
+print(f"Index contains {len(index.docstore.data)} nodes")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>VectorStoreIndex is the default starting point for any LlamaIndex application. It handles the full ingest-chunk-embed-store pipeline with sensible defaults that can be customized at every step.</div>
+<div class="callout hood"><span>Under the hood</span>VectorStoreIndex uses an IngestionPipeline that runs documents through a text splitter, embeds each node with the configured embedding model, and upserts into the configured vector store (default: in-memory SimpleVectorStore).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>query_engine.query Flow</h3>
+<p><strong>What &amp; why.</strong> The query engine is LlamaIndex's primary retrieval-and-generation interface. Calling query_engine.query() executes the full pipeline: embed the query, retrieve top-k similar nodes, assemble them into a prompt with a template, send to the LLM, and return a structured Response object with the answer and source nodes.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+documents = SimpleDirectoryReader("./data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+query_engine = index.as_query_engine(similarity_top_k=5)
+
+# Execute a query
+response = query_engine.query("What are the payment methods?")
+
+# Response object contains:
+print(f"Answer: {response.response}")         # The generated text
+print(f"Sources: {len(response.source_nodes)}")  # Number of source nodes
+for node in response.source_nodes:
+    print(f"  Score: {node.score:.3f} | {node.text[:80]}...")
+
+# The response object is also a string
+print(str(response))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>query_engine.query() is the entry point for every user-facing interaction. Understanding the Response object is essential for building citation tracking, feedback loops, and debugging tools.</div>
+<div class="callout hood"><span>Under the hood</span>The query flow: (1) embed query, (2) similarity search in vector store returning top-k Nodes, (3) format nodes into a context string using the template, (4) send context + query to LLM, (5) parse LLM output into Response with source_node tracking for citations.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>storage_context Persistence</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex indexes must be persisted to disk or a database for production use. The storage_context manages serialization of the index, document store, and vector store. Persisting avoids re-ingesting and re-embedding documents on every application restart, reducing startup time from minutes to seconds.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, StorageContext
+from llama_index.core.storage.docstore import SimpleDocumentStore
+from llama_index.vector_stores.chroma import ChromaVectorStore
+import chromadb
+
+# Create index with ChromaDB persistence
+chroma_client = chromadb.PersistentClient(path="./chroma_db")
+chroma_collection = chroma_client.get_or_create_collection("my_docs")
+vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+
+storage_context = StorageContext.from_defaults(vector_store=vector_store)
+documents = SimpleDirectoryReader("./data").load_data()
+index = VectorStoreIndex.from_documents(documents, storage_context=storage_context)
+
+# Persist to disk
+index.storage_context.persist(persist_dir="./index_storage")
+
+# Reload from disk (no re-embedding needed)
+from llama_index.core import load_index_from_storage
+storage_context = StorageContext.from_defaults(persist_dir="./index_storage")
+index = load_index_from_storage(storage_context)
+query_engine = index.as_query_engine()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Persistent storage is essential for production. Always persist your index after building, and reload it on application startup. ChromaDB and Qdrant provide persistent backends that survive process restarts.</div>
+<div class="callout hood"><span>Under the hood</span>The storage_context serializes three components: the docstore (Node objects), the vector_store (embeddings + metadata), and the index_store (index configuration). Each can be backed by different storage backends.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Settings Global Configuration</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex uses a global Settings object to configure the LLM, embedding model, chunk size, and other defaults across all components. Setting these once ensures consistent behavior throughout your application without passing configuration to every component.</p>
+<pre class="code"><code>from llama_index.core import Settings
+from llama_index.llms.openai import OpenAI
+from llama_index.embeddings.openai import OpenAIEmbedding
+
+# Configure once, use everywhere
+Settings.llm = OpenAI(model="gpt-4o", temperature=0, max_tokens=2048)
+Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
+Settings.chunk_size = 600
+Settings.chunk_overlap = 60
+Settings.chunk_window_size = 1  # number of surrounding chunks to include
+
+# All subsequent index creation and querying uses these defaults
+documents = SimpleDirectoryReader("./data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+query_engine = index.as_query_engine()  # uses Settings.llm and Settings.embed_model
+
+# Override per-component when needed
+custom_llm = OpenAI(model="gpt-4o-mini", temperature=0.5)
+local_query_engine = index.as_query_engine(llm=custom_llm)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Settings configuration is the first step in any LlamaIndex application. Set it early to avoid inconsistent behavior between index creation and querying.</div>
+<div class="callout hood"><span>Under the hood</span>Settings is a Pydantic model with global scope. Components that accept an llm or embed_model parameter override the global setting. This pattern enables per-component customization while maintaining application-wide defaults.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Response Object and Source Nodes</h3>
+<p><strong>What &amp; why.</strong> Every query returns a Response object containing the generated text, the source Nodes used, their similarity scores, and metadata. The source_nodes list enables citation tracking, answer verification, and debugging. Each Node includes the original text chunk, its metadata, and the retrieval score.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+documents = SimpleDirectoryReader("./data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+response = index.as_query_engine().query("How do I contact support?")
+
+# Inspect the Response object
+print(f"Answer type: {type(response.response)}")
+print(f"Answer length: {len(response.response)} chars")
+print(f"Source nodes: {len(response.source_nodes)}")
+
+# Examine each source node
+for i, node in enumerate(response.source_nodes):
+    print(f"\n--- Source {i+1} ---")
+    print(f"Score: {node.score:.4f}")
+    print(f"Text: {node.text[:150]}...")
+    print(f"Metadata: {node.metadata}")
+    print(f"Node ID: {node.node_id}")
+
+# The response also stores the query
+print(f"\nOriginal query: {response.query}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Source node inspection is essential for building citation UIs, debugging retrieval quality, and implementing feedback loops. Always log source_nodes alongside the answer for production observability.</div>
+<div class="callout hood"><span>Under the hood</span>Source nodes are populated during the retrieve step. The score represents cosine similarity between the query embedding and the node embedding. Higher scores indicate stronger semantic matches, though score distributions vary by embedding model.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>chunk_size and chunk_overlap Settings</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex's chunk_size and chunk_overlap parameters control how documents are split into Nodes during indexing. chunk_size sets the maximum token count per Node. chunk_overlap creates overlapping context between adjacent Nodes to prevent information loss at boundaries. These are the most impactful parameters for retrieval quality.</p>
+<pre class="code"><code>from llama_index.core import Settings
+
+# Default: 1024 tokens, 200 overlap
+Settings.chunk_size = 1024
+Settings.chunk_overlap = 200
+
+# For precise retrieval: smaller chunks
+Settings.chunk_size = 400
+Settings.chunk_overlap = 40
+
+# For context-rich retrieval: larger chunks
+Settings.chunk_size = 1200
+Settings.chunk_overlap = 120
+
+# Override per-index when different documents need different sizes
+from llama_index.core import VectorStoreIndex
+from llama_index.core.node_parser import SentenceSplitter
+
+# Custom splitter for this specific index
+splitter = SentenceSplitter(chunk_size=500, chunk_overlap=50)
+index = VectorStoreIndex.from_documents(
+    documents,
+    transformations=[splitter],
+)
+
+# Compare chunk counts
+Settings.chunk_size = 300
+index_small = VectorStoreIndex.from_documents(docs)
+Settings.chunk_size = 1000
+index_large = VectorStoreIndex.from_documents(docs)
+print(f"Small chunks: {len(index_small.docstore.data)}")
+print(f"Large chunks: {len(index_large.docstore.data)}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Chunk size tuning is the highest-leverage optimization in LlamaIndex. Start with 600 tokens and adjust based on retrieval quality experiments.</div>
+<div class="callout hood"><span>Under the hood</span>LlamaIndex's default splitter is SentenceSplitter, which tries to split at sentence boundaries while respecting the chunk_size limit. This produces semantically coherent chunks that are better for retrieval than arbitrary word-boundary splits.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Quickstart: Full Mini Application</h3>
+<p><strong>What &amp; why.</strong> A complete LlamaIndex application in under 20 lines: configure settings, load documents, build a vector index, and query it. This demonstrates the full workflow from data ingestion to answer generation with source attribution.</p>
+<pre class="code"><code>from llama_index.core import (
+    VectorStoreIndex, SimpleDirectoryReader, Settings
+)
+from llama_index.llms.openai import OpenAI
+from llama_index.embeddings.openai import OpenAIEmbedding
+
+# Configure
+Settings.llm = OpenAI(model="gpt-4o", temperature=0)
+Settings.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
+Settings.chunk_size = 600
+
+# Load
+documents = SimpleDirectoryReader("./data").load_data()
+print(f"Loaded {len(documents)} documents")
+
+# Index
+index = VectorStoreIndex.from_documents(documents, show_progress=True)
+
+# Query
+engine = index.as_query_engine(similarity_top_k=5)
+response = engine.query("What is the main topic of these documents?")
+print(f"\nAnswer: {response.response}")
+for node in response.source_nodes:
+    print(f"  [{node.score:.3f}] {node.text[:100]}...")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This mini application is the starting point for every LlamaIndex project. Copy it, point it at your data directory, and you have a working RAG system in seconds.</div>
+<div class="callout hood"><span>Under the hood</span>Under the hood, these 5 lines execute: file discovery, PDF/TXT/MD parsing, sentence splitting, OpenAI embedding API calls (batched), vector store creation, query embedding, similarity search, prompt construction, and LLM generation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>When to Choose LlamaIndex</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex excels when your application's primary function is querying data: document search, knowledge base Q&A, data analysis chatbots. Choose it over raw code when you need multiple index types, metadata extraction, or evaluation. Choose LangChain when you need broader orchestration (agents, chains, tools) beyond data querying.</p>
+<pre class="code"><code># Decision framework for LLM app frameworks
+
+# Choose LlamaIndex when:
+# - Core task is querying documents/data
+# - You need multiple index types (vector, summary, knowledge graph)
+# - You want built-in evaluation (faithfulness, relevancy)
+# - You need sophisticated data connectors (160+ readers)
+# - Your app is primarily RAG with minimal orchestration
+
+# Choose raw code when:
+# - Simple single-document Q&A
+# - You need maximum control over every step
+# - Minimal dependencies are critical
+
+# Example: LlamaIndex shines for multi-source routing
+from llama_index.core import VectorStoreIndex
+from llama_index.core.query_engine import RouterQueryEngine
+from llama_index.core.selectors import PydanticSingleSelector
+
+# Build indices for different document types
+policy_index = VectorStoreIndex.from_documents(load_policies())
+technical_index = VectorStoreIndex.from_documents(load_docs())
+faq_index = VectorStoreIndex.from_documents(load_faqs())
+
+# Router automatically selects the right index per query
+router = RouterQueryEngine(
+    selector=PydanticSingleSelector.from_defaults(
+        query_tools=[
+            QueryTool(description="Policies", query_engine=policy_index.as_query_engine()),
+            QueryTool(description="Technical docs", query_engine=technical_index.as_query_engine()),
+            QueryTool(description="FAQs", query_engine=faq_index.as_query_engine()),
+        ]
+    )
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LlamaIndex is the right choice for data-centric applications where the value comes from connecting LLMs to diverse data sources with sophisticated retrieval strategies.</div>
+<div class="callout hood"><span>Under the hood</span>LlamaIndex's specialization in data querying means its abstractions (Index, Retriever, QueryEngine) are more deeply optimized for this use case than general-purpose frameworks. The 160+ data connectors and multiple index types provide capabilities that take significant effort to build from scratch.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Installing LlamaIndex and Environment Setup</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex uses a modular package structure: llama-index-core provides the base framework, with optional packages for specific LLMs, vector stores, and data connectors. This keeps the dependency tree minimal while supporting hundreds of integrations.</p>
+<pre class="code"><code># Install core framework
+# pip install llama-index-core
+
+# Install common integrations
+# pip install llama-index-llms-openai
+# pip install llama-index-embeddings-openai
+# pip install llama-index-vector-stores-chroma
+
+# Or install the all-in-one bundle
+# pip install llama-index
+
+# Environment setup
+import os
+os.environ["OPENAI_API_KEY"] = "sk-..."  # or use .env
+
+# Verify installation
+from llama_index.core import Settings
+print(f"LlamaIndex core version: {Settings.__version__}")
+
+# Quick smoke test
+from llama_index.core import VectorStoreIndex, Document
+index = VectorStoreIndex.from_documents([Document(text="Test document")])
+response = index.as_query_engine().query("What is this about?")
+print(f"Smoke test passed: {response.response[:50]}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Always install only the integrations you need. The modular structure keeps dependency conflicts minimal and reduces Docker image sizes in production.</div>
+<div class="callout hood"><span>Under the hood</span>LlamaIndex's package structure mirrors its architecture: llama-index-core handles the framework logic, while integration packages provide adapter implementations for specific LLMs, vector stores, and readers. Each integration is independently versioned.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Connectors, splitters, metadata, multiple indices, routers</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Data Connectors: LlamaHub Readers</h3>
+<p><strong>What &amp; why.</strong> LlamaHub provides 160+ data connectors (readers) for loading data from diverse sources: Google Drive, Notion, Slack, Confluence, S3, websites, databases, and more. Each reader returns LlamaIndex Document objects ready for indexing, handling authentication, pagination, and format conversion.</p>
+<pre class="code"><code># pip install llama-index-readers-file
+from llama_index.readers.file import PDFReader, UnstructuredReader
+from llama_index.core import SimpleDirectoryReader
+
+# LlamaHub readers for specific sources
+# from llama_index.readers.google import GoogleDriveReader
+# from llama_index.readers.notion import NotionPageReader
+# from llama_index.readers.web import BeautifulSoupWebReader
+
+# PDF reader with page-level metadata
+reader = PDFReader()
+docs = reader.load_data(file=Path("annual_report.pdf"))
+print(f"Loaded {len(docs)} pages from PDF")
+for doc in docs[:2]:
+    print(f"  Page metadata: {doc.metadata}")
+
+# Web reader
+# web_reader = BeautifulSoupWebReader()
+# web_docs = web_reader.load_data(urls=["https://example.com/docs"])
+
+# Combined reader for mixed sources
+reader = SimpleDirectoryReader(
+    "./mixed_docs",
+    required_exts=[".pdf", ".txt", ".md", ".html"],
+    recursive=True,
+)
+docs = reader.load_data()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LlamaHub readers eliminate the need to write custom parsing logic for each data source. They handle edge cases (pagination, authentication, format variations) that custom parsers miss.</div>
+<div class="callout hood"><span>Under the hood</span>Each reader implements a load_data() method that returns list[Document]. Readers handle source-specific authentication (OAuth for Google, API keys for Notion), pagination, rate limiting, and format conversion, producing standardized Document objects.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Text Splitters: SentenceSplitter and TokenTextSplitter</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex provides multiple text splitter implementations. SentenceSplitter splits at sentence boundaries while respecting the token limit, producing semantically coherent chunks. TokenTextSplitter works at the token level for precise size control. The choice affects retrieval quality because sentence boundaries align with semantic units.</p>
+<pre class="code"><code>from llama_index.core.node_parser import SentenceSplitter, TokenTextSplitter
+from llama_index.core import Document
+
+doc = Document(text="FastAPI is a modern Python web framework. It provides automatic API documentation. Django is another popular framework. It includes an ORM and admin panel. React is a JavaScript library for building user interfaces. It uses a virtual DOM for efficient updates.")
+
+# SentenceSplitter: respects sentence boundaries
+sentence_splitter = SentenceSplitter(chunk_size=50, chunk_overlap=10)
+sentence_nodes = sentence_splitter.get_nodes_from_documents([doc])
+for node in sentence_nodes:
+    print(f"SentenceSplitter: '{node.text[:80]}'")
+
+# TokenTextSplitter: precise token-level splitting
+token_splitter = TokenTextSplitter(chunk_size=30, chunk_overlap=5)
+token_nodes = token_splitter.get_nodes_from_documents([doc])
+for node in token_nodes:
+    print(f"TokenSplitter: '{node.text[:80]}'")
+
+# Custom splitter with Markdown awareness
+from llama_index.core.node_parser import MarkdownNodeParser
+# markdown_parser = MarkdownNodeParser()
+# md_nodes = markdown_parser.get_nodes_from_documents([markdown_doc])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SentenceSplitter is the default for most use cases. Use TokenTextSplitter when you need precise token counts (e.g., staying under strict API limits). MarkdownNodeParser preserves document structure for Markdown-heavy corpora.</div>
+<div class="callout hood"><span>Under the hood</span>SentenceSplitter uses a tokenizer to count tokens and a sentence boundary detector (period, newline) to find optimal split points. It will split mid-sentence only when a single sentence exceeds the chunk_size limit.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>MetadataExtractors: Auto-Summarization</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex's MetadataExtractor nodes automatically enrich chunks with LLM-generated metadata: summaries, keywords, questions, and entity extraction. This enriched metadata improves retrieval by providing additional semantic signals and enables metadata-based filtering and citation enhancement.</p>
+<pre class="code"><code>from llama_index.core.extractors import (
+    SummaryExtractor, QuestionsAnsweredExtractor, TitleExtractor
+)
+from llama_index.core.ingestion import IngestionPipeline
+
+# Define metadata extraction pipeline
+extractors = [
+    SummaryExtractor(summaries=["self"]),
+    QuestionsAnsweredExtractor(questions=3),
+    TitleExtractor(),
+]
+
+pipeline = IngestionPipeline(transformations=[
+    SentenceSplitter(chunk_size=600, chunk_overlap=60),
+    *extractors,
+])
+
+# Process documents
+documents = SimpleDirectoryReader("./data").load_data()
+nodes = pipeline.run(documents=documents, show_progress=True)
+
+# Each node now has enriched metadata
+for node in nodes[:2]:
+    print(f"Title: {node.metadata.get('document_title')}")
+    print(f"Summary: {node.metadata.get('section_summary', '')[:100]}")
+    print(f"Questions: {node.metadata.get('questions_this_excerpt_can_answer')}")
+    print()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Metadata extraction improves retrieval quality for complex documents. Summaries enable summary-based retrieval, and generated questions match user query formulations that differ from the document text.</div>
+<div class="callout hood"><span>Under the hood</span>Each extractor makes an LLM call per Node to generate the metadata. The QuestionsAnsweredExtractor generates questions that the chunk answers, creating semantic anchors that improve retrieval for diverse query formulations.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Multiple Index Types: Summary, Tree, KG</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex supports multiple index types beyond vectors: SummaryIndex concatenates all nodes for comprehensive summarization. TreeIndex builds a hierarchical tree of summaries for multi-level aggregation. KnowledgeGraphIndex extracts entities and relationships for graph-based queries. Each type excels at different query patterns.</p>
+<pre class="code"><code>from llama_index.core import (
+    VectorStoreIndex, SummaryIndex, TreeIndex, KnowledgeGraphIndex,
+    SimpleDirectoryReader
+)
+
+documents = SimpleDirectoryReader("./data").load_data()
+
+# VectorStoreIndex: semantic similarity search
+vector_index = VectorStoreIndex.from_documents(documents)
+
+# SummaryIndex: concatenates all nodes, good for "summarize all"
+summary_index = SummaryIndex.from_documents(documents)
+summary_engine = summary_index.as_query_engine()
+response = summary_engine.query("Give me a comprehensive summary")
+print(f"Summary: {response.response[:200]}")
+
+# TreeIndex: hierarchical summarization
+tree_index = TreeIndex.from_documents(documents)
+tree_engine = tree_index.as_query_engine()
+response = tree_engine.query("What are the main themes?")
+
+# KnowledgeGraphIndex: entity-relationship queries
+kg_index = KnowledgeGraphIndex.from_documents(documents)
+kg_engine = kg_index.as_query_engine()
+response = kg_engine.query("What entities are related to revenue?")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Different query types need different index types. Use VectorStore for specific fact retrieval, SummaryIndex for overviews, TreeIndex for hierarchical questions, and KnowledgeGraphIndex for relationship queries.</div>
+<div class="callout hood"><span>Under the hood</span>SummaryIndex inserts a "summary" prompt at the start that instructs the LLM to synthesize all nodes. TreeIndex builds a tree bottom-up by summarizing node groups, then traverses the tree at query time. KnowledgeGraphIndex uses LLM-based entity extraction to build a graph stored in a triples format.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Retrievers API and similarity_top_k</h3>
+<p><strong>What &amp; why.</strong> Retrievers are the retrieval layer between the index and the query engine. They control how many nodes to fetch (similarity_top_k), apply filters, and optionally rerank results. The Retriever API is decoupled from the QueryEngine, enabling custom retrieval strategies without reimplementing generation.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+documents = SimpleDirectoryReader("./data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+
+# Default retriever with top-k
+retriever = index.as_retriever(similarity_top_k=10)
+nodes = retriever.retrieve("What is the refund policy?")
+print(f"Retrieved {len(nodes)} nodes")
+
+for node in nodes:
+    print(f"  [{node.score:.3f}] {node.text[:80]}...")
+
+# Vector index retriever with metadata filter
+from llama_index.core.vector_stores import MetadataFilters, MetadataFilter
+filters = MetadataFilters(filters=[
+    MetadataFilter(key="department", value="engineering"),
+])
+filtered_retriever = index.as_retriever(
+    similarity_top_k=5,
+    filters=filters,
+)
+filtered_nodes = filtered_retriever.retrieve("deployment process")
+print(f"Filtered: {len(filtered_nodes)} nodes")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Retrievers enable fine-grained control over the retrieval step. Use metadata filters for multi-tenant or departmental scoping. Use similarity_top_k tuning to balance recall against context window limits.</div>
+<div class="callout hood"><span>Under the hood</span>The VectorIndexRetriever embeds the query, performs similarity search in the vector store, and returns the top-k Nodes with scores. Metadata filtering happens at the vector store level before similarity search, reducing the search space.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>NodePostprocessor: Reranking and Filtering</h3>
+<p><strong>What &amp; why.</strong> NodePostprocessors transform retrieved nodes after the initial similarity search but before they are passed to the LLM. Common postprocessors include reranking (cross-encoder), keyword filtering, and score threshold filtering. They improve precision by refining the initial retrieval results.</p>
+<pre class="code"><code>from llama_index.core.postprocessor import SimilarityPostprocessor, KeywordNodePostprocessor
+from llama_index.postprocessor.cohere_rerank import CohereRerank
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+documents = SimpleDirectoryReader("./data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+
+# Score threshold: only keep nodes above a minimum similarity
+score_filter = SimilarityPostprocessor(similarity_cutoff=0.7)
+
+# Keyword filter: require or exclude specific keywords
+keyword_filter = KeywordNodePostprocessor(
+    required_keywords=["Python", "API"],
+    exclude_keywords=["deprecated", "legacy"],
+)
+
+# Cross-encoder reranking (Cohere)
+reranker = CohereRerank(model="rerank-v3.5", top_n=5)
+
+# Chain postprocessors on the query engine
+query_engine = index.as_query_engine(
+    similarity_top_k=20,
+    node_postprocessors=[score_filter, keyword_filter, reranker],
+)
+
+response = query_engine.query("FastAPI middleware patterns")
+print(f"Answer: {response.response[:200]}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>NodePostprocessors are the production refinement layer. Start with a wide retrieval (top_k=20), then apply reranking and filtering to select the best 3-5 nodes for the LLM.</div>
+<div class="callout hood"><span>Under the hood</span>Postprocessors run in sequence: the output of one is the input to the next. Score filtering removes low-quality matches, keyword filtering ensures topical relevance, and reranking reorders by cross-encoder relevance score.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>RouterQueryEngine for Multiple Documents</h3>
+<p><strong>What &amp; why.</strong> RouterQueryEngine automatically selects the best data source for each query. Given multiple indices (different departments, document types, or data sources), the router analyzes the query and routes it to the most relevant index, avoiding the need for the user to specify which source to search.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core.query_engine import RouterQueryEngine
+from llama_index.core.selectors import PydanticSingleSelector
+from llama_index.core.tools import QueryTool
+
+# Build separate indices for different data sources
+engineering_docs = SimpleDirectoryReader("./engineering").load_data()
+hr_docs = SimpleDirectoryReader("./hr").load_data()
+finance_docs = SimpleDirectoryReader("./finance").load_data()
+
+eng_index = VectorStoreIndex.from_documents(engineering_docs)
+hr_index = VectorStoreIndex.from_documents(hr_docs)
+fin_index = VectorStoreIndex.from_documents(finance_docs)
+
+# Create query tools for each source
+tools = [
+    QueryTool.from_defaults(
+        query_engine=eng_index.as_query_engine(),
+        description="Technical documentation, APIs, architecture decisions",
+    ),
+    QueryTool.from_defaults(
+        query_engine=hr_index.as_query_engine(),
+        description="HR policies, benefits, leave, onboarding",
+    ),
+    QueryTool.from_defaults(
+        query_engine=fin_index.as_query_engine(),
+        description="Financial reports, budgets, expense policies",
+    ),
+]
+
+# Router selects the right tool per query
+router = RouterQueryEngine(
+    selector=PydanticSingleSelector.from_defaults(query_tools=tools),
+)
+
+# "What is our API rate limiting policy?" -> routes to engineering
+# "How many vacation days do I get?" -> routes to HR
+# "What was Q3 revenue?" -> routes to finance</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>RouterQueryEngine is essential for multi-department or multi-domain knowledge bases. It eliminates the need for users to know which data source contains their answer.</div>
+<div class="callout hood"><span>Under the hood</span>The router uses the LLM to analyze the query against tool descriptions, selecting the best match. It then delegates retrieval and generation to the selected index, returning a unified Response object regardless of the underlying source.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>SubQuestionQueryEngine for Query Decomposition</h3>
+<p><strong>What &amp; why.</strong> Complex questions often require information from multiple documents or sub-queries. SubQuestionQueryEngine decomposes a complex question into simpler sub-queries, executes each against the appropriate data source, and synthesizes the results into a comprehensive answer. This handles multi-hop reasoning without explicit agent loops.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core.query_engine import SubQuestionQueryEngine
+from llama_index.core.tools import QueryTool
+
+# Build indices for different data domains
+products = VectorStoreIndex.from_documents(
+    SimpleDirectoryReader("./products").load_data()
+)
+reviews = VectorStoreIndex.from_documents(
+    SimpleDirectoryReader("./reviews").load_data()
+)
+
+# Create query tools
+tools = [
+    QueryTool.from_defaults(
+        query_engine=products.as_query_engine(),
+        description="Product specifications, pricing, features",
+    ),
+    QueryTool.from_defaults(
+        query_engine=reviews.as_query_engine(),
+        description="Customer reviews, ratings, complaints",
+    ),
+]
+
+# SubQuestionQueryEngine decomposes complex queries
+# "What are the top complaints about the most expensive product?"
+# becomes:
+#   sub_q1: "What is the most expensive product?"
+#   sub_q2: "What are the complaints about [product from sub_q1]?"
+engine = SubQuestionQueryEngine.from_defaults(query_tools=tools)
+
+response = engine.query(
+    "What are the main complaints about the most expensive product?"
+)
+print(f"Answer: {response.response}")
+print(f"Sub-questions: {len(response.metadata.get('sub_questions', []))}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SubQuestionQueryEngine handles multi-hop questions that require chaining information from different sources. It is essential for complex analytical queries across multiple knowledge bases.</div>
+<div class="callout hood"><span>Under the hood</span>The engine uses the LLM to decompose the query into sub-questions, determines which tool answers each sub-question, executes them in dependency order, and synthesizes the sub-answers into a final response. It handles up to 3 levels of decomposition.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>ChatEngine with Condense and React Modes</h3>
+<p><strong>What &amp; why.</strong> ChatEngine wraps a query engine with conversation memory, enabling multi-turn dialogues. Condense mode rewrites follow-up questions using chat history before retrieval. React mode uses an LLM agent that can call the retriever as a tool, deciding dynamically when to search and when to answer from chat history.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+documents = SimpleDirectoryReader("./data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+
+# CondenseChatMode: rewrites follow-up queries with history
+chat_engine = index.as_chat_engine(
+    chat_mode="condense",
+    verbose=True,
+)
+
+# First turn
+response1 = chat_engine.chat("What is the refund policy?")
+print(f"AI: {response1.response}")
+
+# Follow-up uses chat history to resolve "it" and "that policy"
+response2 = chat_engine.chat("Can I return items after 60 days?")
+print(f"AI: {response2.response}")
+
+# React mode: LLM decides when to use the retriever
+react_engine = index.as_chat_engine(
+    chat_mode="react",
+    verbose=True,
+)
+response = react_engine.chat("What about electronics returns?")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ChatEngine is the standard interface for conversational RAG applications. Condense mode is simpler and faster; React mode is more flexible for complex multi-turn interactions.</div>
+<div class="callout hood"><span>Under the hood</span>Condense mode prepends chat history to the query, asking the LLM to rewrite it as a standalone question, then retrieves and generates. React mode uses a ReAct agent loop where the LLM decides whether to call the retriever tool or answer from memory at each turn.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Custom Prompts for Insertion and Query</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex uses prompt templates for every LLM interaction: chunk summarization during indexing, query answering during retrieval, and question generation during metadata extraction. Customizing these templates controls how the LLM processes and responds to your specific data patterns.</p>
+<pre class="code"><code>from llama_index.core import PromptTemplate
+
+# Custom QA prompt with citation instructions
+qa_prompt = PromptTemplate(
+    template=(
+        "Context information is below.\n"
+        "---------------------\n"
+        "{context_str}\n"
+        "---------------------\n"
+        "Given the context information and not prior knowledge, "
+        "answer the question: {query_str}\n\n"
+        "If the answer is not in the context, say 'I don't have enough "
+        "information to answer this question.' Cite specific parts of "
+        "the context using [Source N] notation."
+    ),
+)
+
+# Custom summary prompt for indexing
+summary_prompt = PromptTemplate(
+    template=(
+        "Summarize the following text in 2-3 sentences, focusing on "
+        "key facts, numbers, and technical details:\n{text}\n\n"
+        "Summary:"
+    ),
+)
+
+# Apply to query engine
+from llama_index.core import VectorStoreIndex
+index = VectorStoreIndex.from_documents(documents)
+query_engine = index.as_query_engine(
+    text_qa_template=qa_prompt,
+    summary_template=summary_prompt,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Custom prompts are the highest-impact customization for domain-specific applications. Medical, legal, and financial RAG systems require specialized prompting to produce accurate, compliant answers.</div>
+<div class="callout hood"><span>Under the hood</span>PromptTemplate uses Python string formatting with named variables. The template variables {context_str} and {query_str} are populated by LlamaIndex during the query flow. Custom templates must include these variables or the pipeline will fail.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Storage backends, composable graphs, agents, evaluation, observability</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Storage Backends: Chroma, Qdrant, Postgres</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex supports multiple vector store backends, each with different performance characteristics. ChromaDB is the default for local development. Qdrant provides production-grade performance with filtering. Postgres with pgvector leverages existing database infrastructure. The choice affects performance, scalability, and operational complexity.</p>
+<pre class="code"><code># ChromaDB: local development, simple setup
+from llama_index.vector_stores.chroma import ChromaVectorStore
+import chromadb
+
+chroma = chromadb.PersistentClient(path="./chroma_db")
+collection = chroma.get_or_create_collection("docs")
+vector_store = ChromaVectorStore(chroma_collection=collection)
+
+# Qdrant: production-grade with advanced filtering
+# pip install llama-index-vector-stores-qdrant
+from llama_index.vector_stores.qdrant import QdrantVectorStore
+vector_store = QdrantVectorStore(
+    collection_name="docs",
+    url="http://localhost:6333",
+)
+
+# Postgres with pgvector: leverage existing infrastructure
+# pip install llama-index-vector-stores-postgres
+from llama_index.vector_stores.postgres import PostgresVectorStore
+vector_store = PostgresVectorStore(
+    host="localhost",
+    port=5432,
+    database="vectordb",
+    table_name="docs",
+)
+
+# Use any backend with VectorStoreIndex
+from llama_index.core import VectorStoreIndex, StorageContext
+storage_context = StorageContext.from_defaults(vector_store=vector_store)
+index = VectorStoreIndex.from_documents(documents, storage_context=storage_context)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ChromaDB for prototyping, Qdrant for production workloads requiring advanced filtering, Postgres when you want to leverage existing database infrastructure and team expertise.</div>
+<div class="callout hood"><span>Under the hood</span>Each vector store adapter implements the same BasePydanticVectorStore interface, swapping only the storage and query mechanics. This enables switching backends with a single import change, no code modifications to the index or retrieval logic.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Composable Graphs: DAG of Indices</h3>
+<p><strong>What &amp; why.</strong> ComposableGraph connects multiple indices in a directed acyclic graph (DAG), enabling complex query flows. For example, a DocumentSummaryIndex provides overview answers, while a VectorStoreIndex handles specific queries. The graph structure defines how queries flow between indices based on their nature.</p>
+<pre class="code"><code>from llama_index.core import ComposableGraph, VectorStoreIndex, SummaryIndex, SimpleDirectoryReader
+
+documents = SimpleDirectoryReader("./data").load_data()
+
+# Build individual indices
+vector_index = VectorStoreIndex.from_documents(documents)
+summary_index = SummaryIndex.from_documents(documents)
+
+# Connect them in a graph
+graph = ComposableGraph.from_indices(
+    build_tree=True,  # auto-build routing structure
+    children_indices=[vector_index, summary_index],
+    index_summary="Vector search for specific facts, summary for overviews",
+)
+
+# Query the graph - routes automatically
+query_engine = graph.as_query_engine()
+response = query_engine.query("Summarize the key points about security")
+print(f"Graph response: {response.response}")
+
+# Custom graph with explicit routing
+from llama_index.core.query_engine import SubQuestionQueryEngine
+from llama_index.core.tools import QueryTool
+
+tools = [
+    QueryTool.from_defaults(vector_index.as_query_engine(), "Specific fact search"),
+    QueryTool.from_defaults(summary_index.as_query_engine(), "Summarization"),
+]
+sub_engine = SubQuestionQueryEngine.from_defaults(query_tools=tools)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ComposableGraphs enable multi-index architectures where different data representations serve different query types. This is essential for large knowledge bases where no single index type handles all queries optimally.</div>
+<div class="callout hood"><span>Under the hood</span>The ComposableGraph stores indices as nodes in a DAG. At query time, it traverses the graph to determine which indices to query, collects results from each, and synthesizes a unified response. The tree-based routing uses the LLM to select the appropriate child index.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Agents + Tools from Query Engines</h3>
+<p><strong>What &amp; why.</strong> Any LlamaIndex query engine can be wrapped as a tool that an agent can call. This converts a data query into a function the agent can invoke when it determines the query requires external knowledge. The agent orchestrates multiple tools, handles multi-step reasoning, and synthesizes results.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core.agent import ReActAgent
+from llama_index.core.tools import QueryTool, FunctionTool
+
+# Build a knowledge index
+documents = SimpleDirectoryReader("./docs").load_data()
+knowledge_index = VectorStoreIndex.from_documents(documents)
+
+# Wrap as a tool
+knowledge_tool = QueryTool.from_defaults(
+    query_engine=knowledge_index.as_query_engine(),
+    description="Search the company knowledge base for policies, procedures, and technical docs",
+)
+
+# Add a custom function tool
+def calculate_budget(annual_revenue: float) -> str:
+    """Calculate the R&D budget as 15% of annual revenue."""
+    budget = annual_revenue * 0.15
+    return f"R&D budget: ${budget:,.0f}"
+
+budget_tool = FunctionTool.from_defaults(fn=calculate_budget)
+
+# Create agent with multiple tools
+agent = ReActAgent.from_tools(
+    tools=[knowledge_tool, budget_tool],
+    verbose=True,
+)
+
+# Agent decides which tool to use per query
+response = agent.chat("What is our API rate limit and what should the R&D budget be for $10M revenue?")
+print(response)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Agents from query engines enable complex workflows where the LLM decides which knowledge source to query, when to compute values, and how to combine results from multiple tools.</div>
+<div class="callout hood"><span>Under the hood</span>ReActAgent uses a reasoning-action loop: it thinks about what the user needs, selects a tool, observes the result, and repeats until it has enough information to answer. QueryTool wrappers handle the embedding-retrieve-generate pipeline transparently.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Multi-Document Agent Architecture</h3>
+<p><strong>What &amp; why.</strong> Multi-document agents maintain separate indices per document or document group, with a coordinator agent that routes queries to the appropriate sub-agent. This architecture scales to hundreds of documents while maintaining retrieval precision, because each sub-agent has a focused, smaller index.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core.agent import ReActAgent
+from llama_index.core.tools import QueryTool
+from pathlib import Path
+
+def build_multi_doc_agent(docs_dir: str) -> ReActAgent:
+    """Build an agent with one tool per document."""
+    tools = []
+    for doc_path in Path(docs_dir).glob("*.pdf"):
+        docs = SimpleDirectoryReader(input_files=[doc_path]).load_data()
+        doc_index = VectorStoreIndex.from_documents(docs)
+        tool = QueryTool.from_defaults(
+            query_engine=doc_index.as_query_engine(),
+            description=f"Information from {doc_path.stem}",
+        )
+        tools.append(tool)
+
+    return ReActAgent.from_tools(tools=tools, verbose=True)
+
+agent = build_multi_doc_agent("./documents/")
+# Agent routes to the right document per query
+response = agent.chat("What does the Q3 report say about revenue growth?")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-document agents scale to large document collections without degrading retrieval quality. Each sub-agent operates on a small, focused index, maintaining precision while the coordinator handles routing.</div>
+<div class="callout hood"><span>Under the hood</span>The coordinator agent uses tool descriptions to determine which document to query. Each sub-agent performs retrieval independently, and the coordinator synthesizes results when queries require information from multiple documents.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Evaluation Module: Faithfulness, Relevancy, Correctness</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex provides built-in evaluation metrics that measure RAG quality without ground-truth labels. Faithfulness checks if the answer is grounded in the retrieved context. Answer relevancy checks if the answer addresses the query. Context relevancy checks if the retrieved context is relevant to the query. Together they provide a comprehensive quality assessment.</p>
+<pre class="code"><code>from llama_index.core.evaluation import (
+    FaithfulnessEvaluator, RelevancyEvaluator, CorrectnessEvaluator
+)
+from llama_index.llms.openai import OpenAI
+
+llm = OpenAI(model="gpt-4o")
+
+# Create evaluators
+faithfulness_eval = FaithfulnessEvaluator(llm=llm)
+relevancy_eval = RelevancyEvaluator(llm=llm)
+correctness_eval = CorrectnessEvaluator(llm=llm)
+
+# Evaluate a query-response pair
+query = "What is the refund policy?"
+response = query_engine.query(query)
+
+# Faithfulness: is the answer grounded in context?
+faith_result = faithfulness_eval.evaluate_response(
+    query=query,
+    response=response,
+    contexts=[node.text for node in response.source_nodes],
+)
+print(f"Faithful: {faith_result.passing}, Score: {faith_result.score}")
+
+# Relevancy: does the answer address the query?
+rel_result = relevancy_eval.evaluate_response(
+    query=query, response=response,
+    contexts=[node.text for node in response.source_nodes],
+)
+print(f"Relevant: {rel_result.passing}, Score: {rel_result.score}")
+
+# Batch evaluation over a dataset
+from llama_index.core.evaluation import batch_evaluate
+eval_results = batch_evaluate(
+    eval_fn=faithfulness_eval.evaluate_response,
+    queries=sample_queries,
+    responses=sample_responses,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Evaluation is mandatory before production deployment. Run faithfulness, relevancy, and correctness on a sample set of 50+ queries to establish baseline quality and detect regressions after changes.</div>
+<div class="callout hood"><span>Under the hood</span>Each evaluator uses the configured LLM as a judge to assess the quality dimension. Faithfulness checks each claim against context. Relevancy generates synthetic questions from the answer and checks alignment. Correctness compares against a reference answer when available.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>LlamaParse for Complex PDF Parsing</h3>
+<p><strong>What &amp; why.</strong> LlamaParse is a hosted PDF parsing service that handles complex layouts: multi-column text, tables, images, headers/footers, and scanned documents. It produces clean, structured markdown output that standard PDF parsers cannot achieve, significantly improving downstream RAG quality for layout-heavy documents.</p>
+<pre class="code"><code># pip install llama-parse
+from llama_parse import LlamaParse
+from llama_index.core import VectorStoreIndex
+
+# Initialize LlamaParse (requires API key)
+parser = LlamaParse(
+    api_key="your-llama-parse-api-key",
+    result_mode="markdown",  # output as clean markdown
+    split_by_page=True,     # one document per page
+)
+
+# Parse complex PDFs
+documents = parser.load_data("./complex_report.pdf")
+print(f"Parsed {len(documents)} pages")
+
+# Each document contains clean markdown with table formatting
+for doc in documents[:2]:
+    print(f"Page content preview: {doc.text[:200]}")
+    print(f"Metadata: {doc.metadata}")
+    print()
+
+# Use parsed documents with LlamaIndex
+index = VectorStoreIndex.from_documents(documents)
+response = index.as_query_engine().query("What are the Q3 revenue figures?")
+print(response.response)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LlamaParse is essential for enterprise RAG where documents contain complex tables, multi-column layouts, or scanned content. Standard PDF parsers lose table structure and merge column text, destroying information needed for accurate retrieval.</div>
+<div class="callout hood"><span>Under the hood</span>LlamaParse uses a combination of OCR, layout analysis, and LLM-based parsing to extract structured content from PDFs. It produces markdown with proper table formatting, list nesting, and heading hierarchy that standard text extraction misses.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Streaming Responses</h3>
+<p><strong>What &amp;why.</strong> LlamaIndex supports streaming for both query and chat engines, yielding tokens as they are generated. Streaming reduces perceived latency and improves user experience for long answers. The Response object is still fully populated after streaming completes, including source nodes and metadata.</p>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+
+documents = SimpleDirectoryReader("./data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+
+# Streaming query engine
+query_engine = index.as_query_engine(streaming=True)
+
+# Stream response tokens
+streaming_response = query_engine.query("Explain the architecture of our system")
+streaming_response.print_response_stream()
+
+# Or iterate over tokens manually
+for token in streaming_response.response_gen:
+    print(token, end="", flush=True)
+print()
+
+# Source nodes are still available after streaming
+print(f"\nSources: {len(streaming_response.source_nodes)}")
+for node in streaming_response.source_nodes:
+    print(f"  [{node.score:.3f}] {node.text[:80]}...")
+
+# Streaming chat engine
+chat_engine = index.as_chat_engine(chat_mode="condense", streaming=True)
+streaming_chat = chat_engine.chat("Tell me more about the deployment process")
+for token in streaming_chat.response_gen:
+    print(token, end="", flush=True)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Streaming is essential for chat interfaces and long-form generation. It provides immediate feedback while the full answer is being generated, dramatically improving perceived responsiveness.</div>
+<div class="callout hood"><span>Under the hood</span>Streaming wraps the LLM's streaming API, yielding text chunks as they are generated. The full Response object (with source_nodes) is constructed after streaming completes. In FastAPI, use StreamingResponse to send SSE events to the frontend.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Property graphs, deployment, cost, benchmarks, upgrades</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Property Graph Index: Deep Use</h3>
+<p><strong>What &amp; why.</strong> PropertyGraphIndex extends the basic KnowledgeGraphIndex by storing structured properties (not just triples) on both nodes and edges. This enables richer queries: filtering by entity attributes, traversing typed relationships, and combining graph traversal with vector similarity for hybrid graph-vector search.</p>
+<pre class="code"><code>from llama_index.core import PropertyGraphIndex, SimpleDirectoryReader
+
+documents = SimpleDirectoryReader("./data").load_data()
+
+# Build property graph with entity and relationship extraction
+index = PropertyGraphIndex.from_documents(
+    documents,
+    kg_extractors=[],  # uses default LLM-based extraction
+    embed_kg_nodes=True,  # enable vector search over graph nodes
+)
+
+# Query the property graph
+query_engine = index.as_query_engine()
+response = query_engine.query("What companies are related to our revenue?")
+print(response.response)
+
+# Access the underlying graph for custom traversal
+kg = index.property_graph_store
+# kg.query("MATCH (e:Company)-[:REVENUE_FROM]->(r:Revenue) RETURN e, r")
+
+# Hybrid: vector similarity over graph nodes
+vector_qe = index.as_query_engine(
+    similarity_top_k=5,
+    include_graph=True,  # also return graph context
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>PropertyGraphIndex is essential for domains with rich entity-relationship structures: supply chains, organizational hierarchies, financial networks, and research citation graphs.</div>
+<div class="callout hood"><span>Under the hood</span>The PropertyGraphIndex stores entities as nodes with typed properties, relationships as edges with properties, and supports both graph traversal queries and vector similarity search. embed_kg_nodes=True adds embeddings to graph nodes for hybrid retrieval.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Workflow Events Architecture (Beta)</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex Workflows provide a declarative way to define multi-step pipelines using events and handlers. Each step emits events that trigger downstream handlers, creating a reactive architecture. This replaces complex agent loops with explicit, testable pipeline definitions.</p>
+<pre class="code"><code># Workflows are in beta as of 2024
+# from llama_index.core.workflow import Workflow, step, StartEvent, StopEvent
+
+# Conceptual workflow for RAG pipeline
+class RAGWorkflow(Workflow):
+    @step
+    async def ingest(self, event: StartEvent) -> StopEvent:
+        # Step 1: load and index documents
+        docs = SimpleDirectoryReader(event.data_dir).load_data()
+        index = VectorStoreIndex.from_documents(docs)
+        return StopEvent(result=index)
+
+    @step
+    async def query(self, index, query: str) -> str:
+        # Step 2: retrieve and generate
+        engine = index.as_query_engine()
+        response = engine.query(query)
+        return response.response
+
+# Workflows provide:
+# - Explicit step definitions (easier to debug than agent loops)
+# - Event-driven execution (steps run when events arrive)
+# - Built-in observability (step timing, error tracking)
+# - Testability (each step can be tested independently)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Workflows are the future of LlamaIndex pipeline orchestration. They provide the explicitness of code with the flexibility of event-driven architecture, replacing complex agent chains with testable, observable steps.</div>
+<div class="callout hood"><span>Under the hood</span>Workflows use Python async generators and event dispatching. Each @step decorator registers a handler for specific event types. The workflow engine routes events to handlers, manages state, and handles errors with retries and timeouts.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Deployment Patterns: FastAPI Service</h3>
+<p><strong>What &amp; why.</strong> Production LlamaIndex applications are typically deployed as FastAPI services that load the index at startup, expose query endpoints, and handle concurrent requests. Key patterns include pre-loading indices at startup, async query handling, and health checks that verify index integrity.</p>
+<pre class="code"><code>from fastapi import FastAPI
+from llama_index.core import VectorStoreIndex, load_index_from_storage, StorageContext
+from pydantic import BaseModel
+import uvicorn
+
+app = FastAPI(title="RAG Service")
+
+# Load index at startup (not per request)
+@app.on_event("startup")
+async def load_index():
+    global query_engine
+    storage_context = StorageContext.from_defaults(persist_dir="./index_storage")
+    index = load_index_from_storage(storage_context)
+    query_engine = index.as_query_engine(similarity_top_k=5)
+
+class QueryRequest(BaseModel):
+    question: str
+    top_k: int = 5
+
+class QueryResponse(BaseModel):
+    answer: str
+    sources: list[dict]
+
+@app.post("/query", response_model=QueryResponse)
+async def query_index(request: QueryRequest):
+    response = query_engine.query(request.question)
+    return QueryResponse(
+        answer=response.response,
+        sources=[
+            {"text": n.text[:200], "score": n.score}
+            for n in response.source_nodes
+        ],
+    )
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "index_loaded": query_engine is not None}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>FastAPI is the standard deployment pattern for LlamaIndex services. Pre-loading the index avoids per-request latency from storage I/O and index reconstruction.</div>
+<div class="callout hood"><span>Under the hood</span>The index is loaded once at startup and shared across all requests. FastAPI's async request handling enables concurrent queries without blocking. Use Gunicorn with Uvicorn workers for production deployment with horizontal scaling.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Cost Control: Token Accounting per Component</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex operations consume tokens at multiple stages: embedding during indexing, LLM calls during metadata extraction, and LLM calls during querying. Tracking token usage per component reveals cost drivers and enables targeted optimization. LlamaIndex provides built-in token counting through callbacks.</p>
+<pre class="code"><code>from llama_index.core import Settings
+from llama_index.core.callbacks import CallbackManager, TokenCountingHandler
+from llama_index.llms.openai import OpenAI
+
+# Set up token counting
+tokenizer = Settings.tokenizer or Settings.llm.tokenizer
+token_counter = TokenCountingHandler(tokenizer=tokenizer)
+callback_manager = CallbackManager([token_counter])
+Settings.callback_manager = callback_manager
+
+# Run queries and track tokens
+index = VectorStoreIndex.from_documents(documents)
+query_engine = index.as_query_engine()
+
+response = query_engine.query("What is the refund policy?")
+
+# Print token usage breakdown
+token_counter.print_total_token_counts()
+# Shows: embedding tokens, LLM prompt tokens, LLM completion tokens
+# Enables cost calculation:
+# Embedding: $0.02/1M tokens (text-embedding-3-small)
+# LLM input: $2.50/1M tokens (gpt-4o)
+# LLM output: $10.00/1M tokens (gpt-4o)
+
+# Estimate cost per query
+embed_cost = token_counter.total_embedding_token_count * 0.02 / 1_000_000
+llm_cost = (token_counter.total_llm_token_count * 2.50 + 
+            token_counter.total_llm_completion_token_count * 10.00) / 1_000_000
+print(f"Estimated cost per query: ${embed_cost + llm_cost:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Token accounting is essential for budgeting and cost optimization. Track tokens per query to identify expensive operations and set per-user token budgets.</div>
+<div class="callout hood"><span>Under the hood</span>TokenCountingHandler intercepts every LLM and embedding call, accumulating token counts. The callback manager pattern means token counting adds zero overhead when not configured, and can be toggled per-request for production cost monitoring.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Production Checklist: Caching, Retries, Timeouts</h3>
+<p><strong>What &amp; why.</strong> Production LlamaIndex deployments need resilience patterns: caching LLM responses to avoid redundant calls, retry logic for transient API failures, and timeouts to prevent hung requests. These patterns prevent cascading failures and reduce costs from repeated API calls.</p>
+<pre class="code"><code>from llama_index.core import Settings
+from llama_index.llms.openai import OpenAI
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+# LLM with built-in caching (OpenAI SDK caches automatically)
+Settings.llm = OpenAI(model="gpt-4o", temperature=0)
+
+# Custom retry wrapper for LlamaIndex operations
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+def robust_query(query_engine, query: str):
+    """Query with automatic retry on transient failures."""
+    try:
+        return query_engine.query(query)
+    except Exception as e:
+        if "rate_limit" in str(e).lower():
+            raise  # retry on rate limits
+        if "timeout" in str(e).lower():
+            raise  # retry on timeouts
+        raise  # don't retry on permanent errors
+
+# Timeout configuration
+import httpx
+Settings.timeout = 30  # seconds
+
+# Health check with index validation
+def health_check(query_engine) -> dict:
+    try:
+        response = query_engine.query("test")
+        return {"status": "healthy", "source_nodes": len(response.source_nodes)}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Retry logic and timeouts are mandatory for production. OpenAI's API has rate limits and occasional timeouts; without retries, user-facing errors spike during traffic surges.</div>
+<div class="callout hood"><span>Under the hood</span>The OpenAI Python SDK includes automatic retries with exponential backoff for 429 (rate limit) and 500 (server error) responses. Tenacity provides application-level retries for LlamaIndex operations that wrap the SDK.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Upgrading LlamaIndex: Breaking Changes Playbook</h3>
+<p><strong>What &amp; why.</strong> LlamaIndex evolves rapidly with frequent breaking changes between versions. A structured upgrade playbook prevents production surprises: pin versions, test in staging, handle import path changes, and validate index compatibility. The most common breaking changes are import reorganization and API signature changes.</p>
+<pre class="code"><code># Version pinning in requirements.txt
+# llama-index-core==0.10.68
+# llama-index-llms-openai==0.1.22
+# llama-index-embeddings-openai==0.1.10
+# llama-index-vector-stores-chroma==0.1.8
+
+# Common import path changes (v0.9 -> v0.10):
+# OLD: from llama_index import VectorStoreIndex
+# NEW: from llama_index.core import VectorStoreIndex
+
+# OLD: from llama_index.llms import OpenAI
+# NEW: from llama_index.llms.openai import OpenAI
+
+# OLD: from llama_index.vector_stores import ChromaVectorStore
+# NEW: from llama_index.vector_stores.chroma import ChromaVectorStore
+
+# Upgrade validation script
+def validate_upgrade():
+    """Check that all imports resolve after upgrade."""
+    imports = [
+        ("llama_index.core", "VectorStoreIndex"),
+        ("llama_index.core", "SimpleDirectoryReader"),
+        ("llama_index.core", "Settings"),
+        ("llama_index.llms.openai", "OpenAI"),
+        ("llama_index.embeddings.openai", "OpenAIEmbedding"),
+    ]
+    for module, attr in imports:
+        try:
+            mod = __import__(module, fromlist=[attr])
+            getattr(mod, attr)
+            print(f"OK: {module}.{attr}")
+        except (ImportError, AttributeError) as e:
+            print(f"BREAKING: {module}.{attr} - {e}")
+
+validate_upgrade()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pin all LlamaIndex packages to exact versions in production. Test upgrades in a staging environment with your actual documents and queries before deploying to production.</div>
+<div class="callout hood"><span>Under the hood</span>LlamaIndex follows a modular release cycle where core and integration packages are versioned independently. Breaking changes typically occur in major releases (0.9 to 0.10). The changelog documents migration paths for common patterns.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Research-Paper Library with Sub-Question Answers</h3>
+<p>Build a research assistant that ingests academic papers, indexes them with metadata extraction, and answers complex multi-hop research questions by decomposing them into sub-queries across different papers.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Ingest a collection of PDF papers using LlamaParse for clean extraction of text, tables, and figures</li><li>Apply MetadataExtractor to generate summaries, keywords, and questions for each chunk</li><li>Build a VectorStoreIndex with 600-token chunks and store in ChromaDB with paper-level metadata</li><li>Wrap the index as a QueryTool and create a SubQuestionQueryEngine for multi-hop reasoning</li><li>Add CohereRerank postprocessor to improve top-5 precision after initial top-20 retrieval</li><li>Build a Gradio interface with streaming responses and source paper citations</li><li>Implement batch evaluation with FaithfulnessEvaluator and RelevancyEvaluator on 30 sample queries</li><li>Add paper comparison mode that retrieves from multiple papers and synthesizes cross-paper insights</li></ol>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core.extractors import SummaryExtractor, QuestionsAnsweredExtractor
+from llama_index.core.ingestion import IngestionPipeline
+from llama_index.core.node_parser import SentenceSplitter
+
+# Ingest with metadata extraction
+pipeline = IngestionPipeline(transformations=[
+    SentenceSplitter(chunk_size=600, chunk_overlap=60),
+    SummaryExtractor(summaries=["self"]),
+    QuestionsAnsweredExtractor(questions=3),
+])
+
+docs = SimpleDirectoryReader("./papers").load_data()
+nodes = pipeline.run(documents=docs, show_progress=True)
+
+# Build index
+index = VectorStoreIndex(nodes)
+engine = index.as_query_engine(similarity_top_k=10)
+
+# Complex research question decomposition
+from llama_index.core.query_engine import SubQuestionQueryEngine
+from llama_index.core.tools import QueryTool
+
+query_tools = [QueryTool.from_defaults(engine, "Research paper search")]
+sub_engine = SubQuestionQueryEngine.from_defaults(query_tools=query_tools)
+response = sub_engine.query(
+    "How do recent papers compare attention mechanisms with state-space models?"
+)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>LlamaParse for complex academic PDF extraction</li><li>Metadata extraction pipeline for enrichment</li><li>SubQuestionQueryEngine for multi-hop reasoning</li><li>Reranking with Cohere for precision improvement</li><li>Batch evaluation with built-in LlamaIndex evaluators</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Company-Wiki Chat with Department Router</h3>
+<p>Build a chatbot that routes employee questions to the correct department's knowledge base using RouterQueryEngine, with conversation memory and department-scoped access control.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Ingest department wikis from Notion/Confluence exports using LlamaHub readers into separate indices</li><li>Apply department metadata to all chunks during ingestion for access control</li><li>Build a RouterQueryEngine with PydanticSingleSelector that routes based on query content</li><li>Add metadata filtering to each retriever to enforce department-level access control</li><li>Wrap the router in a ChatEngine with condense mode for multi-turn conversations</li><li>Deploy as a FastAPI service with JWT-based department claim extraction</li><li>Add streaming responses with token-by-token output to the frontend</li><li>Implement evaluation suite with 20 queries per department measuring faithfulness and relevancy</li></ol>
+<pre class="code"><code>from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core.query_engine import RouterQueryEngine
+from llama_index.core.selectors import PydanticSingleSelector
+from llama_index.core.tools import QueryTool
+from llama_index.core.vector_stores import MetadataFilters, MetadataFilter
+
+departments = ["engineering", "hr", "finance", "marketing"]
+tools = []
+
+for dept in departments:
+    docs = SimpleDirectoryReader(f"./{dept}_wiki").load_data()
+    for doc in docs:
+        doc.metadata["department"] = dept
+    index = VectorStoreIndex.from_documents(docs)
+    
+    # Scoped retriever
+    filters = MetadataFilters(filters=[
+        MetadataFilter(key="department", value=dept),
+    ])
+    engine = index.as_query_engine(
+        similarity_top_k=5,
+        filters=filters,
+    )
+    tools.append(QueryTool.from_defaults(
+        query_engine=engine,
+        description=f"{dept.capitalize()} department policies and procedures",
+    ))
+
+router = RouterQueryEngine(
+    selector=PydanticSingleSelector.from_defaults(query_tools=tools),
+)
+
+# Chat engine with memory
+chat = router.as_chat_engine(chat_mode="condense", streaming=True)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>RouterQueryEngine for automatic department routing</li><li>Metadata filtering for access control</li><li>LlamaHub data connectors for enterprise sources</li><li>Streaming chat with conversation memory</li><li>FastAPI deployment with JWT department claims</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Parsed Financial PDF Analyst with Citations</h3>
+<p>Build a financial document analyst that uses LlamaParse to extract complex tables and charts from annual reports, then answers financial questions with precise cell-level citations back to specific table rows.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Parse financial PDFs with LlamaParse in markdown mode to preserve table structure and formatting</li><li>Split parsed markdown into chunks that respect table boundaries using MarkdownNodeParser</li><li>Extract financial entity metadata (company name, fiscal year, metric type) using MetadataExtractor</li><li>Build a VectorStoreIndex with 400-token chunks for precise financial data retrieval</li><li>Implement a custom prompt template that requires the LLM to cite specific table cells</li><li>Add a comparison tool that retrieves the same metric across multiple fiscal years</li><li>Build a Gradio interface with document upload, query input, and formatted citation display</li><li>Evaluate on 30 financial questions with ground-truth answers using CorrectnessEvaluator</li></ol>
+<pre class="code"><code>from llama_parse import LlamaParse
+from llama_index.core import VectorStoreIndex
+from llama_index.core.node_parser import MarkdownNodeParser
+from llama_index.core import PromptTemplate
+
+# Parse complex financial PDFs
+parser = LlamaParse(api_key="...", result_mode="markdown")
+docs = parser.load_data("./annual_report_2024.pdf")
+
+# Parse markdown preserving table structure
+md_parser = MarkdownNodeParser()
+nodes = md_parser.get_nodes_from_documents(docs)
+
+# Custom financial QA prompt
+finance_qa = PromptTemplate(
+    template=(
+        "You are a financial analyst. Answer using ONLY the context below.\n"
+        "For numerical claims, cite the specific table or section.\n\n"
+        "Context:\n{context_str}\n\n"
+        "Question: {query_str}\n\n"
+        "Answer with citations:"
+    ),
+)
+
+index = VectorStoreIndex(nodes)
+engine = index.as_query_engine(text_qa_template=finance_qa, similarity_top_k=5)
+
+# Financial comparison tool
+def compare_fiscal_years(metric: str) -> str:
+    """Compare a financial metric across fiscal years."""
+    results = []
+    for year in ["2022", "2023", "2024"]:
+        response = engine.query(f"What was {metric} in fiscal year {year}?")
+        results.append(f"FY{year}: {response.response}")
+    return "\n".join(results)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>LlamaParse for complex financial PDF table extraction</li><li>MarkdownNodeParser for structure-preserving chunking</li><li>Custom prompt templates for domain-specific output</li><li>Cross-document comparison tools</li><li>CorrectnessEvaluator for ground-truth financial QA</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>LlamaIndex purpose</td><td>Data framework connecting LLMs with external data</td><td>VectorStoreIndex.from_documents()</td></tr>
+<tr><td>Document model</td><td>Raw source file with text and metadata</td><td>Document(text="...", metadata={})</td></tr>
+<tr><td>Node model</td><td>Chunked piece with relationships and source reference</td><td>Auto-created during indexing</td></tr>
+<tr><td>SimpleDirectoryReader</td><td>Auto-detect and load files from a directory</td><td>SimpleDirectoryReader("./data").load_data()</td></tr>
+<tr><td>VectorStoreIndex</td><td>Embed and index documents for similarity search</td><td>VectorStoreIndex.from_documents(docs)</td></tr>
+<tr><td>query_engine.query()</td><td>Retrieve + generate pipeline entry point</td><td>index.as_query_engine().query("...")</td></tr>
+<tr><td>storage_context</td><td>Persist and reload index from disk or DB</td><td>storage_context.persist(persist_dir="...")</td></tr>
+<tr><td>Settings</td><td>Global configuration for LLM, embeddings, chunks</td><td>Settings.llm = OpenAI(model="gpt-4o")</td></tr>
+<tr><td>Response object</td><td>Answer text + source nodes with scores</td><td>response.response, response.source_nodes</td></tr>
+<tr><td>chunk_size / overlap</td><td>Control Node splitting behavior</td><td>chunk_size=600, chunk_overlap=60</td></tr>
+<tr><td>LlamaHub readers</td><td>160+ connectors for diverse data sources</td><td>from llama_index.readers.X import Y</td></tr>
+<tr><td>SentenceSplitter</td><td>Semantic sentence-boundary splitting</td><td>SentenceSplitter(chunk_size=500)</td></tr>
+<tr><td>MetadataExtractor</td><td>LLM-generated summaries, questions, titles</td><td>SummaryExtractor(summaries=["self"])</td></tr>
+<tr><td>SummaryIndex</td><td>Concatenate all nodes for comprehensive answers</td><td>SummaryIndex.from_documents(docs)</td></tr>
+<tr><td>TreeIndex</td><td>Hierarchical summarization tree</td><td>TreeIndex.from_documents(docs)</td></tr>
+<tr><td>KnowledgeGraphIndex</td><td>Entity-relationship graph queries</td><td>KnowledgeGraphIndex.from_documents(docs)</td></tr>
+<tr><td>Retriever API</td><td>Decoupled retrieval with similarity_top_k</td><td>index.as_retriever(similarity_top_k=10)</td></tr>
+<tr><td>NodePostprocessor</td><td>Post-retrieval reranking and filtering</td><td>SimilarityPostprocessor(similarity_cutoff=0.7)</td></tr>
+<tr><td>RouterQueryEngine</td><td>Auto-route queries to the right index</td><td>RouterQueryEngine(selector=...)</td></tr>
+<tr><td>SubQuestionQueryEngine</td><td>Decompose complex queries into sub-queries</td><td>SubQuestionQueryEngine.from_defaults()</td></tr>
+<tr><td>ChatEngine</td><td>Multi-turn RAG with conversation memory</td><td>index.as_chat_engine(chat_mode="condense")</td></tr>
+<tr><td>Custom prompts</td><td>Template-based LLM interaction control</td><td>PromptTemplate(template="...")</td></tr>
+<tr><td>ChromaDB backend</td><td>Local vector store for development</td><td>ChromaVectorStore(chroma_collection=col)</td></tr>
+<tr><td>Qdrant backend</td><td>Production vector store with filtering</td><td>QdrantVectorStore(collection_name="docs")</td></tr>
+<tr><td>ComposableGraph</td><td>DAG of indices for multi-index routing</td><td>ComposableGraph.from_indices(children=[...])</td></tr>
+<tr><td>Agents from tools</td><td>ReAct agent with query engine tools</td><td>ReActAgent.from_tools(tools=[...])</td></tr>
+<tr><td>LlamaParse</td><td>Complex PDF parsing with table extraction</td><td>LlamaParse(api_key="...").load_data()</td></tr>
+<tr><td>Streaming</td><td>Token-by-token response generation</td><td>query_engine.query("...", streaming=True)</td></tr>
+<tr><td>FaithfulnessEvaluator</td><td>Check if answer is grounded in context</td><td>FaithfulnessEvaluator().evaluate_response()</td></tr>
+<tr><td>TokenCountingHandler</td><td>Track token usage per component</td><td>TokenCountingHandler(tokenizer=tokenizer)</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="rag.html">&larr; RAG</a><a href="langchain.html">LangChain &rarr;</a></footer>
+</body></html>

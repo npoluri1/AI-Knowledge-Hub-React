@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import ChapterCard from '../components/ChapterCard'
-import { getChapters, getDeepDives, searchAll } from '../api'
+import FetchButton from '../components/FetchButton'
+import { getChapters, getDeepDives, searchAll, fetchLiveChapters, fetchLiveDeepDives } from '../api'
 import { Link } from 'react-router-dom'
 import { FILE_CATEGORIES, CATEGORY_ICONS, KNOWLEDGE_SECTIONS, APP_STATS } from '../data/appData'
+import { useLang } from '../i18n'
 
 const DEEP_DIVE_CARDS = [
   { id: 'rag', icon: '🔍', title: 'RAG Pipeline Deep Dive', desc: 'Chunking, retrieval, evaluation in production', color: '#a6e3a1' },
@@ -47,6 +49,7 @@ function localSearch(query, chapters, deepDives) {
 }
 
 export default function Home() {
+  const { t } = useLang()
   const [chapters, setChapters] = useState([])
   const [deepDives, setDeepDives] = useState([])
   const [searchQ, setSearchQ] = useState('')
@@ -56,6 +59,14 @@ export default function Home() {
   const [showInstant, setShowInstant] = useState(false)
   const debounceRef = useRef(null)
   const inputRef = useRef(null)
+
+  const fetchLatest = useCallback(async () => {
+    const ch = await fetchLiveChapters()
+    setChapters(ch)
+    const dd = await fetchLiveDeepDives()
+    setDeepDives(Array.isArray(dd) ? dd : [])
+    return `Synced ${ch.length} chapters + ${Array.isArray(dd) ? dd.length : 0} deep dives from the backend`
+  }, [])
 
   useEffect(() => {
     getChapters().then(setChapters).catch(() => setChapters([]))
@@ -86,7 +97,7 @@ export default function Home() {
     try {
       const data = await searchAll(searchQ)
       setSearchResults(data)
-    } catch { setSearchResults([]) }
+    } catch { setSearchResults(null) }
     setSearching(false)
   }
 
@@ -103,16 +114,19 @@ export default function Home() {
     <div className="home">
       <div className="hero">
         <div className="hero-text">
-          <h2>AI Knowledge Hub</h2>
+          <div className="page-header-row">
+            <h2>{t('AI Knowledge Hub')}</h2>
+            <FetchButton onFetch={fetchLatest} label={t('Fetch Latest')} />
+          </div>
           <p className="subtitle">RAG &middot; AI Agents &middot; Prompt Engineering &middot; Python &middot; FastAPI &middot; LangChain &middot; React &middot; Quantum &middot; Robotics &middot; 761+ Tools &middot; GRC &middot; System Design &middot; Career</p>
           <div className="stats-row">
-            <span className="stat-badge">📂 <strong>{APP_STATS.chapters}</strong> Chapters</span>
-            <span className="stat-badge">🔍 <strong>{APP_STATS.deepDives}</strong> Deep Dives</span>
-            <span className="stat-badge">📁 <strong>{APP_STATS.categories}</strong> Categories</span>
-            <span className="stat-badge">💼 <strong>{APP_STATS.totalJobs}</strong> AI Jobs</span>
-            <span className="stat-badge">🌐 <strong>{APP_STATS.topgenaiJobs}</strong> TopGenAI Jobs</span>
-            <span className="stat-badge">📐 <strong>{APP_STATS.knowledgeSections}</strong> Knowledge Sections</span>
-            <span className="stat-badge">🗂️ <strong>{APP_STATS.totalFiles.toLocaleString()}+</strong> Files</span>
+            <span className="stat-badge">📂 <strong>{APP_STATS.chapters}</strong> {t('Chapters')}</span>
+            <span className="stat-badge">🔍 <strong>{APP_STATS.deepDives}</strong> {t('Deep Dives')}</span>
+            <span className="stat-badge">📁 <strong>{APP_STATS.categories}</strong> {t('Categories')}</span>
+            <span className="stat-badge">💼 <strong>{APP_STATS.totalJobs}</strong> {t('AI Jobs')}</span>
+            <span className="stat-badge">🌐 <strong>{APP_STATS.topgenaiJobs}</strong> {t('TopGenAI Jobs')}</span>
+            <span className="stat-badge">📐 <strong>{APP_STATS.knowledgeSections}</strong> {t('Knowledge Sections')}</span>
+            <span className="stat-badge">🗂️ <strong>{APP_STATS.totalFiles.toLocaleString()}+</strong> {t('Files')}</span>
           </div>
         </div>
       </div>
@@ -158,7 +172,7 @@ export default function Home() {
       {searchResults && (
         <div className="search-results">
           <div className="section-title">🔎 Search Results ({searchResults.total} hits)</div>
-          {searchResults.results.length === 0 && <p className="empty-state">No results found.</p>}
+          {searchResults?.results?.length === 0 && <p className="empty-state">No results found.</p>}
           {searchResults.results.map((r, i) => (
             <Link key={i} to={r.type === 'deep-dive' ? `/deep-dive/${r.chapter_id}` : `/chapter/${r.chapter_id}`} className="search-result-item">
               <span className="sr-type">{r.type === 'deep-dive' ? '🔍' : '📖'}</span>
@@ -203,17 +217,21 @@ export default function Home() {
           </Link>
           <Link to="/books" className="deep-dive-card" style={{ borderLeftColor: '#f9c74f' }}>
             <div className="dd-icon">📚</div>
-            <div className="dd-info"><h4>Book Catalog</h4><p>10,100 books • Personal growth, money making & best star reads</p></div>
+            <div className="dd-info"><h4>Book Catalog</h4><p>10,166+ books, 30 categories • Free & premium reads, contents & links</p></div>
           </Link>
           <Link to="/claude-cert" className="deep-dive-card" style={{ borderLeftColor: '#d97757' }}>
             <div className="dd-icon">📜</div>
             <div className="dd-info"><h4>Claude Certification</h4><p>Pricing, study videos & links • 68 supporting AI tools reference</p></div>
           </Link>
+          <Link to="/neem-karoli-baba" className="deep-dive-card" style={{ borderLeftColor: '#d97706' }}>
+            <div className="dd-icon">🙏</div>
+            <div className="dd-info"><h4>Neem Karoli Baba Wisdom</h4><p>Complete history, images, teachings, attributed sayings and a practical daily-life guide</p></div>
+          </Link>
         </div>
       </div>
 
       <div className="featured-topics">
-        <span className="section-title">⚡ Emerging Tech Topics</span>
+        <span className="section-title">⚡ {t('Emerging Tech Topics')}</span>
         <div className="cards-grid">
           {chapters
             .filter(c => ['python-for-ai', 'fastapi-ai-services', 'langchain-llamaindex', 'react-ai-frontend', 'quantum-computing', 'robotics-ai', 'ai-semiconductor'].includes(c.id))
@@ -226,7 +244,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="section-title">🔍 Deep Dives</div>
+      <div className="section-title">🔍 {t('Deep Dives')}</div>
       <div className="cards-grid">
         {deepDives.length > 0 ? deepDives.map(dd => (
           <Link key={dd.id} to={`/deep-dive/${dd.id}`} className="deep-dive-card" style={{ borderLeftColor: dd.color || '#89b4fa' }}>
@@ -247,7 +265,7 @@ export default function Home() {
         ))}
       </div>
 
-      <div className="section-title">📖 All Chapters</div>
+      <div className="section-title">📖 {t('All Chapters')}</div>
       {chapters.length === 0 && <p className="empty-state">📚 Loading chapters… (all data is self-contained, no backend needed)</p>}
       <div className="chapters-list">
         {chapters.filter(c => c.id !== 'comprehensive-guide').map(ch => <ChapterCard key={ch.id} chapter={ch} />)}

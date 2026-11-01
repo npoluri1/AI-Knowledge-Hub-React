@@ -1,0 +1,389 @@
+.etl-page { color: #cdd6f4; padding: 20px 24px 40px; max-width: 1400px; margin: 0 auto; }
+
+/* ─── HERO ────────────────────────────────────────────────────────── */
+.etl-hero { margin-bottom: 24px; }
+.etl-hero h1 { font-size: 1.7rem; margin: 0 0 6px; color: #cdd6f4; }
+.etl-hero-sub { color: #8892a0; font-size: 0.92rem; line-height: 1.6; margin: 0 0 14px; }
+.etl-hero-meta { color: #6c7086; font-size: 0.78rem; margin-bottom: 12px; }
+
+/* ─── LEGEND / COLOR KEY ─────────────────────────────────────────── */
+.etl-legend { display: flex; flex-wrap: wrap; gap: 8px; }
+.etl-legend-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.68rem; font-weight: 800; padding: 3px 10px;
+  border-radius: 999px; white-space: nowrap;
+}
+.etl-legend-chip em { font-style: normal; opacity: 0.7; font-weight: 500; }
+.etl-chip-best   { background: #a6e3a122; color: #a6e3a1; border: 1px solid #a6e3a166; }
+.etl-chip-hot    { background: #89b4fa22; color: #89b4fa; border: 1px solid #89b4fa66; }
+.etl-chip-very-hot { background: #04a5e022; color: #04a5e0; border: 1px solid #04a5e066; }
+.etl-chip-declining { background: #f38ba822; color: #f38ba8; border: 1px solid #f38ba866; }
+.etl-chip-country { background: #f9e2af22; color: #f9e2af; border: 1px solid #f9e2af66; }
+.etl-chip-warning { background: #fab38722; color: #fab387; border: 1px solid #fab38766; }
+.etl-chip-salary { background: #94e2d522; color: #94e2d5; border: 1px solid #94e2d566; }
+
+/* ─── MARKET STATS ────────────────────────────────────────────────── */
+.etl-market { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.etl-market-card {
+  background: #181825; border: 1px solid #313244; border-radius: 14px;
+  padding: 18px 20px;
+}
+.etl-market-card h3 { margin: 0 0 12px; font-size: 0.95rem; color: #b4befe; }
+.etl-market-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; border-bottom: 1px solid #31324444;
+}
+.etl-market-row:last-child { border-bottom: none; }
+.etl-market-label { color: #a6adc8; font-size: 0.85rem; }
+.etl-market-value { color: #94e2d5; font-size: 0.85rem; font-weight: 700; }
+
+/* ─── ACCORDION SECTIONS ──────────────────────────────────────────── */
+.etl-accordion { margin-bottom: 16px; border-radius: 14px; overflow: hidden; border: 1px solid #313244; }
+.etl-accordion-head {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; border: none; cursor: pointer;
+  padding: 16px 20px; font-size: 1.02rem; font-weight: 700;
+  color: #cdd6f4; text-align: left;
+  transition: background 0.2s;
+}
+.etl-accordion-head:hover { filter: brightness(1.15); }
+.etl-accordion-arrow { font-size: 0.8rem; transition: transform 0.25s; flex-shrink: 0; }
+.etl-accordion-arrow.open { transform: rotate(90deg); }
+.etl-accordion-count { color: #6c7086; font-size: 0.75rem; font-weight: 600; margin-left: auto; }
+
+/* Section demand colors */
+.etl-sec-very-hot .etl-accordion-head { background: #04a5e018; color: #04a5e0; }
+.etl-sec-very-hot .etl-accordion-head:hover { background: #04a5e028; }
+.etl-sec-hot .etl-accordion-head { background: #89b4fa18; color: #89b4fa; }
+.etl-sec-hot .etl-accordion-head:hover { background: #89b4fa28; }
+.etl-sec-best .etl-accordion-head { background: #a6e3a118; color: #a6e3a1; }
+.etl-sec-best .etl-accordion-head:hover { background: #a6e3a128; }
+.etl-sec-declining .etl-accordion-head { background: #f38ba818; color: #f38ba8; }
+.etl-sec-declining .etl-accordion-head:hover { background: #f38ba828; }
+
+.etl-accordion-body {
+  background: #181825; padding: 18px 20px;
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.4s ease, padding 0.3s ease;
+  padding-top: 0; padding-bottom: 0;
+}
+.etl-accordion-body.open {
+  max-height: 80000px; padding: 18px 20px;
+}
+
+/* ─── TOOL TABLES ─────────────────────────────────────────────────── */
+.etl-table-wrap { overflow-x: auto; }
+.etl-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.etl-table th {
+  text-align: left; color: #6c7086; font-size: 0.68rem;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 8px 10px; border-bottom: 1px solid #313244;
+  white-space: nowrap; position: sticky; top: 0; background: #181825;
+}
+.etl-table td {
+  padding: 9px 10px; border-bottom: 1px solid #31324444; vertical-align: top;
+}
+.etl-table tr:last-child td { border-bottom: none; }
+.etl-table a { color: #89b4fa; text-decoration: none; }
+.etl-table a:hover { text-decoration: underline; color: #b4befe; }
+
+/* ─── DEMAND BADGES ───────────────────────────────────────────────── */
+.etl-dem {
+  display: inline-block; font-size: 0.65rem; font-weight: 800;
+  padding: 2px 8px; border-radius: 6px; white-space: nowrap; letter-spacing: 0.04em;
+}
+.etl-dem-very-hot   { background: #04a5e022; color: #04a5e0; border: 1px solid #04a5e055; }
+.etl-dem-hot        { background: #89b4fa22; color: #89b4fa; border: 1px solid #89b4fa55; }
+.etl-dem-best       { background: #a6e3a122; color: #a6e3a1; border: 1px solid #a6e3a155; }
+.etl-dem-declining  { background: #f38ba822; color: #f38ba8; border: 1px solid #f38ba855; }
+.etl-dem-stable     { background: #6c708822; color: #6c7086; border: 1px solid #6c708655; }
+.etl-dem-niche      { background: #fab38722; color: #fab387; border: 1px solid #fab38755; }
+.etl-dem-growing    { background: #a6e3a122; color: #a6e3a1; border: 1px solid #a6e3a155; }
+.etl-dem-emerging   { background: #cba6f722; color: #cba6f7; border: 1px solid #cba6f755; }
+
+/* ─── RANK NUMBERS ────────────────────────────────────────────────── */
+.etl-rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%; font-size: 0.72rem;
+  font-weight: 800; color: #181825;
+}
+.etl-rank-1  { background: #f9e2af; }
+.etl-rank-2  { background: #cdd6f4; }
+.etl-rank-3  { background: #fab387; }
+.etl-rank-n  { background: #313244; color: #a6adc8; }
+
+/* ─── SALARY PREMIUM COLORS ──────────────────────────────────────── */
+.etl-pay-very-high { color: #04a5e0; font-weight: 700; }
+.etl-pay-high      { color: #89b4fa; font-weight: 700; }
+.etl-pay-growing   { color: #a6e3a1; font-weight: 700; }
+.etl-pay-stable    { color: #6c7086; font-weight: 700; }
+.etl-pay-declining { color: #f38ba8; font-weight: 700; }
+.etl-pay-usd       { color: #94e2d5; font-weight: 700; }
+
+/* ─── SALARY TABLE ────────────────────────────────────────────────── */
+.etl-sal-region {
+  display: inline-block; font-size: 0.68rem; font-weight: 800;
+  padding: 4px 10px; border-radius: 8px; margin-bottom: 10px;
+  background: #b4befe18; color: #b4befe; letter-spacing: 0.06em;
+}
+.etl-sal-junior  { color: #a6e3a1; }
+.etl-sal-mid     { color: #89b4fa; }
+.etl-sal-senior  { color: #04a5e0; font-weight: 700; }
+.etl-sal-lead    { color: #cba6f7; font-weight: 800; }
+
+/* ─── LEARNING PATH ───────────────────────────────────────────────── */
+.etl-lp-card {
+  background: #1e1e2e; border: 1px solid #313244; border-radius: 12px;
+  padding: 16px 18px; margin-bottom: 14px;
+}
+.etl-lp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.etl-lp-phase { font-size: 0.92rem; font-weight: 800; color: #cdd6f4; }
+.etl-lp-time { font-size: 0.75rem; font-weight: 700; color: #fab387; }
+.etl-lp-target { font-size: 0.72rem; font-weight: 800; color: #a6e3a1; background: #a6e3a122; padding: 2px 8px; border-radius: 999px; }
+.etl-lp-section { margin-bottom: 10px; }
+.etl-lp-label { font-size: 0.72rem; font-weight: 700; color: #6c7086; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
+.etl-lp-list { list-style: none; margin: 0; padding: 0; }
+.etl-lp-list li {
+  padding: 4px 0 4px 16px; color: #a6adc8; font-size: 0.84rem;
+  position: relative;
+}
+.etl-lp-list li::before {
+  content: '✓'; position: absolute; left: 0; color: #a6e3a1; font-size: 0.72rem;
+}
+.etl-lp-track {
+  background: #11111b; border: 1px solid #313244; border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 8px;
+}
+.etl-lp-track-name { font-size: 0.85rem; font-weight: 700; color: #b4befe; margin-bottom: 6px; }
+.etl-lp-track-cert { font-size: 0.75rem; color: #f9e2af; margin-top: 6px; }
+
+/* ─── JOB MARKET ──────────────────────────────────────────────────── */
+.etl-job-region {
+  display: inline-block; font-size: 0.68rem; font-weight: 800;
+  padding: 4px 12px; border-radius: 8px; margin-bottom: 10px;
+  background: #f9e2af22; color: #f9e2af; letter-spacing: 0.06em;
+}
+.etl-job-salary { color: #94e2d5; font-weight: 700; }
+.etl-job-companies { color: #6c7086; font-size: 0.82rem; }
+
+/* ─── POSTINGS BAR ────────────────────────────────────────────────── */
+.etl-postings-wrap { margin-bottom: 16px; }
+.etl-postings-row { display: grid; grid-template-columns: 44px minmax(140px, 1fr) minmax(200px, 2fr) 80px; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #31324444; }
+.etl-postings-row:last-child { border-bottom: none; }
+.etl-postings-rank { text-align: center; }
+.etl-postings-tool { color: #cdd6f4; font-size: 0.85rem; font-weight: 600; }
+.etl-postings-bar { height: 20px; background: #11111b; border-radius: 6px; overflow: hidden; border: 1px solid #31324444; }
+.etl-postings-fill { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
+.etl-postings-count { color: #cdd6f4; font-size: 0.82rem; font-weight: 700; text-align: right; }
+
+/* ─── VERDICT ─────────────────────────────────────────────────────── */
+.etl-verdict-card {
+  background: linear-gradient(135deg, #181825 0%, #1e1e2e 100%);
+  border: 1px solid #313244; border-radius: 14px; padding: 20px 24px;
+}
+.etl-verdict-row {
+  display: grid; grid-template-columns: minmax(140px, 1fr) 2fr minmax(180px, 1fr);
+  gap: 10px; padding: 9px 0; border-bottom: 1px solid #31324444; align-items: center;
+}
+.etl-verdict-row:last-child { border-bottom: none; }
+.etl-verdict-goal { color: #f9e2af; font-weight: 700; font-size: 0.86rem; }
+.etl-verdict-path { color: #cdd6f4; font-size: 0.85rem; }
+.etl-verdict-pay { color: #94e2d5; font-weight: 700; font-size: 0.84rem; text-align: right; }
+
+.etl-final {
+  margin-top: 18px; padding: 16px 18px;
+  background: #a6e3a10d; border: 1px solid #a6e3a133; border-radius: 12px;
+}
+.etl-final-label { font-size: 0.72rem; font-weight: 800; color: #a6e3a1; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+.etl-final-text { color: #cdd6f4; font-size: 0.92rem; line-height: 1.7; }
+
+/* ─── NOTES ───────────────────────────────────────────────────────── */
+.etl-notes { margin-top: 14px; padding: 12px 14px; background: #11111b; border-radius: 10px; }
+.etl-note-row { display: flex; gap: 8px; padding: 4px 0; font-size: 0.82rem; }
+.etl-note-icon { font-size: 0.8rem; flex-shrink: 0; }
+.etl-note-text { color: #a6adc8; }
+.etl-note-text strong { color: #cdd6f4; }
+.etl-note-best { color: #a6e3a1; }
+.etl-note-hot  { color: #89b4fa; }
+.etl-note-dec  { color: #f38ba8; }
+.etl-note-warn { color: #fab387; }
+
+/* ─── ARCHITECTURE DIAGRAM ────────────────────────────────────────── */
+.etl-arch { display: flex; flex-direction: column; gap: 0; }
+.etl-arch-layer {
+  background: #1e1e2e; border: 1px solid #313244; padding: 12px 16px;
+  display: grid; grid-template-columns: minmax(160px, 1fr) 2fr; gap: 10px; align-items: center;
+}
+.etl-arch-layer:first-child { border-radius: 12px 12px 0 0; }
+.etl-arch-layer:last-child { border-radius: 0 0 12px 12px; }
+.etl-arch-layer:not(:last-child) { border-bottom: none; }
+.etl-arch-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+.etl-arch-tools { color: #a6adc8; font-size: 0.85rem; }
+.etl-arch-arrow {
+  text-align: center; color: #313244; font-size: 1.2rem; padding: 2px 0;
+  background: #181825;
+}
+.etl-arch-arrow:last-child { display: none; }
+.etl-arch-0 { color: #6c7086; }
+.etl-arch-1 { color: #89b4fa; }
+.etl-arch-2 { color: #94e2d5; }
+.etl-arch-3 { color: #cba6f7; }
+.etl-arch-4 { color: #f9e2af; }
+.etl-arch-5 { color: #04a5e0; }
+.etl-arch-6 { color: #a6e3a1; }
+
+/* ─── COMBO CARDS ─────────────────────────────────────────────────── */
+.etl-combos { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.etl-combo {
+  display: grid; grid-template-columns: 36px 2fr 1.2fr; gap: 10px;
+  align-items: center; padding: 12px 14px;
+  background: #11111b; border: 1px solid #313244; border-radius: 10px;
+}
+.etl-combo-name { color: #cdd6f4; font-size: 0.85rem; font-weight: 600; }
+.etl-combo-pay { color: #04a5e0; font-size: 0.82rem; font-weight: 700; text-align: right; }
+
+/* ══════════════════════════════════════════════════════════════════════ */
+/*   TECH STACK DEEP-DIVE STYLES                                         */
+/* ══════════════════════════════════════════════════════════════════════ */
+.etl-tech-tool-card {
+  background: #181825; border: 1px solid #313244; border-radius: 14px;
+  padding: 22px 24px; margin-bottom: 20px;
+  border-left: 4px solid #89b4fa;
+}
+.etl-tech-tool-card:nth-child(odd)  { border-left-color: #89b4fa; }
+.etl-tech-tool-card:nth-child(even) { border-left-color: #cba6f7; }
+
+.etl-tech-tool-head {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.etl-tech-tool-icon { font-size: 2rem; }
+.etl-tech-tool-name { font-size: 1.1rem; font-weight: 800; color: #cdd6f4; }
+.etl-tech-tool-tagline { font-size: 0.82rem; color: #8892a0; margin-top: 2px; }
+.etl-tech-tool-meta { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.etl-tech-tool-cat {
+  font-size: 0.68rem; font-weight: 700; padding: 3px 10px;
+  border-radius: 999px; background: #313244; color: #a6adc8;
+}
+
+.etl-tech-what {
+  color: #a6adc8; font-size: 0.88rem; line-height: 1.7;
+  padding: 12px 14px; background: #11111b; border-radius: 10px;
+  margin-bottom: 14px; border-left: 3px solid #313244;
+}
+
+.etl-tech-salary-row {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+  padding: 10px 14px; background: #11111b; border-radius: 8px;
+  margin-bottom: 8px;
+}
+.etl-tech-salary-label { color: #6c7086; font-size: 0.78rem; font-weight: 700; }
+
+.etl-tech-combo-row {
+  color: #a6adc8; font-size: 0.84rem; padding: 6px 0 14px;
+}
+.etl-tech-combo-row strong { color: #cdd6f4; }
+
+.etl-tech-sub-title {
+  font-size: 0.92rem; font-weight: 700; color: #b4befe;
+  margin: 18px 0 10px; padding-bottom: 6px;
+  border-bottom: 1px solid #313244;
+}
+
+/* ── Differences ─────────────────────────────────────────────── */
+.etl-tech-vs { display: flex; flex-direction: column; gap: 6px; }
+.etl-tech-vs-row {
+  display: flex; gap: 8px; font-size: 0.84rem;
+  padding: 8px 12px; background: #11111b; border-radius: 8px;
+}
+.etl-tech-vs-tool {
+  color: #fab387; font-weight: 700; flex-shrink: 0; min-width: 120px;
+}
+.etl-tech-vs-diff { color: #a6adc8; }
+
+/* ── Concepts ────────────────────────────────────────────────── */
+.etl-tech-concepts {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 8px;
+}
+.etl-tech-concept {
+  padding: 10px 12px; background: #11111b; border-radius: 8px;
+  border-left: 3px solid #89b4fa;
+}
+.etl-tech-concept:nth-child(even) { border-left-color: #cba6f7; }
+.etl-tech-concept-name {
+  font-size: 0.82rem; font-weight: 700; color: #cdd6f4; margin-bottom: 4px;
+}
+.etl-tech-concept-desc { font-size: 0.8rem; color: #8892a0; line-height: 1.5; }
+
+/* ── Topic Chips ─────────────────────────────────────────────── */
+.etl-tech-topics { display: flex; flex-wrap: wrap; gap: 6px; }
+.etl-tech-topic-chip {
+  font-size: 0.72rem; font-weight: 600; padding: 4px 10px;
+  border-radius: 999px; background: #313244; color: #a6adc8;
+  border: 1px solid #45475a; white-space: nowrap;
+}
+.etl-tech-topic-chip:hover { background: #45475a; color: #cdd6f4; }
+
+/* ── Code / Queries ──────────────────────────────────────────── */
+.etl-tech-queries { display: flex; flex-direction: column; gap: 12px; }
+.etl-tech-query {
+  background: #11111b; border-radius: 10px; overflow: hidden;
+  border: 1px solid #313244;
+}
+.etl-tech-query-title {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; font-size: 0.82rem; font-weight: 700; color: #cdd6f4;
+  background: #1e1e2e; border-bottom: 1px solid #313244;
+}
+.etl-tech-query-lang {
+  font-size: 0.65rem; font-weight: 800; padding: 2px 8px;
+  border-radius: 6px; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.etl-tech-query-lang[data-lang="python"]  { background: #a6e3a122; color: #a6e3a1; }
+.etl-tech-query-lang[data-lang="sql"]     { background: #89b4fa22; color: #89b4fa; }
+.etl-tech-query-lang[data-lang="bash"]    { background: #f9e2af22; color: #f9e2af; }
+.etl-tech-query-lang[data-lang="json"]    { background: #cba6f722; color: #cba6f7; }
+.etl-tech-query-lang[data-lang="yaml"]    { background: #fab38722; color: #fab387; }
+.etl-tech-query-code {
+  margin: 0; padding: 14px 16px; overflow-x: auto;
+  font-size: 0.78rem; line-height: 1.6; color: #cdd6f4;
+  background: #11111b; white-space: pre;
+}
+.etl-tech-query-code code { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+
+/* ── End-to-End ──────────────────────────────────────────────── */
+.etl-tech-e2e { display: flex; flex-direction: column; gap: 6px; }
+.etl-tech-e2e-row {
+  font-size: 0.82rem; color: #a6adc8; padding: 8px 12px;
+  background: #11111b; border-radius: 8px; line-height: 1.6;
+  border-left: 3px solid #04a5e0;
+}
+
+/* ── Verdict ─────────────────────────────────────────────────── */
+.etl-tech-verdict {
+  margin-top: 14px; padding: 12px 14px;
+  background: #a6e3a10d; border: 1px solid #a6e3a133; border-radius: 10px;
+  color: #cdd6f4; font-size: 0.88rem; line-height: 1.7; font-weight: 600;
+}
+
+/* ─── FOOTER ──────────────────────────────────────────────────────── */
+.etl-footer { text-align: center; color: #6c7086; font-size: 0.76rem; margin-top: 12px; line-height: 1.7; }
+
+/* ─── RESPONSIVE ──────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .etl-market { grid-template-columns: 1fr; }
+  .etl-page { padding: 14px 12px 30px; }
+  .etl-verdict-row { grid-template-columns: 1fr; }
+  .etl-combo { grid-template-columns: 36px 1fr; }
+  .etl-combo-pay { text-align: left; }
+  .etl-arch-layer { grid-template-columns: 1fr; }
+  .etl-postings-row { grid-template-columns: 36px 1fr; }
+  .etl-postings-bar { display: none; }
+  .etl-tech-concepts { grid-template-columns: 1fr; }
+  .etl-tech-tool-head { flex-direction: column; align-items: flex-start; }
+  .etl-tech-tool-meta { margin-left: 0; }
+  .etl-tech-vs-row { flex-direction: column; gap: 4px; }
+  .etl-tech-vs-tool { min-width: auto; }
+  .etl-tech-salary-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+}

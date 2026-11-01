@@ -170,7 +170,7 @@ export default function ChatWidget() {
       if (cancelled) return
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `⚠️ ${err}. Please make sure the scan-server is running.`,
+        content: `⚠️ ${err}\n\nThe chat has a local knowledge fallback. For live free-model answers, start the scan server and set OPENROUTER_API_KEY in frontend/.env.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }])
       setStreamingContent('')
@@ -208,7 +208,7 @@ export default function ChatWidget() {
             <span className="chat-header-icon">🧠</span>
             <div className="chat-header-info">
               <h4>AI Knowledge Assistant</h4>
-              <p>Ask about any AI topic · attach files</p>
+              <p>Free OpenRouter models · attach files</p>
             </div>
             <button className="chat-close" onClick={() => setOpen(false)}>✕</button>
           </div>

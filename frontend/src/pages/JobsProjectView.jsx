@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import MermaidRenderer from '../components/MermaidRenderer'
+import { useLang } from '../i18n'
 
 export default function JobsProjectView() {
+  const { t } = useLang()
   const location = useLocation()
   const jobData = location.state?.job
   const [project, setProject] = useState(null)
@@ -57,11 +59,22 @@ export default function JobsProjectView() {
     const ts = job.techs || []
     const techStack = ts.length > 0 ? ts : ['Python', 'FastAPI', 'React', 'PostgreSQL', 'Docker']
     const desc = job.desc || job.title || 'AI-powered project'
+    const aiTechs = techStack.filter(t => /ai|llm|ml|langchain|agent|gpt|bert|transformer|openai|anthropic/i.test(t))
+    const layers = [
+      { name: 'React SPA', layer: 'frontend', description: 'Single-page application with React', tech: 'React, TypeScript' },
+      { name: 'FastAPI Server', layer: 'backend', description: 'REST API backend with FastAPI', tech: 'Python, FastAPI, Uvicorn' },
+      { name: aiTechs.length > 0 ? aiTechs[0] : 'LLM Integration', layer: 'ai', description: 'AI/ML inference and prompt processing', tech: aiTechs.join(', ') || 'OpenAI, LangChain' },
+      { name: 'PostgreSQL', layer: 'data', description: 'Primary data store', tech: 'PostgreSQL, SQLAlchemy' },
+      { name: 'Redis Cache', layer: 'data', description: 'Caching and session store', tech: 'Redis' },
+      { name: 'Docker', layer: 'infra', description: 'Container deployment', tech: 'Docker, Docker Compose' },
+    ]
     return {
       name,
+      job_title: job.title,
       overview: `AI project for ${job.company || 'company'} — ${job.title}`,
       description: desc,
       techStack,
+      domain: 'AI/ML',
       files: [
         { path: 'README.md', content: `# ${name}\n\n${desc}\n\n## Tech Stack\n${techStack.map(t => `- ${t}`).join('\n')}` },
         { path: 'src/main.py', content: `# Entry point for ${name}\nprint("Hello from ${name}")` },
@@ -74,22 +87,21 @@ export default function JobsProjectView() {
         { title: 'Role', value: job.title || 'N/A', icon: '💼' },
         { title: 'Tech Stack', value: techStack.join(', '), icon: '🛠️' },
       ],
-      architecture: {
-        layers: [
-          { name: 'Frontend', items: ['React SPA', 'REST API Client', 'Auth UI'], color: '#3b82f6' },
-          { name: 'Backend', items: ['FastAPI Server', 'Job Processor', 'Queue Handler'], color: '#10b981' },
-          { name: 'AI/ML', items: techStack.filter(t => t.toLowerCase().includes('ai') || t.toLowerCase().includes('llm') || t.toLowerCase().includes('ml') || t.toLowerCase().includes('langchain') || t.toLowerCase().includes('agent')).length > 0
-            ? techStack.filter(t => t.toLowerCase().includes('ai') || t.toLowerCase().includes('llm') || t.toLowerCase().includes('ml') || t.toLowerCase().includes('langchain') || t.toLowerCase().includes('agent'))
-            : ['LLM Integration', 'Prompt Pipeline', 'Data Processing'], color: '#f59e0b' },
-          { name: 'Data', items: ['PostgreSQL', 'Redis Cache', 'Object Storage'], color: '#8b5cf6' },
-        ],
-        flows: [
-          { from: 'User', to: 'Frontend', label: 'UI Request' },
-          { from: 'Frontend', to: 'Backend', label: 'API Call' },
-          { from: 'Backend', to: 'AI/ML', label: 'Inference' },
-          { from: 'AI/ML', to: 'Data', label: 'Persist' },
-        ]
-      },
+      architecture: layers,
+      data_flows: [
+        { from_component: 'Client', to_component: 'FastAPI Server', protocol: 'HTTP/REST', description: 'API requests' },
+        { from_component: 'FastAPI Server', to_component: 'LLM Provider', protocol: 'HTTPS', description: 'AI inference calls' },
+        { from_component: 'FastAPI Server', to_component: 'PostgreSQL', protocol: 'TCP', description: 'Data persistence' },
+        { from_component: 'FastAPI Server', to_component: 'Redis Cache', protocol: 'TCP', description: 'Cache reads/writes' },
+      ],
+      design_patterns: [
+        { name: 'RAG', pattern: 'Retrieval-Augmented Generation', description: 'Combine retrieval with generation for context-aware responses', when_to_use: 'When you need grounded, source-cited answers' },
+        { name: 'Prompt Engineering', pattern: 'Structured Prompts', description: 'Systematic prompt design for consistent outputs', when_to_use: 'Always — foundation of LLM applications' },
+        { name: 'Streaming', pattern: 'SSE/WebSocket Streaming', description: 'Real-time token-by-token response delivery', when_to_use: 'For user-facing chat interfaces' },
+      ],
+      mermaid_arch: `graph TD\n  Client[React SPA] -->|REST API| FastAPI[FastAPI Server]\n  FastAPI -->|Inference| LLM[LLM Provider]\n  FastAPI -->|SQL| PG[PostgreSQL]\n  FastAPI -->|Cache| Redis[Redis]\n  FastAPI -->|Deploy| Docker[Docker]`,
+      mermaid_business: `graph LR\n  User -->|Request| Client\n  Client -->|API Call| Backend\n  Backend -->|Inference| AI\n  AI -->|Response| Backend\n  Backend -->|Response| Client`,
+      mermaid_deploy: `graph TD\n  Dev[Developer] -->|Push| Git[Git Repo]\n  Git -->|CI/CD| Build[Build Step]\n  Build -->|Docker| Registry[Container Registry]\n  Registry -->|Deploy| K8s[Kubernetes]\n  K8s -->|Expose| LB[Load Balancer]`,
       codeSnippets: [
         { title: 'API Endpoint', lang: 'python', code: `from fastapi import FastAPI\n\napp = FastAPI(title="${name}")\n\n@app.get("/api/health")\nasync def health():\n    return {"status": "ok"}` },
         { title: 'Main Entry', lang: 'python', code: `import uvicorn\n\nif __name__ == "__main__":\n    uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True)` },
@@ -121,8 +133,8 @@ export default function JobsProjectView() {
   if (!jobData) {
     return (
       <div className="jobs-view">
-        <Link to="/jobs" className="back-link">← Back to Jobs</Link>
-        <h2 className="chapter-title">🤖 Generate AI Project</h2>
+        <Link to="/jobs" className="back-link">← {t('Back to Jobs')}</Link>
+        <h2 className="chapter-title">🤖 {t('Generate AI Project')}</h2>
         <div className="empty-state">
           No job selected. Go to <Link to="/jobs">AI Jobs</Link> and click "Generate Project" on any job card.
         </div>
@@ -132,7 +144,7 @@ export default function JobsProjectView() {
 
   return (
     <div className="jobs-view jpv-container">
-      <Link to="/jobs" className="back-link">← Back to Jobs</Link>
+      <Link to="/jobs" className="back-link">← {t('Back to Jobs')}</Link>
 
       <div className="jpv-header">
         <div className="jpv-header-left">
@@ -163,11 +175,11 @@ export default function JobsProjectView() {
           {/* Tabs */}
           <div className="jpv-tabs">
             {[
-              { id: 'overview', label: '📋 Overview', icon: '' },
-              { id: 'architecture', label: '🏗️ Architecture', icon: '' },
-              { id: 'patterns', label: '🧩 Design Patterns', icon: '' },
-              { id: 'code', label: '📄 Source Code', icon: '' },
-              { id: 'diagrams', label: '📊 Diagrams', icon: '' },
+              { id: 'overview', label: `📋 ${t('Overview')}`, icon: '' },
+              { id: 'architecture', label: `🏗️ ${t('Architecture')}`, icon: '' },
+              { id: 'patterns', label: `🧩 ${t('Design Patterns')}`, icon: '' },
+              { id: 'code', label: `📄 ${t('Source Code')}`, icon: '' },
+              { id: 'diagrams', label: `📊 ${t('Diagrams')}`, icon: '' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -190,19 +202,19 @@ export default function JobsProjectView() {
               <div className="jpv-stats-grid">
                 <div className="jpv-stat-card glass-card">
                   <div className="jpv-stat-value">{project.architecture?.length || 0}</div>
-                  <div className="jpv-stat-label">Architecture Components</div>
+                  <div className="jpv-stat-label">{t('Architecture Components')}</div>
                 </div>
                 <div className="jpv-stat-card glass-card">
                   <div className="jpv-stat-value">{project.design_patterns?.length || 0}</div>
-                  <div className="jpv-stat-label">Design Patterns</div>
+                  <div className="jpv-stat-label">{t('Design Patterns')}</div>
                 </div>
                 <div className="jpv-stat-card glass-card">
                   <div className="jpv-stat-value">{project.files?.length || 0}</div>
-                  <div className="jpv-stat-label">Source Files</div>
+                  <div className="jpv-stat-label">{t('Source Files')}</div>
                 </div>
                 <div className="jpv-stat-card glass-card">
                   <div className="jpv-stat-value">{project.data_flows?.length || 0}</div>
-                  <div className="jpv-stat-label">Data Flows</div>
+                  <div className="jpv-stat-label">{t('Data Flows')}</div>
                 </div>
               </div>
 
@@ -245,15 +257,15 @@ export default function JobsProjectView() {
                 <button
                   className={`jpv-arch-btn ${archView === 'layers' ? 'active' : ''}`}
                   onClick={() => setArchView('layers')}
-                >📊 Layer View</button>
+                >📊 {t('Layer View')}</button>
                 <button
                   className={`jpv-arch-btn ${archView === 'flow' ? 'active' : ''}`}
                   onClick={() => setArchView('flow')}
-                >🔄 Flow View</button>
+                >🔄 {t('Flow View')}</button>
                 <button
                   className={`jpv-arch-btn ${archView === 'mermaid' ? 'active' : ''}`}
                   onClick={() => setArchView('mermaid')}
-                >📐 Mermaid</button>
+                >📐 {t('Mermaid')}</button>
               </div>
 
               {archView === 'layers' && (

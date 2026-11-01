@@ -3,10 +3,14 @@ import { Link } from 'react-router-dom'
 import { GITHUB_REPOS, REPO_CATEGORIES } from '../data/githubRepos'
 import { loadRepoBatch, loadRepoBatchManifest } from '../data/githubRepoBatchLoader.js'
 import { loadPersistedGitHubRepos, persistGitHubRepos, searchGitHubRepos } from '../api'
+import FetchButton from '../components/FetchButton'
+import ReaSpotlight from '../components/ReaSpotlight'
+import { useLang } from '../i18n'
 import './GithubRepos.css'
 
 const CATEGORY_COLORS = ['blue', 'purple', 'green', 'pink', 'yellow', 'teal', 'blue', 'purple', 'green', 'pink', 'blue', 'green', 'pink', 'yellow', 'teal', 'purple', 'red']
 const CATEGORY_ICONS = {
+  'REA — Reverse Engineering Anything': '🧬',
   'LLM Frameworks and Orchestrators': '\u{1F517}',
   'LLM Frameworks & Orchestrators': '\u{1F517}',
   'Vector Databases and RAG': '\u{1F5C4}',
@@ -286,6 +290,7 @@ function parseStars(starsStr) {
 }
 
 export default function GithubRepos() {
+  const { t } = useLang()
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
   const [sortBy, setSortBy] = useState('stars')
@@ -324,7 +329,7 @@ export default function GithubRepos() {
     let cancelled = false
     loadPersistedGitHubRepos().then(result => {
       if (!cancelled && !result.error) setSavedFetchedRepos(result.items || [])
-    })
+    }).catch(() => {})
     return () => { cancelled = true }
   }, [])
 
@@ -345,13 +350,17 @@ export default function GithubRepos() {
   }, [catalogRepos])
 
   const dynamicCategories = useMemo(() => {
-    const seen = new Set(REPO_CATEGORIES.map(category => category.label))
+    const seenLabels = new Set(REPO_CATEGORIES.map(category => category.label))
+    const seenIds = new Set(REPO_CATEGORIES.map(category => category.id))
     const categories = [...REPO_CATEGORIES]
     catalogRepos.forEach(repo => {
-      if (seen.has(repo.category)) return
-      seen.add(repo.category)
+      if (seenLabels.has(repo.category)) return
+      seenLabels.add(repo.category)
+      let id = repo.category.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      if (seenIds.has(id)) id = `dyn-${id}`
+      seenIds.add(id)
       categories.push({
-        id: repo.category.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        id,
         label: repo.category,
         icon: repo.sourceIndustry ? '📂' : '📦',
       })
@@ -477,15 +486,18 @@ export default function GithubRepos() {
 
   return (
     <div className="gh-page">
-      <Link to="/" className="back-link">&larr; Back to Home</Link>
+      <Link to="/" className="back-link">&larr; {t('Back to Home')}</Link>
 
       {/* Hero */}
       <div className="gh-hero">
         <div className="gh-hero-content">
-          <h1>
-            <span className="gh-icon">&#x1F4E6;</span>
-            <span className="gradient-text">AI Tech Stack GitHub Repos</span>
-          </h1>
+          <div className="page-header-row">
+            <h1>
+              <span className="gh-icon">&#x1F4E6;</span>
+              <span className="gradient-text">{t('AI Tech Stack GitHub Repos')}</span>
+            </h1>
+            <FetchButton onFetch={() => { setFetchModal(true); return 'Opening GitHub fetch dialog — choose topics or a query' }} label="Fetch Latest" />
+          </div>
           <p className="gh-hero-sub">
             Curated collection of {GITHUB_REPOS.length}+ open-source AI repositories covering the full stack &mdash;
             LLMs, Agents, RAG, MCP, VectorDB, Fine-Tuning, MLOps, GuardRails, Observability, and more.
@@ -505,6 +517,8 @@ export default function GithubRepos() {
           </div>
         </div>
       </div>
+
+      <ReaSpotlight onShowAll={() => { setSearch(''); handleCategoryClick('REA — Reverse Engineering Anything') }} />
 
       {/* Controls */}
       <div className="gh-controls">
@@ -932,7 +946,7 @@ function CloneModal({ repo, onClose, onCopy }) {
       setCopied(true)
       onCopy(current.cmd, 'modal')
       setTimeout(() => setCopied(false), 2000)
-    })
+    }).catch(() => {})
   }
 
   return (

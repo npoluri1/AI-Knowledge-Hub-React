@@ -1,0 +1,2578 @@
+{
+  "computer-vision": [
+    {
+      "title": "Image Classification",
+      "description": "Assigning a single label to an entire image from predefined categories.",
+      "tldr": "Image classification is the foundation of computer vision: given an image, predict what it contains. From simple classifiers to deep CNNs and Vision Transformers, this task powers facial recognition, medical diagnosis, and content moderation.",
+      "keyPoints": [
+        "Top-1 Accuracy",
+        "Top-5 Accuracy",
+        "Confusion Matrix"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Medical Imaging",
+          "text": "CNNs classify X-rays as normal/abnormal with radiologist-level accuracy."
+        },
+        {
+          "num": "2",
+          "title": "Content Moderation",
+          "text": "Social media platforms classify images to detect inappropriate content automatically."
+        },
+        {
+          "num": "3",
+          "title": "E-Commerce",
+          "text": "Product classification enables visual search and automatic cataloging."
+        }
+      ],
+      "howItWorks": "The model learns a mapping from pixel values to class labels. CNNs extract hierarchical features: edges (layer 1), textures (layer 2), patterns (layer 3), objects (deeper). Transfer learning from ImageNet-pretrained models is standard practice. Modern approaches: EfficientNet for efficiency, ViT for attention-based classification.",
+      "pitfalls": [
+        {
+          "text": "Small datasets lead to overfitting; use transfer learning and augmentation."
+        },
+        {
+          "text": "Class imbalance causes bias toward majority classes."
+        },
+        {
+          "text": "Domain shift between training and deployment images degrades performance."
+        },
+        {
+          "text": "Evaluation should include per-class metrics, not just overall accuracy."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Top-1 Accuracy",
+          "definition": "Percentage of images where the single highest prediction matches the label."
+        },
+        {
+          "term": "Top-5 Accuracy",
+          "definition": "Percentage where the correct label is among the top 5 predictions."
+        },
+        {
+          "term": "Confusion Matrix",
+          "definition": "Table showing correct and incorrect predictions per class."
+        }
+      ],
+      "relatedConcepts": [
+        "Transfer Learning",
+        "Data Augmentation",
+        "Convolutional Neural Networks",
+        "Vision Transformers"
+      ],
+      "codeExamples": [
+        {
+          "title": "Image Classification with ResNet",
+          "lang": "Python",
+          "code": "import torch, torchvision.models as models\nimport torchvision.transforms as T\n\nmodel = models.resnet18(weights='IMAGENET1K_V1')\nmodel.eval()\n\ntf = T.Compose([T.Resize(256), T.CenterCrop(224), T.ToTensor(),\n                 T.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])\n\n# For real use: img = Image.open('photo.jpg')\n# pred = model(tf(img).unsqueeze(0))\nprint('ResNet-18: 18 layers, 11.7M params, trained on ImageNet')"
+        }
+      ]
+    },
+    {
+      "title": "Object Detection and Tracking",
+      "description": "Detecting, classifying, and tracking multiple objects across video frames.",
+      "tldr": "Object detection identifies and localizes objects with bounding boxes. Tracking maintains object identity across frames. Together they enable autonomous driving, surveillance, and sports analytics.",
+      "keyPoints": [
+        "Bounding Box",
+        "IoU",
+        "DeepSORT"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Autonomous Driving",
+          "text": "Detect and track pedestrians, vehicles, traffic signs in real-time."
+        },
+        {
+          "num": "2",
+          "title": "Sports Analytics",
+          "text": "Track player movements and ball trajectory for performance analysis."
+        },
+        {
+          "num": "3",
+          "title": "Retail Analytics",
+          "text": "Track customer flow and product interactions in stores."
+        }
+      ],
+      "howItWorks": "Detection: YOLO processes entire image in one pass for speed. Faster R-CNN uses region proposals for accuracy. Tracking: DeepSORT combines detection with Kalman filtering and appearance features. Multi-object tracking maintains identity across frames using re-identification.",
+      "pitfalls": [
+        {
+          "text": "Small objects are harder to detect; use FPN for multi-scale."
+        },
+        {
+          "text": "Occlusion breaks tracking; re-identification helps recover."
+        },
+        {
+          "text": "NMS can remove valid overlapping detections in crowds."
+        },
+        {
+          "text": "Real-time requires GPU acceleration for >30 FPS."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Bounding Box",
+          "definition": "Rectangle localizing an object in an image."
+        },
+        {
+          "term": "IoU",
+          "definition": "Intersection over Union measuring detection accuracy."
+        },
+        {
+          "term": "DeepSORT",
+          "definition": "Combines Kalman filtering with deep appearance features for tracking."
+        }
+      ],
+      "relatedConcepts": [
+        "Convolutional Neural Networks",
+        "Object Detection",
+        "Transfer Learning"
+      ],
+      "codeExamples": [
+        {
+          "title": "Object Detection with YOLO",
+          "lang": "Python",
+          "code": "# Using ultralytics YOLO\n# from ultralytics import YOLO\n# model = YOLO('yolov8n.pt')\n# results = model('image.jpg')\n# for box in results[0].boxes:\n#     print(f'{results[0].names[int(box.cls)]}: {box.conf:.2f}')\n\nprint('YOLO: You Only Look Once')\nprint('v8n: 3.2M params, 80 classes, real-time on CPU')"
+        }
+      ]
+    },
+    {
+      "title": "Image Segmentation",
+      "description": "Classifying every pixel into categories for pixel-level understanding.",
+      "tldr": "Segmentation assigns a class label to every pixel. Semantic: all objects of a class share one label. Instance: each object gets unique label. Panoptic: both combined.",
+      "keyPoints": [
+        "U-Net",
+        "mIoU",
+        "Mask R-CNN"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Medical Imaging",
+          "text": "Segment tumors and organs in CT/MRI for treatment planning."
+        },
+        {
+          "num": "2",
+          "title": "Autonomous Driving",
+          "text": "Identify drivable area, lane markings, sidewalks, vegetation."
+        },
+        {
+          "num": "3",
+          "title": "Satellite Imagery",
+          "text": "Map land use: forests, water, buildings, roads."
+        }
+      ],
+      "howItWorks": "U-Net: encoder-decoder with skip connections. Encoder captures context; decoder recovers spatial resolution. Mask R-CNN extends Faster R-CNN with mask prediction. DeepLab uses atrous convolution for multi-scale processing. Panoptic FPN combines semantic and instance segmentation.",
+      "pitfalls": [
+        {
+          "text": "Pixel-level annotations are extremely expensive to create."
+        },
+        {
+          "text": "Class imbalance: background pixels vastly outnumber objects."
+        },
+        {
+          "text": "Boundary precision matters; use CRF post-processing."
+        },
+        {
+          "text": "Evaluation uses mIoU, not pixel accuracy."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "U-Net",
+          "definition": "Encoder-decoder with skip connections for biomedical segmentation."
+        },
+        {
+          "term": "mIoU",
+          "definition": "Mean Intersection over Union: average IoU across all classes."
+        },
+        {
+          "term": "Mask R-CNN",
+          "definition": "Extends Faster R-CNN with pixel-level mask prediction."
+        }
+      ],
+      "relatedConcepts": [
+        "Convolutional Neural Networks",
+        "Convolutional Neural Networks for Text",
+        "Transfer Learning"
+      ],
+      "codeExamples": [
+        {
+          "title": "Semantic Segmentation with U-Net",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass UNet(nn.Module):\n    def __init__(self, in_ch=3, nc=1):\n        super().__init__()\n        self.enc = nn.Sequential(\n            nn.Conv2d(in_ch,64,3,padding=1), nn.ReLU(), nn.Conv2d(64,64,3,padding=1), nn.ReLU(), nn.MaxPool2d(2),\n            nn.Conv2d(64,128,3,padding=1), nn.ReLU(), nn.Conv2d(128,128,3,padding=1), nn.ReLU())\n        self.up = nn.ConvTranspose2d(128,64,2,stride=2)\n        self.dec = nn.Sequential(nn.Conv2d(128,64,3,padding=1), nn.ReLU(), nn.Conv2d(64,nc,1))\n    def forward(self, x):\n        e = self.enc(x)\n        return self.dec(torch.cat([self.up(e), self.enc[0](x)], 1))\n\nm = UNet()\nout = m(torch.randn(1,3,256,256))\nprint(f'Input: [1,3,256,256] -> Segmentation: {out.shape}')"
+        }
+      ]
+    },
+    {
+      "title": "Optical Character Recognition",
+      "description": "Recognizing and extracting text from images and documents.",
+      "tldr": "OCR converts images of text into machine-readable text. Modern OCR combines text detection (finding text regions) with text recognition (reading the characters). Used extensively in document digitization.",
+      "keyPoints": [
+        "CRNN",
+        "CRAFT",
+        "TrOCR"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Document Processing",
+          "text": "Automatically extract data from invoices, receipts, and forms."
+        },
+        {
+          "num": "2",
+          "title": "Historical Archives",
+          "text": "Digitize historical newspapers, books, and handwritten manuscripts."
+        },
+        {
+          "num": "3",
+          "title": "License Plates",
+          "text": "Automatic license plate recognition for toll collection and parking."
+        }
+      ],
+      "howItWorks": "Pipeline: image preprocessing (binarization, denoising) -> text detection (CRAFT, EAST) -> text recognition (CRNN, Transformer-based). End-to-end models like TrOCR use vision encoder + language decoder. Multilingual OCR handles diverse scripts and writing systems.",
+      "pitfalls": [
+        {
+          "text": "Handwriting recognition is much harder than printed text."
+        },
+        {
+          "text": "Image quality significantly affects accuracy."
+        },
+        {
+          "text": "Layout analysis needed for complex documents with tables and figures."
+        },
+        {
+          "text": "Post-processing with language models improves accuracy."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "CRNN",
+          "definition": "Convolutional Recurrent Neural Network for sequence recognition in images."
+        },
+        {
+          "term": "CRAFT",
+          "definition": "Character Region Awareness for Text detection in natural images."
+        },
+        {
+          "term": "TrOCR",
+          "definition": "Transformer-based end-to-end OCR model."
+        }
+      ],
+      "relatedConcepts": [
+        "Convolutional Neural Networks",
+        "Transformers",
+        "Image Classification"
+      ],
+      "codeExamples": [
+        {
+          "title": "Text Detection and Recognition",
+          "lang": "Python",
+          "code": "# Simplified OCR pipeline concept\n# 1. Detect text regions\n# 2. Crop and rectify each region\n# 3. Recognize characters\n\n# Using pytesseract:\n# import pytesseract\n# from PIL import Image\n# text = pytesseract.image_to_string(Image.open('document.png'))\n\n# Modern approach with TrOCR:\n# from transformers import TrOCRProcessor, VisionEncoderDecoderModel\n# processor = TrOCRProcessor.from_pretrained('microsoft/trocr-base-handwritten')\n# model = VisionEncoderDecoderModel.from_pretrained('microsoft/trocr-base-handwritten')\n\nprint('OCR Pipeline: Preprocessing -> Detection -> Recognition -> Post-processing')"
+        }
+      ]
+    },
+    {
+      "title": "Video Understanding",
+      "description": "Analyzing temporal patterns in video for action recognition and summarization.",
+      "tldr": "Video understanding extends image analysis to the temporal dimension. Tasks include action recognition, video captioning, temporal localization, and video summarization.",
+      "keyPoints": [
+        "Action Recognition",
+        "Optical Flow",
+        "Temporal Localization"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Security",
+          "text": "Detect suspicious activities in surveillance footage automatically."
+        },
+        {
+          "num": "2",
+          "title": "Content Moderation",
+          "text": "Analyze video content for inappropriate material at scale."
+        },
+        {
+          "num": "3",
+          "title": "Healthcare",
+          "text": "Monitor patient movements for fall detection and rehabilitation assessment."
+        }
+      ],
+      "howItWorks": "Approaches: (1) CNN per frame + temporal aggregation (TSN). (3D) 3D CNNs (C3D, I3D) capture spatiotemporal features simultaneously. (3) Two-stream networks process appearance and motion separately. (4) Video transformers (ViViT, TimeSformer) apply attention across spatial and temporal dimensions.",
+      "pitfalls": [
+        {
+          "text": "Video is data-intensive; processing every frame is expensive."
+        },
+        {
+          "text": "Action boundaries are often ambiguous and gradual."
+        },
+        {
+          "text": "Long videos exceed model memory; need hierarchical processing."
+        },
+        {
+          "text": "Temporal localization requires dense frame-level predictions."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Action Recognition",
+          "definition": "Classifying the action being performed in a video clip."
+        },
+        {
+          "term": "Optical Flow",
+          "definition": "Motion representation showing pixel displacement between frames."
+        },
+        {
+          "term": "Temporal Localization",
+          "definition": "Finding the start and end times of actions in untrimmed video."
+        }
+      ],
+      "relatedConcepts": [
+        "Convolutional Neural Networks",
+        "Transformers",
+        "Object Detection"
+      ],
+      "codeExamples": [
+        {
+          "title": "Video Action Recognition",
+          "lang": "Python",
+          "code": "import torch\n\n# Two-stream approach concept\n# Stream 1: Appearance (RGB frames)\n# appearance_model = ResNet50(pretrained=True)\n# Stream 2: Motion (optical flow)\n# motion_model = ResNet50(pretrained=True)\n# Fusion: combine both streams\n\n# Simplified temporal model\nclass TemporalConv(nn.Module):\n    def __init__(self, nf=512, n_actions=400):\n        super().__init__()\n        self.temporal = nn.Sequential(\n            nn.Conv1d(nf, nf, kernel_size=3, padding=1),\n            nn.ReLU(), nn.AdaptiveAvgPool1d(1))\n        self.fc = nn.Linear(nf, n_actions)\n    def forward(self, x):  # x: (batch, features, time)\n        return self.fc(self.temporal(x).squeeze(-1))\n\nm = TemporalConv()\nout = m(torch.randn(8, 512, 16))\nprint(f'Video features: [8, 512, 16] -> Actions: {out.shape}')"
+        }
+      ]
+    },
+    {
+      "title": "Face Detection and Recognition",
+      "description": "Detecting faces in images and identifying or verifying individuals.",
+      "tldr": "Face detection locates faces in images. Face recognition identifies or verifies who the face belongs to. Together they power authentication, surveillance, and photo organization.",
+      "keyPoints": [
+        "Face Embedding",
+        "ArcFace",
+        "Liveness Detection"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Security",
+          "text": "Airport security uses face recognition for identity verification."
+        },
+        {
+          "num": "2",
+          "title": "Phone Unlock",
+          "text": "iPhone FaceID and Android face unlock for device authentication."
+        },
+        {
+          "num": "3",
+          "title": "Photo Organization",
+          "text": "Google Photos automatically groups photos by person."
+        }
+      ],
+      "howItWorks": "Detection: MTCNN, RetinaFace detect faces with landmarks. Recognition: ArcFace, CosFace learn discriminative embeddings where same-person faces are close and different-person faces are far apart. Pipeline: detect -> align (using landmarks) -> extract embedding -> match against database.",
+      "pitfalls": [
+        {
+          "text": "Lighting, angle, and occlusion significantly affect accuracy."
+        },
+        {
+          "text": "Ethical concerns: surveillance, consent, bias across demographics."
+        },
+        {
+          "text": "Anti-spoofing needed for security applications."
+        },
+        {
+          "text": "Legal regulations (GDPR, BIPA) restrict face data usage."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Face Embedding",
+          "definition": "Dense vector representing a face for comparison and matching."
+        },
+        {
+          "term": "ArcFace",
+          "definition": "Loss function learning discriminative face embeddings via angular margin."
+        },
+        {
+          "term": "Liveness Detection",
+          "definition": "Determining if face is from a live person vs photo/video replay."
+        }
+      ],
+      "relatedConcepts": [
+        "Convolutional Neural Networks",
+        "Transfer Learning",
+        "Deep Learning"
+      ],
+      "codeExamples": [
+        {
+          "title": "Face Embedding Extraction",
+          "lang": "Python",
+          "code": "import torch\nimport torch.nn as nn\n\n# Conceptual face recognition pipeline\n# 1. Detect face (MTCNN/RetinaFace)\n# 2. Align using landmarks\n# 3. Extract embedding (ArcFace/InsightFace)\n# 4. Compare embeddings\n\ndef cosine_sim(a, b):\n    return (a @ b) / (a.norm() * b.norm())\n\n# Simulated embeddings\nface_db = {\n    'Alice': torch.randn(512),\n    'Bob': torch.randn(512),\n}\nprobe = face_db['Alice'] + torch.randn(512) * 0.1  # Similar to Alice\n\nfor name, emb in face_db.items():\n    sim = cosine_sim(probe, emb)\n    print(f'Similarity to {name}: {sim:.4f}')\nprint('High similarity = same person')"
+        }
+      ]
+    },
+    {
+      "title": "3D Vision and Point Clouds",
+      "description": "Understanding 3D geometry from depth sensors and multi-view images.",
+      "tldr": "3D vision reconstructs spatial geometry from images or depth sensors. Tasks include 3D object detection, depth estimation, point cloud processing, and neural radiance fields (NeRF).",
+      "keyPoints": [
+        "Point Cloud",
+        "Voxel",
+        "NeRF"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Autonomous Driving",
+          "text": "LiDAR point clouds enable 3D understanding of driving scenes."
+        },
+        {
+          "num": "2",
+          "title": "Robotics",
+          "text": "3D perception for manipulation, navigation, and scene understanding."
+        },
+        {
+          "num": "3",
+          "title": "AR/VR",
+          "text": "Real-time 3D reconstruction for immersive experiences."
+        }
+      ],
+      "howItWorks": "PointNet processes unordered point sets directly. VoxelNet converts points to 3D grid. NeRF learns continuous volumetric scenes from 2D images. Depth estimation: monocular (single image) or stereo (two images). 3D detection: PointPillars, CenterPoint process LiDAR data.",
+      "pitfalls": [
+        {
+          "text": "Point clouds are unordered and sparse; standard CNNs don't apply."
+        },
+        {
+          "text": "Depth sensors have limited range and resolution."
+        },
+        {
+          "text": "NeRF training requires many views and is slow."
+        },
+        {
+          "text": "Real-time 3D processing requires efficient architectures."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Point Cloud",
+          "definition": "Set of 3D points from LiDAR or depth sensors."
+        },
+        {
+          "term": "Voxel",
+          "definition": "3D grid cell; point clouds can be voxelized for CNN processing."
+        },
+        {
+          "term": "NeRF",
+          "definition": "Neural Radiance Fields: learns continuous 3D scenes from 2D images."
+        }
+      ],
+      "relatedConcepts": [
+        "Convolutional Neural Networks",
+        "Transformers",
+        "Object Detection"
+      ],
+      "codeExamples": [
+        {
+          "title": "Point Cloud Processing",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass SimplePointNet(nn.Module):\n    def __init__(self, num_classes=10):\n        super().__init__()\n        self.mlp = nn.Sequential(\n            nn.Linear(3, 64), nn.ReLU(),\n            nn.Linear(64, 128), nn.ReLU(),\n            nn.Linear(128, 1024))  # Global feature\n        self.classifier = nn.Sequential(\n            nn.Linear(1024, 256), nn.ReLU(), nn.Dropout(0.5),\n            nn.Linear(256, num_classes))\n    def forward(self, x):  # x: (batch, points, 3)\n        features = self.mlp(x)           # (batch, points, 1024)\n        global_feat = features.max(1)[0] # Max pooling over points\n        return self.classifier(global_feat)\n\nm = SimplePointNet()\ncloud = torch.randn(8, 1024, 3)  # 8 clouds, 1024 points each\nprint(f'Point cloud: {cloud.shape} -> Classes: {m(cloud).shape}')"
+        }
+      ]
+    },
+    {
+      "title": "Image Super Resolution",
+      "description": "Enhancing low-resolution images to high-resolution with AI upscaling.",
+      "tldr": "Super resolution reconstructs high-resolution images from low-resolution inputs. GAN-based and diffusion-based methods produce photorealistic results, enhancing details that weren't in the original.",
+      "keyPoints": [
+        "Perceptual Loss",
+        "ESRGAN",
+        "PSNR"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Streaming",
+          "text": "Netflix uses SR to upscale content for 4K displays."
+        },
+        {
+          "num": "2",
+          "title": "Medical",
+          "text": "Enhance low-dose CT/MRI scans for better diagnosis."
+        },
+        {
+          "num": "3",
+          "title": "Forensics",
+          "text": "Enhance surveillance footage for identification."
+        }
+      ],
+      "howItWorks": "SRGAN uses perceptual loss and adversarial training for photo-realistic upscaling. ESRGAN improves with residual-in-residual dense blocks. Diffusion-based SR (SR3, Stable Diffusion Upscaler) generates details conditioned on low-res input. Real-world SR must handle complex degradations: blur, noise, compression artifacts.",
+      "pitfalls": [
+        {
+          "text": "Cannot recover truly lost information; hallucinates plausible details."
+        },
+        {
+          "text": "Perceptual quality vs pixel-level metrics often disagree."
+        },
+        {
+          "text": "Real-world degradation is more complex than bicubic downsampling."
+        },
+        {
+          "text": "Computational cost limits real-time applications at high scale."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Perceptual Loss",
+          "definition": "Loss based on feature distances in pretrained networks, not pixel differences."
+        },
+        {
+          "term": "ESRGAN",
+          "definition": "Enhanced SRGAN with better architecture for realistic upscaling."
+        },
+        {
+          "term": "PSNR",
+          "definition": "Peak Signal-to-Noise Ratio: pixel-level quality metric."
+        }
+      ],
+      "relatedConcepts": [
+        "Generative Adversarial Networks",
+        "Convolutional Neural Networks",
+        "Image Generation"
+      ],
+      "codeExamples": [
+        {
+          "title": "Simple Super Resolution",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass SRNet(nn.Module):\n    def __init__(self, scale=4):\n        super().__init__()\n        self.body = nn.Sequential(\n            nn.Conv2d(3, 64, 3, padding=1), nn.ReLU(),\n            nn.Conv2d(64, 64, 3, padding=1), nn.ReLU(),\n            nn.Conv2d(64, 3*scale*scale, 3, padding=1),\n            nn.PixelShuffle(scale))\n    def forward(self, x): return self.body(x)\n\nm = SRNet(scale=4)\nlr = torch.randn(1, 3, 64, 64)\nsr = m(lr)\nprint(f'LR: {lr.shape} -> SR: {sr.shape} ({sr.numel()//3} pixels)')"
+        }
+      ]
+    }
+  ],
+  "reinforcement-learning": [
+    {
+      "title": "Markov Decision Process",
+      "description": "Mathematical framework for sequential decision-making under uncertainty.",
+      "tldr": "MDPs formalize RL problems as states, actions, transitions, and rewards. The Markov property means the future depends only on the current state, not history. Solving an MDP means finding the optimal policy.",
+      "keyPoints": [
+        "State",
+        "Action",
+        "Reward",
+        "Discount Factor gamma"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Robotics",
+          "text": "Robots learn manipulation policies through MDP formulations."
+        },
+        {
+          "num": "2",
+          "title": "Game AI",
+          "text": "AlphaGo and Atari games modeled as MDPs with state transitions."
+        },
+        {
+          "num": "3",
+          "title": "Resource Allocation",
+          "text": "Data centers optimize cooling and scheduling via MDPs."
+        }
+      ],
+      "howItWorks": "An MDP is a tuple (S, A, T, R, gamma). States S represent the environment. Actions A are choices the agent can make. Transition function T(s'|s,a) gives next state probabilities. Reward function R(s,a) gives immediate reward. Gamma discounts future rewards. The goal: find policy pi(s)->a maximizing expected cumulative reward.",
+      "pitfalls": [
+        {
+          "text": "The Markov property rarely holds perfectly in real-world settings."
+        },
+        {
+          "text": "Discount factor gamma dramatically affects learned behavior."
+        },
+        {
+          "text": "Large state spaces require function approximation (neural networks)."
+        },
+        {
+          "text": "Sparse rewards make exploration extremely challenging."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "State",
+          "definition": "Complete description of the environment at a time step."
+        },
+        {
+          "term": "Action",
+          "definition": "Choice available to the agent at each state."
+        },
+        {
+          "term": "Reward",
+          "definition": "Scalar feedback signal indicating quality of action taken."
+        },
+        {
+          "term": "Discount Factor gamma",
+          "definition": "Controls importance of future vs immediate rewards (0-1)."
+        }
+      ],
+      "relatedConcepts": [
+        "Q-Learning",
+        "Policy Gradient",
+        "Dynamic Programming"
+      ],
+      "codeExamples": [
+        {
+          "title": "MDP Basics",
+          "lang": "Python",
+          "code": "import numpy as np\n\n# Simple grid world MDP\nrows, cols = 4, 4\nn_states = rows * cols\nn_actions = 4  # up, down, left, right\n\n# Transition: each action moves in that direction (with noise)\ndef transition(s, a):\n    r, c = s // cols, s % cols\n    moves = [(-1,0),(1,0),(0,-1),(0,1)]\n    dr, dc = moves[a]\n    nr, nc = min(max(r+dr,0),rows-1), min(max(c+dc,0),cols-1)\n    return nr * cols + nc\n\n# Reward: +10 at goal (15), -0.1 per step\ndef reward(s): return 10.0 if s == 15 else -0.1\n\nprint(f'States: {n_states}, Actions: {n_actions}')\nprint(f'Transition test: state 5, action down -> state {transition(5, 1)}')"
+        }
+      ]
+    },
+    {
+      "title": "Q-Learning",
+      "description": "Model-free RL learning action values through temporal difference updates.",
+      "tldr": "Q-learning learns Q(s,a) values representing expected cumulative reward for taking action a in state s. The agent follows an epsilon-greedy policy, exploring randomly sometimes and exploiting best actions other times.",
+      "keyPoints": [
+        "Q-Value",
+        "Epsilon-Greedy",
+        "Temporal Difference"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Game Playing",
+          "text": "DeepMind's DQN learned to play Atari games at human level."
+        },
+        {
+          "num": "2",
+          "title": "Robotics",
+          "text": "Q-learning trains robots for navigation and manipulation tasks."
+        },
+        {
+          "num": "3",
+          "title": "Ad Recommendation",
+          "text": "Online ad placement optimized via Q-learning of user responses."
+        }
+      ],
+      "howItWorks": "Q-learning update: Q(s,a) = Q(s,a) + alpha * (r + gamma * max_a' Q(s',a') - Q(s,a)). The temporal difference error (r + gamma*max Q(s') - Q(s)) drives learning. Epsilon-greedy: with probability epsilon take random action, otherwise take best Q action. Deep Q-networks use neural networks to approximate Q for large state spaces.",
+      "pitfalls": [
+        {
+          "text": "Q-learning overestimates values due to max operator; use Double DQN."
+        },
+        {
+          "text": "Needs sufficient exploration; too greedy misses optimal strategies."
+        },
+        {
+          "text": "Function approximation can be unstable; use target networks."
+        },
+        {
+          "text": "Does not converge in all settings with function approximation."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Q-Value",
+          "definition": "Expected cumulative reward for state-action pair."
+        },
+        {
+          "term": "Epsilon-Greedy",
+          "definition": "Exploration strategy balancing random and greedy actions."
+        },
+        {
+          "term": "Temporal Difference",
+          "definition": "Learning from the difference between predicted and actual values."
+        }
+      ],
+      "relatedConcepts": [
+        "Markov Decision Process",
+        "Policy Gradient",
+        "Deep Learning"
+      ],
+      "codeExamples": [
+        {
+          "title": "Tabular Q-Learning",
+          "lang": "Python",
+          "code": "import numpy as np\n\n# Grid world: goal at state 15\nn_states, n_actions = 16, 4\nQ = np.zeros((n_states, n_actions))\n\nfor episode in range(1000):\n    s = 0  # start\n    for _ in range(100):\n        a = np.random.randint(4) if np.random.rand() < 0.1 else np.argmax(Q[s])\n        # Simple transition\n        r, c = s // 4, s % 4\n        moves = [(-1,0),(1,0),(0,-1),(0,1)]\n        nr = min(max(r+moves[a][0],0),3)\n        nc = min(max(c+moves[a][1],0),3)\n        s2 = nr*4+nc\n        r = 10 if s2==15 else -0.1\n        Q[s,a] += 0.1*(r + 0.99*Q[s2].max() - Q[s,a])\n        s = s2\n        if s == 15: break\n\nprint('Learned policy (best action at each state):')\nactions = ['^','v','<','>']\nfor r in range(4):\n    print(' '.join(actions[np.argmax(Q[r*4+c])] for c in range(4)))"
+        }
+      ]
+    },
+    {
+      "title": "Policy Gradient Methods",
+      "description": "Optimizing the policy directly by following the gradient of expected reward.",
+      "tldr": "Policy gradient methods parameterize the policy pi(a|s) and optimize it by following the gradient of expected cumulative reward. More stable than value-based methods for continuous action spaces.",
+      "keyPoints": [
+        "REINFORCE",
+        "Advantage",
+        "Actor-Critic"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Robotics",
+          "text": "Continuous control of robot joints and movements."
+        },
+        {
+          "num": "2",
+          "title": "Game AI",
+          "text": "Atari and board game strategies."
+        },
+        {
+          "num": "3",
+          "title": "Trading",
+          "text": "Portfolio optimization and order execution strategies."
+        }
+      ],
+      "howItWorks": "REINFORCE algorithm: collect trajectory, compute returns, update policy proportionally to return. Policy gradient: grad = E[return * grad_log_pi(a|s)]. Variance reduction: baseline subtraction, advantage estimation. Actor-critic methods combine policy (actor) with value function (critic) for lower variance.",
+      "pitfalls": [
+        {
+          "text": "High variance in gradient estimates; need many samples."
+        },
+        {
+          "text": "Can converge to local optima rather than global."
+        },
+        {
+          "text": "Sensitive to step size; too large diverges, too small is slow."
+        },
+        {
+          "text": "On-policy: must collect new data after each update."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "REINFORCE",
+          "definition": "Monte Carlo policy gradient using full trajectory returns."
+        },
+        {
+          "term": "Advantage",
+          "definition": "How much better an action is compared to the average action at that state."
+        },
+        {
+          "term": "Actor-Critic",
+          "definition": "Combines policy (actor) with value function (critic) for lower variance."
+        }
+      ],
+      "relatedConcepts": [
+        "Markov Decision Process",
+        "Q-Learning",
+        "Deep Learning"
+      ],
+      "codeExamples": [
+        {
+          "title": "REINFORCE Algorithm",
+          "lang": "Python",
+          "code": "import numpy as np\n\nclass PolicyNet:\n    def __init__(self, ns, na):\n        self.W = np.random.randn(ns, na) * 0.01\n    def policy(self, s):\n        logits = self.W[s]\n        exp = np.exp(logits - logits.max())\n        return exp / exp.sum()\n    def sample(self, s): return np.random.choice(len(self.W[s]), p=self.policy(s))\n\nenv_ns, env_na = 16, 4\npi = PolicyNet(env_ns, env_na)\n\nfor ep in range(500):\n    traj = []\n    s = 0\n    for _ in range(100):\n        a = pi.sample(s)\n        s2 = (s + a) % env_ns  # simplified\n        r = 10 if s2 == 15 else -0.1\n        traj.append((s, a, r))\n        s = s2\n        if s == 15: break\n    # Compute returns\n    G = np.zeros(len(traj))\n    G[-1] = traj[-1][2]\n    for t in range(len(traj)-2, -1, -1):\n        G[t] = traj[t][2] + 0.99 * G[t+1]\n    # Update\n    for t, (s, a, _) in enumerate(traj):\n        pi.W[s] += 0.01 * G[t] * (np.eye(env_na)[a] - pi.policy(s))\n\nprint('Policy learned! Best actions per state:')"
+        }
+      ]
+    },
+    {
+      "title": "Deep Reinforcement Learning",
+      "description": "Combining deep neural networks with RL for high-dimensional state spaces.",
+      "tldr": "DRL uses neural networks to approximate value functions or policies, enabling RL in complex environments like games, robotics, and autonomous systems.",
+      "keyPoints": [
+        "Experience Replay",
+        "Target Network",
+        "PPO"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Game Playing",
+          "text": "AlphaGo/AlphaZero defeated world champions in Go, chess, shogi."
+        },
+        {
+          "num": "2",
+          "title": "Robotics",
+          "text": "Learn manipulation, locomotion, and navigation from raw observations."
+        },
+        {
+          "num": "3",
+          "title": "Autonomous Driving",
+          "text": "Self-driving cars use DRL for decision-making in complex traffic."
+        }
+      ],
+      "howItWorks": "Key algorithms: DQN (value-based), A3C/PPO (policy gradient), SAC (actor-critic). Experience replay stores transitions for stable learning. Target networks prevent moving target problem. Curriculum learning gradually increases task difficulty. Distributed training across many environment instances.",
+      "pitfalls": [
+        {
+          "text": "Sample inefficient; millions of interactions needed."
+        },
+        {
+          "text": "Reward shaping critical; wrong rewards lead to unintended behavior."
+        },
+        {
+          "text": "Sim-to-real gap: policies trained in simulation may fail in reality."
+        },
+        {
+          "text": "Catastrophic forgetting when task changes."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Experience Replay",
+          "definition": "Storing past transitions for stable off-policy learning."
+        },
+        {
+          "term": "Target Network",
+          "definition": "Frozen network used as stable target for value updates."
+        },
+        {
+          "term": "PPO",
+          "definition": "Proximal Policy Optimization: stable policy gradient with clipping."
+        }
+      ],
+      "relatedConcepts": [
+        "Q-Learning",
+        "Policy Gradient",
+        "Neural Network Architecture"
+      ],
+      "codeExamples": [
+        {
+          "title": "DQN Agent",
+          "lang": "Python",
+          "code": "import numpy as np\n\nclass DQNAgent:\n    def __init__(self, ns, na, lr=0.001, gamma=0.99, eps=0.1):\n        self.Q = np.random.randn(ns, na) * 0.01\n        self.gamma = gamma\n        self.eps = eps\n        self.lr = lr\n    def act(self, s):\n        if np.random.rand() < self.eps: return np.random.randint(self.Q.shape[1])\n        return np.argmax(self.Q[s])\n    def update(self, s, a, r, s2, done):\n        target = r if done else r + self.gamma * self.Q[s2].max()\n        self.Q[s,a] += self.lr * (target - self.Q[s,a])\n\nagent = DQNAgent(16, 4)\nfor ep in range(1000):\n    s, total_r = 0, 0\n    for _ in range(100):\n        a = agent.act(s)\n        s2 = (s + a) % 16\n        r = 10 if s2 == 15 else -0.1\n        agent.update(s, a, r, s2, s2==15)\n        s, total_r = s2, total_r + r\n        if s == 15: break\nprint('DQN trained! Average reward:', total_r)"
+        }
+      ]
+    },
+    {
+      "title": "Multi-Agent Reinforcement Learning",
+      "description": "Multiple agents learning and interacting in shared environments.",
+      "tldr": "MARL extends RL to settings with multiple agents, each learning its own policy while interacting with others. Challenges include non-stationarity, credit assignment, and communication.",
+      "keyPoints": [
+        "CTDE",
+        "Self-Play",
+        "Mean Field"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Traffic Control",
+          "text": "Multiple intersection controllers coordinating to optimize traffic flow."
+        },
+        {
+          "num": "2",
+          "title": "Game Playing",
+          "text": "StarCraft and Dota 2 teams of AI agents learning to cooperate."
+        },
+        {
+          "num": "3",
+          "title": "Swarm Robotics",
+          "text": "Drone fleets learning coordinated search and rescue."
+        }
+      ],
+      "howItWorks": "Centralized training with decentralized execution (CTDE): agents share information during training but act independently. Communication learning: agents learn what messages to send. Mean field approaches approximate interactions in large populations. Self-play trains agents against copies of themselves.",
+      "pitfalls": [
+        {
+          "text": "Non-stationarity: other agents' policies change during training."
+        },
+        {
+          "text": "Credit assignment: which agent deserves credit for team success?"
+        },
+        {
+          "text": "Scalability: interactions grow quadratically with agent count."
+        },
+        {
+          "text": "Convergence is not guaranteed in competitive settings."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "CTDE",
+          "definition": "Centralized Training, Decentralized Execution paradigm."
+        },
+        {
+          "term": "Self-Play",
+          "definition": "Training agents against copies of themselves for improvement."
+        },
+        {
+          "term": "Mean Field",
+          "definition": "Approximation for large-population multi-agent settings."
+        }
+      ],
+      "relatedConcepts": [
+        "Markov Decision Process",
+        "Policy Gradient",
+        "Deep Learning"
+      ],
+      "codeExamples": [
+        {
+          "title": "Multi-Agent Q-Learning",
+          "lang": "Python",
+          "code": "import numpy as np\n\n# Two agents in a simple game\nn_states = 16\nn_actions = 2\nQ1 = np.zeros((n_states, n_actions))\nQ2 = np.zeros((n_states, n_actions))\n\nfor ep in range(1000):\n    s = np.random.randint(n_states)\n    a1 = np.random.randint(n_actions) if np.random.rand()<0.1 else np.argmax(Q1[s])\n    a2 = np.random.randint(n_actions) if np.random.rand()<0.1 else np.argmax(Q2[s])\n    # Joint reward depends on both actions\n    r = 10.0 if a1 == a2 else -1.0\n    s2 = (s + a1 + a2) % n_states\n    Q1[s,a1] += 0.1*(r + 0.99*Q1[s2].max() - Q1[s,a1])\n    Q2[s,a2] += 0.1*(r + 0.99*Q2[s2].max() - Q2[s,a2])\n\nprint('Agents learn to coordinate through shared reward signals')"
+        }
+      ]
+    }
+  ],
+  "statistics-probability": [
+    {
+      "title": "Probability Distributions",
+      "description": "Mathematical functions describing the likelihood of different outcomes.",
+      "tldr": "Probability distributions describe how values of a random variable are distributed. Normal, binomial, Poisson, and exponential distributions model different types of real-world phenomena.",
+      "keyPoints": [
+        "Normal Distribution",
+        "Binomial",
+        "Poisson",
+        "Central Limit Theorem"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Risk Modeling",
+          "text": "Normal distribution models stock returns for portfolio optimization."
+        },
+        {
+          "num": "2",
+          "title": "Quality Control",
+          "text": "Poisson distribution models defect rates in manufacturing."
+        },
+        {
+          "num": "3",
+          "title": "Reliability",
+          "text": "Exponential distribution models time between equipment failures."
+        }
+      ],
+      "howItWorks": "Distributions define the probability of observing different values. Normal (bell curve) models continuous data with central tendency. Binomial counts successes in n trials. Poisson counts events in fixed time. Exponential models wait times. Each has parameters: normal has mean and variance, binomial has n and p.",
+      "pitfalls": [
+        {
+          "text": "Real data rarely follows perfect theoretical distributions."
+        },
+        {
+          "text": "Assuming wrong distribution leads to incorrect statistical inferences."
+        },
+        {
+          "text": "Heavy-tailed distributions are common in real-world data (finance, internet)."
+        },
+        {
+          "text": "Mixture distributions needed for multimodal data."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Normal Distribution",
+          "definition": "Bell-shaped curve defined by mean and variance."
+        },
+        {
+          "term": "Binomial",
+          "definition": "Distribution of successes in n independent trials."
+        },
+        {
+          "term": "Poisson",
+          "definition": "Distribution of event counts in fixed interval."
+        },
+        {
+          "term": "Central Limit Theorem",
+          "definition": "Sample means approach normal distribution regardless of underlying distribution."
+        }
+      ],
+      "relatedConcepts": [
+        "Hypothesis Testing",
+        "Bayesian Inference",
+        "Confidence Intervals"
+      ],
+      "codeExamples": [
+        {
+          "title": "Distribution Comparison",
+          "lang": "Python",
+          "code": "import numpy as np\nfrom scipy import stats\n\n# Normal distribution\nnormal = stats.norm(loc=0, scale=1)\nprint(f'Normal: mean={normal.mean():.2f}, var={normal.var():.2f}')\nprint(f'  P(X>2) = {1-normal.cdf(2):.4f}')\n\n# Binomial\nbinom = stats.binom(n=100, p=0.3)\nprint(f'Binomial: mean={binom.mean():.2f}, var={binom.var():.2f}')\n\n# Poisson\npoisson = stats.poisson(mu=5)\nprint(f'Poisson: mean={poisson.mean():.2f}')\nprint(f'  P(X=3) = {poisson.pmf(3):.4f}')\n\n# Central Limit Theorem\nsamples = np.random.exponential(2, (10000, 30))\nmeans = samples.mean(axis=1)\nprint(f'CLT: Exponential samples, mean of 30 -> mean={means.mean():.2f}, std={means.std():.2f}')"
+        }
+      ]
+    },
+    {
+      "title": "Hypothesis Testing",
+      "description": "Statistical methods for deciding whether observed effects are real or due to chance.",
+      "tldr": "Hypothesis testing provides a framework for making decisions about population parameters based on sample data. The p-value quantifies evidence against the null hypothesis.",
+      "keyPoints": [
+        "p-value",
+        "Type I Error",
+        "Type II Error",
+        "Power"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Clinical Trials",
+          "text": "Determine if new drug is more effective than placebo."
+        },
+        {
+          "num": "2",
+          "title": "A/B Testing",
+          "text": "Decide if website change improves conversion rates."
+        },
+        {
+          "num": "3",
+          "title": "Quality Assurance",
+          "text": "Test if manufacturing process meets specifications."
+        }
+      ],
+      "howItWorks": "Step 1: State null (no effect) and alternative (effect exists) hypotheses. Step 2: Choose significance level alpha (typically 0.05). Step 3: Calculate test statistic from data. Step 4: Compute p-value: probability of observing effect this extreme if null is true. Step 5: If p < alpha, reject null. Common tests: t-test (means), chi-square (categorical), ANOVA (multiple groups).",
+      "pitfalls": [
+        {
+          "text": "p < 0.05 is not 'proof' of an effect; it's evidence against no effect."
+        },
+        {
+          "text": "Statistical significance != practical significance; large samples make tiny effects significant."
+        },
+        {
+          "text": "Multiple testing inflates false positive rate; use Bonferroni correction."
+        },
+        {
+          "text": "Correlation does not imply causation; controlled experiments needed."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "p-value",
+          "definition": "Probability of observing the data if the null hypothesis is true."
+        },
+        {
+          "term": "Type I Error",
+          "definition": "Rejecting a true null hypothesis (false positive)."
+        },
+        {
+          "term": "Type II Error",
+          "definition": "Failing to reject a false null hypothesis (false negative)."
+        },
+        {
+          "term": "Power",
+          "definition": "Probability of correctly rejecting a false null hypothesis."
+        }
+      ],
+      "relatedConcepts": [
+        "Probability Distributions",
+        "Confidence Intervals",
+        "A/B Testing"
+      ],
+      "codeExamples": [
+        {
+          "title": "T-Test Example",
+          "lang": "Python",
+          "code": "from scipy import stats\nimport numpy as np\n\n# Two groups: control and treatment\nnp.random.seed(42)\ncontrol = np.random.normal(100, 15, 50)\ntreatment = np.random.normal(105, 15, 50)\n\n# Independent t-test\nt_stat, p_value = stats.ttest_ind(control, treatment)\nprint(f'T-statistic: {t_stat:.4f}')\nprint(f'P-value: {p_value:.4f}')\nprint(f'Significant at alpha=0.05: {p_value < 0.05}')\n\n# Effect size (Cohen's d)\npooled_std = np.sqrt((control.std()**2 + treatment.std()**2) / 2)\nd = (treatment.mean() - control.mean()) / pooled_std\nprint(f'Effect size (Cohen d): {d:.4f}')"
+        }
+      ]
+    },
+    {
+      "title": "Bayesian Inference",
+      "description": "Updating beliefs about parameters using observed data and prior knowledge.",
+      "tldr": "Bayesian inference combines prior beliefs with observed data to compute posterior probabilities. Unlike frequentist methods, it provides full probability distributions over parameters.",
+      "keyPoints": [
+        "Prior",
+        "Posterior",
+        "MCMC",
+        "Conjugate Prior"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Medical Diagnosis",
+          "text": "Update disease probability as test results come in."
+        },
+        {
+          "num": "2",
+          "title": "Spam Filtering",
+          "text": "Continuously update word probabilities as new emails arrive."
+        },
+        {
+          "num": "3",
+          "title": "A/B Testing",
+          "text": "Bayesian A/B testing provides probability that variant is better."
+        }
+      ],
+      "howItWorks": "Bayes' theorem: P(hypothesis|data) = P(data|hypothesis) * P(hypothesis) / P(data). Prior: initial belief before seeing data. Likelihood: probability of data given hypothesis. Posterior: updated belief after seeing data. MCMC (Markov Chain Monte Carlo) samples from the posterior distribution when analytical computation is intractable.",
+      "pitfalls": [
+        {
+          "text": "Prior selection is subjective and affects results."
+        },
+        {
+          "text": "Computationally expensive for complex models."
+        },
+        {
+          "text": "Conjugate priors are convenient but often unrealistic."
+        },
+        {
+          "text": "Need to check MCMC convergence diagnostics."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Prior",
+          "definition": "Initial belief about parameters before seeing data."
+        },
+        {
+          "term": "Posterior",
+          "definition": "Updated belief after combining prior with observed data."
+        },
+        {
+          "term": "MCMC",
+          "definition": "Markov Chain Monte Carlo: sampling algorithm for complex posteriors."
+        },
+        {
+          "term": "Conjugate Prior",
+          "definition": "Prior that results in same distribution family for posterior."
+        }
+      ],
+      "relatedConcepts": [
+        "Probability Distributions",
+        "Hypothesis Testing",
+        "Machine Learning"
+      ],
+      "codeExamples": [
+        {
+          "title": "Bayesian Updating",
+          "lang": "Python",
+          "code": "import numpy as np\n\n# Beta-Binomial model for coin fairness\nprior_alpha, prior_beta = 2, 2  # Prior: slightly favor fair coin\n\n# Observed data: 7 heads in 10 flips\nheads, tails = 7, 3\n\npost_alpha = prior_alpha + heads\npost_beta = prior_beta + tails\n\nprint(f'Prior: Beta({prior_alpha}, {prior_beta})')\nprint(f'Data: {heads} heads, {tails} tails')\nprint(f'Posterior: Beta({post_alpha}, {post_beta})')\nprint(f'Posterior mean: {post_alpha/(post_alpha+post_beta):.4f}')\nprint(f'Prior mean: {prior_alpha/(prior_alpha+prior_beta):.4f}')\nprint('Data shifted belief toward the observed frequency')"
+        }
+      ]
+    },
+    {
+      "title": "Correlation and Regression",
+      "description": "Measuring and modeling relationships between variables.",
+      "tldr": "Correlation measures the strength and direction of linear relationships. Regression models the relationship between dependent and independent variables for prediction and explanation.",
+      "keyPoints": [
+        "Pearson Correlation",
+        "R-squared",
+        "Residual",
+        "Multicollinearity"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Real Estate",
+          "text": "Regress house prices on features: size, location, age."
+        },
+        {
+          "num": "2",
+          "title": "Finance",
+          "text": "Model stock returns based on economic indicators."
+        },
+        {
+          "num": "3",
+          "title": "Healthcare",
+          "text": "Study relationships between risk factors and disease outcomes."
+        }
+      ],
+      "howItWorks": "Pearson correlation (r) ranges from -1 to 1. Linear regression: y = wx + b, minimizing squared residuals. Multiple regression: y = w1*x1 + w2*x2 + ... + b. R-squared measures variance explained. Residual analysis checks model assumptions: linearity, homoscedasticity, normality.",
+      "pitfalls": [
+        {
+          "text": "Correlation does not imply causation."
+        },
+        {
+          "text": "Outliers can dramatically affect correlation and regression."
+        },
+        {
+          "text": "Non-linear relationships need polynomial or non-linear models."
+        },
+        {
+          "text": "Multicollinearity makes individual coefficient interpretation unreliable."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Pearson Correlation",
+          "definition": "Linear correlation coefficient between -1 and 1."
+        },
+        {
+          "term": "R-squared",
+          "definition": "Proportion of variance in dependent variable explained by model."
+        },
+        {
+          "term": "Residual",
+          "definition": "Difference between observed and predicted values."
+        },
+        {
+          "term": "Multicollinearity",
+          "definition": "High correlation between independent variables in regression."
+        }
+      ],
+      "relatedConcepts": [
+        "Probability Distributions",
+        "Hypothesis Testing",
+        "Feature Engineering"
+      ],
+      "codeExamples": [
+        {
+          "title": "Correlation and Linear Regression",
+          "lang": "Python",
+          "code": "import numpy as np\nfrom scipy import stats\n\nnp.random.seed(42)\nx = np.random.randn(100) * 10\ny = 2.5 * x + np.random.randn(100) * 5 + 10\n\n# Correlation\nr, p = stats.pearsonr(x, y)\nprint(f'Pearson r: {r:.4f}, p-value: {p:.4f}')\n\n# Linear regression\nslope, intercept, r_val, p_val, std_err = stats.linregress(x, y)\nprint(f'Regression: y = {slope:.4f}*x + {intercept:.4f}')\nprint(f'R-squared: {r_val**2:.4f}')\nprint(f'Standard error: {std_err:.4f}')"
+        }
+      ]
+    },
+    {
+      "title": "Bootstrap and Resampling",
+      "description": "Estimating uncertainty by repeatedly sampling from data with replacement.",
+      "tldr": "Bootstrap creates many pseudo-datasets by resampling with replacement, enabling estimation of confidence intervals and standard errors without distributional assumptions.",
+      "keyPoints": [
+        "Resampling",
+        "Bootstrap Sample",
+        "Bootstrap CI"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Survey Analysis",
+          "text": "Estimate confidence intervals for poll results without normality assumptions."
+        },
+        {
+          "num": "2",
+          "title": "Model Evaluation",
+          "text": "Bootstrap confidence intervals for accuracy and other metrics."
+        },
+        {
+          "num": "3",
+          "title": "Financial Risk",
+          "text": "Estimate VaR (Value at Risk) using historical bootstrap."
+        }
+      ],
+      "howItWorks": "Draw B bootstrap samples (typically B=1000-10000) with replacement from original data. Compute statistic of interest on each sample. The distribution of bootstrap statistics approximates the sampling distribution. Confidence intervals: take percentiles (e.g., 2.5% and 97.5% for 95% CI).",
+      "pitfalls": [
+        {
+          "text": "Bootstrap assumes data is representative of population."
+        },
+        {
+          "text": "Doesn't work well for very small samples (n < 20)."
+        },
+        {
+          "text": "Stratified bootstrap needed for imbalanced data."
+        },
+        {
+          "text": "Parametric bootstrap assumes a specific distribution."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Resampling",
+          "definition": "Drawing repeated samples from data to estimate variability."
+        },
+        {
+          "term": "Bootstrap Sample",
+          "definition": "Sample drawn with replacement from original data, same size."
+        },
+        {
+          "term": "Bootstrap CI",
+          "definition": "Confidence interval from percentiles of bootstrap statistics."
+        }
+      ],
+      "relatedConcepts": [
+        "Probability Distributions",
+        "Hypothesis Testing",
+        "Confidence Intervals"
+      ],
+      "codeExamples": [
+        {
+          "title": "Bootstrap Confidence Interval",
+          "lang": "Python",
+          "code": "import numpy as np\n\ndef bootstrap_ci(data, n_boot=5000, ci=95):\n    stats = []\n    for _ in range(n_boot):\n        sample = np.random.choice(data, size=len(data), replace=True)\n        stats.append(np.mean(sample))\n    lower = np.percentile(stats, (100-ci)/2)\n    upper = np.percentile(stats, 100-(100-ci)/2)\n    return np.mean(data), lower, upper\n\nnp.random.seed(42)\ndata = np.random.normal(50, 10, 30)\nmean, lo, hi = bootstrap_ci(data)\nprint(f'Sample mean: {mean:.2f}')\nprint(f'95% Bootstrap CI: [{lo:.2f}, {hi:.2f}]')"
+        }
+      ]
+    }
+  ],
+  "data-preprocessing": [
+    {
+      "title": "Missing Data Handling",
+      "description": "Strategies for dealing with absent values in datasets.",
+      "tldr": "Missing data is ubiquitous and can bias models if handled improperly. Strategies include deletion, imputation (mean, median, KNN, MICE), and model-based approaches that handle missingness natively.",
+      "keyPoints": [
+        "MCAR",
+        "MAR",
+        "MNAR",
+        "MICE"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Healthcare",
+          "text": "EHR data has 20-40% missing values; imputation preserves sample size."
+        },
+        {
+          "num": "2",
+          "title": "Survey Research",
+          "text": "Non-response creates missing data patterns requiring careful treatment."
+        },
+        {
+          "num": "3",
+          "title": "Finance",
+          "text": "Missing transaction data needs intelligent imputation for analysis."
+        }
+      ],
+      "howItWorks": "Types: MCAR (missing completely at random - deletion is safe), MAR (missing at random - conditionally depends on observed data), MNAR (missing not at random - depends on missing value itself). Simple: mean/median imputation (fast but reduces variance). Advanced: KNN imputation (uses similar observations), MICE (models each variable as function of others).",
+      "pitfalls": [
+        {
+          "text": "Mean imputation reduces variance and distorts correlations."
+        },
+        {
+          "text": "Always calculate imputation statistics on training data only."
+        },
+        {
+          "text": "MNAR requires specialized methods; standard imputation introduces bias."
+        },
+        {
+          "text": "Missing data indicator features can help models learn missingness patterns."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "MCAR",
+          "definition": "Missing Completely at Random: missingness independent of all data."
+        },
+        {
+          "term": "MAR",
+          "definition": "Missing At Random: missingness depends on observed data."
+        },
+        {
+          "term": "MNAR",
+          "definition": "Missing Not At Random: missingness depends on the missing value itself."
+        },
+        {
+          "term": "MICE",
+          "definition": "Multiple Imputation by Chained Equations: iterative multivariate imputation."
+        }
+      ],
+      "relatedConcepts": [
+        "Feature Engineering",
+        "Data Cleaning",
+        "Model Evaluation"
+      ],
+      "codeExamples": [
+        {
+          "title": "Imputation Strategies",
+          "lang": "Python",
+          "code": "import numpy as np\nfrom sklearn.impute import SimpleImputer, KNNImputer\n\n# Sample data with missing values\ndata = np.array([[1,2,np.nan],[4,np.nan,6],[7,8,9],[np.nan,2,3]])\nprint('Original:', data.shape)\n\n# Mean imputation\nmean_imp = SimpleImputer(strategy='mean')\nprint('Mean:', mean_imp.fit_transform(data))\n\n# Median imputation\nmed_imp = SimpleImputer(strategy='median')\nprint('Median:', med_imp.fit_transform(data))\n\n# KNN imputation\nknn_imp = KNNImputer(n_neighbors=2)\nprint('KNN:', knn_imp.fit_transform(data))"
+        }
+      ]
+    },
+    {
+      "title": "Feature Scaling and Normalization",
+      "description": "Transforming features to comparable scales for consistent model performance.",
+      "tldr": "Feature scaling ensures all features contribute equally to distance-based models. Normalization (min-max) scales to [0,1]. Standardization (z-score) centers to mean 0, variance 1.",
+      "keyPoints": [
+        "StandardScaler",
+        "MinMaxScaler",
+        "RobustScaler"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "KNN/SVM",
+          "text": "Distance-based models require scaling or features with large ranges dominate."
+        },
+        {
+          "num": "2",
+          "title": "Neural Networks",
+          "text": "Scaled inputs enable faster convergence and better gradient flow."
+        },
+        {
+          "num": "3",
+          "title": "PCA",
+          "text": "Principal components are sensitive to feature scales without normalization."
+        }
+      ],
+      "howItWorks": "Min-Max: x' = (x-min)/(max-min) -> [0,1]. StandardScaler: z = (x-mean)/std -> N(0,1). RobustScaler: uses median and IQR, robust to outliers. Log transform: for right-skewed data. When to scale: distance-based models (KNN, SVM, K-Means), gradient-based optimization (neural nets). When not: tree-based models are scale-invariant.",
+      "pitfalls": [
+        {
+          "text": "Fit scaler on training data only; transform test data with training parameters."
+        },
+        {
+          "text": "StandardScaler is preferred over Min-Max when outliers are present."
+        },
+        {
+          "text": "Scaling is not needed for tree-based models."
+        },
+        {
+          "text": "Scaling affects regularization; regularization requires consistent scaling."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "StandardScaler",
+          "definition": "Centers features to mean 0, scales to unit variance."
+        },
+        {
+          "term": "MinMaxScaler",
+          "definition": "Scales features to [0,1] range."
+        },
+        {
+          "term": "RobustScaler",
+          "definition": "Uses median and IQR, robust to outliers."
+        }
+      ],
+      "relatedConcepts": [
+        "Feature Engineering",
+        "Regularization",
+        "PCA"
+      ],
+      "codeExamples": [
+        {
+          "title": "Feature Scaling Comparison",
+          "lang": "Python",
+          "code": "import numpy as np\nfrom sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler\n\nnp.random.seed(42)\nX = np.array([[100, 0.01], [200, 0.05], [300, 0.02], [1500, 0.1]])\nprint('Original:', X.mean(axis=0).round(2), 'std:', X.std(axis=0).round(2))\n\nfor name, scaler in [('Standard', StandardScaler()), ('MinMax', MinMaxScaler()), ('Robust', RobustScaler())]:\n    Xs = scaler.fit_transform(X)\n    print(f'{name:8s}: mean={Xs.mean(axis=0).round(2)}, std={Xs.std(axis=0).round(2)}')"
+        }
+      ]
+    },
+    {
+      "title": "Data Cleaning and Validation",
+      "description": "Identifying and fixing errors, inconsistencies, and outliers in raw data.",
+      "tldr": "Data cleaning handles duplicates, incorrect types, inconsistent formatting, outliers, and logical errors. It typically consumes 60-80% of data science time but is critical for reliable results.",
+      "keyPoints": [
+        "Outlier",
+        "IQR Method",
+        "Z-Score"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Data Pipelines",
+          "text": "Automated cleaning ensures consistent data quality across batches."
+        },
+        {
+          "num": "2",
+          "title": "Healthcare",
+          "text": "Validate patient records for impossible values (negative age, future dates)."
+        },
+        {
+          "num": "3",
+          "title": "Finance",
+          "text": "Detect and handle fraudulent or erroneous transactions."
+        }
+      ],
+      "howItWorks": "Check for: duplicates (exact and near-duplicates), type errors (strings in numeric columns), range violations (age=-5), format inconsistencies (multiple date formats), logical errors (end date before start date), outliers (IQR or z-score methods). Outliers: remove if clearly errors, cap if legitimate extreme values, investigate if potentially interesting.",
+      "pitfalls": [
+        {
+          "text": "Blindly removing outliers can discard valuable information."
+        },
+        {
+          "text": "Data cleaning rules should be documented and reproducible."
+        },
+        {
+          "text": "Some 'errors' are actually important signals (e.g., fraud)."
+        },
+        {
+          "text": "Automated cleaning can introduce subtle biases if not carefully designed."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Outlier",
+          "definition": "Data point significantly different from other observations."
+        },
+        {
+          "term": "IQR Method",
+          "definition": "Values outside Q1-1.5*IQR or Q3+1.5*IQR are outliers."
+        },
+        {
+          "term": "Z-Score",
+          "definition": "Number of standard deviations from mean; |z|>3 often flagged."
+        }
+      ],
+      "relatedConcepts": [
+        "Feature Engineering",
+        "Missing Data Handling",
+        "Data Validation"
+      ],
+      "codeExamples": [
+        {
+          "title": "Outlier Detection",
+          "lang": "Python",
+          "code": "import numpy as np\n\ndef detect_outliers_iqr(data):\n    q1, q3 = np.percentile(data, [25, 75])\n    iqr = q3 - q1\n    lower, upper = q1 - 1.5*iqr, q3 + 1.5*iqr\n    return (data < lower) | (data > upper)\n\ndef detect_outliers_zscore(data, threshold=3):\n    z = np.abs((data - data.mean()) / data.std())\n    return z > threshold\n\nnp.random.seed(42)\ndata = np.concatenate([np.random.normal(50, 10, 100), [150, 160, -20]])\nprint(f'IQR outliers: {detect_outliers_iqr(data).sum()}')\nprint(f'Z-score outliers: {detect_outliers_zscore(data).sum()}')"
+        }
+      ]
+    },
+    {
+      "title": "Categorical Encoding",
+      "description": "Converting categorical variables to numerical representations for modeling.",
+      "tldr": "Categorical encoding transforms text categories into numbers. One-hot for nominal, label/ordinal for ordered, target encoding for high-cardinality features.",
+      "keyPoints": [
+        "One-Hot Encoding",
+        "Target Encoding",
+        "Embedding"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "E-Commerce",
+          "text": "Encode product categories and user segments for recommendation engines."
+        },
+        {
+          "num": "2",
+          "title": "Healthcare",
+          "text": "Encode diagnosis codes and medication names for prediction models."
+        },
+        {
+          "num": "3",
+          "title": "Marketing",
+          "text": "Encode campaign channels and audience segments for attribution models."
+        }
+      ],
+      "howItWorks": "Nominal (no order): One-Hot Encoding creates binary columns. Ordinal (ordered): Label Encoding assigns integers. High cardinality: Target Encoding replaces with mean target value per category, requires cross-validation to prevent leakage. Embeddings: learnable dense vectors for neural networks.",
+      "pitfalls": [
+        {
+          "text": "One-hot creates sparse matrices with high-cardinality features."
+        },
+        {
+          "text": "Label encoding can imply false ordinal relationships."
+        },
+        {
+          "text": "Target encoding causes data leakage if computed on test set."
+        },
+        {
+          "text": "Always check cardinality before choosing encoding method."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "One-Hot Encoding",
+          "definition": "Binary columns for each category; good for low-cardinality."
+        },
+        {
+          "term": "Target Encoding",
+          "definition": "Replace category with mean target value; needs cross-validation."
+        },
+        {
+          "term": "Embedding",
+          "definition": "Learnable dense vector representation for categories in neural networks."
+        }
+      ],
+      "relatedConcepts": [
+        "Feature Engineering",
+        "Data Cleaning",
+        "Neural Network Architecture"
+      ],
+      "codeExamples": [
+        {
+          "title": "Categorical Encoding",
+          "lang": "Python",
+          "code": "import pandas as pd\nfrom sklearn.preprocessing import LabelEncoder, OneHotEncoder\n\ndf = pd.DataFrame({'color': ['red','blue','green','red','blue'],\n                    'size': ['S','M','L','M','S']})\n\n# Label encoding\nle = LabelEncoder()\ndf['color_label'] = le.fit_transform(df['color'])\nprint('Label:', df['color_label'].tolist())\n\n# One-hot encoding\ndf_onehot = pd.get_dummies(df['color'])\nprint('One-Hot:\\n', df_onehot)\n\n# Ordinal encoding\nsize_map = {'S':0, 'M':1, 'L':2}\ndf['size_ord'] = df['size'].map(size_map)\nprint('Ordinal:', df['size_ord'].tolist())"
+        }
+      ]
+    },
+    {
+      "title": "Text Preprocessing",
+      "description": "Cleaning and normalizing text data for NLP models.",
+      "tldr": "Text preprocessing converts raw text into clean, normalized form. Common steps: lowercasing, removing punctuation, stop word removal, stemming/lemmatization, tokenization.",
+      "keyPoints": [
+        "Lemmatization",
+        "Stemming",
+        "Stop Words"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Search Engines",
+          "text": "Preprocess queries and documents for indexing and retrieval."
+        },
+        {
+          "num": "2",
+          "title": "Sentiment Analysis",
+          "text": "Normalize text to reduce noise before classification."
+        },
+        {
+          "num": "3",
+          "title": "Chatbots",
+          "text": "Parse and normalize user input for intent classification."
+        }
+      ],
+      "howItWorks": "Pipeline: lowercase -> remove HTML/special chars -> tokenize -> remove stop words -> stem/lemmatize. Stemming (Porter): crude chopping (running->run). Lemmatization (WordNet): dictionary-based (better->good). Modern LLMs handle raw text; preprocessing is less critical but still useful for traditional ML.",
+      "pitfalls": [
+        {
+          "text": "Aggressive stop word removal can remove important negation."
+        },
+        {
+          "text": "Stemming can create non-words; lemmatization is preferred."
+        },
+        {
+          "text": "Preserve case for NER (proper nouns)."
+        },
+        {
+          "text": "Domain-specific preprocessing (medical, legal) needs custom rules."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Lemmatization",
+          "definition": "Reducing words to dictionary base form (better->good)."
+        },
+        {
+          "term": "Stemming",
+          "definition": "Crude suffix removal (running->run, studies->studi)."
+        },
+        {
+          "term": "Stop Words",
+          "definition": "Common words (the, is, at) typically removed in preprocessing."
+        }
+      ],
+      "relatedConcepts": [
+        "Tokenization",
+        "Text Classification",
+        "Word Embeddings"
+      ],
+      "codeExamples": [
+        {
+          "title": "Text Preprocessing",
+          "lang": "Python",
+          "code": "text = input text<br/>tokens = text.lower().split()<br/>clean = [t for t in tokens if len(t) > 2]<br/>print(clean)"
+        }
+      ]
+    },
+    {
+      "title": "Data Augmentation for Tabular Data",
+      "description": "Techniques to artificially increase tabular dataset size and diversity.",
+      "tldr": "Tabular augmentation includes SMOTE for oversampling, feature perturbation, noise injection, and generative models. Critical for imbalanced datasets and small samples.",
+      "keyPoints": [
+        "SMOTE",
+        "ADASYN",
+        "Mixup"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Fraud Detection",
+          "text": "SMOTE generates synthetic fraud cases to balance imbalanced datasets."
+        },
+        {
+          "num": "2",
+          "title": "Healthcare",
+          "text": "Augment rare disease cases for better model training."
+        },
+        {
+          "num": "3",
+          "title": "Credit Scoring",
+          "text": "Generate synthetic applicants to improve minority class prediction."
+        }
+      ],
+      "howItWorks": "SMOTE: synthetically interpolate between minority class neighbors. ADASYN: adaptive SMOTE focusing on harder-to-learn examples. Feature perturbation: add Gaussian noise to numeric features. Mixup: interpolate between pairs of samples and labels. GANs can generate realistic tabular data.",
+      "pitfalls": [
+        {
+          "text": "SMOTE can create unrealistic samples in high dimensions."
+        },
+        {
+          "text": "Augmentation should not change the underlying data distribution."
+        },
+        {
+          "text": "Always augment after train/test split to prevent leakage."
+        },
+        {
+          "text": "Validate augmented data quality before training."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "SMOTE",
+          "definition": "Synthetic Minority Over-sampling Technique for imbalanced data."
+        },
+        {
+          "term": "ADASYN",
+          "definition": "Adaptive Synthetic Sampling focusing on harder minority examples."
+        },
+        {
+          "term": "Mixup",
+          "definition": "Linear interpolation between pairs of samples and labels."
+        }
+      ],
+      "relatedConcepts": [
+        "Feature Engineering",
+        "Class Imbalance",
+        "Model Evaluation"
+      ],
+      "codeExamples": [
+        {
+          "title": "SMOTE Oversampling",
+          "lang": "Python",
+          "code": "from collections import Counter\nimport numpy as np\n\n# Imbalanced dataset\nnp.random.seed(42)\nX = np.vstack([np.random.randn(90, 2), np.random.randn(10, 2) + 3])\ny = np.array([0]*90 + [1]*10)\nprint(f'Before: {Counter(y)}')\n\n# Simple SMOTE\nfrom sklearn.neighbors import NearestNeighbors\nnn = NearestNeighbors(n_neighbors=3).fit(X[y==1])\nsynthetic = []\nfor _ in range(80):  # Generate 80 new minority samples\n    idx = np.random.randint(10)\n    neighbor = np.random.randint(1, 3)\n    nn_idx = nn.kneighbors(X[y==1][idx:idx+1], n_neighbors=neighbor+1)[1][0][-1]\n    lam = np.random.rand()\n    synth = X[y==1][idx] + lam * (X[y==1][nn_idx] - X[y==1][idx])\n    synthetic.append(synth)\n\nX_aug = np.vstack([X, synthetic])\ny_aug = np.hstack([y, [1]*80])\nprint(f'After: {Counter(y_aug)}')"
+        }
+      ]
+    }
+  ],
+  "model-evaluation": [
+    {
+      "title": "Confusion Matrix and Error Analysis",
+      "description": "Tabular breakdown of correct and incorrect predictions by class.",
+      "tldr": "The confusion matrix shows TP, TN, FP, FN for each class. Error analysis examines misclassified examples to understand model weaknesses and guide improvements.",
+      "keyPoints": [
+        "True Positives",
+        "False Positives",
+        "False Negatives",
+        "Accuracy"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Medical Diagnosis",
+          "text": "Analyze false negatives to understand missed diagnoses."
+        },
+        {
+          "num": "2",
+          "title": "Spam Detection",
+          "text": "Examine false positives to reduce legitimate email blocking."
+        },
+        {
+          "num": "3",
+          "title": "Quality Control",
+          "text": "Study error patterns to improve defect classification."
+        }
+      ],
+      "howItWorks": "Confusion matrix: rows = actual, columns = predicted. Diagonal = correct. Off-diagonal = errors. From this: accuracy, precision, recall, F1. Error analysis: collect misclassified examples, look for patterns (certain classes confused, edge cases, data quality issues). Confusion matrix per class reveals which classes are most problematic.",
+      "pitfalls": [
+        {
+          "text": "Accuracy alone is misleading with imbalanced classes."
+        },
+        {
+          "text": "Confusion matrix should be analyzed per-class, not just overall."
+        },
+        {
+          "text": "Error analysis is as important as metrics; it guides data collection."
+        },
+        {
+          "text": "Threshold selection affects the confusion matrix significantly."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "True Positives",
+          "definition": "Correctly predicted positive cases."
+        },
+        {
+          "term": "False Positives",
+          "definition": "Incorrectly predicted as positive (Type I error)."
+        },
+        {
+          "term": "False Negatives",
+          "definition": "Missed positive cases (Type II error)."
+        },
+        {
+          "term": "Accuracy",
+          "definition": "Fraction of correct predictions out of total."
+        }
+      ],
+      "relatedConcepts": [
+        "Classification Metrics",
+        "Cross-Validation",
+        "Metric Selection"
+      ],
+      "codeExamples": [
+        {
+          "title": "Confusion Matrix Analysis",
+          "lang": "Python",
+          "code": "from sklearn.metrics import confusion_matrix, classification_report\nimport numpy as np\n\ny_true = [0,0,0,0,1,1,1,1,1,1]\ny_pred = [0,0,0,1,0,1,1,1,1,0]  # 2 FP, 1 FN\n\nprint('Confusion Matrix:')\nprint(confusion_matrix(y_true, y_pred))\nprint('\\nClassification Report:')\nprint(classification_report(y_true, y_pred, target_names=['Negative','Positive']))"
+        }
+      ]
+    },
+    {
+      "title": "Precision, Recall, and F1 Score",
+      "description": "Metrics measuring different aspects of classification performance.",
+      "tldr": "Precision measures accuracy of positive predictions. Recall measures coverage of actual positives. F1 balances both. The choice depends on the cost of false positives vs false negatives.",
+      "keyPoints": [
+        "Precision",
+        "Recall",
+        "F1 Score"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Cancer Screening",
+          "text": "High recall critical: missing cancer (FN) is worse than false alarm (FP)."
+        },
+        {
+          "num": "2",
+          "title": "Spam Detection",
+          "text": "High precision critical: blocking legitimate email (FP) is worse than missing spam (FN)."
+        },
+        {
+          "num": "3",
+          "title": "Search",
+          "text": "Balance both: relevant results (recall) without noise (precision)."
+        }
+      ],
+      "howItWorks": "Precision = TP/(TP+FP). Recall = TP/(TP+FN). F1 = 2*P*R/(P+R). P-R curve trades off precision vs recall at different thresholds. PR-AUC summarizes P-R trade-off. For imbalanced data, F1 and PR-AUC are more informative than accuracy.",
+      "pitfalls": [
+        {
+          "text": "Threshold choice dramatically affects precision-recall trade-off."
+        },
+        {
+          "text": "High recall at expense of precision means many false alarms."
+        },
+        {
+          "text": "F1 assumes equal importance of precision and recall."
+        },
+        {
+          "text": "For multi-class: macro (per-class average) vs micro (global) vs weighted."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Precision",
+          "definition": "Of all predicted positives, fraction that are actually positive."
+        },
+        {
+          "term": "Recall",
+          "definition": "Of all actual positives, fraction that are correctly identified."
+        },
+        {
+          "term": "F1 Score",
+          "definition": "Harmonic mean of precision and recall: 2*P*R/(P+R)."
+        }
+      ],
+      "relatedConcepts": [
+        "Classification Metrics",
+        "ROC Curve",
+        "Threshold Selection"
+      ],
+      "codeExamples": [
+        {
+          "title": "Precision-Recall Trade-off",
+          "lang": "Python",
+          "code": "from sklearn.metrics import precision_score, recall_score, f1_score\nimport numpy as np\n\n# Simulated predictions at different thresholds\nthresholds = [0.3, 0.4, 0.5, 0.6, 0.7]\ny_true = np.array([1,1,1,0,0,0,1,1,0,0])\ny_probs = np.array([0.8,0.7,0.6,0.4,0.3,0.2,0.9,0.5,0.1,0.3])\n\nprint('Threshold | Precision | Recall | F1')\nfor t in thresholds:\n    y_pred = (y_probs >= t).astype(int)\n    p = precision_score(y_true, y_pred, zero_division=0)\n    r = recall_score(y_true, y_pred, zero_division=0)\n    f1 = 2*p*r/(p+r) if p+r > 0 else 0\n    print(f'   {t:.1f}     |   {p:.3f}    |  {r:.3f}  | {f1:.3f}')"
+        }
+      ]
+    },
+    {
+      "title": "ROC Curve and AUC",
+      "description": "Measuring classifier performance across all classification thresholds.",
+      "tldr": "ROC curve plots true positive rate vs false positive rate at all thresholds. AUC summarizes overall discriminative ability: 0.5 = random, 1.0 = perfect.",
+      "keyPoints": [
+        "TPR",
+        "FPR",
+        "AUC",
+        "PR-AUC"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Medical Testing",
+          "text": "Compare diagnostic tests independent of threshold choice."
+        },
+        {
+          "num": "2",
+          "title": "Model Selection",
+          "text": "Rank models by overall discrimination ability."
+        },
+        {
+          "num": "3",
+          "title": "Imbalanced Data",
+          "text": "More informative than accuracy for rare event detection."
+        }
+      ],
+      "howItWorks": "For each threshold, compute TPR (recall) and FPR = FP/(FP+TN). Plot TPR vs FPR. AUC = area under this curve. Higher AUC = better discrimination. ROC is threshold-invariant: it evaluates the model's ranking ability, not a specific cutoff point.",
+      "pitfalls": [
+        {
+          "text": "AUC can be misleading with severe class imbalance; use PR-AUC."
+        },
+        {
+          "text": "AUC assumes equal costs for FP and FN; threshold-dependent metrics better for unequal costs."
+        },
+        {
+          "text": "Two models can have same AUC but very different operating characteristics."
+        },
+        {
+          "text": "AUC measures ranking quality, not calibration of probabilities."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "TPR",
+          "definition": "True Positive Rate = Recall = TP/(TP+FN)."
+        },
+        {
+          "term": "FPR",
+          "definition": "False Positive Rate = FP/(FP+TN)."
+        },
+        {
+          "term": "AUC",
+          "definition": "Area Under the ROC Curve; 0.5=random, 1.0=perfect."
+        },
+        {
+          "term": "PR-AUC",
+          "definition": "Area Under Precision-Recall Curve; better for imbalanced data."
+        }
+      ],
+      "relatedConcepts": [
+        "Precision-Recall",
+        "Confusion Matrix",
+        "Model Calibration"
+      ],
+      "codeExamples": [
+        {
+          "title": "ROC and AUC",
+          "lang": "Python",
+          "code": "from sklearn.metrics import roc_curve, roc_auc_score\nimport numpy as np\n\ny_true = np.array([1,1,1,0,0,0,1,1,0,0])\ny_scores = np.array([0.9,0.8,0.6,0.4,0.3,0.2,0.7,0.5,0.1,0.3])\n\nfpr, tpr, thresholds = roc_curve(y_true, y_scores)\nauc = roc_auc_score(y_true, y_scores)\n\nprint('Threshold | TPR   | FPR')\nfor i in range(0, len(thresholds), max(1, len(thresholds)//5)):\n    print(f'  {thresholds[i]:.2f}    | {tpr[i]:.3f} | {fpr[i]:.3f}')\nprint(f'\\nAUC: {auc:.4f}')"
+        }
+      ]
+    },
+    {
+      "title": "Regression Metrics",
+      "description": "Evaluating continuous prediction models beyond simple accuracy.",
+      "tldr": "Regression metrics quantify prediction error: MAE for robust evaluation, MSE for penalizing large errors, R2 for explained variance, MAPE for percentage-based interpretation.",
+      "keyPoints": [
+        "RMSE",
+        "MAE",
+        "R-squared",
+        "MAPE"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Housing",
+          "text": "RMSE in dollars interpretable as average prediction error."
+        },
+        {
+          "num": "2",
+          "title": "Finance",
+          "text": "MAPE provides percentage-based error for stakeholder communication."
+        },
+        {
+          "num": "3",
+          "title": "Manufacturing",
+          "text": "MAE robust to occasional extreme measurement errors."
+        }
+      ],
+      "howItWorks": "MAE = mean|y-yhat|: robust to outliers. MSE = mean(y-yhat)^2: penalizes large errors. RMSE = sqrt(MSE): in original units. R2 = 1 - SS_res/SS_tot: proportion of variance explained. MAPE = mean|y-yhat|/|y|: percentage error. Choose based on business context: RMSE for large error penalty, MAE for robustness.",
+      "pitfalls": [
+        {
+          "text": "No single metric captures all aspects of regression performance."
+        },
+        {
+          "text": "R2 can be negative if model is worse than predicting the mean."
+        },
+        {
+          "text": "MAPE is undefined for zero targets and asymmetric."
+        },
+        {
+          "text": "Compare against simple baselines (mean, median) to ensure model adds value."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "RMSE",
+          "definition": "Root Mean Squared Error: in original units, penalizes large errors."
+        },
+        {
+          "term": "MAE",
+          "definition": "Mean Absolute Error: robust to outliers, in original units."
+        },
+        {
+          "term": "R-squared",
+          "definition": "Proportion of variance explained by the model (0 to 1)."
+        },
+        {
+          "term": "MAPE",
+          "definition": "Mean Absolute Percentage Error: scale-independent percentage error."
+        }
+      ],
+      "relatedConcepts": [
+        "Loss Functions",
+        "Model Evaluation",
+        "Feature Engineering"
+      ],
+      "codeExamples": [
+        {
+          "title": "Regression Metrics Comparison",
+          "lang": "Python",
+          "code": "from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score\nimport numpy as np\n\ny_true = np.array([100, 200, 300, 400, 500])\ny_pred = np.array([110, 190, 310, 380, 520])\n\nmae = mean_absolute_error(y_true, y_pred)\nmse = mean_squared_error(y_true, y_pred)\nrmse = np.sqrt(mse)\nr2 = r2_score(y_true, y_pred)\nmape = np.mean(np.abs((y_true-y_pred)/y_true)) * 100\n\nprint(f'MAE:  {mae:.2f}')\nprint(f'MSE:  {mse:.2f}')\nprint(f'RMSE: {rmse:.2f}')\nprint(f'R2:   {r2:.4f}')\nprint(f'MAPE: {mape:.2f}%')"
+        }
+      ]
+    },
+    {
+      "title": "Cross-Validation Strategies",
+      "description": "Robust model evaluation using multiple train-validation splits.",
+      "tldr": "Cross-validation provides reliable performance estimates by training and evaluating on different data splits. Strategies include K-Fold, Stratified, Time-Series, and Nested CV.",
+      "keyPoints": [
+        "K-Fold",
+        "Stratified CV",
+        "Nested CV"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Model Comparison",
+          "text": "Compare algorithms reliably across multiple data splits."
+        },
+        {
+          "num": "2",
+          "title": "Hyperparameter Tuning",
+          "text": "Evaluate each configuration with reduced variance."
+        },
+        {
+          "num": "3",
+          "title": "Small Datasets",
+          "text": "Maximize use of limited data for both training and evaluation."
+        }
+      ],
+      "howItWorks": "K-Fold: split data into K parts, train on K-1, test on remaining. Stratified K-Fold: maintains class proportions. TimeSeriesSplit: preserves temporal order. Nested CV: outer loop for evaluation, inner loop for hyperparameter tuning. Leave-One-Out: K=N, expensive but uses all data.",
+      "pitfalls": [
+        {
+          "text": "Random K-Fold leaks future information for time series data."
+        },
+        {
+          "text": "Stratification essential for imbalanced classification."
+        },
+        {
+          "text": "Nested CV needed when both tuning and evaluation use CV."
+        },
+        {
+          "text": "Computational cost scales with K; K=5 or 10 is standard."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "K-Fold",
+          "definition": "Split data into K folds; train on K-1, test on 1, repeat K times."
+        },
+        {
+          "term": "Stratified CV",
+          "definition": "Maintains class proportions in each fold."
+        },
+        {
+          "term": "Nested CV",
+          "definition": "CV within CV: outer for evaluation, inner for hyperparameter tuning."
+        }
+      ],
+      "relatedConcepts": [
+        "Train/Test Split",
+        "Hyperparameter Tuning",
+        "Model Selection"
+      ],
+      "codeExamples": [
+        {
+          "title": "Cross-Validation Strategies",
+          "lang": "Python",
+          "code": "from sklearn.model_selection import cross_val_score, StratifiedKFold, TimeSeriesSplit\nfrom sklearn.ensemble import RandomForestClassifier\nfrom sklearn.datasets import make_classification\nimport numpy as np\n\nX, y = make_classification(n_samples=500, n_features=20, random_state=42)\nmodel = RandomForestClassifier(n_estimators=100, random_state=42)\n\n# Standard K-Fold\nscores = cross_val_score(model, X, y, cv=5)\nprint(f'K-Fold: {scores.mean():.3f} +/- {scores.std():.3f}')\n\n# Stratified K-Fold\nscores = cross_val_score(model, X, y, cv=StratifiedKFold(5, shuffle=True, random_state=42))\nprint(f'Stratified: {scores.mean():.3f} +/- {scores.std():.3f}')\n\n# Time Series Split\nscores = cross_val_score(model, X, y, cv=TimeSeriesSplit(n_splits=5))\nprint(f'TimeSeries: {scores.mean():.3f} +/- {scores.std():.3f}')"
+        }
+      ]
+    }
+  ],
+  "mlops": [
+    {
+      "title": "Model Serialization and Versioning",
+      "description": "Saving, loading, and versioning trained models for deployment.",
+      "tldr": "Model serialization saves trained models for inference. Version control ensures reproducibility. MLflow, Weights & Biases, and DVC provide experiment tracking and model registry.",
+      "keyPoints": [
+        "ONNX",
+        "Model Registry",
+        "Experiment Tracking"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Production Deployment",
+          "text": "Load trained models without retraining for real-time inference."
+        },
+        {
+          "num": "2",
+          "title": "Reproducibility",
+          "text": "Version models alongside code and data for consistent results."
+        },
+        {
+          "num": "3",
+          "title": "A/B Testing",
+          "text": "Deploy multiple model versions simultaneously for comparison."
+        }
+      ],
+      "howItWorks": "Formats: pickle (Python), joblib (sklearn), ONNX (cross-framework), SavedModel (TensorFlow), TorchScript (PyTorch). Model registry: centralized store for model versions, stages (staging, production, archived). MLflow tracks experiments, logs parameters/metrics, and stores model artifacts.",
+      "pitfalls": [
+        {
+          "text": "Pickle can execute arbitrary code; use safe alternatives for untrusted models."
+        },
+        {
+          "text": "Model updates can break downstream systems; version your APIs."
+        },
+        {
+          "text": "Disk space management for large models (GPT-4: ~800GB)."
+        },
+        {
+          "text": "Model lineage tracking is essential for debugging and compliance."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "ONNX",
+          "definition": "Open Neural Network Exchange: cross-framework model format."
+        },
+        {
+          "term": "Model Registry",
+          "definition": "Centralized store for model versions and metadata."
+        },
+        {
+          "term": "Experiment Tracking",
+          "definition": "Recording parameters, metrics, and artifacts for each training run."
+        }
+      ],
+      "relatedConcepts": [
+        "Model Deployment",
+        "CI/CD for ML",
+        "Model Monitoring"
+      ],
+      "codeExamples": [
+        {
+          "title": "Model Serialization",
+          "lang": "Python",
+          "code": "import pickle\nimport numpy as np\nfrom sklearn.ensemble import RandomForestClassifier\nfrom sklearn.datasets import load_iris\n\n# Train and save\niris = load_iris()\nmodel = RandomForestClassifier(n_estimators=100, random_state=42)\nmodel.fit(iris.data, iris.target)\n\nwith open('model.pkl', 'wb') as f:\n    pickle.dump(model, f)\n\n# Load and predict\nwith open('model.pkl', 'rb') as f:\n    loaded = pickle.load(f)\n\npred = loaded.predict(iris.data[:3])\nprint(f'Predictions: {pred}')\nprint(f'Accuracy: {loaded.score(iris.data, iris.target):.3f}')"
+        }
+      ]
+    },
+    {
+      "title": "Model Deployment and Serving",
+      "description": "Deploying trained models to production for real-time or batch inference.",
+      "tldr": "Model serving makes predictions available via APIs. Options: REST APIs (Flask/FastAPI), batch processing, edge deployment, serverless functions. Latency, throughput, and cost are key constraints.",
+      "keyPoints": [
+        "Model Serving",
+        "Quantization",
+        "Knowledge Distillation"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Real-Time APIs",
+          "text": "Serve predictions via REST API with <100ms latency."
+        },
+        {
+          "num": "2",
+          "title": "Batch Processing",
+          "text": "Run predictions on large datasets overnight."
+        },
+        {
+          "num": "3",
+          "title": "Edge Deployment",
+          "text": "Deploy lightweight models on mobile/IoT devices."
+        }
+      ],
+      "howItWorks": "Real-time: FastAPI/Flask with model loaded in memory. Batch: Apache Spark, Airflow pipelines. Model optimization: quantization (FP32->INT8), pruning, distillation. Serving frameworks: TorchServe, TensorFlow Serving, Triton Inference Server. Monitor latency percentiles (P50, P95, P99).",
+      "pitfalls": [
+        {
+          "text": "Cold start latency for serverless can be seconds."
+        },
+        {
+          "text": "Model size affects deployment cost and latency."
+        },
+        {
+          "text": "Batch and real-time have different optimization requirements."
+        },
+        {
+          "text": "A/B testing requires infrastructure for traffic splitting."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Model Serving",
+          "definition": "Providing predictions via API or batch pipeline in production."
+        },
+        {
+          "term": "Quantization",
+          "definition": "Reducing model precision (FP32->INT8) for faster inference."
+        },
+        {
+          "term": "Knowledge Distillation",
+          "definition": "Training a small model to mimic a large model's outputs."
+        }
+      ],
+      "relatedConcepts": [
+        "Model Serialization",
+        "CI/CD for ML",
+        "API Design"
+      ],
+      "codeExamples": [
+        {
+          "title": "FastAPI Model Serving",
+          "lang": "Python",
+          "code": "from fastapi import FastAPI\nimport pickle\nimport numpy as np\n\napp = FastAPI()\nwith open('model.pkl', 'rb') as f:\n    model = pickle.load(f)\n\n@app.post('/predict')\ndef predict(features: list):\n    prediction = model.predict(np.array(features).reshape(1, -1))\n    return {'prediction': int(prediction[0])}\n\n@app.get('/health')\ndef health():\n    return {'status': 'healthy', 'model_type': type(model).__name__}')"
+        }
+      ]
+    },
+    {
+      "title": "CI/CD for Machine Learning",
+      "description": "Automating model testing, validation, and deployment pipelines.",
+      "tldr": "ML pipelines automate data validation, model training, evaluation, and deployment. Unlike traditional CI/CD, ML introduces data dependencies and statistical validation steps.",
+      "keyPoints": [
+        "Shadow Deployment",
+        "Canary Release",
+        "Data Drift"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Continuous Training",
+          "text": "Automatically retrain models when new data arrives."
+        },
+        {
+          "num": "2",
+          "title": "Model Validation",
+          "text": "Run quality gates before promoting models to production."
+        },
+        {
+          "num": "3",
+          "title": "Rollback",
+          "text": "Automatically revert to previous model if metrics degrade."
+        }
+      ],
+      "howItWorks": "Pipeline stages: data validation (schema, distributions) -> feature engineering -> model training -> evaluation (performance thresholds) -> shadow deployment -> canary release -> full deployment. Tools: Kubeflow, Airflow, MLflow, GitHub Actions. Data validation: Great Expectations, Pandera.",
+      "pitfalls": [
+        {
+          "text": "Data drift can silently degrade model performance."
+        },
+        {
+          "text": "Pipeline failures should alert and block deployment."
+        },
+        {
+          "text": "A/B testing infrastructure needed for safe rollouts."
+        },
+        {
+          "text": "Cost management for cloud-based training pipelines."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Shadow Deployment",
+          "definition": "Running new model alongside old, comparing outputs without affecting users."
+        },
+        {
+          "term": "Canary Release",
+          "definition": "Gradually routing traffic to new model while monitoring metrics."
+        },
+        {
+          "term": "Data Drift",
+          "definition": "Change in input data distribution over time causing model degradation."
+        }
+      ],
+      "relatedConcepts": [
+        "Model Deployment",
+        "Model Monitoring",
+        "Feature Engineering"
+      ],
+      "codeExamples": [
+        {
+          "title": "ML Pipeline with Airflow",
+          "lang": "Python",
+          "code": "# Simplified ML pipeline concept\n# In production: use Airflow, Kubeflow, or Prefect\n\npipeline_stages = [\n    '1. Data Validation',\n    '2. Feature Engineering',\n    '3. Model Training',\n    '4. Model Evaluation',\n    '5. Model Registry',\n    '6. Shadow Deployment',\n    '7. Canary Release',\n    '8. Full Deployment'\n]\n\nfor stage in pipeline_stages:\n    print(f'  [OK] {stage}')\n\nprint('\\nPipeline ensures reproducible, validated deployments')"
+        }
+      ]
+    },
+    {
+      "title": "Model Monitoring and Drift Detection",
+      "description": "Tracking model performance in production and detecting degradation.",
+      "tldr": "Model monitoring tracks prediction quality, data drift, and concept drift. Early detection enables retraining before significant performance loss.",
+      "keyPoints": [
+        "Data Drift",
+        "Concept Drift",
+        "PSI"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "E-Commerce",
+          "text": "Detect recommendation quality degradation after UI changes."
+        },
+        {
+          "num": "2",
+          "title": "Finance",
+          "text": "Monitor credit scoring models for distribution shifts."
+        },
+        {
+          "num": "3",
+          "title": "Healthcare",
+          "text": "Track diagnostic model accuracy as patient demographics change."
+        }
+      ],
+      "howItWorks": "Monitor: prediction distribution shifts, feature distribution changes, latency/throughput, business metrics. Data drift: input distribution changes (KS test, PSI). Concept drift: relationship between inputs and target changes. Tools: Evidently AI, WhyLabs, NannyML.",
+      "pitfalls": [
+        {
+          "text": "Monitoring generates lots of data; choose metrics carefully."
+        },
+        {
+          "text": "False alarms from monitoring can cause alert fatigue."
+        },
+        {
+          "text": "Concept drift is harder to detect than data drift."
+        },
+        {
+          "text": "Monitoring should be automated with escalation policies."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Data Drift",
+          "definition": "Change in input feature distribution over time."
+        },
+        {
+          "term": "Concept Drift",
+          "definition": "Change in the relationship between features and target."
+        },
+        {
+          "term": "PSI",
+          "definition": "Population Stability Index: measures distribution shift magnitude."
+        }
+      ],
+      "relatedConcepts": [
+        "Model Deployment",
+        "CI/CD for ML",
+        "Model Evaluation"
+      ],
+      "codeExamples": [
+        {
+          "title": "Drift Detection",
+          "lang": "Python",
+          "code": "import numpy as np\nfrom scipy import stats\n\ndef psi(expected, actual, n_bins=10):\n    \"\"\"Population Stability Index\"\"\"\n    eps = 1e-4\n    breakpoints = np.linspace(min(expected.min(), actual.min()),\n                              max(expected.max(), actual.max()), n_bins+1)\n    exp_pct = np.histogram(expected, breakpoints)[0] / len(expected) + eps\n    act_pct = np.histogram(actual, breakpoints)[0] / len(actual) + eps\n    return np.sum((act_pct - exp_pct) * np.log(act_pct / exp_pct))\n\nnp.random.seed(42)\nbaseline = np.random.normal(50, 10, 1000)\ncurrent = np.random.normal(52, 12, 1000)  # slight shift\n\npsi_val = psi(baseline, current)\nprint(f'PSI: {psi_val:.4f}')\nprint(f'Drift: {\"Significant\" if psi_val > 0.2 else \"Minor\" if psi_val > 0.1 else \"None\"}')"
+        }
+      ]
+    }
+  ],
+  "ai-ethics": [
+    {
+      "title": "Bias and Fairness",
+      "description": "Identifying and mitigating unfair discrimination in ML systems.",
+      "tldr": "ML systems can perpetuate or amplify societal biases present in training data. Fairness involves identifying bias sources, measuring disparate impact, and applying mitigation techniques.",
+      "keyPoints": [
+        "Demographic Parity",
+        "Equalized Odds",
+        "Disparate Impact"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Hiring",
+          "text": "Amazon scrapped AI hiring tool that discriminated against women."
+        },
+        {
+          "num": "2",
+          "title": "Criminal Justice",
+          "text": "COMPAS recidivism tool showed racial bias in risk assessment."
+        },
+        {
+          "num": "3",
+          "title": "Lending",
+          "text": "Credit scoring models can discriminate based on protected attributes."
+        }
+      ],
+      "howItWorks": "Sources: historical bias (training data reflects past discrimination), representation bias (underrepresented groups), measurement bias (proxy variables). Metrics: demographic parity, equalized odds, equal opportunity. Mitigation: re-sampling, re-weighting, adversarial debiasing, post-processing.",
+      "pitfalls": [
+        {
+          "text": "Perfect fairness across all definitions simultaneously is mathematically impossible."
+        },
+        {
+          "text": "Removing protected attributes doesn't eliminate bias if proxies exist."
+        },
+        {
+          "text": "Fairness definitions can conflict; choose based on context."
+        },
+        {
+          "text": "Fairness auditing should be ongoing, not one-time."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Demographic Parity",
+          "definition": "Equal prediction rates across groups regardless of outcomes."
+        },
+        {
+          "term": "Equalized Odds",
+          "definition": "Equal true positive and false positive rates across groups."
+        },
+        {
+          "term": "Disparate Impact",
+          "definition": "Ratio of favorable outcomes between groups; legal threshold is 0.8."
+        }
+      ],
+      "relatedConcepts": [
+        "Model Interpretability",
+        "Data Preprocessing",
+        "AI Governance"
+      ],
+      "codeExamples": [
+        {
+          "title": "Fairness Metrics",
+          "lang": "Python",
+          "code": "import numpy as np\n\ndef fairness_metrics(y_true, y_pred, sensitive):\n    \"\"\"Compute basic fairness metrics\"\"\"\n    groups = np.unique(sensitive)\n    metrics = {}\n    for g in groups:\n        mask = sensitive == g\n        metrics[g] = {\n            'selection_rate': y_pred[mask].mean(),\n            'tpr': (y_pred[mask][y_true[mask]==1]==1).mean() if (y_true[mask]==1).any() else 0,\n        }\n    # Disparate impact\n    rates = [m['selection_rate'] for m in metrics.values()]\n    di = min(rates) / max(rates)\n    return metrics, di\n\nnp.random.seed(42)\ny_true = np.random.randint(0, 2, 200)\ny_pred = np.random.randint(0, 2, 200)\nsensitive = np.array(['A']*100 + ['B']*100)\n\nmetrics, di = fairness_metrics(y_true, y_pred, sensitive)\nfor g, m in metrics.items():\n    print(f'Group {g}: selection={m[\"selection_rate\"]:.3f}, TPR={m[\"tpr\"]:.3f}')\nprint(f'Disparate Impact: {di:.3f} (threshold: 0.8)')"
+        }
+      ]
+    },
+    {
+      "title": "Explainability and Interpretability",
+      "description": "Making ML model decisions understandable to humans.",
+      "tldr": "Explainability is critical for trust, debugging, and regulatory compliance. Techniques range from simple feature importance to sophisticated SHAP and LIME explanations.",
+      "keyPoints": [
+        "SHAP",
+        "LIME",
+        "Feature Importance"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Healthcare",
+          "text": "FDA requires explainable AI for medical device approval."
+        },
+        {
+          "num": "2",
+          "title": "Finance",
+          "text": "Equal Credit Opportunity Act requires explaining credit denial reasons."
+        },
+        {
+          "num": "3",
+          "title": "Legal",
+          "text": "Right to explanation under GDPR for automated decisions."
+        }
+      ],
+      "howItWorks": "Global interpretability: feature importance, partial dependence plots, SHAP summary. Local interpretability: LIME fits simple model around each prediction, SHAP computes feature contributions via game theory. Model-agnostic: works with any model. Model-specific: tree-based feature importance, attention visualization.",
+      "pitfalls": [
+        {
+          "text": "Explanations are approximations, not exact model reasoning."
+        },
+        {
+          "text": "Feature importance can be misleading with correlated features."
+        },
+        {
+          "text": "Interpretability often trades off with model performance."
+        },
+        {
+          "text": "Explanations must be understandable to the target audience."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "SHAP",
+          "definition": "SHapley Additive exPlanations: game-theoretic feature attribution."
+        },
+        {
+          "term": "LIME",
+          "definition": "Local Interpretable Model-agnostic Explanations: local linear approximation."
+        },
+        {
+          "term": "Feature Importance",
+          "definition": "Score measuring each feature's contribution to predictions."
+        }
+      ],
+      "relatedConcepts": [
+        "Model Interpretability",
+        "Bias and Fairness",
+        "AI Governance"
+      ],
+      "codeExamples": [
+        {
+          "title": "SHAP Explanations",
+          "lang": "Python",
+          "code": "import shap\nimport numpy as np\nfrom sklearn.ensemble import RandomForestClassifier\nfrom sklearn.datasets import load_iris\n\niris = load_iris()\nmodel = RandomForestClassifier(n_estimators=100, random_state=42)\nmodel.fit(iris.data, iris.target)\n\nexplainer = shap.TreeExplainer(model)\nshap_values = explainer.shap_values(iris.data)\n\n# Feature importance\nmean_shap = np.mean([np.abs(sv).mean(0) for sv in shap_values], axis=0)\nfor i in np.argsort(mean_shap)[::-1]:\n    print(f'{iris.feature_names[i]:20s}: {mean_shap[i]:.4f}')"
+        }
+      ]
+    },
+    {
+      "title": "AI Safety and Alignment",
+      "description": "Ensuring AI systems behave as intended without harmful side-effects.",
+      "tldr": "AI safety ensures models do what we want without unintended consequences. Alignment means the model's goals match human values. Key challenges: specification gaming, reward hacking, Goodhart's law.",
+      "keyPoints": [
+        "Specification Gaming",
+        "Goodhart's Law",
+        "RLHF"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Chatbots",
+          "text": "Preventing harmful, biased, or misleading outputs."
+        },
+        {
+          "num": "2",
+          "title": "Autonomous Systems",
+          "text": "Ensuring self-driving cars and robots behave safely."
+        },
+        {
+          "num": "3",
+          "title": "Recommendation Systems",
+          "text": "Avoiding filter bubbles and engagement-maximizing extremism."
+        }
+      ],
+      "howItWorks": "Specification gaming: model finds unintended ways to maximize reward. Reward hacking: model exploits reward function flaws. Goodhart's law: when a measure becomes a target, it ceases to be a good measure. Solutions: red-teaming, constitutional AI, RLHF, reward modeling, interpretability tools.",
+      "pitfalls": [
+        {
+          "text": "Specification gaming is extremely difficult to prevent completely."
+        },
+        {
+          "text": "RLHF can optimize for human approval rather than actual correctness."
+        },
+        {
+          "text": "Interpretability helps but doesn't guarantee safety."
+        },
+        {
+          "text": "Scalable oversight: ensuring humans can supervise increasingly capable AI."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Specification Gaming",
+          "definition": "Model finding unintended ways to maximize reward."
+        },
+        {
+          "term": "Goodhart's Law",
+          "definition": "When a measure becomes a target, it stops being a good measure."
+        },
+        {
+          "term": "RLHF",
+          "definition": "Reinforcement Learning from Human Feedback for alignment."
+        }
+      ],
+      "relatedConcepts": [
+        "Large Language Models",
+        "Reinforcement Learning",
+        "Model Evaluation"
+      ],
+      "codeExamples": [
+        {
+          "title": "Red-Teaming Concepts",
+          "lang": "Python",
+          "code": "# AI Safety testing concepts\n\ntest_categories = {\n    'Harmful Content': ['Generate instructions for harm', 'Hate speech generation'],\n    'Misinformation': ['Factual inaccuracies', 'Confident wrong answers'],\n    'Bias': ['Gender stereotypes', 'Racial discrimination'],\n    'Privacy': ['Personal information extraction', 'Training data memorization'],\n    'Robustness': ['Adversarial inputs', 'Jailbreak attempts']\n}\n\nfor category, tests in test_categories.items():\n    print(f'{category}:')\n    for test in tests:\n        print(f'  - {test}')\n\nprint('\\nRed-teaming should be systematic and documented')"
+        }
+      ]
+    },
+    {
+      "title": "AI Governance and Regulation",
+      "description": "Frameworks for responsible AI development and deployment.",
+      "tldr": "AI governance establishes policies, procedures, and accountability for AI systems. Regulations like EU AI Act, NIST AI Framework, and sector-specific rules require compliance.",
+      "keyPoints": [
+        "EU AI Act",
+        "NIST AI RMF",
+        "AI Impact Assessment"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "EU AI Act",
+          "text": "Risk-based classification: unacceptable, high, limited, minimal risk."
+        },
+        {
+          "num": "2",
+          "title": "Healthcare",
+          "text": "FDA requirements for AI/ML-based medical devices."
+        },
+        {
+          "num": "3",
+          "title": "Finance",
+          "text": "SR 11-7 guidance on model risk management for banks."
+        }
+      ],
+      "howItWorks": "EU AI Act: bans social scoring, requires conformity assessments for high-risk AI, mandates transparency. NIST AI RMF: Govern, Map, Measure, Manage framework. Key principles: transparency, accountability, fairness, safety, privacy. Implementation: AI ethics boards, impact assessments, documentation, audit trails.",
+      "pitfalls": [
+        {
+          "text": "Regulations are evolving rapidly; what's compliant today may not be tomorrow."
+        },
+        {
+          "text": "Global companies must comply with multiple jurisdictions."
+        },
+        {
+          "text": "Governance should enable innovation, not just restrict it."
+        },
+        {
+          "text": "Technical documentation must be understandable to non-technical regulators."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "EU AI Act",
+          "definition": "European regulation classifying AI by risk level with specific requirements."
+        },
+        {
+          "term": "NIST AI RMF",
+          "definition": "AI Risk Management Framework: Govern, Map, Measure, Manage."
+        },
+        {
+          "term": "AI Impact Assessment",
+          "definition": "Systematic evaluation of AI system risks and impacts."
+        }
+      ],
+      "relatedConcepts": [
+        "AI Safety",
+        "Bias and Fairness",
+        "Model Monitoring"
+      ],
+      "codeExamples": [
+        {
+          "title": "AI Governance Checklist",
+          "lang": "Python",
+          "code": "governance_checklist = {\n    'Data Governance': [\n        'Data provenance documented',\n        'Privacy compliance (GDPR/CCPA)',\n        'Data quality validation',\n        'Consent management'\n    ],\n    'Model Development': [\n        'Bias testing completed',\n        'Explainability analysis',\n        'Performance benchmarks met',\n        'Adversarial robustness tested'\n    ],\n    'Deployment': [\n        'Monitoring configured',\n        'Incident response plan',\n        'A/B testing infrastructure',\n        'Rollback capability'\n    ],\n    'Documentation': [\n        'Model card completed',\n        'Datasheet for dataset',\n        'Risk assessment filed',\n        'Audit trail configured'\n    ]\n}\n\nfor section, items in governance_checklist.items():\n    print(f'\\n{section}:')\n    for item in items:\n        print(f'  [ ] {item}')"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semiconductor Engineering — Chips, GPUs and AI Accelerators — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Semiconductor Engineering — Chips, GPUs and AI Accelerators</span><span class="spacer"></span>
+<a class="navlink" href="quantum-computing.html">&larr; Quantum Computing</a> <a class="navlink" href="iot.html">IoT Engineering &rarr;</a></nav>
+<header class="hero"><div class="mono">SC</div><div><h1>Semiconductor Engineering — Chips, GPUs and AI Accelerators</h1>
+<p class="tagline">From silicon and lithography to GPUs, TPUs, chiplets and the physical reality behind every AI model</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Every AI workload — training, inference, and edge deployment — runs on semiconductors. This chapter explains how chips are made, why GPUs/TPUs/NPUs win for AI, the physics and economics of process nodes, advanced packaging, and how to program accelerators efficiently. AI engineers who understand hardware ship faster and cheaper.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Semiconductors, doping, transistors, Moore's law</td><td>Can explain how a chip works at a high level</td></tr>
+<tr><td>Tier 2</td><td>CMOS, lithography, process nodes, fabs, packaging</td><td>Can read a chip spec and compare process generations</td></tr>
+<tr><td>Tier 3</td><td>GPU/TPU/NPU architecture, HBM, chiplets, CoWoS</td><td>Can explain why AI accelerators are shaped the way they are</td></tr>
+<tr><td>Tier 4</td><td>Systolic arrays, sparse compute, power/thermal, EDA</td><td>Can reason about accelerator design trade-offs</td></tr>
+<tr><td>Tier 5</td><td>CUDA kernels, profiling, model-to-chip mapping</td><td>Shipped optimized workloads with measured speedups</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 — what a semiconductor is</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Silicon, Doping and the Transistor</h3>
+<p><strong>What &amp; why.</strong> Silicon is a semiconductor: its conductivity sits between conductor and insulator, and — crucially — it can be precisely modified by doping (adding impurity atoms). The transistor — a tiny voltage-controlled switch — is the atom of all computing. Modern chips pack tens of billions of them.</p>
+<pre class="code"><code># Semiconductor basics
+#   Pure silicon: 4 valence electrons -> perfect crystal lattice
+#   Doping with phosphorus (5 e-) -> n-type (extra electrons)
+#   Doping with boron     (3 e-) -> p-type (holes / missing e-)
+#   n-p-n junction -> transistor: small voltage controls big current
+
+# MOS transistor (the workhorse)
+#   Gate (control) | Insulator (SiO2/HfO2) | Channel (Si)
+#   Gate voltage ON  -> channel conducts -> current flows (1)
+#   Gate voltage OFF -> channel blocks    -> no current (0)
+
+# Moore's law (empirical, 1965-2020s):
+#   transistor count ~doubles every ~2 years
+#   -> more compute per mm^2 at similar cost
+#   Dennard scaling (voltage ~ size) ended ~2006:
+#     power density capped frequency, so cores multiplied</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why chips get faster, hotter, and why "more cores" replaced "higher clock" after ~2006.</div>
+<div class="callout hood"><span>Under the hood</span>A CPU is just an orchestrated army of transistors: registers, ALUs, caches, control logic. Every software performance question bottoms out here.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>How a Chip Is Made: The Fab Flow</h3>
+<p><strong>What &amp; why.</strong> Chips are built by printing layers of patterns onto silicon wafers: deposit, coat with photoresist, expose through a mask (lithography), etch, dope, repeat hundreds of times. A modern chip needs 1,000+ process steps over months.</p>
+<pre class="code"><code># Simplified fab flow
+# 1. Wafer:   grow ultra-pure silicon ingot, slice into wafers
+# 2. Deposit: grow insulating/conducting layers (CVD, PVD)
+# 3. Coat:    spin photoresist (light-sensitive polymer)
+# 4. Expose:  UV/EUV light through a photomask -> pattern
+# 5. Develop: wash away exposed resist
+# 6. Etch:    remove material where resist is gone
+# 7. Implant: dope exposed regions (ion implantation)
+# 8. Repeat   for each of 50-100 mask layers
+# 9. Test:    probe wafer, cut dies, package good ones
+
+# Process node naming ("5nm", "3nm", "2nm"):
+#   historically = minimum feature size / gate length
+#   today = marketing-ish density metric, NOT physical size
+
+# EUV lithography (13.5nm light) enabled 7nm and below;
+# it costs ~$150M+ per machine. This is why fabs cost $10B+.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Interpreting chip announcements and understanding why capacity is geopolitically strategic (TSMC, Samsung, Intel, and the "chip war").</div>
+<div class="callout hood"><span>Under the hood</span>Yield (fraction of working dies) drives cost: smaller nodes + more defects = lower yield = expensive chips. Defect density is the real technology scoreboard.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Architecture<small>Tier 2 — how computing is organized</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>CPU vs GPU vs Accelerator</h3>
+<p><strong>What &amp; why.</strong> CPUs optimize latency on few complex cores; GPUs optimize throughput on thousands of simple cores; AI accelerators (TPU, NPU) specialize further, trading generality for raw matrix speed. AI training = massive parallelism = GPUs/accelerators win.</p>
+<pre class="code"><code># Compute model comparison
+# CPU:    few cores (8-64), deep pipelines, big caches,
+#         branch prediction, out-of-order -> latency-optimal
+# GPU:    thousands of ALUs (16k+ on H100), SIMT warps,
+#         high memory bandwidth, throughput-optimal
+# TPU:    systolic array of matrix multiply units (MXU),
+#         no general-purpose cores -> max TFLOPS/W
+
+# Why AI = matrix math
+#   attention:   QK^T, softmax, PV   -> dense matmuls
+#   MLP:         GEMM after GEMM
+#   conv:        implicit GEMM
+# Utilization = time in matmul / total time
+#   -> measured as MFU (model FLOPs utilization)
+
+# Modern numbers (approx):
+#   H100 SXM: ~990 TFLOPS FP16, ~3.35 TB/s HBM3, 700W
+#   GB200:    two GPUs + Grace CPU, ~40-45 PFLOPS per rack</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choosing hardware for training vs inference, and understanding why GPU memory (VRAM) is THE bottleneck for LLM work.</div>
+<div class="callout hood"><span>Under the hood</span>A GPU warps (32 threads) execute one instruction at a time on all lanes — branch divergence serializes. Writing GPU-friendly code means avoiding divergence and maximizing coalesced memory access.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Memory Hierarchy and HBM</h3>
+<p><strong>What &amp; why.</strong> Memory, not compute, is the real bottleneck: LLM inference streams model weights from memory for every token. High Bandwidth Memory (HBM) stacks DRAM dies with through-silicon vias to deliver terabytes/second — the reason modern AI chips are built around HBM stacks.</p>
+<pre class="code"><code># Latency & bandwidth hierarchy (order of magnitude)
+#   Register:       ~1 cycle       (bytes)
+#   L1 cache:       ~4 cycles      (KB)       10s GB/s
+#   L2 cache:       ~15 cycles     (MB)      100s GB/s
+#   HBM:            ~100s cycles   (GB)       TB/s
+#   GDDR/DRAM:      ~200+ cycles   (GB)       100s GB/s
+#   NVMe:           ~100k cycles   (TB)       few GB/s
+#   Network:        slower still
+
+# LLM inference bandwidth math
+#   weights: 7B params * 2 bytes (fp16) = 14 GB
+#   tokens/s  ~ memory_bandwidth / bytes_per_token
+#   H100 (3.35 TB/s): ~ 3.35e12 / 14e9 ~ 240 tok/s  (1 stream)
+#   -> memory-bound: compute sits idle waiting for weights
+
+# HBM construction:
+#   DRAM dies stacked + TSVs (vertical wires) + wide bus
+#   H100: 6 stacks HBM3 = 80GB @ 3.35 TB/s</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Estimating inference throughput, choosing KV-cache sizes, and deciding quantization strategy (fewer bits = fewer bytes = faster).</div>
+<div class="callout hood"><span>Under the hood</span>This is why quantization (see <a href="llms.html">LLMs</a>) speeds inference: 4-bit weights cut bytes per token ~4x, directly multiplying token throughput.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Advanced Packaging: Chiplets and CoWoS</h3>
+<p><strong>What &amp; why.</strong> Shrinking transistors gets harder and pricier, so the industry assembles chiplets: smaller dies built on different nodes, stitched together on a silicon interposer with ultra-fine wiring (CoWoS). This is how NVIDIA packs GPU + HBM into one package.</p>
+<pre class="code"><code># Chiplet design (AMD EPYC, NVIDIA Blackwell, Intel Ponte Vecchio)
+#   - one big die  ->  several smaller chiplets
+#   - compute chiplets (latest node) + I/O chiplets (cheap node)
+#   - connected by interposer or bridge (CoWoS, EMIB)
+
+# CoWoS (Chip-on-Wafer-on-Substrate)
+#   chiplets + HBM stacks sit on a silicon interposer
+#   interposer provides ultra-dense wiring between dies
+#   -> bandwidth between GPU and HBM without PCB traces
+
+# Why chiplets win:
+#   - yield: smaller die = more dies per wafer = better yield
+#   - flexibility: mix nodes, mix vendors
+#   - scale: HBM stacks + compute in ONE package
+
+# Cost reality:
+#   CoWoS capacity is a supply-chain bottleneck for AI
+#   (every big GPU needs 6-8 HBM stacks + interposer)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why "AI GPU shortage" is partly a packaging shortage, and why procurement lead times are long.</div>
+<div class="callout hood"><span>Under the hood</span>The interposer is basically a silicon PCB with micron-scale wiring; its reticle-size limits drive 2.5D designs and the move to co-packaged optics for networking.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Accelerators<small>Tier 3 — why AI chips are shaped like this</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Systolic Arrays and the TPU</h3>
+<p><strong>What &amp; why.</strong> A systolic array is a grid of multiply-accumulate (MAC) units where data flows like a heartbeat — each unit computes, then passes partial results to neighbors. It turns matrix multiply into a data-movement problem: nearly 100% of the hardware is doing math, not control.</p>
+<pre class="code"><code># Matrix multiply on a systolic array (concept)
+# C = A x B ; A rows stream in from top, B columns from left
+#
+#   B0  B1  B2
+# A0 [MAC] [MAC] [MAC]
+# A1 [MAC] [MAC] [MAC]   each MAC: c += a * b, pass values on
+# A2 [MAC] [MAC] [MAC]
+#
+# TPU v1: 256x256 systolic array = 65,536 MACs
+#   -> ~92 TOPS INT8, 700 mm^2, only ~28 MB SRAM (no HBM v1)
+#   - uses SRAM (fast, on-die) because matmul is data-reuse-heavy
+#
+# MAC count = the headline AI hardware metric
+#   H100:    ~989 TFLOPS FP16  (huge tensor cores)
+#   B200:    ~2.25 PFLOPS FP16 per die
+
+# Data reuse is the point:
+#   each weight used by many inputs -> keep it in SRAM/registers</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why TPUs/NPUs are orders of magnitude more efficient per watt than CPUs for matmul-heavy workloads.</div>
+<div class="callout hood"><span>Under the hood</span>The "systolic" name: data pulses through the array synchronously like blood through a heart. Control overhead is minimized — the array just multiplies and passes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Tensor Cores and Precision Trade-offs</h3>
+<p><strong>What &amp; why.</strong> NVIDIA tensor cores perform 4x4 matrix multiplies in one instruction with mixed precision: inputs at FP16/BF16, accumulation in FP32. Training uses lower precision where safe; inference quantization (INT8/FP8/INT4) trades precision for speed.</p>
+<pre class="code"><code># Precision ladder (AI workloads)
+#   FP32:   standard float  (training fallback, stable)
+#   BF16:   FP32 exponent, FP16 mantissa (training sweet spot)
+#   FP16:   half float (training with loss scaling)
+#   FP8:    emerging training (2x speed, needs care)
+#   INT8:   inference quantization (4x speed vs FP16)
+#   INT4:   aggressive quantization (see LLMs chapter)
+
+# Tensor core example (H100):
+#   FP16/BF16:  ~990 TFLOPS
+#   FP8:        ~1979 TFLOPS (2x)
+#   INT8:       ~1980 TOPS
+#   FP64:       ~34 TFLOPS  (tiny on purpose - HPC pays extra)
+
+# Why lower precision works:
+#   - weights tolerant to rounding (learned redundancy)
+#   - 4x fewer bytes = 4x more tokens/s (memory-bound)
+#   - rule of thumb: keep BF16 for first training run,
+#     quantize for inference after eval passes</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choosing training dtypes, planning inference hardware, and reading GPU spec sheets correctly (TFLOPS differs by precision!).</div>
+<div class="callout hood"><span>Under the hood</span>FP8 training required new numerics (scaling factors, E4M3/E5M2 formats); BF16 became the standard because it matches FP32's exponent range, avoiding overflow/underflow.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>NPUs and Edge AI Chips</h3>
+<p><strong>What &amp; why.</strong> NPUs (Neural Processing Units) bring acceleration to phones, laptops and data-center CPUs: Apple Neural Engine, Qualcomm Hexagon, Intel/AMD NPUs. They trade peak throughput for power efficiency — the right tool for always-on inference.</p>
+<pre class="code"><code># NPU characteristics
+#   - small systolic/MAC arrays (TOPS range: 10s-100s)
+#   - aggressive INT8/FP16 support, no FP64
+#   - ultra-low power: watts, not hundreds of watts
+#   - tightly coupled with CPU memory (no HBM)
+#   - ONNX/TFLite runtime support via vendor SDKs
+
+# Where NPUs fit:
+#   on-device LLM (7B quantized fits in 8GB phone RAM)
+#   real-time vision (face unlock, AR)
+#   sensor fusion, wake words, background processing
+#   privacy: data never leaves the device
+
+# Data-center trend: CPU + NPU (Intel Lunar Lake, AMD Ryzen AI)
+#   -> "AI PC" marketing vs real TOPS differences; check
+#   sustained throughput, not just peak marketing TOPS</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Edge deployment decisions (see <a href="iot.html">IoT &amp; Edge AI</a>), and evaluating AI-PC/laptop specs for local LLM work.</div>
+<div class="callout hood"><span>Under the hood</span>NPU performance is memory-bound too: phone DRAM bandwidth (~50 GB/s) caps 7B-model tokens/sec, which is why quantization is mandatory on-device.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Systems &amp; EDA<small>Tier 4 — designing and operating chips</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Power, Thermal and Data-Center Reality</h3>
+<p><strong>What &amp; why.</strong> A 700W H100 must be cooled and powered; an 8-GPU node draws ~10kW; a cluster of thousands needs megawatts. Power and thermals — not chip design — often decide what AI you can run.</p>
+<pre class="code"><code># Power budget math
+#   H100 SXM:  700W per GPU; 8x H100 node ~ 5.6-10 kW
+#   1000-GPU cluster: ~5-10 MW + cooling overhead
+#   Data center total ~ PUE * IT load (PUE ~1.1-1.4)
+
+# Cooling hierarchy
+#   air:     up to ~20-30 kW/rack (traditional)
+#   liquid:  direct-to-chip cold plates, ~100+ kW/rack
+#   immersion: whole-rack immersion in dielectric fluid
+#   -> Blackwell racks push 120+ kW/rack -> liquid required
+
+# Thermal design power (TDP) vs actual:
+#   TDP = designed dissipation; throttling kicks in at limits
+#   Sustained throughput > peak marketing TFLOPS
+
+# Consequences for engineers:
+#   - training runs planned around power availability
+#   - inference servers sized by memory bandwidth + power
+#   - scheduling = power scheduling in the cloud</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Capacity planning, cloud region selection, and understanding GPU "shortage" news (power + packaging, not just fab).</div>
+<div class="callout hood"><span>Under the hood</span>Frequency throttling is a feedback loop: temperature -> lower clock -> lower FLOPs. Benchmark with sustained loads, not quick runs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>EDA, RTL and the Design Flow</h3>
+<p><strong>What &amp; why.</strong> Chip design is software: RTL (Verilog/SystemVerilog) describes logic, synthesis converts to gates, place-and-route lays them out, and verification proves correctness — before a single wafer is printed. Design cost for a leading-edge chip exceeds $500M.</p>
+<pre class="code"><code>// Verilog: a tiny MAC unit at RTL level
+module mac #(parameter W = 16) (
+    input  logic [W-1:0] a, b,
+    input  logic         clk, rst,
+    output logic [2*W:0] acc
+);
+    always_ff @(posedge clk) begin
+        if (rst) acc <= 0;
+        else     acc <= acc + a * b;
+    end
+endmodule
+
+# Design flow
+#   1. Architecture (spec, microarchitecture)
+#   2. RTL design (SystemVerilog)
+#   3. Verification (UVM testbenches, formal proof) ~70% effort
+#   4. Synthesis (RTL -> gates)
+#   5. Place & route (gates -> layout on silicon)
+#   6. Timing/power closure (meet clock & power targets)
+#   7. Tape-out -> fab -> test -> package -> ship
+
+# AI in EDA (real and growing):
+#   - ML-guided placement/routing
+#   - reinforcement learning for macro placement (Google)
+#   - ML-based verification coverage, defect detection</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why chips take 2-3+ years and why EDA (Synopsys, Cadence, Siemens) is a trillion-dollar industry keystone.</div>
+<div class="callout hood"><span>Under the hood</span>Verification consumes most of design time because a bug found after tape-out costs millions — hence "verification is the product."</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Sparse Compute and Future Architectures</h3>
+<p><strong>What &amp; why.</strong> Many weights are near-zero (pruning) and attention is sparse. Sparse accelerators skip zero MACs for 2x-4x speedups; the frontier is 2-bit/ternary weights, analog/in-memory compute, optical interconnect, and post-silicon devices.</p>
+<pre class="code"><code># Sparsity in practice
+#   - 2:4 structured sparsity (NVIDIA): in every 4 weights,
+#     at least 2 are zero -> tensor cores skip them
+#   - unstructured pruning + sparse kernels (deepsparse)
+#   - attention sparsity: only attend to relevant tokens
+#     (sliding window, cross-attention selection)
+
+# Future directions
+#   - In-memory computing: matmul in memory (compute-in-SRAM)
+#   - Analog compute: current summing for dot products
+#   - Photonics: optical interconnects / co-packaged optics
+#   - 2-bit / ternary weight models (research, promising)
+#   - Neuromorphic: event-driven spiking chips (Loihi)
+
+# Engineer takeaway:
+#   sparsity-aware kernels + quantization + caching
+#   usually beat waiting for new hardware</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Optimizing inference (sparse kernels), and horizon-scanning for the "next H100" wave.</div>
+<div class="callout hood"><span>Under the hood</span>2:4 structured sparsity is hardware-accelerated (no branches): the array fetches compressed 2-of-4 blocks and the MACs that would be zero are simply not issued.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Projects<small>Tier 5 — program the hardware</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Project 1 — CUDA Kernel: Matrix Multiply</h3>
+<p><strong>What &amp; why.</strong> Write a GEMM with tiling in CUDA, then measure it against cuBLAS. You will feel the memory-hierarchy lesson: tiling to shared memory is where the 10x speedup lives.</p>
+<pre class="code"><code>// Tiled matrix multiply kernel (16x16 tiles)
+__global__ void gemm_tiled(const float* A, const float* B,
+                           float* C, int N) {
+    __shared__ float As[16][16], Bs[16][16];
+    int row = blockIdx.y*16 + threadIdx.y;
+    int col = blockIdx.x*16 + threadIdx.x;
+    float acc = 0.0f;
+
+    for (int t = 0; t < (N + 15)/16; t++) {
+        // cooperative load tile into shared memory
+        As[threadIdx.y][threadIdx.x] =
+            A[row*N + t*16 + threadIdx.x];
+        Bs[threadIdx.y][threadIdx.x] =
+            B[(t*16 + threadIdx.y)*N + col];
+        __syncthreads();
+        for (int k = 0; k < 16; k++)
+            acc += As[threadIdx.y][k] * Bs[k][threadIdx.x];
+        __syncthreads();
+    }
+    C[row*N + col] = acc;
+}
+
+# Compare: naive (no tiling) vs tiled vs cuBLAS
+# Expect: tiled ~5-20x over naive; cuBLAS still 2-5x faster
+# because it uses tensor cores + autotuning. Run with nvprof
+# or Nsight Compute and watch memory throughput vs compute.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>GPU memory model (global vs shared vs registers)</li>
+<li>Coalescing and synchronization</li>
+<li>Profiling-driven optimization</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Project 2 — Profile an LLM Inference Server</h3>
+<p><strong>What &amp; why.</strong> Use nvidia-smi + profiling to find the real bottleneck (usually memory bandwidth) for an LLM server, then apply quantization/continuous batching and measure tokens/sec per watt.</p>
+<pre class="code"><code># Profiling checklist
+# nvidia-smi dmon -c 60        # live utilization + power
+# nvidia-smi --query-gpu=utilization.memory,power.draw,clocks.sm
+
+# Key questions:
+#   GPU compute util high but memory util low?  compute-bound
+#   memory util ~100%, compute low?              memory-bound
+#   both low? -> launch overhead / pipeline stalls
+
+# LLM inference: expect MEMORY-bound (weights streamed)
+#   -> optimize bytes: quantize (4-bit), KV-cache eviction,
+#      prompt caching, continuous batching (vLLM/TGI)
+#   -> target: tokens/sec/W as the real metric
+
+# Before/after table
+#   FP16, batch=1:     ~X tok/s
+#   INT8, batch=1:     ~2X tok/s
+#   INT4 + batching:   ~4-6X tok/s at far better $/token</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Hardware-level performance analysis</li>
+<li>Memory-bound vs compute-bound reasoning</li>
+<li>Quantization + batching ROI measurement</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Project 3 — Model-to-Chip Cost Model</h3>
+<p><strong>What &amp; why.</strong> Build a spreadsheet-style cost model that takes a model (params, dtype, batch, seq len) and a GPU (bandwidth, FLOPs, price) and returns tokens/sec, cost per million tokens, and utilization — the numbers every AI team actually negotiates.</p>
+<pre class="code"><code>def cost_model(params_b, dtype_bits, batch, seq_len,
+               bandwidth_tbs, price_usd, utilization=0.6):
+    bytes_per_token = params_b * 1e9 * dtype_bits / 8
+    # KV cache adds seq_len * layers * dims * 2 * bytes
+    compute_per_token = 2 * params_b * 1e9  # ~2 FLOPs/param
+
+    tokens_s = bandwidth_tbs * 1e12 * utilization / bytes_per_token
+    tokens_per_hour = tokens_s * 3600
+    cost_per_1m = price_usd / (tokens_per_hour / 1e6)
+    return {"tokens_s": round(tokens_s),
+            "cost_per_1m": round(cost_per_1m, 2)}
+
+print(cost_model(params_b=7, dtype_bits=16, batch=1, seq_len=2048,
+                 bandwidth_tbs=3.35, price_usd=2.5))
+# {'tokens_s': ~86, 'cost_per_1m': ~0.81}  (single stream, util .6)
+
+# Compare GPUs, dtypes, and batch sizes -> build the
+# decision table that justifies hardware purchases.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Bandwidth-bound reasoning for inference</li>
+<li>Unit economics of AI serving</li>
+<li>Hardware selection methodology</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Semiconductor</td><td>Conductivity between conductor/insulator, dopable</td><td>n-type / p-type</td></tr>
+<tr><td>Transistor</td><td>Voltage-controlled switch; the atom of computing</td><td>MOS gate/channel</td></tr>
+<tr><td>Moore's law</td><td>Transistors ~double every 2 years (slowing)</td><td>density metric</td></tr>
+<tr><td>Lithography</td><td>Print patterns with light; EUV enables &lt;7nm</td><td>mask + resist + etch</td></tr>
+<tr><td>Yield</td><td>Working dies / total; drives cost</td><td>defect density</td></tr>
+<tr><td>CPU vs GPU</td><td>Few fat cores vs thousands of thin cores</td><td>latency vs throughput</td></tr>
+<tr><td>HBM</td><td>Stacked DRAM, TB/s bandwidth</td><td>TSV + wide bus</td></tr>
+<tr><td>Memory-bound</td><td>Weights stream slower than compute runs</td><td>tokens/s ~ BW/bytes</td></tr>
+<tr><td>Chiplets</td><td>Small dies + interposer = scalable, better yield</td><td>CoWoS</td></tr>
+<tr><td>Systolic array</td><td>MAC grid, data pulses through; matmul engine</td><td>TPU MXU</td></tr>
+<tr><td>Tensor core</td><td>Mixed-precision 4x4 matmul instruction</td><td>FP16 in, FP32 acc</td></tr>
+<tr><td>BF16</td><td>FP32 exponent range; training standard</td><td>torch.bfloat16</td></tr>
+<tr><td>NPU</td><td>Efficient on-device inference engine</td><td>ONNX/TFLite runtime</td></tr>
+<tr><td>PUE</td><td>Total power / IT power; cooling overhead</td><td>1.1-1.4 typical</td></tr>
+<tr><td>EDA</td><td>RTL -> gates -> layout -> tape-out</td><td>SystemVerilog + UVM</td></tr>
+<tr><td>Sparse compute</td><td>Skip zero MACs (2:4) for speed</td><td>2:4 structured sparsity</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="quantum-computing.html">&larr; Quantum Computing</a><a href="iot.html">IoT Engineering &rarr;</a></footer>
+</body></html>

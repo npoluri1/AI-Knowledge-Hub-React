@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Graphs — Workflow & Knowledge Graphs — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / AI Graphs — Workflow & Knowledge Graphs</span><span class="spacer"></span>
+<a class="navlink" href="langgraph.html">&larr; LangGraph</a> <a class="navlink" href="ai-agents.html">AI Agents &rarr;</a></nav>
+<header class="hero"><div class="mono">AG</div><div><h1>AI Graphs — Workflow & Knowledge Graphs</h1>
+<p class="tagline">Model AI applications as directed graphs: DAGs for workflows, state machines for control flow, knowledge graphs for structured memory, and event-driven pipelines for real-time processing.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Graph theory underpins all modern AI orchestration: DAGs define execution order, state machines model lifecycle transitions, and knowledge graphs store structured knowledge. This chapter covers the theoretical foundations and practical implementations across all three paradigms.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>DAGs, topological sort, state machines, Mermaid, knowledge graphs, Neo4j basics</td><td>You can model and visualize graph-based AI workflows</td></tr>
+<tr><td>Tier 2</td><td>DAG executor, cycle detection, dynamic graphs, property graphs, Text2Cypher, GraphRAG</td><td>You can build and query graph-based AI systems</td></tr>
+<tr><td>Tier 3</td><td>Petri nets, LATS, distributed sagas, provenance, temporal KGs, multi-hop reasoning</td><td>You can design advanced graph-based AI architectures</td></tr>
+<tr><td>Tier 4</td><td>Formal verification, CRDTs, graph DB internals, event sourcing, sharding, safety interlocks</td><td>You can operate production graph systems at scale</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready graph AI applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — DAGs, state machines, Mermaid, knowledge graphs, Neo4j</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>DAG Definition and Topological Order</h3>
+<p><strong>What &amp; why.</strong> A Directed Acyclic Graph (DAG) is a graph with directed edges and no cycles. Topological ordering arranges nodes so every edge goes from earlier to later. DAGs are the foundation of workflow engines, build systems, and data pipelines because they guarantee a valid execution order without deadlocks.</p>
+<pre class="code"><code>from collections import defaultdict, deque
+
+def topological_sort(graph: dict[str, list[str]]) -> list[str]:
+    in_degree = defaultdict(int)
+    for node in graph:
+        in_degree.setdefault(node, 0)
+        for neighbor in graph[node]:
+            in_degree[neighbor] += 1
+    queue = deque([n for n in in_degree if in_degree[n] == 0])
+    order = []
+    while queue:
+        node = queue.popleft()
+        order.append(node)
+        for neighbor in graph[node]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+    return order
+
+dag = {
+    "extract": ["clean", "validate"],
+    "clean": ["transform"], "validate": ["transform"],
+    "transform": ["aggregate", "index"],
+    "aggregate": ["export"], "index": ["export"], "export": [],
+}
+print(topological_sort(dag))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Topological sort is the core algorithm for task schedulers (Airflow, Prefect), build systems (Make, Bazel), and data pipeline orchestrators.</div>
+<div class="callout hood"><span>Under the hood</span>Kahn's algorithm (BFS-based) detects cycles: if sorted output has fewer nodes than input, a cycle exists. DFS-based sort uses post-order traversal and detects cycles via back edges.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Nodes, Edges, Ports: The Mental Model</h3>
+<p><strong>What &amp; why.</strong> Thinking in nodes and edges is the fundamental mental model for AI graph systems. Nodes are computational units that process data. Edges define data flow and execution order. Ports are named input/output endpoints that enable typed connections. This model applies to LangGraph, neural network diagrams, and workflow engines uniformly.</p>
+<pre class="code"><code>class Node:
+    def __init__(self, name: str, inputs: list[str], outputs: list[str]):
+        self.name = name
+        self.inputs = inputs
+        self.outputs = outputs
+
+class Edge:
+    def __init__(self, source: str, source_port: str, target: str, target_port: str):
+        self.source = source
+        self.source_port = source_port
+        self.target = target
+        self.target_port = target_port
+
+nodes = {
+    "fetch": Node("fetch", inputs=[], outputs=["data"]),
+    "process": Node("process", inputs=["data"], outputs=["result"]),
+    "store": Node("store", inputs=["result"], outputs=["status"]),
+}
+edges = [
+    Edge("fetch", "data", "process", "data"),
+    Edge("process", "result", "store", "result"),
+]
+for edge in edges:
+    print(f"{edge.source}.{edge.source_port} -> {edge.target}.{edge.target_port}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Ports enforce type safety at graph boundaries. In neural network frameworks, ports are tensors. In workflow engines, ports are data contracts. In LangGraph, ports are state fields.</div>
+<div class="callout hood"><span>Under the hood</span>The node-edge-port model maps directly to graph theory: nodes are vertices, edges are directed edges, and ports are attributes on vertices that constrain which edges are valid.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>State Machines: States, Transitions, Guards</h3>
+<p><strong>What &amp; why.</strong> A state machine defines a system as a set of states with guarded transitions. The system is always in exactly one state. Transitions fire when a condition (guard) is met. State machines model lifecycles (order: pending to paid to shipped), agent modes (idle to planning to executing), and protocol handlers.</p>
+<pre class="code"><code>from enum import Enum
+
+class OrderState(Enum):
+    PENDING = "pending"
+    PAID = "paid"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+
+transitions = {
+    (OrderState.PENDING, "payment_received"): OrderState.PAID,
+    (OrderState.PENDING, "cancelled"): OrderState.CANCELLED,
+    (OrderState.PAID, "shipped"): OrderState.SHIPPED,
+    (OrderState.SHIPPED, "delivered"): OrderState.DELIVERED,
+}
+
+class OrderMachine:
+    def __init__(self):
+        self.state = OrderState.PENDING
+    def transition(self, event: str):
+        key = (self.state, event)
+        if key in transitions:
+            self.state = transitions[key]
+            print(f"  {event}: {self.state.value}")
+        else:
+            print(f"  {event}: invalid from {self.state.value}")
+
+machine = OrderMachine()
+machine.transition("payment_received")
+machine.transition("shipped")
+machine.transition("delivered")
+machine.transition("cancelled")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>State machines are used for order processing, user account lifecycles, agent mode switching, API protocol handlers, and any system where valid operations depend on current state.</div>
+<div class="callout hood"><span>Under the hood</span>State machines are isomorphic to directed graphs where nodes are states and edges are transitions. Harel statecharts extend this with hierarchy (nested states), parallelism, and history.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Cycles and Termination Conditions</h3>
+<p><strong>What &amp; why.</strong> Cycles in graphs enable loops: retry on failure, iterative refinement, agent decision loops. Without termination conditions, cycles cause infinite execution. Every cyclic graph must define a stopping criterion: max iterations, convergence threshold, explicit exit signal, or timeout.</p>
+<pre class="code"><code>from typing import TypedDict
+
+class LoopState(TypedDict):
+    value: float
+    iteration: int
+    converged: bool
+
+def iterate(state: LoopState) -> dict:
+    new_value = state["value"] * 0.5 + 0.25
+    diff = abs(new_value - state["value"])
+    return {"value": new_value, "iteration": state["iteration"] + 1, "converged": diff &lt; 0.001}
+
+def should_continue(state: LoopState) -> bool:
+    return not state["converged"] and state["iteration"] &lt; 100
+
+state = {"value": 0.0, "iteration": 0, "converged": False}
+while should_continue(state):
+    state = iterate(state)
+print(f"Converged to {state['value']:.4f} in {state['iteration']} iterations")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every agent loop, retry mechanism, and iterative refinement pattern requires termination conditions. Without them, LLM costs grow unbounded.</div>
+<div class="callout hood"><span>Under the hood</span>Termination conditions are checked between cycle iterations. In LangGraph, this is the routing function after each node. In plain Python, it is the while-loop condition.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Mermaid Diagram Syntax Basics</h3>
+<p><strong>What &amp; why.</strong> Mermaid is a text-based diagramming language that renders as SVG in browsers, documentation, and notebooks. It is the standard for visualizing graph structures in AI documentation. Learning the basic syntax enables rapid prototyping and communication of graph architectures.</p>
+<pre class="code"><code># Flowchart (most common)
+flowchart = """
+flowchart TD
+    A[Start] -->|condition| B[Process A]
+    A -->|else| C[Process B]
+    B --> D[Join]
+    C --> D
+    D --> E{Decision}
+    E -->|yes| F[End OK]
+    E -->|no| G[Retry]
+    G --> A
+"""
+
+# State diagram
+statechart = """
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Planning: receive task
+    Planning --> Executing: plan ready
+    Executing --> Reviewing: execution complete
+    Reviewing --> Idle: approved
+    Reviewing --> Executing: needs revision
+"""
+
+print("Flowchart:")
+print(flowchart)
+print("\nState diagram:")
+print(statechart)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Mermaid diagrams appear in GitHub READMEs, MkDocs documentation, Jupyter notebooks, and LangGraph's get_graph() output.</div>
+<div class="callout hood"><span>Under the hood</span>Mermaid diagrams are parsed into SVG by mermaid.js (browser) or mermaid-cli (server-side). LangGraph generates Mermaid from the compiled graph topology.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>BFS and DFS Traversal Recap</h3>
+<p><strong>What &amp; why.</strong> Breadth-First Search visits nodes level by level using a queue. Depth-First Search explores as deep as possible before backtracking using a stack. BFS finds shortest paths in unweighted graphs. DFS is used for cycle detection, topological sort, and exploring all paths.</p>
+<pre class="code"><code>from collections import deque
+
+def bfs(graph, start):
+    visited, queue = set(), deque([start])
+    visited.add(start)
+    order = []
+    while queue:
+        node = queue.popleft()
+        order.append(node)
+        for neighbor in graph[node]:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(neighbor)
+    return order
+
+def dfs(graph, start):
+    visited, stack, order = set(), [start], []
+    while stack:
+        node = stack.pop()
+        if node not in visited:
+            visited.add(node)
+            order.append(node)
+            stack.extend(reversed(graph[node]))
+    return order
+
+graph = {"root": ["a", "b"], "a": ["c", "d"], "b": ["e"], "c": [], "d": [], "e": []}
+print("BFS:", bfs(graph, "root"))
+print("DFS:", dfs(graph, "root"))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>BFS is used for level-order processing and shortest-path queries. DFS is used for cycle detection, dependency resolution, and exploring all possible paths.</div>
+<div class="callout hood"><span>Under the hood</span>Both run in O(V+E) time and O(V) space. BFS uses a queue; DFS uses a stack (or recursion). For large graphs, iterative DFS avoids Python's recursion limit.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Workflow vs Agent Spectrum</h3>
+<p><strong>What &amp; why.</strong> Workflows are deterministic graphs where the path is predetermined or conditionally selected. Agents are dynamic graphs where the LLM decides the next node at runtime. Most real systems fall on a spectrum: simple routing is workflow-like, while multi-step reasoning with tool use is agent-like.</p>
+<pre class="code"><code># Pure workflow: fixed graph, no LLM in routing
+# workflow: A -> B -> C (always)
+
+# Semi-dynamic: LLM classifies but routes to fixed nodes
+# semi: classify -> (A | B | C) based on LLM output
+
+# Full agent: LLM decides next action from unbounded options
+# agent: think -> (any_tool | respond | ask_human)
+
+class HybridSystem:
+    def route(self, task: str) -> str:
+        if task.startswith("FAQ:"):
+            return "faq_handler"
+        elif task.startswith("COMPLAINT:"):
+            return "complaint_handler"
+        else:
+            return self.llm_route(task)
+
+    def llm_route(self, task: str) -> str:
+        return "agent_loop"
+
+# Spectrum:
+# |---Workflow---|---Hybrid---|---Agent---|
+# |  DAG/FSM     |  LLM route |  ReAct    |
+# |  predictable |  bounded   |  open     |</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Use workflows for predictable paths (data pipelines, approval chains). Use agents for open-ended tasks (research, coding). Use hybrid for most production systems.</div>
+<div class="callout hood"><span>Under the hood</span>The distinction maps to graph expressiveness: workflows are DAGs or finite state machines (decidable). Agents are Turing-complete (potentially undecidable). Workflows have bounded execution; agents need recursion limits.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Event-Driven Pipelines</h3>
+<p><strong>What &amp; why.</strong> Event-driven pipelines decouple graph nodes via message queues or event buses. Instead of direct edges, nodes publish events and subscribe to topics. This enables loose coupling, independent scaling, replay, and late-binding of processing logic.</p>
+<pre class="code"><code>from collections import defaultdict
+from typing import Callable, Any
+
+class EventBus:
+    def __init__(self):
+        self.handlers = defaultdict(list)
+        self.events = []
+    def subscribe(self, topic, handler):
+        self.handlers[topic].append(handler)
+    def publish(self, topic, data):
+        self.events.append((topic, data))
+        for handler in self.handlers.get(topic, []):
+            handler(data)
+    def replay(self):
+        for topic, data in self.events:
+            for handler in self.handlers.get(topic, []):
+                handler(data)
+
+bus = EventBus()
+bus.subscribe("data.extracted", lambda d: print(f"Clean: {d}"))
+bus.subscribe("data.cleaned", lambda d: print(f"Transform: {d}"))
+bus.subscribe("data.transformed", lambda d: print(f"Store: {d}"))
+bus.publish("data.extracted", "raw_record_1")
+bus.publish("data.cleaned", "clean_record_1")
+bus.publish("data.transformed", "final_record_1")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Event-driven pipelines are used for real-time data processing (Kafka + Flink), microservice orchestration, and decoupled AI inference pipelines.</div>
+<div class="callout hood"><span>Under the hood</span>Event buses replace direct edges with pub/sub messaging. This adds latency but gains decoupling, replayability, and independent scaling.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Knowledge Graph Triples: Entity-Relation-Entity</h3>
+<p><strong>What &amp; why.</strong> Knowledge graphs store information as triples: (subject, predicate, object). For example: (Python, is_a, programming_language). Triples are the atomic unit of structured knowledge, enabling precise queries, inference, and reasoning over connected facts.</p>
+<pre class="code"><code>triples = [
+    ("LangGraph", "built_on", "LangChain"),
+    ("LangChain", "language", "Python"),
+    ("LangGraph", "supports", "cyclic_graphs"),
+    ("LangGraph", "supports", "checkpointing"),
+    ("Python", "type_system", "static_typing"),
+    ("LangGraph", "uses", "TypedDict"),
+    ("LangChain", "provides", "ChatOpenAI"),
+    ("LangGraph", "enables", "HITL"),
+]
+
+def query_by_subject(graph, subject):
+    return [(s, p, o) for s, p, o in graph if s == subject]
+
+print("LangGraph supports:")
+for s, p, o in query_by_subject(triples, "LangGraph"):
+    print(f"  {p}: {o}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Knowledge graphs power recommendation systems, drug discovery, fraud detection, and RAG systems. They provide structured context for LLM reasoning.</div>
+<div class="callout hood"><span>Under the hood</span>Triples form a directed multigraph. Graph databases store triples with indexes for fast subject/object lookups. SPARQL and Cypher are query languages for triple stores.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Neo4j and Cypher Hello Query</h3>
+<p><strong>What &amp; why.</strong> Neo4j is the leading graph database. Cypher is its query language. A basic Cypher query creates nodes with labels and properties, and relationships with types and properties. Neo4j stores the graph with index-free adjacency, making traversal O(1) per hop.</p>
+<pre class="code"><code># Cypher basics (run in Neo4j Browser or driver)
+
+# Create nodes and relationships
+cypher_create = """
+CREATE (py:Technology {name: 'Python', type: 'language'})
+CREATE (lc:Technology {name: 'LangChain', type: 'framework'})
+CREATE (lg:Technology {name: 'LangGraph', type: 'framework'})
+CREATE (neo:Technology {name: 'Neo4j', type: 'database'})
+CREATE (lc)-[:BUILT_WITH {since: 2022}]->(py)
+CREATE (lg)-[:BUILT_WITH {since: 2024}]->(lc)
+CREATE (lg)-[:INTEGRATES_WITH]->(neo)
+"""
+
+# Query: find technologies reachable from LangGraph
+cypher_query = """
+MATCH path = (start:Technology {name: 'LangGraph'})-[*1..3]-(connected:Technology)
+RETURN start.name AS from, connected.name AS to
+LIMIT 10
+"""
+
+print("Cypher CREATE:", cypher_create)
+print("Cypher QUERY:", cypher_query)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Neo4j is used for knowledge graph storage, recommendation engines, fraud detection networks, and GraphRAG systems.</div>
+<div class="callout hood"><span>Under the hood</span>Neo4j uses index-free adjacency: each node stores direct pointers to its relationships. Traversal is O(1) per hop, unlike SQL JOINs which are O(n).</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — DAG executors, dynamic graphs, property graphs, GraphRAG</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Building a DAG Executor in Pure Python</h3>
+<p><strong>What &amp; why.</strong> A DAG executor takes a graph definition and executes nodes in topological order, running independent nodes in parallel. Building one from scratch reveals how workflow engines work: dependency resolution, parallel scheduling, error propagation, and result collection.</p>
+<pre class="code"><code>import asyncio
+from collections import defaultdict
+from typing import Callable
+
+class DAGExecutor:
+    def __init__(self):
+        self.nodes = {}
+        self.edges = defaultdict(list)
+        self.in_degree = defaultdict(int)
+    def add_node(self, name, func):
+        self.nodes[name] = func
+        self.in_degree.setdefault(name, 0)
+    def add_edge(self, source, target):
+        self.edges[source].append(target)
+        self.in_degree[target] += 1
+    async def execute(self, initial_state):
+        state = dict(initial_state)
+        queue = [n for n in self.nodes if self.in_degree[n] == 0]
+        while queue:
+            tasks = []
+            for node_name in queue:
+                result = self.nodes[node_name](state)
+                state.update(result)
+            next_queue = []
+            for node_name in queue:
+                for target in self.edges[node_name]:
+                    self.in_degree[target] -= 1
+                    if self.in_degree[target] == 0:
+                        next_queue.append(target)
+            queue = next_queue
+        return state
+
+dag = DAGExecutor()
+dag.add_node("fetch", lambda s: {"data": "fetched"})
+dag.add_node("process", lambda s: {"data": f"processed({s['data']})"})
+dag.add_edge("fetch", "process")
+result = asyncio.run(dag.execute({}))
+print(result["data"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding DAG executors is essential for custom workflow engines, debugging Airflow/Prefect DAGs, and building lightweight orchestrators.</div>
+<div class="callout hood"><span>Under the hood</span>The executor maintains a ready queue (nodes with in_degree=0). After each batch, it decrements in_degree for downstream nodes. This is Kahn's algorithm adapted for parallel execution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Cycle Detection Algorithm</h3>
+<p><strong>What &amp; why.</strong> Cycle detection prevents infinite loops in graph-based systems. DFS-based detection uses three colors: white (unvisited), gray (in-progress), black (completed). Encountering a gray node means a cycle exists. This is critical for validating workflows before execution.</p>
+<pre class="code"><code>class CycleDetector:
+    WHITE, GRAY, BLACK = 0, 1, 2
+    def __init__(self, graph):
+        self.graph = graph
+        self.color = {node: self.WHITE for node in graph}
+        self.cycle_path = []
+    def has_cycle(self):
+        for node in self.graph:
+            if self.color[node] == self.WHITE:
+                if self._dfs(node):
+                    return True
+        return False
+    def _dfs(self, node):
+        self.color[node] = self.GRAY
+        self.cycle_path.append(node)
+        for neighbor in self.graph.get(node, []):
+            if self.color[neighbor] == self.GRAY:
+                cycle_start = self.cycle_path.index(neighbor)
+                print(f"Cycle: {' -> '.join(self.cycle_path[cycle_start:])} -> {neighbor}")
+                return True
+            if self.color[neighbor] == self.WHITE:
+                if self._dfs(neighbor):
+                    return True
+        self.color[node] = self.BLACK
+        self.cycle_path.pop()
+        return False
+
+dag = {"A": ["B", "C"], "B": ["D"], "C": ["D"], "D": []}
+cyclic = {"A": ["B"], "B": ["C"], "C": ["A"]}
+print("DAG:", CycleDetector(dag).has_cycle())
+print("Cyclic:", CycleDetector(cyclic).has_cycle())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cycle detection is used in build systems, workflow validators, spreadsheet engines, and graph database constraint checking.</div>
+<div class="callout hood"><span>Under the hood</span>DFS cycle detection runs in O(V+E) time. A back edge (to a gray node) indicates a cycle. Tarjan's algorithm finds all strongly connected components in a single DFS pass.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Retry and Backoff Edges</h3>
+<p><strong>What &amp; why.</strong> Modeling retries as explicit graph edges makes failure handling visible and configurable. A retry edge goes from the failed node back to itself with a backoff delay. This transforms implicit error handling into explicit graph topology.</p>
+<pre class="code"><code>import time, random
+
+class RetryState:
+    def __init__(self):
+        self.data = ""
+        self.attempts = 0
+        self.max_retries = 3
+        self.backoff_base = 0.1
+
+def attempt_process(state):
+    state.attempts += 1
+    if random.random() &lt; 0.7 and state.attempts &lt; state.max_retries:
+        state.last_error = f"Error on attempt {state.attempts}"
+        return state
+    state.data = f"Processed on attempt {state.attempts}"
+    return state
+
+state = RetryState()
+for _ in range(5):
+    state = attempt_process(state)
+    if not hasattr(state, "last_error") or state.attempts >= state.max_retries:
+        break
+    delay = state.backoff_base * (2 ** (state.attempts - 1))
+    print(f"  Retry {state.attempts} after {delay:.1f}s backoff")
+    time.sleep(min(delay, 0.1))
+print(f"Result: {state.data} after {state.attempts} attempts")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Explicit retry edges are used in data pipelines, API integrations, and LLM inference retry logic.</div>
+<div class="callout hood"><span>Under the hood</span>Exponential backoff doubles the delay after each failure: base, 2*base, 4*base. Adding jitter prevents thundering herd when many clients retry simultaneously.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Fan-Out and Join Barriers</h3>
+<p><strong>What &amp; why.</strong> Fan-out splits work across parallel nodes; join barriers synchronize them before proceeding. A join barrier blocks the downstream node until all upstream nodes complete. Without explicit barriers, partial results could be processed prematurely.</p>
+<pre class="code"><code>import asyncio
+from typing import TypedDict, Annotated
+import operator
+
+class FanState(TypedDict):
+    input: str
+    results: Annotated[list[str], operator.add]
+    merged: str
+
+async def fetch_api_a(state):
+    await asyncio.sleep(0.1)
+    return {"results": [f"API_A({state['input']})"]}
+
+async def fetch_api_b(state):
+    await asyncio.sleep(0.05)
+    return {"results": [f"API_B({state['input']})"]}
+
+async def fetch_api_c(state):
+    await asyncio.sleep(0.15)
+    return {"results": [f"API_C({state['input']})"]}
+
+def merge(state):
+    return {"merged": " | ".join(state["results"])}
+
+async def run_pipeline():
+    state = {"input": "query", "results": [], "merged": ""}
+    results = await asyncio.gather(fetch_api_a(state), fetch_api_b(state), fetch_api_c(state))
+    for r in results:
+        state["results"].extend(r["results"])
+    state = merge(state)
+    print(f"Merged: {state['merged']}")
+    return state
+
+asyncio.run(run_pipeline())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fan-out/join is used for parallel API calls, multi-source data aggregation, and consensus-based decision making.</div>
+<div class="callout hood"><span>Under the hood</span>The join barrier blocks until all incoming edges complete. In asyncio, gather() implements this. In LangGraph, the join node waits for all predecessors.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Statechart Hierarchy, Guards, Actions</h3>
+<p><strong>What &amp; why.</strong> Harel statecharts extend finite state machines with hierarchy (states contain sub-states), concurrency (orthogonal regions), and history (remember last sub-state). Guards are boolean conditions on transitions. Actions are side effects triggered by transitions.</p>
+<pre class="code"><code>from enum import Enum, auto
+
+class AgentMode(Enum):
+    IDLE = auto()
+    PLANNING = auto()
+    EXECUTING = auto()
+    TOOL_USE = auto()
+    REVIEWING = auto()
+
+class AgentStatechart:
+    def __init__(self):
+        self.mode = AgentMode.IDLE
+        self.actions_log = []
+    def on_enter(self, mode):
+        self.actions_log.append(f"entered {mode.name}")
+    def on_exit(self, mode):
+        self.actions_log.append(f"exited {mode.name}")
+    def transition(self, event, guard=True):
+        if not guard:
+            print(f"  Guard rejected: {event}")
+            return
+        old = self.mode
+        self.on_exit(old)
+        transitions = {
+            (AgentMode.IDLE, "task_received"): AgentMode.PLANNING,
+            (AgentMode.PLANNING, "plan_ready"): AgentMode.EXECUTING,
+            (AgentMode.EXECUTING, "tool_needed"): AgentMode.TOOL_USE,
+            (AgentMode.TOOL_USE, "result_received"): AgentMode.EXECUTING,
+            (AgentMode.EXECUTING, "complete"): AgentMode.REVIEWING,
+            (AgentMode.REVIEWING, "approved"): AgentMode.IDLE,
+        }
+        self.mode = transitions.get((old, event), old)
+        self.on_enter(self.mode)
+        print(f"  {old.name} -> {self.mode.name} on {event}")
+
+agent = AgentStatechart()
+agent.transition("task_received")
+agent.transition("plan_ready")
+agent.transition("tool_needed", guard=True)
+agent.transition("tool_needed", guard=False)
+print("Actions:", agent.actions_log)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Statecharts model agent lifecycles, UI wizard flows, protocol handlers, and any system with complex state-dependent behavior.</div>
+<div class="callout hood"><span>Under the hood</span>Hierarchical statecharts reduce the number of transitions by O(n) compared to flat FSMs. Orthogonal regions enable concurrent sub-state machines.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Dynamic Graph Construction at Runtime</h3>
+<p><strong>What &amp; why.</strong> Some applications build graphs dynamically based on input: a user's query determines tools to include, a data schema determines the processing pipeline, or a config file defines the workflow. Dynamic construction enables flexible, data-driven architectures.</p>
+<pre class="code"><code>from typing import Callable
+
+class DynamicGraph:
+    def __init__(self):
+        self.nodes = {}
+        self.edges = {}
+    def add_node(self, name, func):
+        self.nodes[name] = func
+        self.edges.setdefault(name, [])
+    def add_edge(self, src, dst):
+        self.edges.setdefault(src, []).append(dst)
+    def build_from_config(self, config):
+        for node_cfg in config["nodes"]:
+            name = node_cfg["name"]
+            self.add_node(name, lambda s, n=name: {n: f"processed by {n}"})
+        for edge_cfg in config["edges"]:
+            self.add_edge(edge_cfg["from"], edge_cfg["to"])
+    def execute(self, start, state):
+        visited = set()
+        queue = [start]
+        while queue:
+            node = queue.pop(0)
+            if node in visited or node not in self.nodes:
+                continue
+            result = self.nodes[node](state)
+            state.update(result)
+            visited.add(node)
+            queue.extend(self.edges.get(node, []))
+        return state
+
+config = {"nodes": [{"name": "fetch"}, {"name": "transform"}, {"name": "store"}],
+          "edges": [{"from": "fetch", "to": "transform"}, {"from": "transform", "to": "store"}]}
+graph = DynamicGraph()
+graph.build_from_config(config)
+result = graph.execute("fetch", {"input": "data"})
+print(result)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Dynamic graphs are used for user-configurable workflows, data-driven pipeline generation, and plugin architectures.</div>
+<div class="callout hood"><span>Under the hood</span>Dynamic construction involves: parsing a config/DSL, registering node functions, wiring edges, validating topology, and compiling to an executable.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Graph Validation and Lint Rules</h3>
+<p><strong>What &amp; why.</strong> Graph validation catches errors before execution: unreachable nodes, missing edges, type mismatches, cycles in DAGs, and incomplete routing. Lint rules enforce conventions: naming patterns, required nodes, and edge constraints.</p>
+<pre class="code"><code>class GraphValidator:
+    def __init__(self, nodes, edges, start, end):
+        self.nodes, self.edges, self.start, self.end = nodes, edges, start, end
+        self.errors = []
+    def validate(self):
+        self._check_start_end()
+        self._check_unreachable()
+        self._check_dangling()
+        self._check_cycles()
+        return self.errors
+    def _check_start_end(self):
+        if self.start not in self.nodes:
+            self.errors.append(f"Start node not in graph")
+        if self.end not in self.nodes:
+            self.errors.append(f"End node not in graph")
+    def _check_unreachable(self):
+        reachable, queue = set(), [self.start]
+        while queue:
+            node = queue.pop(0)
+            if node in reachable: continue
+            reachable.add(node)
+            queue.extend(self.edges.get(node, []))
+        unreachable = self.nodes - reachable
+        if unreachable: self.errors.append(f"Unreachable: {unreachable}")
+    def _check_dangling(self):
+        for src, targets in self.edges.items():
+            for target in targets:
+                if target not in self.nodes:
+                    self.errors.append(f"Dangling edge: {src} -> {target}")
+    def _check_cycles(self):
+        visited, path = set(), set()
+        def dfs(node):
+            if node in path: self.errors.append(f"Cycle at {node}"); return
+            if node in visited: return
+            visited.add(node); path.add(node)
+            for neighbor in self.edges.get(node, []): dfs(neighbor)
+            path.remove(node)
+        for node in self.nodes: dfs(node)
+
+nodes = {"A", "B", "C", "D"}
+edges = {"A": ["B", "C"], "B": ["D"], "C": ["D"], "D": []}
+validator = GraphValidator(nodes, edges, "A", "D")
+print("Errors:", validator.validate() or "None")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Graph validation is used in workflow builders, LangGraph compile(), Airflow DAG parsing, and any system accepting user-defined graphs.</div>
+<div class="callout hood"><span>Under the hood</span>Common lint rules: no orphan nodes, all edges reference valid nodes, start node has no incoming edges, DAG property, and completeness.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Visualization of Execution Timeline</h3>
+<p><strong>What &amp; why.</strong> Execution timeline visualization shows when each node ran, how long it took, and what state was at each point. This transforms opaque graph execution into an inspectable trace, making it easy to identify bottlenecks and verify parallelism.</p>
+<pre class="code"><code>import time
+from dataclasses import dataclass, field
+from typing import Callable
+
+@dataclass
+class NodeTrace:
+    name: str
+    start: float
+    end: float = 0.0
+
+class TimelineTracer:
+    def __init__(self):
+        self.traces = []
+    def wrap_node(self, name, func):
+        def traced(state):
+            trace = NodeTrace(name=name, start=time.time())
+            result = func(state)
+            trace.end = time.time()
+            self.traces.append(trace)
+            return result
+        return traced
+    def print_timeline(self):
+        print("Execution Timeline:")
+        for t in self.traces:
+            duration = (t.end - t.start) * 1000
+            bar = "#" * max(1, int(duration / 2))
+            print(f"  {t.name:20s} | {duration:6.1f}ms | {bar}")
+
+tracer = TimelineTracer()
+fetch = tracer.wrap_node("fetch", lambda s: {"data": "fetched"})
+process = tracer.wrap_node("process", lambda s: {"data": "processed"})
+store = tracer.wrap_node("store", lambda s: {"stored": True})
+state = {}
+state.update(fetch(state))
+state.update(process(state))
+state.update(store(state))
+tracer.print_timeline()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Timeline tracing is used for performance profiling, SLA monitoring, debugging slow pipelines, and capacity planning.</div>
+<div class="callout hood"><span>Under the hood</span>Each trace captures node name, start/end timestamps, and state. Parallel nodes show overlapping time ranges, revealing actual concurrency.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Property Graphs vs RDF</h3>
+<p><strong>What &amp; why.</strong> Property graphs store nodes and edges with arbitrary key-value properties. RDF stores facts as triples with formal semantics and standardized query (SPARQL). Property graphs are simpler and faster for traversal. RDF is better for interoperability and reasoning.</p>
+<pre class="code"><code># Property Graph model (Neo4j-style)
+property_graph = {
+    "nodes": [
+        {"id": "n1", "label": "Person", "props": {"name": "Alice", "age": 30}},
+        {"id": "n2", "label": "Company", "props": {"name": "Acme", "industry": "tech"}},
+    ],
+    "edges": [
+        {"from": "n1", "to": "n2", "type": "WORKS_AT", "props": {"since": 2020}},
+    ]
+}
+
+# RDF model (triple-based)
+rdf_triples = [
+    ("Alice", "rdf:type", "Person"),
+    ("Alice", "name", "Alice"),
+    ("Alice", "WORKS_AT", "Acme"),
+    ("Acme", "rdf:type", "Company"),
+]
+
+print("Property Graph: nodes have labels + properties, edges have types + properties")
+print("RDF: everything is a triple (subject, predicate, object)")
+print("PG query: MATCH (p:Person)-[:WORKS_AT]->(c:Company) WHERE p.name = 'Alice'")
+print("RDF query: SELECT ?c WHERE { :Alice :WORKS_AT ?c }")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Property graphs are preferred for AI knowledge graphs. RDF is preferred for linked open data, semantic web, and formal OWL reasoning.</div>
+<div class="callout hood"><span>Under the hood</span>Property graphs use index-free adjacency for O(1) traversal. RDF stores triples in a flat table with indexes. RDF inference uses RDFS/OWL rules; property graphs lack formal inference but support flexible schemas.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Text2Cypher: LLM Querying Neo4j</h3>
+<p><strong>What &amp; why.</strong> Text2Cypher uses an LLM to convert natural language questions into Cypher queries. The LLM receives the database schema, example queries, and the user question, then generates Cypher executed against Neo4j. This enables non-technical users to query knowledge graphs.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+schema = """
+Node labels: Person(name, age), Company(name, industry), Technology(name, type)
+Relationship types: WORKS_AT(since), BUILT_WITH(since), KNOWS(since)
+Example: MATCH (p:Person)-[:WORKS_AT]->(c:Company) RETURN p.name, c.name
+"""
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", f"You are a Cypher expert. Schema:\n{schema}\nGenerate ONLY the Cypher query."),
+    ("human", "{question}"),
+])
+chain = prompt | model | (lambda x: x.content)
+question = "Which people work at tech companies?"
+cypher = chain.invoke({"question": question})
+print(f"Question: {question}")
+print(f"Generated Cypher: {cypher}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Text2Cypher enables natural language interfaces to knowledge graphs for business intelligence, data exploration, and conversational AI.</div>
+<div class="callout hood"><span>Under the hood</span>The LLM receives the schema as context and generates Cypher. Safety measures include read-only queries, query validation, result size limits, and error feedback loops.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>GraphRAG: Community Summaries</h3>
+<p><strong>What &amp; why.</strong> GraphRAG enhances RAG by using knowledge graph structure for retrieval. It extracts entities, builds a graph, detects communities of related entities, generates community summaries, and retrieves relevant summaries for queries. This captures global context that chunk-based RAG misses.</p>
+<pre class="code"><code># GraphRAG pipeline concept
+graph_rag_pipeline = [
+    {"name": "entity_extraction", "desc": "LLM extracts entities and relationships"},
+    {"name": "graph_construction", "desc": "Build property graph from extracted triples"},
+    {"name": "community_detection", "desc": "Leiden algorithm detects densely connected subgraphs"},
+    {"name": "community_summarization", "desc": "LLM generates summary for each community"},
+    {"name": "query_retrieval", "desc": "Map-reduce: map query to communities, reduce to answer"},
+]
+for step in graph_rag_pipeline:
+    print(f"  {step['name']}: {step['desc']}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>GraphRAG is used for enterprise knowledge bases, research paper analysis, legal document exploration, and any domain where relationships matter.</div>
+<div class="callout hood"><span>Under the hood</span>Community detection uses Leiden algorithm for hierarchical communities. Each community gets an LLM summary. At query time, communities are mapped and summaries synthesized.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Comparing Orchestration Engines: Airflow, Prefect, Temporal</h3>
+<p><strong>What &amp; why.</strong> Airflow is DAG-first with scheduled batch jobs. Prefect is Pythonic with dynamic workflows. Temporal is code-first with durable execution. Understanding their trade-offs helps choose the right engine for AI pipeline orchestration.</p>
+<pre class="code"><code>engines = {
+    "Airflow": {"model": "DAG-based, scheduler-driven", "best_for": "Scheduled batch ETL"},
+    "Prefect": {"model": "Python-native, flow/task decorators", "best_for": "Dynamic ML pipelines"},
+    "Temporal": {"model": "Code-as-workflow, event-sourced", "best_for": "Complex AI agent orchestration"},
+}
+for name, info in engines.items():
+    print(f"{name}: {info['model']} (best for: {info['best_for']})")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Airflow for existing data infrastructure. Prefect for Pythonic ML pipelines. Temporal for complex AI agent orchestration. LangGraph for AI-specific orchestration.</div>
+<div class="callout hood"><span>Under the hood</span>Airflow parses DAG files and schedules on a beat. Prefect wraps functions as tasks with automatic state. Temporal uses event sourcing for replay and exactly-once execution.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Petri nets, LATS, sagas, provenance, temporal KGs</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Petri Net Token Semantics</h3>
+<p><strong>What &amp; why.</strong> Petri nets model concurrent systems with places (state), transitions (actions), and tokens (current distribution). A transition fires when all input places have tokens, consuming inputs and producing outputs. Petri nets formally verify concurrency, deadlock, and liveness.</p>
+<pre class="code"><code>from dataclasses import dataclass
+
+@dataclass
+class PetriNet:
+    places: set
+    transitions: set
+    input_arcs: dict
+    output_arcs: dict
+    marking: dict
+    def enabled(self):
+        enabled = set()
+        for t in self.transitions:
+            inputs = self.input_arcs.get(t, set())
+            if all(self.marking.get(p, 0) > 0 for p in inputs):
+                enabled.add(t)
+        return enabled
+    def fire(self, transition):
+        if transition not in self.enabled():
+            return False
+        for p in self.input_arcs.get(transition, set()):
+            self.marking[p] -= 1
+        for p in self.output_arcs.get(transition, set()):
+            self.marking[p] = self.marking.get(p, 0) + 1
+        return True
+
+pn = PetriNet(
+    places={"idle", "fetched", "processed", "stored"},
+    transitions={"fetch", "process", "store"},
+    input_arcs={"fetch": {"idle"}, "process": {"fetched"}, "store": {"processed"}},
+    output_arcs={"fetch": {"fetched"}, "process": {"processed"}, "store": {"stored"}},
+    marking={"idle": 1, "fetched": 0, "processed": 0, "stored": 0},
+)
+while pn.enabled():
+    for t in pn.enabled():
+        pn.fire(t)
+        print(f"  Fired {t}: {pn.marking}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Petri nets model concurrent agent systems, database transactions, and manufacturing processes where parallelism and resource contention are critical.</div>
+<div class="callout hood"><span>Under the hood</span>Petri nets analyze reachability, liveness, boundedness, and deadlock. These properties are decidable for limited Petri net classes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>LATS: Language-Agent Tree Search</h3>
+<p><strong>What &amp; why.</strong> LATS combines LLM reasoning with Monte Carlo Tree Search. The agent explores a tree of possible actions, evaluates each path, and backpropagates rewards. This produces higher-quality results than single-path ReAct by exploring alternatives.</p>
+<pre class="code"><code>import math
+from dataclasses import dataclass, field
+
+@dataclass
+class LATNode:
+    state: str
+    action: str = ""
+    reward: float = 0.0
+    visits: int = 0
+    children: list = field(default_factory=list)
+    parent: "LATNode" = None
+    def ucb1(self, exploration=1.41):
+        if self.visits == 0: return float("inf")
+        return self.reward / self.visits + exploration * math.sqrt(math.log(self.parent.visits) / self.visits)
+
+def select(node):
+    while node.children:
+        node = max(node.children, key=lambda c: c.ucb1())
+    return node
+
+def expand(node, actions):
+    for action in actions:
+        child = LATNode(state=f"{node.state}->{action}", action=action, parent=node)
+        node.children.append(child)
+    return node.children[0] if node.children else node
+
+def backpropagate(node, reward):
+    while node:
+        node.visits += 1
+        node.reward += reward
+        node = node.parent
+
+root = LATNode(state="start")
+expand(root, ["action_a", "action_b", "action_c"])
+for child in root.children:
+    reward = 1.0 if child.action == "action_b" else 0.3
+    backpropagate(child, reward)
+best = max(root.children, key=lambda c: c.reward / c.visits if c.visits else 0)
+print(f"Best action: {best.action} (reward: {best.reward/best.visits:.2f})")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LATS is used for complex reasoning: code generation with debugging, multi-step planning, and creative problem solving.</div>
+<div class="callout hood"><span>Under the hood</span>LATS adapts MCTS to LLM agents: selection uses UCB1, expansion generates LLM actions, simulation evaluates with the LLM, backpropagation updates counts.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Plan Validation via Graph Checks</h3>
+<p><strong>What &amp; why.</strong> Before executing an AI-generated plan, validate it as a graph: check reachability, acyclicity, resource constraints, and precondition satisfaction. Graph-based validation catches invalid plans before wasting LLM tokens.</p>
+<pre class="code"><code>class PlanValidator:
+    def __init__(self, steps, available_resources):
+        self.steps = {s["name"]: s for s in steps}
+        self.available = set(available_resources)
+    def validate(self):
+        errors = []
+        errors.extend(self._check_acyclic())
+        errors.extend(self._check_resources())
+        return errors
+    def _check_acyclic(self):
+        visited, path = set(), set()
+        def dfs(name):
+            if name in path: return [f"Cycle: {name}"]
+            if name in visited: return []
+            visited.add(name); path.add(name)
+            errs = []
+            for dep in self.steps[name]["depends_on"]:
+                errs.extend(dfs(dep))
+            path.remove(name)
+            return errs
+        errs = []
+        for name in self.steps: errs.extend(dfs(name))
+        return errs
+    def _check_resources(self):
+        produced = set(self.available)
+        errors = []
+        for name, step in self.steps.items():
+            for req in step["requires"]:
+                if req not in produced:
+                    errors.append(f"Missing '{req}' for '{name}'")
+            produced.update(step["produces"])
+        return errors
+
+plan = [
+    {"name": "fetch", "depends_on": [], "requires": [], "produces": ["raw_data"]},
+    {"name": "transform", "depends_on": ["fetch"], "requires": ["raw_data"], "produces": ["clean_data"]},
+    {"name": "store", "depends_on": ["transform"], "requires": ["clean_data"], "produces": ["stored"]},
+]
+validator = PlanValidator(plan, set())
+print("Validation:", "PASS" if not validator.validate() else validator.validate())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Plan validation catches impossible plans before execution: data pipelines, migration plans, and multi-step agent strategies.</div>
+<div class="callout hood"><span>Under the hood</span>Validation checks acyclicity, reachability, resource flow, and completeness. Each check is a graph traversal algorithm.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Distributed Sagas and Compensation Paths</h3>
+<p><strong>What &amp; why.</strong> Sagas model distributed transactions as steps with compensating actions for rollback. If step 3 fails, steps 2 and 1 must be compensated. Essential for AI systems performing multi-step real-world actions.</p>
+<pre class="code"><code>from dataclasses import dataclass
+from typing import Callable
+
+@dataclass
+class SagaStep:
+    name: str
+    action: Callable
+    compensation: Callable
+    executed: bool = False
+
+class Saga:
+    def __init__(self, steps):
+        self.steps = steps
+        self.executed_steps = []
+    def execute(self, context):
+        for step in self.steps:
+            try:
+                context = step.action(context)
+                step.executed = True
+                self.executed_steps.append(step)
+                print(f"  Executed: {step.name}")
+            except Exception as e:
+                print(f"  Failed: {step.name} - {e}")
+                self._compensate(context)
+                raise
+        return context
+    def _compensate(self, context):
+        for step in reversed(self.executed_steps):
+            context = step.compensation(context)
+            print(f"  Compensated: {step.name}")
+
+saga = Saga([
+    SagaStep("book_flight", lambda c: {**c, "flight": "booked"}, lambda c: {**c, "flight": "cancelled"}),
+    SagaStep("book_hotel", lambda c: {**c, "hotel": "booked"}, lambda c: {**c, "hotel": "cancelled"}),
+    SagaStep("charge", lambda c: (_ for _ in ()).throw(Exception("Card declined")) or c, lambda c: c),
+])
+try:
+    saga.execute({"trip_id": "123"})
+except Exception:
+    print("Saga failed, compensated")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Sagas handle multi-step transactions in microservices, AI agent actions with real-world consequences, and booking systems.</div>
+<div class="callout hood"><span>Under the hood</span>Sagas can be choreography-based (each step triggers the next) or orchestration-based (central coordinator). Compensation is best-effort.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Workflow Provenance and Lineage Capture</h3>
+<p><strong>What &amp; why.</strong> Provenance tracks the complete history of how a result was produced. Lineage traces a result back to its source data. In AI systems, provenance enables debugging, reproducibility, and compliance (audit trail for decisions).</p>
+<pre class="code"><code>import uuid
+from datetime import datetime
+
+class ProvenanceTracker:
+    def __init__(self):
+        self.records = {}
+    def record(self, step, inputs, output, params=None):
+        trace_id = str(uuid.uuid4())[:8]
+        self.records[trace_id] = {
+            "step": step, "timestamp": datetime.now().isoformat(),
+            "inputs": {k: str(v)[:100] for k, v in inputs.items()},
+            "output": str(output)[:200], "params": params or {},
+        }
+        return trace_id
+    def trace_back(self, trace_id):
+        chain = []
+        current = trace_id
+        visited = set()
+        while current and current not in visited:
+            visited.add(current)
+            chain.append(self.records.get(current, {}))
+            current = None  # simplified
+        return list(reversed(chain))
+
+tracker = ProvenanceTracker()
+t1 = tracker.record("extract", {"source": "api"}, "raw_records")
+t2 = tracker.record("transform", {"input": "raw"}, "clean_records")
+t3 = tracker.record("analyze", {"input": "clean"}, "analysis")
+print(f"Tracked {len(tracker.records)} steps")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Provenance is critical for AI audit trails, GDPR compliance, debugging, and reproducing results. LangSmith provides production-grade tracking.</div>
+<div class="callout hood"><span>Under the hood</span>Provenance forms a DAG where each result points to its inputs. Trace-back follows this DAG. Storage: append-only logs, graph databases, or OpenLineage.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Schema Constraints and SHACL Lite</h3>
+<p><strong>What &amp; why.</strong> Schema constraints validate that knowledge graphs conform to expected structures: required properties, value types, cardinality, and relationship patterns. SHACL is the W3C standard for RDF validation. A lighter version applies to property graphs.</p>
+<pre class="code"><code>class GraphSchema:
+    def __init__(self):
+        self.node_schemas = {}
+        self.edge_schemas = {}
+    def add_node_schema(self, label, required_props, types):
+        self.node_schemas[label] = {"required": required_props, "types": types}
+    def add_edge_schema(self, rel_type, source, target):
+        self.edge_schemas[rel_type] = {"source": source, "target": target}
+    def validate_node(self, label, properties):
+        errors = []
+        schema = self.node_schemas.get(label)
+        if not schema: return [f"Unknown label: {label}"]
+        for prop in schema["required"]:
+            if prop not in properties:
+                errors.append(f"Missing required '{prop}'")
+        return errors
+
+schema = GraphSchema()
+schema.add_node_schema("Person", ["name"], {"name": str, "age": int})
+print("Valid:", schema.validate_node("Person", {"name": "Alice", "age": 30}))
+print("Invalid:", schema.validate_node("Person", {"age": 30}))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Schema validation ensures knowledge graph quality, catches extraction errors, and enforces data contracts between pipeline stages.</div>
+<div class="callout hood"><span>Under the hood</span>SHACL shapes define expected graph patterns: node shapes, property shapes, and target shapes. Validation traverses the graph checking each node against applicable shapes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Incremental Materialized Views over Graphs</h3>
+<p><strong>What &amp; why.</strong> Materialized views pre-compute query results over a graph. Incremental views update only changed portions. For AI systems, this means pre-computed community summaries, shortest paths, or statistics that update as new data arrives.</p>
+<pre class="code"><code>class IncrementalView:
+    def __init__(self, name, compute_fn):
+        self.name = name
+        self.compute_fn = compute_fn
+        self.cache = {}
+    def update(self, changed_nodes, graph):
+        for node in changed_nodes:
+            result = self.compute_fn(node, graph)
+            self.cache[node] = result
+    def query(self, key):
+        return self.cache.get(key)
+
+graph = {"A": {"neighbors": ["B", "C"]}, "B": {"neighbors": ["A"]}, "C": {"neighbors": ["A", "B", "D"]}, "D": {"neighbors": ["C"]}}
+view = IncrementalView("degree", lambda n, g: len(g.get(n, {}).get("neighbors", [])))
+view.update(["A", "B", "C", "D"], graph)
+print("Degree of C:", view.query("C"))  # 3</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Incremental views are used for real-time analytics, pre-computed GraphRAG summaries, and cached traversal results.</div>
+<div class="callout hood"><span>Under the hood</span>Incremental maintenance tracks view dependencies. When data changes, only dependent views are recomputed.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Embedding Nodes for Semantic Traversal</h3>
+<p><strong>What &amp; why.</strong> Node embeddings map graph nodes to vector space where proximity reflects semantic similarity. This enables hybrid traversal: follow structural edges and semantic nearest-neighbors, discovering implicit connections between distant but similar nodes.</p>
+<pre class="code"><code>import numpy as np
+
+class SemanticGraph:
+    def __init__(self):
+        self.nodes, self.edges, self.embeddings = {}, {}, {}
+    def add_node(self, name, props, embedding):
+        self.nodes[name] = props
+        self.embeddings[name] = embedding
+    def add_edge(self, src, dst):
+        self.edges.setdefault(src, []).append(dst)
+    def structural_neighbors(self, node):
+        return self.edges.get(node, [])
+    def semantic_neighbors(self, node, k=3):
+        if node not in self.embeddings: return []
+        emb = self.embeddings[node]
+        scores = {}
+        for other, other_emb in self.embeddings.items():
+            if other != node:
+                sim = np.dot(emb, other_emb) / (np.linalg.norm(emb) * np.linalg.norm(other_emb))
+                scores[other] = sim
+        return sorted(scores, key=scores.get, reverse=True)[:k]
+
+np.random.seed(42)
+graph = SemanticGraph()
+for i, name in enumerate(["AI", "ML", "NLP", "Cooking", "Finance"]):
+    emb = np.random.randn(8); emb = emb / np.linalg.norm(emb)
+    graph.add_node(name, {"type": "topic"}, emb)
+
+print("Semantic neighbors of AI:", graph.semantic_neighbors("AI", k=2))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Semantic traversal is used in knowledge graph exploration, recommendations, and RAG augmentation.</div>
+<div class="callout hood"><span>Under the hood</span>Node embeddings come from graph neural networks, document embeddings, or LLM summaries. Hybrid traversal combines structure with semantics.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Temporal Knowledge Graphs: Time-Valid Edges</h3>
+<p><strong>What &amp; why.</strong> Temporal knowledge graphs add time validity to edges: (entity, relation, entity, start_time, end_time). This captures evolving knowledge. Temporal KGs enable time-aware queries, trend detection, and historical analysis.</p>
+<pre class="code"><code>from datetime import date
+from typing import NamedTuple
+
+class TemporalEdge(NamedTuple):
+    subject: str
+    predicate: str
+    obj: str
+    start: date
+    end: date | None
+
+class TemporalKG:
+    def __init__(self):
+        self.edges = []
+    def add(self, s, p, o, start, end=None):
+        self.edges.append(TemporalEdge(s, p, o, start, end))
+    def query_at(self, entity, point_in_time):
+        return [e for e in self.edges if (e.subject == entity or e.obj == entity)
+                and e.start <= point_in_time and (e.end is None or e.end >= point_in_time)]
+    def query_current(self, entity):
+        return self.query_at(entity, date.today())
+
+kg = TemporalKG()
+kg.add("Alice", "WORKS_AT", "Acme", date(2020, 1, 1), date(2023, 6, 30))
+kg.add("Alice", "WORKS_AT", "TechCo", date(2023, 7, 1))
+print("Alice in 2022:", [(e.predicate, e.obj) for e in kg.query_at("Alice", date(2022, 6, 1))])
+print("Alice now:", [(e.predicate, e.obj) for e in kg.query_current("Alice")])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Temporal KGs are used for financial data, organizational structures, and any domain where facts have temporal validity.</div>
+<div class="callout hood"><span>Under the hood</span>Temporal KGs extend standard KGs with time intervals. Efficient implementations use interval trees or time-partitioned indexes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Multi-Hop Reasoning Evaluation</h3>
+<p><strong>What &amp; why.</strong> Multi-hop reasoning requires following multiple edges in a knowledge graph to answer questions. Evaluating multi-hop reasoning tests whether AI systems can traverse paths, combine information, and handle compounding uncertainty.</p>
+<pre class="code"><code>class MultiHopEvaluator:
+    def __init__(self, kg):
+        self.kg = kg
+    def query_1hop(self, subject, relation):
+        return [t for r, t in self.kg.get(subject, []) if r == relation]
+    def query_2hop(self, subject, rel1, rel2):
+        midpoints = self.query_1hop(subject, rel1)
+        results = []
+        for mid in midpoints:
+            results.extend(self.query_1hop(mid, rel2))
+        return results
+    def evaluate_chain(self, chain, expected):
+        current = [chain[0][0]]
+        for _, relation in chain:
+            next_entities = []
+            for entity in current:
+                next_entities.extend(self.query_1hop(entity, relation))
+            current = next_entities
+        return {"correct": expected in current, "candidates": current[:5]}
+
+kg = {
+    "Alice": [("WORKS_AT", "TechCo")], "TechCo": [("BUILT", "ChatBot")],
+    "ChatBot": [("BUILT_WITH", "LangGraph")], "LangGraph": [("USES", "Python")],
+}
+evaluator = MultiHopEvaluator(kg)
+result = evaluator.evaluate_chain([("Alice", "WORKS_AT"), ("TechCo", "BUILT"), ("ChatBot", "BUILT_WITH")], "LangGraph")
+print(f"Reasoning: {result}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-hop evaluation tests knowledge graph reasoning quality for benchmarks (HotpotQA) and enterprise QA systems.</div>
+<div class="callout hood"><span>Under the hood</span>Multi-hop reasoning compounds errors: 90% per-hop accuracy drops to 72.9% at 3 hops. Chain-of-thought and graph-augmented retrieval improve performance.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Formal verification, CRDTs, graph DB internals, event sourcing, sharding</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Formal Verification of Agent Workflows</h3>
+<p><strong>What &amp; why.</strong> Formal verification proves that a workflow satisfies properties: safety (nothing bad happens), liveness (something good eventually happens), and boundedness (termination within N steps). Model checking exhaustively explores all reachable states.</p>
+<pre class="code"><code>class WorkflowVerifier:
+    def __init__(self, states, transitions, initial, accepting):
+        self.states = states
+        self.transitions = transitions
+        self.initial = initial
+        self.accepting = accepting
+    def check_safety(self, unsafe_states):
+        reachable = self._reachable()
+        violations = reachable & unsafe_states
+        if violations: print(f"Safety violation: {violations}")
+        return not violations
+    def check_liveness(self):
+        return bool(self._reachable() & self.accepting)
+    def _reachable(self):
+        visited, queue = set(), [self.initial]
+        while queue:
+            state = queue.pop(0)
+            if state in visited: continue
+            visited.add(state)
+            for _, s in self.transitions.get(state, []):
+                queue.append(s)
+        return visited
+
+verifier = WorkflowVerifier(
+    {"idle", "planning", "executing", "done", "error"},
+    {"idle": [("start", "planning")], "planning": [("ready", "executing"), ("fail", "error")],
+     "executing": [("complete", "done"), ("fail", "error")], "error": [("retry", "planning")]},
+    "idle", {"done"})
+print("Safety:", verifier.check_safety({"error"}))
+print("Liveness:", verifier.check_liveness())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Formal verification is used for safety-critical agent workflows: autonomous vehicles, medical decision support, financial trading.</div>
+<div class="callout hood"><span>Under the hood</span>Model checking explores state space exhaustively. For finite systems, this is complete and sound. Tools: SPIN, NuSMV, TLA+.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>CRDT-Inspired Concurrent State Merge</h3>
+<p><strong>What &amp; why.</strong> CRDTs enable concurrent state updates without coordination. Each replica applies updates independently and merges automatically. For AI agents, CRDT-inspired strategies allow concurrent shared state updates without conflicts.</p>
+<pre class="code"><code>from collections import Counter
+
+class GCounter:
+    def __init__(self, replica_id):
+        self.replica_id = replica_id
+        self.counts = Counter()
+    def increment(self, amount=1):
+        self.counts[self.replica_id] += amount
+    def value(self):
+        return sum(self.counts.values())
+    def merge(self, other):
+        for replica, count in other.counts.items():
+            self.counts[replica] = max(self.counts[replica], count)
+
+agent_a = GCounter("agent_a")
+agent_b = GCounter("agent_b")
+agent_a.increment(3)
+agent_b.increment(2)
+agent_a.merge(agent_b)
+print(f"Counter: {agent_a.value()}")  # 5</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>CRDTs are used in collaborative editing, distributed counters, multi-agent shared state, and any system with concurrent updates.</div>
+<div class="callout hood"><span>Under the hood</span>CRDTs guarantee eventual consistency: all replicas converge after all updates are delivered. Common CRDTs: G-Counter, PN-Counter, G-Set, LWW-Register, OR-Set.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Graph Database Internals: Labeled Property Stores and Indexes</h3>
+<p><strong>What &amp; why.</strong> Graph databases store labeled property graphs with internal indexes for fast lookups by label, property, and relationship. Understanding internals helps optimize queries, choose storage engines, and troubleshoot performance.</p>
+<pre class="code"><code>from collections import defaultdict
+
+class GraphDBInternals:
+    def __init__(self):
+        self.node_store = {}
+        self.edge_store = defaultdict(list)
+        self.label_index = defaultdict(set)
+        self.property_index = defaultdict(set)
+    def create_node(self, node_id, label, props):
+        self.node_store[node_id] = {"label": label, "properties": props}
+        self.label_index[label].add(node_id)
+        for k, v in props.items():
+            self.property_index[(k, v)].add(node_id)
+    def create_edge(self, source, target, rel_type, props=None):
+        self.edge_store[source].append((rel_type, target, props or {}))
+    def find_by_label(self, label):
+        return list(self.label_index.get(label, set()))
+    def find_by_property(self, key, value):
+        return list(self.property_index.get((key, value), set()))
+    def neighbors(self, node_id, rel_type=None):
+        edges = self.edge_store.get(node_id, [])
+        if rel_type: return [t for r, t, _ in edges if r == rel_type]
+        return [t for _, t, _ in edges]
+
+db = GraphDBInternals()
+db.create_node("n1", "Person", {"name": "Alice", "age": 30})
+db.create_node("n2", "Company", {"name": "TechCo"})
+db.create_edge("n1", "n2", "WORKS_AT", {"since": 2020})
+print("Persons:", db.find_by_label("Person"))
+print("Alice's neighbors:", db.neighbors("n1"))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding internals is essential for performance tuning: creating indexes, understanding traversal costs, and debugging slow queries.</div>
+<div class="callout hood"><span>Under the hood</span>Modern graph DBs use B-tree/hash indexes for lookups, adjacency lists for traversal, label-based partitioning, and write-ahead logging. Neo4j uses native graph storage with index-free adjacency.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Event Sourcing and Graph Projections</h3>
+<p><strong>What &amp; why.</strong> Event sourcing stores all state changes as an immutable event log. Graph projections derive graph views from events. This enables time-travel, audit trails, and multiple projections from the same events.</p>
+<pre class="code"><code>from dataclasses import dataclass
+
+@dataclass
+class Event:
+    type: str
+    entity_id: str
+    data: dict
+    timestamp: float
+
+class EventStore:
+    def __init__(self):
+        self.events = []
+    def append(self, event):
+        self.events.append(event)
+    def project_graph(self, up_to=None):
+        nodes, edges = {}, []
+        for event in self.events:
+            if up_to and event.timestamp > up_to: break
+            if event.type == "node_created":
+                nodes[event.entity_id] = event.data
+            elif event.type == "node_deleted":
+                nodes.pop(event.entity_id, None)
+            elif event.type == "edge_created":
+                edges.append(event.data)
+        return {"nodes": nodes, "edges": edges}
+
+store = EventStore()
+store.append(Event("node_created", "n1", {"label": "Person"}, 1.0))
+store.append(Event("node_created", "n2", {"label": "Company"}, 2.0))
+store.append(Event("edge_created", {"from": "n1", "to": "n2"}, {}, 3.0))
+print("Graph at t=3:", store.project_graph(up_to=3.0))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Event sourcing is used for audit-critical systems, financial ledgers, and collaborative editing. Graph projections enable different data views.</div>
+<div class="callout hood"><span>Under the hood</span>Event sourcing separates writes (append events) from reads (projected views) - the CQRS pattern. Projections can be rebuilt by replaying all events.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Large-Graph Sharding Strategies</h3>
+<p><strong>What &amp; why.</strong> Graph sharding distributes large graphs across machines. Unlike table sharding, graph sharding must minimize cross-shard edges. Common strategies: vertex-cut (split edges), edge-cut (split vertices), and hybrid. The goal is locality for related nodes.</p>
+<pre class="code"><code>from collections import defaultdict
+
+class GraphSharder:
+    def __init__(self, num_shards):
+        self.num_shards = num_shards
+        self.shards = defaultdict(lambda: {"nodes": {}, "edges": []})
+    def hash_shard(self, node_id):
+        return hash(node_id) % self.num_shards
+    def assign_node(self, node_id, properties):
+        self.shards[self.hash_shard(node_id)]["nodes"][node_id] = properties
+    def assign_edge(self, src, dst, rel_type):
+        src_shard = self.hash_shard(src)
+        self.shards[src_shard]["edges"].append({"from": src, "to": dst, "cross": self.hash_shard(dst) != src_shard})
+    def stats(self):
+        for sid, shard in sorted(self.shards.items()):
+            cross = sum(1 for e in shard["edges"] if e["cross"])
+            print(f"  Shard {sid}: {len(shard['nodes'])} nodes, {len(shard['edges'])} edges ({cross} cross)")
+
+sharder = GraphSharder(3)
+for nid in ["user_1", "user_2", "user_3", "org_1"]:
+    sharder.assign_node(nid, {"name": nid})
+for src, dst in [("user_1", "org_1"), ("user_2", "org_1"), ("user_3", "org_1")]:
+    sharder.assign_edge(src, dst, "WORKS_AT")
+sharder.stats()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Graph sharding is used for large-scale knowledge graphs, social networks, and recommendation engines.</div>
+<div class="callout hood"><span>Under the hood</span>Hash sharding is simple but creates random cross-shard edges. Graph partitioning (METIS, KaHIP) minimizes cuts. Vertex-cut distributes high-degree nodes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Streaming Graph Updates with Kafka Pattern</h3>
+<p><strong>What &amp; why.</strong> Streaming graph updates using Kafka enables real-time knowledge graph maintenance: new facts arrive as events, processors update incrementally, consumers query latest state. Architecture for real-time recommendations and fraud detection.</p>
+<pre class="code"><code>from collections import defaultdict
+from dataclasses import dataclass
+
+@dataclass
+class GraphEvent:
+    action: str
+    data: dict
+
+class StreamingGraphProcessor:
+    def __init__(self):
+        self.graph = {}
+        self.edges = defaultdict(list)
+        self.handlers = defaultdict(list)
+    def on_event(self, action, handler):
+        self.handlers[action].append(handler)
+    def process(self, event):
+        if event.action == "add_node":
+            self.graph[event.data["id"]] = event.data.get("props", {})
+        elif event.action == "add_edge":
+            self.edges[event.data["from"]].append(event.data)
+        elif event.action == "remove_node":
+            self.graph.pop(event.data["id"], None)
+        for handler in self.handlers.get(event.action, []):
+            handler(event)
+        print(f"  Processed: {event.action}")
+
+processor = StreamingGraphProcessor()
+processor.on_event("add_node", lambda e: print(f"    Node: {e.data['id']}"))
+for event in [
+    GraphEvent("add_node", {"id": "p1", "props": {"name": "Alice"}}),
+    GraphEvent("add_node", {"id": "c1", "props": {"name": "TechCo"}}),
+    GraphEvent("add_edge", {"from": "p1", "to": "c1", "type": "WORKS_AT"}),
+]:
+    processor.process(event)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Streaming graph updates are used for real-time knowledge graphs, social feeds, and fraud detection systems.</div>
+<div class="callout hood"><span>Under the hood</span>Kafka topics represent graph event streams. CDC bridges database changes to the graph stream. Event log provides exactly-once semantics and replay.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>Benchmarking Traversal-Heavy Agents</h3>
+<p><strong>What &amp; why.</strong> Agent performance depends on graph traversal depth. Benchmarking measures throughput, latency per hop, cost per traversal, and accuracy at each depth. This informs architecture decisions about graph size, indexing, and caching.</p>
+<pre class="code"><code>import time
+from dataclasses import dataclass
+
+@dataclass
+class BenchmarkResult:
+    depth: int
+    nodes_visited: int
+    latency_ms: float
+
+class TraversalBenchmark:
+    def __init__(self, graph):
+        self.graph = graph
+    def benchmark_depth(self, start, max_depth, target):
+        visited = 0
+        start_time = time.time()
+        frontier = [start]
+        for depth in range(max_depth + 1):
+            next_frontier = []
+            for node in frontier:
+                visited += 1
+                if node == target:
+                    return BenchmarkResult(depth, visited, (time.time() - start_time) * 1000)
+                next_frontier.extend(self.graph.get(node, []))
+            frontier = next_frontier
+        return BenchmarkResult(max_depth, visited, (time.time() - start_time) * 1000)
+
+graph = {f"node_{i}": [f"node_{(i*3+1)%100}", f"node_{(i*7+2)%100}"] for i in range(100)}
+bench = TraversalBenchmark(graph)
+result = bench.benchmark_depth("node_0", 10, "node_50")
+print(f"Depth {result.depth}: {result.nodes_visited} nodes, {result.latency_ms:.2f}ms")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Benchmarking drives caching strategies, indexing decisions, and graph partitioning.</div>
+<div class="callout hood"><span>Under the hood</span>Benchmarks measure BFS/DFS speed per hop, index-assisted lookup, cross-shard penalty, and memory pressure under realistic access patterns.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>Safety Interlocks and Kill-Switch Nodes</h3>
+<p><strong>What &amp; why.</strong> Safety interlocks are graph nodes that monitor state and halt execution when dangerous conditions are detected. Kill-switch nodes abort any downstream execution immediately. Critical for AI agents interacting with real-world systems.</p>
+<pre class="code"><code>class KillSwitch:
+    def __init__(self):
+        self.killed = False
+        self.reason = ""
+    def trigger(self, reason):
+        self.killed = True
+        self.reason = reason
+        print(f"  KILL SWITCH: {reason}")
+    def check(self):
+        return not self.killed
+
+def safety_check(state, ks):
+    if state["budget"] <= 0:
+        ks.trigger("Budget exhausted")
+        return {**state, "flag": "BUDGET_EXCEEDED"}
+    return state
+
+def safe_action(state, ks):
+    if not ks.check(): return state
+    return {"budget": state["budget"] - 0.10, "actions": state["actions"] + 1}
+
+ks = KillSwitch()
+state = {"budget": 0.50, "actions": 0}
+for i in range(10):
+    state = safety_check(state, ks)
+    if not ks.check():
+        print(f"  Stopped: {ks.reason}")
+        break
+    state = safe_action(state, ks)
+    print(f"  Action {state['actions']} (budget: ${state['budget']:.2f})")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Safety interlocks are mandatory for production AI agents: budget guards, rate limiters, safety classifiers, and human override mechanisms.</div>
+<div class="callout hood"><span>Under the hood</span>Kill-switch nodes check global safety state before allowing actions. They can be synchronous (check before execution) or asynchronous (abort via cancellation tokens).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">41</span>Org-Scale Graph Governance and Ownership</h3>
+<p><strong>What &amp; why.</strong> At organization scale, knowledge graphs need governance: schema ownership, access control, quality standards, and change management. Different teams own different subgraphs. Schema changes require review. Access patterns are monitored.</p>
+<pre class="code"><code>from dataclasses import dataclass
+
+@dataclass
+class GraphOwner:
+    team: str
+    schema_version: str
+    access_level: str
+
+class GraphGovernance:
+    def __init__(self):
+        self.owners = {}
+        self.audit_log = []
+    def register(self, prefix, owner):
+        self.owners[prefix] = owner
+    def check_access(self, prefix, team, operation):
+        owner = self.owners.get(prefix)
+        if not owner: return False
+        if operation == "read": return True
+        return owner.team == team or owner.access_level == "admin"
+    def log_change(self, prefix, team, change_type, details):
+        self.audit_log.append({"prefix": prefix, "team": team, "type": change_type, "details": details})
+
+gov = GraphGovernance()
+gov.register("person.", GraphOwner("hr-team", "v2.1", "write"))
+gov.register("product.", GraphOwner("product-team", "v1.3", "write"))
+print("HR writes person:", gov.check_access("person.", "hr-team", "write"))
+print("Data writes person:", gov.check_access("person.", "data-team", "write"))
+gov.log_change("person.", "hr-team", "schema_update", {"field": "email"})
+print(f"Audit log: {len(gov.audit_log)} entries")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Graph governance is essential for enterprise knowledge graphs: schema ownership, access control, and audit trails.</div>
+<div class="callout hood"><span>Under the hood</span>Graph governance mirrors database governance: schema registries, ACLs, change management, and audit trails. Neo4j Enterprise provides RBAC and audit logging.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">42</span>Future Standards: MCP + Graphs</h3>
+<p><strong>What &amp; why.</strong> The Model Context Protocol (MCP) standardizes how AI agents access tools and data. Combining MCP with graph databases creates a standardized interface for agents to query knowledge graphs: discover schemas, execute traversals, and retrieve results.</p>
+<pre class="code"><code>mcp_graph_server = {
+    "name": "knowledge-graph-mcp",
+    "capabilities": ["graph.schema.discover", "graph.query.cypher", "graph.traverse", "graph.community.summarize"],
+    "tools": [
+        {"name": "query_graph", "description": "Execute a Cypher query"},
+        {"name": "traverse_from", "description": "BFS/DFS from a starting entity"},
+    ],
+}
+print("MCP + Graphs Standard:")
+print(f"  Capabilities: {len(mcp_graph_server['capabilities'])}")
+print(f"  Tools: {len(mcp_graph_server['tools'])}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MCP + Graphs will become the standard for agent-knowledge graph interaction. Early adoption ensures compatibility with the emerging ecosystem.</div>
+<div class="callout hood"><span>Under the hood</span>MCP provides JSON-RPC 2.0 for agent-tool communication. Graph MCP servers expose Cypher, traversals, and schema discovery as standard tools.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">43</span>Case Study: Mapping Real Product Architecture</h3>
+<p><strong>What &amp; why.</strong> Real products use graphs across multiple layers: workflow graphs for orchestration, knowledge graphs for context, state machines for UI, and dependency graphs for deployment. Mapping these layers reveals architectural patterns.</p>
+<pre class="code"><code>architecture = {
+    "layers": {
+        "ingestion": {"type": "event_stream", "events": ["page_view", "add_to_cart", "purchase"]},
+        "knowledge_graph": {"type": "property_graph", "labels": ["User", "Product", "Category"]},
+        "workflow": {"type": "dag", "tasks": ["extract", "update_profiles", "recompute_embeddings", "generate_recommendations"]},
+        "serving": {"type": "state_machine", "states": ["idle", "querying", "ranking", "responding"]},
+        "monitoring": {"type": "dag", "checks": ["freshness", "latency", "diversity"]},
+    },
+    "cross_layer": [
+        {"from": "ingestion.events", "to": "knowledge_graph.updates", "protocol": "CDC"},
+        {"from": "workflow.output", "to": "serving.index", "protocol": "API"},
+    ],
+}
+for name, layer in architecture["layers"].items():
+    print(f"{name} ({layer['type']}): {layer.get('tasks', layer.get('events', layer.get('states', layer.get('checks', []))))}")
+print(f"Cross-layer connections: {len(architecture['cross_layer'])}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Real products use multiple graph types simultaneously. Understanding connections between layers is essential for maintainable AI systems.</div>
+<div class="callout hood"><span>Under the hood</span>The key insight: different graph types serve different purposes at different layers. Event streams for ingestion, knowledge graphs for context, DAGs for batch processing, state machines for serving.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Approval Workflow Engine with Compensations</h3>
+<p>Build a graph-based approval workflow that handles multi-step approvals with compensating actions (saga pattern) when rejections occur, complete with audit trail provenance tracking.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Model the workflow as a state machine: draft, submitted, reviewer1, reviewer2, approved, rejected</li><li>Implement saga steps where each approval has a compensating action for rejection rollback</li><li>Add a provenance tracker that records every state transition with timestamp and actor</li><li>Create a GraphValidator that checks the workflow graph for deadlocks before deployment</li><li>Implement an event-sourced event store for complete audit trail</li><li>Add safety interlock nodes: budget check before submission, escalation if review stalls</li><li>Build a notification system using event-driven pub/sub for status updates</li><li>Test with formal verification: check safety and liveness properties</li></ol>
+<pre class="code"><code>from enum import Enum
+from dataclasses import dataclass
+
+class ApprovalState(Enum):
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    REVIEW_1 = "review_1"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+class ApprovalWorkflow:
+    def __init__(self):
+        self.state = ApprovalState.DRAFT
+        self.audit_trail = []
+    def transition(self, event, actor="system"):
+        transitions = {
+            (ApprovalState.DRAFT, "submit"): ApprovalState.SUBMITTED,
+            (ApprovalState.SUBMITTED, "assign"): ApprovalState.REVIEW_1,
+            (ApprovalState.REVIEW_1, "approve"): ApprovalState.APPROVED,
+            (ApprovalState.REVIEW_1, "reject"): ApprovalState.REJECTED,
+        }
+        new = transitions.get((self.state, event))
+        if new:
+            self.audit_trail.append({"from": self.state.value, "to": new.value, "event": event, "actor": actor})
+            self.state = new
+
+wf = ApprovalWorkflow()
+wf.transition("submit", "alice")
+wf.transition("assign", "system")
+wf.transition("reject", "reviewer1")
+print(f"Final: {wf.state.value}, Audit: {len(wf.audit_trail)} entries")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>State machine modeling for workflows</li><li>Saga pattern with compensating actions</li><li>Provenance and audit trail tracking</li><li>Graph validation and formal verification</li><li>Event-driven notification systems</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>GraphRAG over Company Policies with Neo4j</h3>
+<p>Build a GraphRAG system that indexes company policies into a Neo4j knowledge graph, detects communities, generates summaries, and answers natural language questions using multi-hop traversal.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Create a Neo4j schema with node labels: Policy, Department, Requirement, Deadline, Penalty</li><li>Build an LLM-based entity extractor that outputs structured triples from policy documents</li><li>Implement a Text2Cypher pipeline for natural language to Cypher conversion</li><li>Use Leiden algorithm to detect communities of related policies</li><li>Generate community summaries with LLM for each cluster</li><li>Build hybrid retrieval: community summary retrieval plus Text2Cypher direct queries</li><li>Add semantic node embeddings for structurally distant but semantically related policies</li><li>Implement schema validation to ensure extracted entities conform to the graph schema</li></ol>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+schema = "Policy(name, effective_date), Department(name), Requirement(description), Deadline(date), Penalty(amount)"
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", f"Cypher expert. Schema: {schema}\nGenerate ONLY the Cypher query."),
+    ("human", "{question}"),
+])
+chain = prompt | model | (lambda x: x.content)
+cypher = chain.invoke({"question": "What penalties apply if we miss the compliance deadline?"})
+print(f"Generated Cypher: {cypher}")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Knowledge graph schema design for policy data</li><li>LLM-based entity extraction and triple generation</li><li>Text2Cypher for natural language graph queries</li><li>Community detection and summary generation</li><li>Hybrid retrieval combining graph traversal with semantic search</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Visual Workflow Designer with JSON Schema Export</h3>
+<p>Build a Python-based workflow designer that lets users define graphs visually (via a JSON schema), validates them, simulates execution, and exports the definition as LangGraph-compatible code or a JSON workflow spec.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define a JSON Schema for workflow definition: nodes (id, type, config), edges (from, to, condition), and metadata</li><li>Build a Python parser that loads the JSON schema and constructs a graph data structure</li><li>Implement cycle detection, reachability analysis, and type-checking validation</li><li>Create a simulator that dry-runs the workflow with mock data and produces execution traces</li><li>Add a LangGraph exporter that generates Python code from the JSON workflow definition</li><li>Implement a JSON exporter that produces a deployable workflow spec for external systems</li><li>Build a dependency analyzer that identifies parallel execution opportunities</li><li>Add a cost estimator that calculates estimated LLM calls and token usage per workflow</li></ol>
+<pre class="code"><code>import json
+from collections import defaultdict
+
+workflow_schema = {
+    "nodes": [
+        {"id": "extract", "type": "http", "config": {"url": "https://api.example.com/data"}},
+        {"id": "classify", "type": "llm", "config": {"model": "gpt-4o", "prompt": "Classify: {input}"}},
+        {"id": "route", "type": "conditional", "config": {"field": "category", "mapping": {"urgent": "handle", "normal": "queue"}}},
+        {"id": "handle", "type": "llm", "config": {"model": "gpt-4o"}},
+        {"id": "queue", "type": "store", "config": {"table": "queue"}},
+    ],
+    "edges": [
+        {"from": "extract", "to": "classify"},
+        {"from": "classify", "to": "route"},
+        {"from": "route", "to": "handle", "condition": "urgent"},
+        {"from": "route", "to": "queue", "condition": "normal"},
+    ]
+}
+
+def validate_workflow(wf):
+    node_ids = {n["id"] for n in wf["nodes"]}
+    errors = []
+    for edge in wf["edges"]:
+        if edge["from"] not in node_ids: errors.append(f"Unknown source: {edge['from']}")
+        if edge["to"] not in node_ids: errors.append(f"Unknown target: {edge['to']}")
+    return errors
+
+def analyze_parallelism(wf):
+    in_degree = defaultdict(int)
+    for edge in wf["edges"]:
+        in_degree[edge["to"]] += 1
+    parallel = [n["id"] for n in wf["nodes"] if in_degree[n["id"]] == 0]
+    return parallel
+
+errors = validate_workflow(workflow_schema)
+parallel = analyze_parallelism(workflow_schema)
+print(f"Validation: {'PASS' if not errors else errors}")
+print(f"Entry points (parallel): {parallel}")
+print(f"Nodes: {len(workflow_schema['nodes'])}, Edges: {len(workflow_schema['edges'])}")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>JSON Schema design for workflow definitions</li><li>Graph validation and cycle detection</li><li>Execution simulation and dry-run testing</li><li>LangGraph code generation from specs</li><li>Cost estimation and parallelism analysis</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>DAG</td><td>Directed Acyclic Graph for execution order</td><td>topological_sort(graph)</td></tr>
+<tr><td>Topological sort</td><td>Linear ordering respecting edge direction</td><td>BFS (Kahn) or DFS post-order</td></tr>
+<tr><td>State machine</td><td>States with guarded transitions</td><td>Enum + transition dict</td></tr>
+<tr><td>Cycle detection</td><td>DFS three-color marking</td><td>WHITE/GRAY/BLACK coloring</td></tr>
+<tr><td>Mermaid</td><td>Text-based diagram rendering</td><td>flowchart TD / stateDiagram-v2</td></tr>
+<tr><td>BFS</td><td>Level-order traversal with queue</td><td>deque, visited set</td></tr>
+<tr><td>DFS</td><td>Deep-first traversal with stack</td><td>stack, visited set</td></tr>
+<tr><td>Event-driven pipeline</td><td>Decoupled nodes via pub/sub</td><td>EventBus with subscribe/publish</td></tr>
+<tr><td>Knowledge graph triple</td><td>(subject, predicate, object)</td><td>Neo4j Cypher, RDF/SPARQL</td></tr>
+<tr><td>Neo4j Cypher</td><td>Graph database query language</td><td>MATCH (n)-[:REL]->(m) RETURN</td></tr>
+<tr><td>DAG executor</td><td>Parallel node execution engine</td><td>ready queue + in_degree tracking</td></tr>
+<tr><td>Fan-out/join</td><td>Parallel split and synchronization barrier</td><td>asyncio.gather / merge node</td></tr>
+<tr><td>Dynamic graph</td><td>Build graph from config at runtime</td><td>config parsing + node registry</td></tr>
+<tr><td>Property graph</td><td>Nodes/edges with key-value properties</td><td>Neo4j, ArangoDB</td></tr>
+<tr><td>Text2Cypher</td><td>LLM generates Cypher from natural language</td><td>prompt | model | parser</td></tr>
+<tr><td>GraphRAG</td><td>Community-based graph retrieval</td><td>Leiden + community summaries</td></tr>
+<tr><td>Petri net</td><td>Concurrent system with places, transitions, tokens</td><td>enabled() / fire() semantics</td></tr>
+<tr><td>LATS</td><td>LLM + Monte Carlo Tree Search</td><td>UCB1 selection + backpropagation</td></tr>
+<tr><td>Saga pattern</td><td>Transaction with compensating rollback</td><td>forward + compensate per step</td></tr>
+<tr><td>Provenance</td><td>Lineage tracking for results</td><td>trace_back() from result to source</td></tr>
+<tr><td>Temporal KG</td><td>Time-valid edges with start/end dates</td><td>query_at(entity, date)</td></tr>
+<tr><td>Multi-hop reasoning</td><td>Follow multiple graph edges for answers</td><td>1-hop, 2-hop, 3-hop query chains</td></tr>
+<tr><td>Formal verification</td><td>Exhaustive state-space checking</td><td>safety + liveness properties</td></tr>
+<tr><td>CRDT</td><td>Conflict-free concurrent state merge</td><td>GCounter, LWW-Register</td></tr>
+<tr><td>Graph DB internals</td><td>Index-free adjacency, label/property indexes</td><td>adjacency list, B-tree indexes</td></tr>
+<tr><td>Event sourcing</td><td>Immutable event log, graph projections</td><td>EventStore + project_graph()</td></tr>
+<tr><td>Graph sharding</td><td>Distribute graph across machines</td><td>hash_shard, vertex-cut, edge-cut</td></tr>
+<tr><td>Safety interlock</td><td>Monitor and halt on dangerous conditions</td><td>KillSwitch with trigger/check</td></tr>
+<tr><td>Graph governance</td><td>Ownership, access control, audit trails</td><td>register() + check_access()</td></tr>
+<tr><td>MCP + Graphs</td><td>Standardized agent-graph interface</td><td>JSON-RPC tools for Cypher/traverse</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="langgraph.html">&larr; LangGraph</a><a href="ai-agents.html">AI Agents &rarr;</a></footer>
+</body></html>

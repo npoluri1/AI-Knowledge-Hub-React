@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import CodeBlock from '../components/CodeBlock'
 import DataTable from '../components/DataTable'
-import { getDeepDive } from '../api'
+import { getDeepDive, fetchLiveDeepDive } from '../api'
+import FetchButton from '../components/FetchButton'
+import { useLang } from '../i18n'
 
 function SectionRenderer({ sec }) {
   const items = []
@@ -68,6 +70,7 @@ function SectionRenderer({ sec }) {
 }
 
 export default function DeepDiveView() {
+  const { t } = useLang()
   const { id } = useParams()
   const [dd, setDd] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -81,16 +84,23 @@ export default function DeepDiveView() {
     }).catch(e => { setError(e.message); setLoading(false) })
   }, [id])
 
-  if (loading) return <div className="loading">⏳ Loading deep dive…</div>
+  if (loading) return <div className="loading">⏳ {t('Loading deep dive…')}</div>
   if (error) return <div className="error">❌ {error}</div>
-  if (!dd) return <div className="error">Deep dive not found</div>
+  if (!dd) return <div className="error">{t('Deep dive not found')}</div>
 
   const hasContent = dd.sections && dd.sections.length > 0
 
   return (
     <div className="deep-dive">
-      <Link to="/" className="back-link">← Back to Home</Link>
-      <h2 className="chapter-title">{dd.icon} {dd.title}</h2>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
+      <div className="page-header-row">
+        <h2 className="chapter-title">{dd.icon} {dd.title}</h2>
+        <FetchButton onFetch={async () => {
+          const d = await fetchLiveDeepDive(id)
+          if (d && !d.error) { setDd(d); return `Refreshed from backend (${(d.sections || []).length} sections)` }
+          throw new Error((d && d.error) || 'Deep dive not found')
+        }} label={t('Fetch Latest')} />
+      </div>
       <p className="chapter-preview">{dd.description}</p>
 
       {!hasContent && <div className="empty-state">🚧 Deep dive content coming soon. Check the related chapter for detailed information.</div>}

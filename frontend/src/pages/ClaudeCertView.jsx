@@ -2,8 +2,14 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import ROWS, { AI_STACK_CATEGORIES, AI_STACK_STATS, aiStackCat } from '../data/aiStackData'
 import { CERTS, CERTS_TOTAL, VIDEOS, STUDY_LINKS, PEARSON } from '../data/claudeCertData'
+import FetchButton from '../components/FetchButton'
 import CcafPrep from '../components/CcafPrep'
+import CcarfPrep from '../components/CcarfPrep'
 import ClaudeCertGuide from '../components/ClaudeCertGuide'
+import ClaudeCertCurriculum from '../components/ClaudeCertCurriculum'
+import ClaudeCertHub from '../components/ClaudeCertHub'
+import { useLang } from '../i18n'
+import './AiStackScreen.css'
 import './ClaudeCertView.css'
 
 const SPLIT_RE = /(https?:\/\/[^\s|]+|[a-z0-9.-]+\.(?:com|ai|dev|io|org|gov|net)(?::\d+)?(?:\/[^\s|]*)?)/gi
@@ -26,6 +32,7 @@ function dedupeText(text) {
 }
 
 export default function ClaudeCertView() {
+  const { t } = useLang()
   const [cat, setCat] = useState('all')
   const [q, setQ] = useState('')
 
@@ -42,15 +49,18 @@ export default function ClaudeCertView() {
 
   return (
     <div className="cc-page">
-      <Link to="/" className="back-link">← Back to Home</Link>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
 
       <div className="cc-hero">
         <div className="cc-title-row">
-          <h1>📜 Claude Certification Guide</h1>
+          <div className="page-header-row">
+            <h1>📜 {t('Claude Certification Guide')}</h1>
+            <FetchButton onFetch={() => { setCat('all'); setQ('') }} label={t('Fetch Latest')} staticMode />
+          </div>
           <div className="cc-stats">
-            <span className="cc-stat">{CERTS.length} Certifications</span>
+            <span className="cc-stat">{CERTS.length} {t('Certifications')}</span>
             <span className="cc-stat">💵 ${CERTS_TOTAL} / all attempts</span>
-            <span className="cc-stat">{AI_STACK_STATS.total} Supporting Tools</span>
+            <span className="cc-stat">{AI_STACK_STATS.total} {t('Supporting Tools')}</span>
           </div>
         </div>
         <p className="cc-subtitle">
@@ -104,7 +114,7 @@ export default function ClaudeCertView() {
       <section className="cc-card cc-pearson">
         <div className="cc-pearson-head">
           <h2>🎫 Exam Scheduling & Delivery (Pearson VUE)</h2>
-          <span className="cc-pearson-badge">Official proctoring provider</span>
+          <span className="cc-pearson-badge">{t('Official proctoring provider')}</span>
         </div>
         <div className="cc-pearson-grid">
           <div>
@@ -186,6 +196,12 @@ export default function ClaudeCertView() {
 
       <CcafPrep />
 
+      <CcarfPrep />
+
+      <ClaudeCertCurriculum />
+
+      <ClaudeCertHub />
+
       <ClaudeCertGuide />
 
       <section className="cc-table-section">
@@ -206,7 +222,7 @@ export default function ClaudeCertView() {
 
         <div className="as-chips">
           <button className={`as-chip ${cat === 'all' ? 'as-chip-active' : ''}`} onClick={() => setCat('all')}>
-            🌐 All <b>({AI_STACK_STATS.total})</b>
+            🌐 {t('All')} <b>({AI_STACK_STATS.total})</b>
           </button>
           {AI_STACK_CATEGORIES.map(c => (
             <button

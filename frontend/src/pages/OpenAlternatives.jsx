@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { OA_CATEGORIES, OA_STATS } from '../data/openAlternatives'
+import FetchButton from '../components/FetchButton'
 import './OpenAlternatives.css'
+import { useLang } from '../i18n'
 
 function formatStars(n) {
   if (!n) return '0'
@@ -24,6 +26,7 @@ function licenseColor(lic) {
 }
 
 export default function OpenAlternatives() {
+  const { t } = useLang()
   const [search, setSearch] = useState('')
   const [activeCat, setActiveCat] = useState(null)
   const [sortBy, setSortBy] = useState('name')
@@ -71,19 +74,22 @@ export default function OpenAlternatives() {
 
   return (
     <div className="oa-page">
-      <Link to="/" className="back-link">← Back to Home</Link>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
 
       <div className="oa-hero">
         <div className="oa-hero-icon">🔓</div>
-        <h1>Open Source Alternatives</h1>
+        <div className="page-header-row">
+          <h1>{t('Open Source Alternatives')}</h1>
+          <FetchButton onFetch={() => { setSearch(''); setActiveCat(null); setSortBy('name') }} label="Fetch Latest" staticMode />
+        </div>
         <p className="oa-subtitle">
           {OA_STATS.totalTools} open source tools to replace proprietary software — curated from{' '}
           <a href="https://openalternative.co" target="_blank" rel="noopener noreferrer">OpenAlternative.co</a>
         </p>
         <div className="oa-stats-row">
-          <span className="oa-stat">📦 {OA_STATS.totalTools} Tools</span>
-          <span className="oa-stat">📂 {OA_STATS.totalCategories} Categories</span>
-          <span className="oa-stat">🏷️ {OA_STATS.totalSubcategories} Subcategories</span>
+          <span className="oa-stat">📦 {OA_STATS.totalTools} {t('Tools')}</span>
+          <span className="oa-stat">📂 {OA_STATS.totalCategories} {t('Categories')}</span>
+          <span className="oa-stat">🏷️ {OA_STATS.totalSubcategories} {t('Subcategories')}</span>
         </div>
       </div>
 
@@ -100,18 +106,18 @@ export default function OpenAlternatives() {
           {search && <button className="oa-clear" onClick={() => setSearch('')}>✕</button>}
         </div>
         <div className="oa-sort-group">
-          <label className="oa-sort-label">Sort:</label>
+          <label className="oa-sort-label">{t('Sort')}:</label>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="oa-sort">
-            <option value="name">A–Z</option>
-            <option value="stars">Most Stars</option>
-            <option value="category">By Category</option>
+            <option value="name">{t('A–Z')}</option>
+            <option value="stars">{t('Most Stars')}</option>
+            <option value="category">{t('By Category')}</option>
           </select>
         </div>
       </div>
 
       <div className="oa-cat-tabs">
         <button className={`oa-cat-tab ${!activeCat ? 'active' : ''}`} onClick={() => setActiveCat(null)}>
-          🌐 All ({OA_STATS.totalTools})
+          🌐 {t('All')} ({OA_STATS.totalTools})
         </button>
         {OA_CATEGORIES.map(cat => {
           const count = cat.subcategories.reduce((s, sub) => s + sub.tools.length, 0)
@@ -160,7 +166,7 @@ export default function OpenAlternatives() {
           ))}
           {filtered.length === 0 && (
             <div className="oa-empty">
-              <p>No tools match your search. Try different keywords.</p>
+              <p>{t('No tools match your search. Try different keywords.')}</p>
             </div>
           )}
         </div>
@@ -207,7 +213,7 @@ export default function OpenAlternatives() {
           <a href="https://openalternative.co" target="_blank" rel="noopener noreferrer">OpenAlternative.co</a>
           {' · '}
           <a href="https://github.com/piotrkulpinski/open-source-alternatives" target="_blank" rel="noopener noreferrer">
-            GitHub Repository
+            {t('GitHub Repository')}
           </a>
         </p>
       </div>

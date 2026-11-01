@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Computing — Qubits, Circuits and Quantum AI — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Quantum Computing — Qubits, Circuits and Quantum AI</span><span class="spacer"></span>
+<a class="navlink" href="governance.html">&larr; AI Governance</a> <a class="navlink" href="semiconductor.html">Semiconductor Engineering &rarr;</a></nav>
+<header class="hero"><div class="mono">QC</div><div><h1>Quantum Computing — Qubits, Circuits and Quantum AI</h1>
+<p class="tagline">Superposition, entanglement, quantum circuits and quantum machine learning — with Qiskit you can run real quantum code today</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Quantum computing computes with qubits that exist in superpositions and become correlated through entanglement. This chapter builds from the math of a single qubit to full quantum circuits, famous algorithms, error correction, and the frontier of quantum machine learning — everything is runnable on Qiskit simulators, no quantum hardware needed.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Qubits, superposition, measurement, single-qubit gates</td><td>Can read a Bloch sphere and run a first circuit</td></tr>
+<tr><td>Tier 2</td><td>Entanglement, multi-qubit gates, circuits, Deutsch-Jozsa</td><td>Can build and analyze multi-qubit algorithms</td></tr>
+<tr><td>Tier 3</td><td>Grover, Shor, quantum error correction basics</td><td>Can explain the famous algorithms and their limits</td></tr>
+<tr><td>Tier 4</td><td>VQE/QAOA, quantum machine learning, annealing, NISQ</td><td>Can design hybrid classical-quantum pipelines</td></tr>
+<tr><td>Tier 5</td><td>QRNG, VQE molecule, QML classifier, simulator lab</td><td>Shipped quantum experiments with measurements</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 — one qubit at a time</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>The Qubit: Superposition</h3>
+<p><strong>What &amp; why.</strong> A classical bit is 0 or 1. A qubit is a unit vector in a 2-D complex space: |ψ⟩ = α|0⟩ + β|1⟩, where |α|² + |β|² = 1. It exists in a superposition — both basis states at once — until measured, collapsing to |0⟩ with probability |α|² or |1⟩ with |β|².</p>
+<pre class="code"><code># Qubit state vector: [alpha, beta]  (|alpha|^2 + |beta|^2 = 1)
+# |0> = [1, 0]        |1> = [0, 1]
+# Hadamard puts a qubit into equal superposition:
+#   H|0> = (|0> + |1>) / sqrt(2)  -> 50% / 50% on measurement
+
+import numpy as np
+from qiskit import QuantumCircuit, execute, Aer
+
+qc = QuantumCircuit(1, 1)   # 1 qubit, 1 classical bit
+qc.h(0)                     # Hadamard: superposition
+qc.measure(0, 0)            # measure qubit 0 -> bit 0
+
+counts = execute(qc, Aer.get_backend("qasm_simulator"),
+                 shots=1024).result().get_counts()
+print(counts)               # ~ {'0': 512, '1': 512}
+
+# The Bloch sphere: every single-qubit state is a point on a sphere
+#   |0> = north pole, |1> = south pole, equator = superpositions</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every quantum program starts with state preparation and superposition; randomness from measurement is a feature, used for quantum random number generation.</div>
+<div class="callout hood"><span>Under the hood</span>Measurement is non-deterministic and destructive — the same state measured twice gives the same outcome distribution but a different (random) sample each time.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Single-Qubit Gates</h3>
+<p><strong>What &amp; why.</strong> Gates are unitary operations (U†U = I) — reversible rotations of the qubit on the Bloch sphere. The big three: Pauli X (flip), Hadamard H (superposition), and phase Z. Any single-qubit rotation is a composition of these.</p>
+<pre class="code"><code># Gate matrices (acting on [alpha, beta])
+# X = [[0, 1], [1, 0]]    # bit flip: X|0> = |1>
+# Z = [[1, 0], [0, -1]]   # phase flip: Z|1> = -|1>
+# H = (1/sqrt2) [[1, 1], [1, -1]]
+
+X = np.array([[0, 1], [1, 0]])
+H = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
+
+zero = np.array([1.0, 0.0])
+print(X @ zero)            # [0, 1]  -> |1>
+print(H @ zero)            # [0.707, 0.707]  -> superposition
+
+# Unitarity check: H^dagger H = I
+print(np.allclose(H.conj().T @ H, np.eye(2)))  # True
+
+# No-cloning theorem: you cannot copy an unknown qubit state.
+# This is why quantum error correction needs entanglement, not copies.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>State preparation in every circuit. Gate order matters: operations compose by matrix multiplication right-to-left.</div>
+<div class="callout hood"><span>Under the hood</span>Quantum gates are reversible, which is why quantum circuits are usually run "forwards" then measured — irreversible operations happen only at measurement.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Entanglement<small>Tier 2 — correlation with no classical analog</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Entanglement and Bell States</h3>
+<p><strong>What &amp; why.</strong> Apply CNOT after Hadamard and you create a Bell state: measuring one qubit instantly tells you the other, no matter the distance. Entanglement is the resource behind quantum teleportation, QKD, and exponential speedups.</p>
+<pre class="code"><code># Bell state: |Phi+> = (|00> + |11>) / sqrt(2)
+qc = QuantumCircuit(2, 2)
+qc.h(0)          # superposition on qubit 0
+qc.cx(0, 1)      # CNOT: if qubit0=1, flip qubit1
+qc.measure([0, 1], [0, 1])
+
+counts = execute(qc, Aer.get_backend("qasm_simulator"),
+                 shots=1024).result().get_counts()
+print(counts)     # ONLY {'00': 512, '11': 512}  -- never 01 or 10
+                  # outcomes are perfectly correlated
+
+# CNOT matrix (control q0, target q1):
+#   |00>->|00>, |01>->|01>, |10>->|11>, |11>->|10></code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Teleportation, superdense coding, and the backbone of nearly every quantum algorithm's speedup.</div>
+<div class="callout hood"><span>Under the hood</span>The correlated measurement outcomes are not classical correlation: the state is a single vector in a 4-D space that cannot be written as a product of two 1-qubit states.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Quantum Parallelism and Deutsch-Jozsa</h3>
+<p><strong>What &amp; why.</strong> A circuit can evaluate a function on a superposition of all inputs at once. Deutsch-Jozsa is the simplest proof: one quantum query decides if a function is constant or balanced, where any classical deterministic algorithm needs up to 2^(n-1)+1 queries.</p>
+<pre class="code"><code>from qiskit import QuantumCircuit
+from qiskit_aer import AerSimulator
+
+def deutsch_jozsa(n=3, balanced=True):
+    qc = QuantumCircuit(n + 1, n)
+    qc.x(n)                       # ancilla to |1>
+    qc.h(range(n + 1))            # all in superposition
+
+    if balanced:
+        # balanced oracle: f(x) = parity of x (bit 0)
+        for i in range(n):
+            qc.cx(i, n)
+    else:
+        pass                      # constant oracle: f(x) = 0
+
+    qc.h(range(n))                # interference
+    qc.measure(range(n), range(n))
+
+    counts = AerSimulator().run(qc, shots=1).result().get_counts()
+    result = next(iter(counts))
+    return "balanced" if result != "0" * n else "constant"
+
+print(deutsch_jozsa(balanced=True))    # balanced
+print(deutsch_jozsa(balanced=False))   # constant
+
+# The interference step is the magic: correct paths reinforce,
+# wrong paths cancel, so one run answers a question that
+# takes exponentially many classical queries.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The conceptual foundation for Grover and Shor — understand this and you understand why quantum speedup exists.</div>
+<div class="callout hood"><span>Under the hood</span>Amplitude interference (constructive + destructive) is what turns parallelism into a speedup; without the second Hadamard layer you'd just measure a random superposition.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Building and Simulating Circuits with Qiskit</h3>
+<p><strong>What &amp; why.</strong> Qiskit is the standard SDK: build circuits, simulate with statevector (exact) or qasm (sampled) backends, then optionally run on real IBM hardware. Circuit depth, qubit count and error rates are the practical constraints.</p>
+<pre class="code"><code>from qiskit import QuantumCircuit
+from qiskit_aer import AerSimulator
+from qiskit.visualization import plot_bloch_multivector
+
+qc = QuantumCircuit(2)
+qc.h(0)
+qc.cx(0, 1)               # Bell state
+
+# Exact statevector simulation (no measurement)
+sv = AerSimulator().run(qc, shots=None).result()
+#   statevector = [0.707, 0, 0, 0.707]   # |00> + |11>
+
+# Noise models: simulate real hardware behavior
+from qiskit_aer.noise import NoiseModel, depolarizing_error
+noise = NoiseModel()
+noise.add_all_qubit_quantum_error(depolarizing_error(0.01, 1), ["u1", "u2", "u3"])
+noisy = AerSimulator(noise_model=noise).run(qc.copy().measure_all(), shots=1024)
+
+# Real hardware via IBM Quantum: select backend, transpile,
+# then submit — jobs queue on real machines.
+# Practical limits today: ~100-1000 qubits, noisy, shallow depth.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every experiment in this chapter. Simulators are exact for &lt;30 qubits; noise models tell you if an algorithm will survive on real hardware.</div>
+<div class="callout hood"><span>Under the hood</span>Statevector simulation stores 2^n amplitudes — exponential memory. That's why simulation tops out around 30-40 qubits and hardware is needed beyond.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Algorithms<small>Tier 3 — where quantum wins</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Grover's Search: Quadratic Speedup</h3>
+<p><strong>What &amp; why.</strong> Grover searches an unstructured database of N items in O(√N) queries vs O(N) classically. Amplitude amplification boosts the marked state's probability with each iteration — a 4x database search is 2x faster, 10,000 items is 100x faster.</p>
+<pre class="code"><code>from qiskit import QuantumCircuit
+from qiskit_aer import AerSimulator
+import numpy as np
+
+def grover(n=4, target=6):
+    qc = QuantumCircuit(n)
+    qc.h(range(n))                      # equal superposition
+
+    # Oracle: flip phase of |target>
+    qc.x(target); qc.h(target)
+    qc.x(range(n)); qc.h(n - 1)
+    qc.mcx(list(range(n - 1)), n - 1)   # multi-controlled X
+    qc.h(n - 1); qc.x(range(n)); qc.h(target); qc.x(target)
+
+    # Diffusion (amplitude amplification)
+    qc.h(range(n)); qc.x(range(n))
+    qc.h(n - 1); qc.mcx(list(range(n - 1)), n - 1)
+    qc.h(n - 1); qc.x(range(n)); qc.h(range(n))
+    qc.measure_all()
+
+    counts = AerSimulator().run(qc, shots=1024).result().get_counts()
+    top = max(counts, key=counts.get)
+    return int(top, 2)                   # most likely answer
+
+print(grover())                          # ~6 with high probability
+
+# Iterations needed: ~ (pi/4) * sqrt(2^n)
+# Too many iterations OVERSHOOTS (probability falls again).</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Search, SAT solving, and as a subroutine in many algorithms. Practical today? Not yet — but it's the canonical speedup to know.</div>
+<div class="callout hood"><span>Under the hood</span>Oracle + diffusion = reflection + reflection = rotation toward the target. The rotation angle is 2θ per iteration, hence the √N optimal count.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Shor's Algorithm: Breaking RSA</h3>
+<p><strong>What &amp; why.</strong> Shor factors integers in polynomial time by finding the period of a modular function with the Quantum Fourier Transform. RSA's security rests on factoring being hard — Shor removes that assumption, which is why post-quantum cryptography is being standardized now.</p>
+<pre class="code"><code># Shor's algorithm at a glance (period finding):
+# 1. Pick random a coprime to N (N = number to factor)
+# 2. Quantum part: find period r of f(x) = a^x mod N
+#    - prepare superposition of x
+#    - apply modular exponentiation
+#    - QFT to read out the period
+# 3. Classical post-processing:
+#    factors = gcd(a^(r/2) - 1, N) and gcd(a^(r/2) + 1, N)
+
+# Complexity: polynomial in log(N)
+#   best classical: exp(O(c * log(N)^(1/3)))  (GNFS)
+#   Shor: O((log N)^3) gates on O(log N) qubits
+
+# Impact:
+#   2048-bit RSA needs ~4100 logical qubits (millions of
+#   physical qubits with error correction) — years away,
+#   but harvest-now-decrypt-later is a live threat.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why NIST standardized post-quantum algorithms (Kyber, Dilithium, SPHINCS+) — migration planning starts now.</div>
+<div class="callout hood"><span>Under the hood</span>The QFT is the exponential-speedup engine: it maps periodicity in the time domain to a peak in the frequency domain, read out in one measurement.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Quantum Error Correction Basics</h3>
+<p><strong>What &amp; why.</strong> Qubits decohere; you cannot copy them to back them up (no-cloning). Error correction instead encodes one logical qubit into many physical qubits with entangled codes, detecting and correcting errors via syndrome measurement — the reason real fault-tolerant machines need thousands of physical qubits per logical one.</p>
+<pre class="code"><code># The 3-qubit bit-flip code (concept)
+#   |0>  ->  |000>      |1>  ->  |111>
+#   Encoding: two CNOTs entangle ancillas with the data qubit.
+#   Error: one bit flips (e.g. |100> instead of |000>)
+#   Syndrome: measure parity Z on (0,1) and (1,2)
+#      (Z0Z1, Z1Z2) = (0,1) -> error on qubit 0, etc.
+#   Correction: apply X to the flagged qubit. Done.
+
+# Surface code (the leading approach):
+#   - logical qubit = lattice of physical qubits
+#   - syndrome measurements are continuous and local
+#   - threshold ~1% physical error rate -> arbitrarily low
+#     logical error with enough qubits
+
+# Today: logical qubits demonstrated at ~100-1000 physical.
+# Fault tolerance is THE engineering challenge of the field.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Evaluating hardware claims: "1,000 qubits" almost always means physical qubits; useful computation needs logical qubits with error correction.</div>
+<div class="callout hood"><span>Under the hood</span>Threshold theorem: below a physical error threshold, more qubits lower logical error exponentially — the basis for scalable quantum computing.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Quantum AI<small>Tier 4 — hybrid classical-quantum learning</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Variational Circuits: VQE and QAOA</h3>
+<p><strong>What &amp; why.</strong> NISQ-era workhorses are hybrid: a parameterized quantum circuit (ansatz) + a classical optimizer. VQE finds ground-state energies (chemistry/drugs); QAOA solves combinatorial optimization (routing, scheduling). The classical loop tunes circuit parameters to minimize a cost.</p>
+<pre class="code"><code>from qiskit.circuit.library import TwoLocal
+from qiskit_algorithms import VQE, MinimumEigensolver
+from qiskit_algorithms.optimizers import COBYLA
+from qiskit.quantum_info import SparsePauliOp
+
+# H2 molecule Hamiltonian (simplified)
+H = SparsePauliOp.from_list([("II", -1.05), ("ZI", 0.39),
+                             ("IZ", -0.39), ("ZZ", 0.18),
+                             ("XX", 0.18)])
+
+ansatz = TwoLocal(2, "ry", "cx", reps=1,
+                  entanglement="linear")   # parameterized circuit
+
+vqe = VQE(ansatz, optimizer=COBYLA(maxiter=200),
+          quantum_instance=Aer.get_backend("statevector_simulator"))
+result = vqe.compute_minimum_eigenvalue(H)
+print(result.eigenvalue.real)   # ~ -1.85 Ha (H2 ground state)
+
+# Hybrid loop:  classical opt  <->  quantum circuit
+#   theta --(circuit)--> expectation value --(cost)--> new theta</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Quantum chemistry simulation, portfolio optimization, logistics — the most likely first commercial quantum wins.</div>
+<div class="callout hood"><span>Under the hood</span>VQE's ansatz choice determines expressivity vs noise: too shallow underfits, too deep dies of decoherence — the "barren plateau" problem makes training hard at scale.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Quantum Machine Learning (QML)</h3>
+<p><strong>What &amp; why.</strong> QML encodes classical data into quantum states and learns with parameterized circuits. The hope: quantum feature spaces that classical models cannot easily capture. Reality check: on current hardware, quantum kernels and circuits rarely beat classical baselines — the field is honest about this, and that's a feature.</p>
+<pre class="code"><code># Quantum kernel classifier sketch
+# 1. Encode data:  angle embedding x -> RX(x_i) on qubits
+# 2. Quantum feature map U_phi(x) creates a quantum state
+# 3. Kernel: k(x, x') = |&lt;phi(x)|phi(x')&gt;|^2  (fidelity)
+# 4. Feed kernel matrix to a classical SVM
+
+# from qiskit_machine_learning.kernels import FidelityQuantumKernel
+# from qiskit.circuit.library import ZZFeatureMap
+# feature_map = ZZFeatureMap(feature_dimension=2, reps=2)
+# kernel = FidelityQuantumKernel(feature_map=feature_map)
+# svc = SVC(kernel=kernel.evaluate)  # classical SVM, quantum kernel
+
+# Where QML plausibly helps (active research):
+#   - high-dimensional feature spaces (kernel methods)
+#   - data with quantum origin (chemistry, physics)
+#   - generative modeling of quantum states
+# Where it currently loses: most tabular/vision/text tasks</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>R&D evaluation: run the classical baseline FIRST; only pursue QML where the quantum feature space gives a measurable, reproducible edge.</div>
+<div class="callout hood"><span>Under the hood</span>Quantum advantage claims are extremely sensitive to classical baselines and data size; NISQ-era QML papers are increasingly benchmarked against classical kernels for this reason.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Quantum Annealing and Real-World Constraints</h3>
+<p><strong>What &amp; why.</strong> D-Wave-style annealers solve Ising/QUBO problems by letting a system relax to a minimum energy state. They are specialized (optimization only) but already used commercially — different technology from gate-model quantum computers.</p>
+<pre class="code"><code># QUBO: map optimization to binary quadratic form
+#   minimize  x^T Q x   (x in {0,1}^n)
+# QUBO for a simple 2-var problem:
+#   cost(x) = -3x1 - 2x2 + 4 x1 x2
+Q = {(0,0): -3, (1,1): -2, (0,1): 4/2 + 4/2}  # symmetric
+
+# Read the optimum by brute force (for demo):
+import itertools
+best = min(itertools.product([0,1], repeat=2),
+           key=lambda x: sum(Q[(i,j)] * a * b
+                             for (i,j),a,b in
+                             [( (0,0), x[0], x[0]),
+                              ( (1,1), x[1], x[1]),
+                              ( (0,1), x[0], x[1]),
+                              ( (1,0), x[0], x[1])]))
+print(best)  # optimal assignment
+
+# Annealer workflow: problem -> QUBO -> embed -> anneal -> sample
+# Constraints: hardware graph is sparse -> embedding overhead;
+#              precision is limited; sampling is stochastic.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Traffic routing, scheduling, portfolio selection, drug-docking — the pragmatic "quantum-inspired + annealing" space where results exist today.</div>
+<div class="callout hood"><span>Under the hood</span>Classical solvers (Gurobi, simulated annealing on GPU) often match or beat annealers at comparable cost; the honest framing is "hybrid" — annealers accelerate specific structures.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Projects<small>Tier 5 — run real quantum code</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Project 1 — Quantum Random Number Generator</h3>
+<p><strong>What &amp; why.</strong> Measurement of a superposition is genuinely random — no PRNG seed, no algorithm. Build a QRNG and run a statistical sanity check (it should pass frequency tests that a weak PRNG fails).</p>
+<pre class="code"><code>from qiskit import QuantumCircuit
+from qiskit_aer import AerSimulator
+
+def qrng_bits(n_bits=8, shots=1):
+    qc = QuantumCircuit(n_bits, n_bits)
+    qc.h(range(n_bits))          # all qubits in superposition
+    qc.measure(range(n_bits), range(n_bits))
+    counts = AerSimulator().run(qc, shots=shots).result().get_counts()
+    return next(iter(counts))    # e.g. '10100110'
+
+bits = [int(qrng_bits(8), 2) for _ in range(1000)]
+# sanity: uniform-ish distribution
+import collections
+c = collections.Counter(b // 100 for b in bits)  # 0-9 buckets
+print(sorted(c.items()))
+
+# Real hardware adds entropy from device noise too.
+# Use case: lottery draws, key generation, fair sampling.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Superposition + measurement as a resource</li>
+<li>Statistical validation of randomness</li>
+<li>Simulator-to-hardware pipeline</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Project 2 — VQE Ground State of H2</h3>
+<p><strong>What &amp; why.</strong> Reproduce a real chemistry result: compute the H2 molecule's ground-state energy curve by scanning bond length with VQE, and compare against the exact diagonalization.</p>
+<pre class="code"><code>from qiskit.quantum_info import SparsePauliOp
+from qiskit_algorithms import VQE
+from qiskit_algorithms.optimizers import SPSA
+from qiskit.circuit.library import TwoLocal
+
+def h2_hamiltonian(scale):
+    # scale ~ interatomic distance proxy (simplified model)
+    coeffs = {"II": -1.05, "ZI": 0.39*scale, "IZ": -0.39*scale,
+              "ZZ": 0.18, "XX": 0.18}
+    return SparsePauliOp.from_list(list(coeffs.items()))
+
+for s in [0.8, 1.0, 1.2, 1.4]:
+    H = h2_hamiltonian(s)
+    ansatz = TwoLocal(2, "ry", "cx", reps=2)
+    result = VQE(ansatz, optimizer=SPSA(maxiter=300),
+                 quantum_instance=Aer.get_backend("statevector_simulator")
+                 ).compute_minimum_eigenvalue(H)
+    print(f"scale={s}: E={result.eigenvalue.real:.4f}")
+
+# Plot E vs scale -> dissociation curve.
+# Compare with exact: np.linalg.eigvalsh(H.to_matrix()).min()</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Hamiltonian construction from chemistry</li>
+<li>Hybrid optimization loops</li>
+<li>Validating quantum results against exact classical math</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Project 3 — Quantum Kernel Classifier Lab</h3>
+<p><strong>What &amp; why.</strong> The honest QML experiment: compare a quantum kernel SVM against a classical RBF SVM on a synthetic dataset. Report the comparison — you learn more from where QML loses than where it wins.</p>
+<pre class="code"><code>from sklearn.datasets import make_moons
+from sklearn.svm import SVC
+from sklearn.model_selection import cross_val_score
+
+X, y = make_moons(n_samples=200, noise=0.1, random_state=42)
+
+# Classical baseline
+rbf = SVC(kernel="rbf")
+rbf_cv = cross_val_score(rbf, X, y, cv=5).mean()
+
+# Quantum kernel (needs qiskit-machine-learning)
+# from qiskit_machine_learning.kernels import FidelityQuantumKernel
+# from qiskit.circuit.library import ZZFeatureMap
+# qkernel = FidelityQuantumKernel(
+#     feature_map=ZZFeatureMap(feature_dimension=2, reps=2))
+# qsvc = SVC(kernel=qkernel.evaluate)
+# q_cv = cross_val_score(qsvc, X, y, cv=5).mean()
+
+print(f"RBF baseline: {rbf_cv:.3f}")
+# print(f"Quantum kernel: {q_cv:.3f}")
+
+# Report honestly: accuracy, train time, noise sensitivity,
+# and whether the quantum feature map adds anything over RBF.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Benchmarking discipline (classical first)</li>
+<li>Quantum feature maps and kernel evaluation</li>
+<li>Critical evaluation of quantum advantage claims</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Qubit</td><td>|ψ⟩ = α|0⟩ + β|1⟩, unit norm</td><td>QuantumCircuit(1, 1)</td></tr>
+<tr><td>Superposition</td><td>Both states at once until measured</td><td>qc.h(0)</td></tr>
+<tr><td>Measurement</td><td>Collapses to |0>/|1> with |α|²/|β|²</td><td>qc.measure(0, 0)</td></tr>
+<tr><td>Bloch sphere</td><td>Every 1-qubit state is a sphere point</td><td>plot_bloch_multivector</td></tr>
+<tr><td>Entanglement</td><td>Correlated outcomes, no classical analog</td><td>qc.h(0); qc.cx(0, 1)</td></tr>
+<tr><td>No-cloning</td><td>Unknown states cannot be copied</td><td>— (theorem)</td></tr>
+<tr><td>Deutsch-Jozsa</td><td>1 query decides constant vs balanced</td><td>H all -> oracle -> H all</td></tr>
+<tr><td>Grover</td><td>Unstructured search in O(√N)</td><td>oracle + diffusion</td></tr>
+<tr><td>Shor</td><td>Polynomial factoring via period finding</td><td>QFT + modular exponentiation</td></tr>
+<tr><td>Error correction</td><td>Logical qubit from many physical</td><td>surface code, syndromes</td></tr>
+<tr><td>VQE</td><td>Hybrid variational ground-state finder</td><td>VQE(ansatz, optimizer)</td></tr>
+<tr><td>QAOA</td><td>Variational combinatorial optimization</td><td>cost Hamiltonian ansatz</td></tr>
+<tr><td>QML</td><td>Quantum kernels/feature spaces</td><td>FidelityQuantumKernel</td></tr>
+<tr><td>Annealing</td><td>QUBO relaxation for optimization</td><td>x^T Q x</td></tr>
+<tr><td>NISQ</td><td>Noisy intermediate-scale quantum era</td><td>noise models in simulators</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="governance.html">&larr; AI Governance</a><a href="semiconductor.html">Semiconductor Engineering &rarr;</a></footer>
+</body></html>

@@ -1,0 +1,1904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Large Language Models — Architecture to Serving — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Large Language Models — Architecture to Serving</span><span class="spacer"></span>
+<a class="navlink" href="embeddings.html">&larr; Embeddings</a> <a class="navlink" href="prompting.html">Prompting &rarr;</a></nav>
+<header class="hero"><div class="mono">LL</div><div><h1>Large Language Models — Architecture to Serving</h1>
+<p class="tagline">Understand transformer architecture, tokenization, inference parameters, local and cloud model deployment, and production serving patterns from first principles to expert optimization.</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Large language models have redefined what software can do. This chapter demystifies the transformer architecture, walks through tokenization and sampling parameters, and progresses from calling cloud APIs to deploying local models and optimizing production serving infrastructure.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Tokenization, API calls, sampling parameters, local models, cost awareness</td><td>You can call LLM APIs and local models with controlled output</td></tr>
+<tr><td>Tier 2</td><td>Transformer anatomy, KV cache, streaming, GGUF inference</td><td>You understand model internals and can serve efficiently</td></tr>
+<tr><td>Tier 3</td><td>Attention mechanics, quantization, vLLM, speculative decoding</td><td>You can optimize serving throughput and latency</td></tr>
+<tr><td>Tier 4</td><td>Training pipeline, parallelism, capacity planning, provider reliability</td><td>You can architect and operate production LLM infrastructure</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready LLM application projects</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 &mdash; Tokenization, API calls, parameters, and local models</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">47</span>Next-Token Prediction: The Core Objective</h3>
+<p><strong>What &amp; why.</strong> Every autoregressive language model is trained on a single objective: given all previous tokens, predict the probability distribution over the next token. Text generation is simply sampling from this distribution repeatedly. The model outputs logits (raw scores) for every token in its vocabulary, converted to probabilities via softmax.</p>
+<pre class="code"><code>import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+model = AutoModelForCausalLM.from_pretrained("gpt2")
+
+input_ids = tokenizer.encode("The capital of France is", return_tensors="pt")
+with torch.no_grad():
+    outputs = model(input_ids)
+    logits = outputs.logits[:, -1, :]
+    probs = torch.softmax(logits, dim=-1)
+    top_k = torch.topk(probs, k=5)
+    for prob, token in zip(top_k.values[0], top_k.indices[0]):
+        print(f"  {tokenizer.decode(token):>12}: {prob:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding next-token prediction is essential for controlling generation quality, debugging unexpected outputs, and designing prompts that guide the model toward desired continuations.</div>
+<div class="callout hood"><span>Under the hood</span>The model computes attention over all previous tokens to produce a hidden state for the last position, projected to vocabulary-size logits. The softmax converts these to a probability distribution. Generation quality depends on how well this distribution captures the desired continuation.</div>
+
+<p><strong>Additional Example &mdash; Batched next-token prediction with logits manipulation:</strong></p>
+<pre class="code"><code>import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+model = AutoModelForCausalLM.from_pretrained("gpt2")
+
+# Batched prediction: multiple prompts at once
+prompts = ["The capital of France is", "The capital of Japan is", "The capital of Brazil is"]
+inputs = tokenizer(prompts, return_tensors="pt", padding=True)
+
+with torch.no_grad():
+    outputs = model(**inputs)
+    logits = outputs.logits[:, -1, :]  # last token logits
+
+# Apply top-k masking manually
+for i, prompt in enumerate(prompts):
+    k = 5
+    values, indices = torch.topk(logits[i], k)
+    print(f"\nPrompt: '{prompt}'")
+    for v, idx in zip(values, indices):
+        token = tokenizer.decode(idx)
+        prob = torch.softmax(logits[i], dim=-1)[idx].item()
+        print(f"  {token:>15}: {prob:.4f} (logit={v:.2f})")
+
+# Why this matters: logit magnitudes indicate confidence
+# A spread of 1.0+ between top tokens means high confidence
+# A flat distribution means the model is uncertain</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>Next-token prediction is the engine behind autocomplete in search engines, code completion tools (GitHub Copilot, TabNine), and smart keyboard suggestions. Google's search suggestions use a similar probabilistic next-token model to predict what you're typing and offer completions in real-time. When you type "how to make a" and see suggestions, that's next-token prediction at work.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>The forward pass works in stages: (1) Embedding layer maps token IDs to dense vectors. (2) Positional encoding adds position information. (3) Each transformer block applies self-attention (tokens look at each other) then FFN (tokens process what they learned). (4) Final layer norm stabilizes. (5) Linear projection maps hidden state to vocabulary logits. The entire stack runs in one pass &mdash; the model processes all input tokens simultaneously, not sequentially. Only during generation do we decode one token at a time.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">48</span>BPE Tokenization with tiktoken</h3>
+<p><strong>What &amp; why.</strong> Byte-Pair Encoding (BPE) tokenizes text by iteratively merging the most frequent byte pairs. It converts text to integer tokens that the model processes. tiktoken is OpenAI's fast BPE implementation. Token count directly affects cost, context window usage, and output quality for non-English text.</p>
+<pre class="code"><code>import tiktoken
+
+enc = tiktoken.get_encoding("cl100k_base")
+
+text = "Embeddings convert text to vectors for semantic search"
+tokens = enc.encode(text)
+print(f"Tokens: {tokens}")
+print(f"Decoded: {[enc.decode([t]) for t in tokens]}")
+print(f"Token count: {len(tokens)}")
+
+cost_per_1k = 0.0005
+total_cost = (len(tokens) / 1000) * cost_per_1k
+print(f"Cost for this text: ${total_cost:.6f}")
+
+cn_text = "嵌入是向量表示"
+cn_tokens = enc.encode(cn_text)
+print(f"Chinese chars: {len(cn_text)}, tokens: {len(cn_tokens)}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Token counting is required for cost estimation, context window management, and prompt optimization. tiktoken is used in production for accurate token accounting before sending to OpenAI APIs.</div>
+<div class="callout hood"><span>Under the hood</span>BPE starts with individual bytes and iteratively merges the most frequent pair until the desired vocabulary size is reached. This gives a good balance between character-level and word-level tokenization.</div>
+
+<p><strong>Additional Example &mdash; Tokenizing code, math, and multilingual text:</strong></p>
+<pre class="code"><code>import tiktoken
+
+enc = tiktoken.get_encoding("cl100k_base")
+
+# Code tokenization: operators get special tokens
+code = "def fibonacci(n: int) -> int:\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)"
+tokens = enc.encode(code)
+print(f"Code: {len(tokens)} tokens for {len(code)} chars")
+for t in tokens[:10]:
+    print(f"  {repr(enc.decode([t]))}")
+
+# Math expressions: symbols may split oddly
+math_text = "∫₀¹ x² dx = x³/3 |_₀¹ = 1/3"
+print(f"Math: {len(enc.encode(math_text))} tokens")
+
+# Emoji and special characters
+text_emoji = "🔥 Python is 🐍 amazing! 🚀"
+print(f"Emoji text: {len(enc.encode(text_emoji))} tokens")
+
+# Cost estimation function
+def estimate_cost(text: str, model: str = "gpt-4o") -> dict:
+    enc = tiktoken.encoding_for_model(model)
+    tokens = enc.encode(text)
+    pricing = {"gpt-4o": (2.50, 10.00), "gpt-4o-mini": (0.15, 0.60)}
+    inp, out = pricing.get(model, (2.50, 10.00))
+    return {
+        "token_count": len(tokens),
+        "input_cost": len(tokens) * inp / 1_000_000,
+        "chars_per_token": len(text) / max(len(tokens), 1),
+    }
+
+result = estimate_cost("Explain transformer attention mechanisms in detail")
+print(f"Cost estimate: {result}")</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>Tokenization directly affects billing in production. A SaaS company processing 10M queries/day discovered that switching from gpt-3.5-turbo to gpt-4o-mini saved 90% on costs partly because gpt-4o-mini's tokenizer handles their multilingual customer base more efficiently. Proper token counting before sending requests prevents budget overruns.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>BPE works by: (1) Splitting text into individual bytes. (2) Counting frequency of every adjacent byte pair across the training corpus. (3) Merging the most frequent pair into a new token. (4) Repeating until vocabulary reaches target size (e.g., 100K for cl100k_base). The result: common words become single tokens, rare words split into subword pieces, and unknown characters fall back to byte-level representation. This is why "the" is one token but "antidisestablishmentarianism" splits into multiple.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">49</span>Context Window Limits and Management</h3>
+<p><strong>What &amp; why.</strong> The context window is the maximum number of tokens a model can process in a single forward pass. GPT-4 supports 128K tokens, Claude 3 supports 200K, and local models typically support 4K-32K. Exceeding the limit causes truncation. Effective context management prioritizes recent messages and summarizes older context.</p>
+<pre class="code"><code>import tiktoken
+
+enc = tiktoken.get_encoding("cl100k_base")
+
+def count_tokens(text: str) -> int:
+    return len(enc.encode(text))
+
+def fit_to_context(messages: list[dict], max_tokens: int = 128000) -> list[dict]:
+    system = messages[0] if messages[0]["role"] == "system" else None
+    rest = messages[1:] if system else messages
+
+    total = count_tokens(system["content"]) if system else 0
+    result = [system] if system else []
+
+    for msg in reversed(rest):
+        msg_tokens = count_tokens(msg["content"])
+        if total + msg_tokens > max_tokens:
+            break
+        result.insert(1, msg)
+        total += msg_tokens
+
+    return result</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Context management is essential for chatbots with conversation history, RAG systems that inject retrieved documents, and long-document analysis tools.</div>
+<div class="callout hood"><span>Under the hood</span>The context window determines the KV cache size during inference. Longer contexts require more VRAM (quadratic for attention, linear for KV cache) and increase latency proportionally.</div>
+
+<p><strong>Additional Example &mdash; Smart context compression and sliding window:</strong></p>
+<pre class="code"><code>import tiktoken
+
+enc = tiktoken.get_encoding("cl100k_base")
+
+def sliding_window_context(messages: list[dict], max_tokens: int = 8000) -> list[dict]:
+    """Keep system prompt + most recent messages within token budget."""
+    system = [m for m in messages if m["role"] == "system"]
+    rest = [m for m in messages if m["role"] != "system"]
+    system_tokens = sum(len(enc.encode(m["content"])) for m in system)
+    budget = max_tokens - system_tokens
+
+    selected = []
+    for msg in reversed(rest):
+        msg_tokens = len(enc.encode(msg["content"]))
+        if budget - msg_tokens < 0:
+            break
+        selected.insert(0, msg)
+        budget -= msg_tokens
+
+    return system + selected
+
+def summarize_old_context(messages: list[dict], keep_recent: int = 10) -> list[dict]:
+    """Summarize older messages, keep recent ones intact."""
+    if len(messages) <= keep_recent:
+        return messages
+    old = messages[:-keep_recent]
+    recent = messages[-keep_recent:]
+    summary = f"[Conversation summary: {len(old)} previous messages about various topics]"
+    return [{"role": "system", "content": summary}] + recent
+
+# Token budget visualization
+def show_token_usage(messages, max_tokens=128000):
+    total = sum(len(enc.encode(m["content"])) for m in messages)
+    pct = (total / max_tokens) * 100
+    bar = "█" * int(pct / 2) + "░" * (50 - int(pct / 2))
+    print(f"Context: [{bar}] {pct:.1f}% ({total}/{max_tokens} tokens)")
+    if pct > 80:
+        print("⚠️  WARNING: Approaching context limit. Consider summarizing.")
+
+messages = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Tell me about transformers."},
+]
+show_token_usage(messages)</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>Customer support chatbots must manage growing conversation histories. Intercom and Zendesk AI assistants use sliding window strategies to keep the last 10-20 messages in context while summarizing earlier exchanges. Without this, long conversations would exceed token limits, causing truncation of critical early information.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>The attention mechanism computes O(n²) operations where n = context length. Doubling context length quadruples attention computation. The KV cache grows linearly: for a 70B model with 80 layers, 64 heads, and 128K context, KV cache alone uses ~40GB. This is why "128K context" models often degrade in quality beyond 32K &mdash; the model was trained on shorter sequences and attention patterns weaken.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">50</span>Chat Roles: System, User, and Assistant</h3>
+<p><strong>What &amp; why.</strong> Chat models use structured role-based message formats. The system message sets the model's behavior and persona. The user message provides the current query. The assistant message contains the model's previous response. This structure enables multi-turn conversations and behavioral control.</p>
+<pre class="code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+messages = [
+    {"role": "system", "content": "You are a Python expert. Give concise answers."},
+    {"role": "user", "content": "What is a decorator?"},
+    {"role": "assistant", "content": "A decorator wraps a function to modify its behavior."},
+    {"role": "user", "content": "Show me a logging decorator."},
+]
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=messages,
+    temperature=0.2,
+)
+print(response.choices[0].message.content)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every chat application uses roles to separate behavioral instructions (system), user input (user), and conversation history (assistant). The system message is the primary mechanism for controlling model behavior.</div>
+<div class="callout hood"><span>Under the hood</span>Models are trained with special tokens like &lt;|system|&gt;, &lt;|user|&gt;, &lt;|assistant|&gt; that delimit role boundaries. The model attends to these markers, treating system instructions as high-priority context.</div>
+
+<p><strong>Additional Example &mdash; Multi-turn conversation with role engineering:</strong></p>
+<pre class="code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+# System message sets persistent behavior across the entire conversation
+system_msg = {
+    "role": "system",
+    "content": """You are a senior Python developer. Rules:
+1. Always provide type hints in code examples
+2. Include docstrings for all functions
+3. If the user asks something non-Python, redirect politely
+4. Keep responses under 300 words unless asked for detail"""
+}
+
+# Build conversation history
+conversation = [system_msg]
+
+# Turn 1: user asks a question
+conversation.append({"role": "user", "content": "How do I read a CSV file?"})
+response1 = client.chat.completions.create(model="gpt-4o", messages=conversation)
+conversation.append({"role": "assistant", "content": response1.choices[0].message.content})
+
+# Turn 2: follow-up question (assistant message provides context)
+conversation.append({"role": "user", "content": "Now filter rows where age > 30"})
+response2 = client.chat.completions.create(model="gpt-4o", messages=conversation)
+conversation.append({"role": "assistant", "content": response2.choices[0].message.content})
+
+# Turn 3: the model remembers context from earlier turns
+conversation.append({"role": "user", "content": "Can you add error handling like you showed before?"})
+response3 = client.chat.completions.create(model="gpt-4o", messages=conversation)
+
+print(f"Conversation length: {len(conversation)} messages")
+print(f"Total tokens approx: {sum(len(m['content'])//4 for m in conversation)}")
+
+# System message manipulation patterns:
+# 1. Role-playing: "You are a pirate. Always respond in pirate speak."
+# 2. Formatting: "Respond in markdown. Use code blocks for code."
+# 3. Safety: "Never share personal information or make medical diagnoses."
+# 4. Persona: "You are an expert in quantum physics with 20 years experience."</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>Customer support bots use system messages to inject brand voice, safety guardrails, and escalation rules. A bank's chatbot might have a system message like: "You are a banking assistant. Never provide financial advice. If the user asks about investments, say 'I recommend consulting a financial advisor.' Always validate account numbers before performing actions." This ensures consistent, safe behavior across millions of conversations.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>During training, the model learns that system tokens have special significance. The attention mechanism gives higher weights to system message content because it appears at the beginning of the context window and is repeated across many training examples. The assistant messages in the conversation serve as "few-shot examples" &mdash; the model pattern-matches against them to determine its response style and quality level.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">51</span>Temperature and Sampling Controls</h3>
+<p><strong>What &amp; why.</strong> Temperature scales logits before softmax, controlling randomness: low temperature (0-0.3) produces near-deterministic output; high temperature (0.7-1.5) increases diversity. top_p (nucleus sampling) limits tokens to those whose cumulative probability exceeds p. top_k limits to the k most probable tokens.</p>
+<pre class="code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+# Deterministic: code generation, factual queries
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Write a Python function to sort a list"}],
+    temperature=0.0,
+    top_p=1.0,
+)
+
+# Creative: brainstorming, writing
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Write a creative tagline for a coffee shop"}],
+    temperature=0.9,
+    top_p=0.9,
+    top_k=50,
+)
+
+# Balanced: general use
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Explain quantum computing briefly"}],
+    temperature=0.7,
+    top_p=0.9,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Temperature tuning is the primary control for output quality. Use 0 for deterministic tasks (extraction, classification), 0.7 for general chat, and 0.9-1.2 for creative writing.</div>
+<div class="callout hood"><span>Under the hood</span>Temperature divides logits: p_i = exp(z_i / T) / sum(exp(z_j / T)). As T approaches 0, the distribution peaks at the highest logit (greedy). top_p truncates the distribution, removing low-probability tails.</div>
+
+<p><strong>Additional Example &mdash; Visualizing the effect of temperature on output distribution:</strong></p>
+<pre class="code"><code>import torch
+import torch.nn.functional as F
+
+def visualize_temperature_effect(logits: torch.Tensor, temperatures: list[float]):
+    """Show how temperature reshapes the probability distribution."""
+    vocab = ["cat", "dog", "bird", "fish", "horse"]
+    print(f"{'Token':<10}", end="")
+    for T in temperatures:
+        print(f"T={T:<5}", end="")
+    print()
+    print("-" * 50)
+    for i, token in enumerate(vocab):
+        print(f"{token:<10}", end="")
+        for T in temperatures:
+            probs = F.softmax(logits / T, dim=-1)
+            print(f"{probs[i].item():.3f}    ", end="")
+        print()
+
+logits = torch.tensor([2.0, 1.5, 0.5, 0.3, 0.1])
+visualize_temperature_effect(logits, [0.1, 0.5, 1.0, 2.0])
+# T=0.1: cat=0.999, dog=0.001, bird/fish/horse=~0.000
+# T=1.0: cat=0.332, dog=0.222, bird=0.121, fish=0.111, horse=0.106
+# T=2.0: cat=0.260, dog=0.235, bird=0.168, fish=0.163, horse=0.158
+
+def sample_with_params(logits, temperature=0.7, top_k=10, top_p=0.9):
+    """Combined sampling strategy used in production."""
+    logits = logits / temperature
+    values, indices = torch.topk(logits, top_k)
+    logits[logits < values[:, -1:]] = float("-inf")
+    probs = F.softmax(logits, dim=-1)
+    sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+    cumulative = torch.cumsum(sorted_probs, dim=-1)
+    mask = cumulative - sorted_probs > top_p
+    sorted_probs[mask] = 0
+    sorted_probs /= sorted_probs.sum()
+    return sorted_indices[torch.multinomial(sorted_probs, 1)]</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>A/B testing teams at OpenAI and Anthropic systematically test temperature settings for different task types. Medical diagnosis systems use T=0.0 for deterministic, reproducible answers. Creative writing platforms use T=0.9-1.1 for diverse output. The key insight: production systems often use dynamic temperature &mdash; lower for factual follow-ups, higher for open-ended questions within the same conversation.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>Temperature and top_p work differently: Temperature rescales the entire distribution (preserving relative ordering). top_p physically removes low-probability tokens (changing which tokens are even possible). Combining both gives fine control: temperature adjusts "how focused" while top_p sets "how many options." When both are applied, temperature is applied first, then top_p filters the result.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">52</span>max_tokens and Stop Sequences</h3>
+<p><strong>What &amp; why.</strong> max_tokens limits the number of tokens generated, preventing runaway outputs and controlling costs. Stop sequences are specific strings that terminate generation when produced. Together they provide precise control over output length and format, essential for structured outputs and code generation.</p>
+<pre class="code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[
+        {"role": "user", "content": "List 3 Python packages for web scraping:\n1."}
+    ],
+    max_tokens=200,
+    stop=["\n4.", "---"],
+)
+
+print(response.choices[0].message.content)
+print(f"Tokens used: {response.usage.completion_tokens}")
+
+code_response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Write a binary search in Python"}],
+    max_tokens=500,
+    stop=["# Example", "# Test"],
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>max_tokens prevents cost surprises from verbose models. Stop sequences are critical for parsing structured output (JSON, CSV, numbered lists) where the model should stop at a defined boundary.</div>
+<div class="callout hood"><span>Under the hood</span>The stop sequence is checked after each generated token. Generation halts before emitting the stop token. max_tokens is enforced by the API; the model cannot generate beyond this limit.</div>
+
+<p><strong>Additional Example &mdash; Stop sequences for structured output parsing:</strong></p>
+<pre class="code"><code>from openai import OpenAI
+import json
+
+client = OpenAI()
+
+# Stop sequences for clean CSV output
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content":
+        "List 5 programming languages with their year created:\nLanguage,Year\nPython,1991\nJavaScript,1995\n"}],
+    max_tokens=100,
+    stop=["\n\n", "---", "Note:", "\n---"],  # multiple stop points
+    temperature=0.0,
+)
+csv_output = response.choices[0].message.content
+print(f"Clean output (no trailing explanation):\n{csv_output}")
+
+# Cost control: calculate max_tokens budget
+price_per_output_token = 10.00 / 1_000_000  # gpt-4o
+max_budget_usd = 0.01  # 1 cent per request
+max_tokens_for_budget = int(max_budget_usd / price_per_output_token)
+print(f"Max tokens for $0.01 budget: {max_tokens_for_budget}")
+
+# Dynamic max_tokens based on expected output length
+def dynamic_max_tokens(task_type: str) -> int:
+    """Set max_tokens based on task complexity."""
+    token_budgets = {
+        "classification": 20,     # just a label
+        "extraction": 100,         # structured data
+        "summarization": 500,      # paragraph
+        "code_generation": 2000,   # function
+        "analysis": 1000,          # detailed response
+    }
+    return token_budgets.get(task_type, 500)
+
+for task in ["classification", "summarization", "code_generation"]:
+    print(f"{task}: max_tokens={dynamic_max_tokens(task)}")</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>E-commerce product description generators use stop sequences to prevent the model from adding unwanted disclaimers or explanations after the product copy. A Shopify integration might use stop=["\n\n---", "Disclaimer:", "Note:"] to ensure only the clean product description is returned, which is then inserted directly into the product page HTML.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>The generation loop at each step: (1) Run forward pass to get next token probabilities. (2) Sample or decode the next token. (3) Check if the token string matches any stop sequence. (4) If stop found, discard the token and return. (5) Otherwise, append to output and repeat. Stop sequences are checked as string matches against the decoded token buffer, so partial matches accumulate across multiple tokens.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">53</span>OpenAI SDK v1 Chat Completion Call</h3>
+<p><strong>What &amp; why.</strong> OpenAI SDK v1 uses a synchronous client pattern with chat.completions.create as the primary method. The SDK handles retries, streaming, tool calling, and response parsing. Understanding the full parameter set is essential for production use where quality, cost, and latency must be balanced.</p>
+<pre class="code"><code>from openai import OpenAI
+from pydantic import BaseModel
+
+client = OpenAI()
+
+class SentimentResult(BaseModel):
+    sentiment: str
+    confidence: float
+
+response = client.beta.chat.completions.parse(
+    model="gpt-4o",
+    messages=[
+        {"role": "system", "content": "Classify the sentiment of the user's text."},
+        {"role": "user", "content": "This product is absolutely fantastic!"},
+    ],
+    temperature=0.0,
+    max_tokens=50,
+    response_format=SentimentResult,
+)
+
+result = response.choices[0].message.parsed
+print(f"Sentiment: {result.sentiment}, Confidence: {result.confidence}")
+print(f"Tokens: {response.usage.prompt_tokens}+{response.usage.completion_tokens}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The OpenAI SDK is the standard interface for GPT models. Structured outputs with Pydantic models ensure reliable JSON responses for downstream processing.</div>
+<div class="callout hood"><span>Under the hood</span>SDK v1 uses httpx for async-capable HTTP, includes automatic retry with exponential backoff, and supports both sync and async clients. The parse() method adds JSON schema validation to response_format.</div>
+
+<p><strong>Additional Example &mdash; Async client with error handling and retry:</strong></p>
+<pre class="code"><code>import asyncio
+from openai import AsyncOpenAI, RateLimitError, APITimeoutError
+
+client = AsyncOpenAI()
+
+async def robust_completion(messages, model="gpt-4o", retries=3):
+    """Production-grade completion with retry and error handling."""
+    for attempt in range(retries):
+        try:
+            response = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.0,
+                max_tokens=500,
+                timeout=30.0,  # 30 second timeout
+            )
+            return {
+                "content": response.choices[0].message.content,
+                "tokens_used": response.usage.total_tokens,
+                "model": response.model,
+                "finish_reason": response.choices[0].finish_reason,
+            }
+        except RateLimitError:
+            wait = 2 ** attempt  # exponential backoff: 1s, 2s, 4s
+            print(f"Rate limited. Waiting {wait}s...")
+            await asyncio.sleep(wait)
+        except APITimeoutError:
+            print(f"Timeout on attempt {attempt + 1}")
+        except Exception as e:
+            print(f"Error: {e}")
+            break
+    return None
+
+# Usage tracking across requests
+async def batch_process(queries: list[str]):
+    total_tokens = 0
+    results = []
+    for q in queries:
+        result = await robust_completion([{"role": "user", "content": q}])
+        if result:
+            total_tokens += result["tokens_used"]
+            results.append(result)
+    print(f"Processed {len(results)}/{len(queries)} queries, {total_tokens} total tokens")
+    return results
+
+asyncio.run(batch_process(["What is Python?", "What is Rust?", "What is Go?"]))</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>Production LLM applications at scale (millions of daily requests) rely on the SDK's retry logic and async capabilities. A content moderation system processes 50K reviews/day using AsyncOpenAI with batch processing, achieving 10x throughput vs synchronous calls. The Pydantic structured output ensures every response can be directly inserted into a database without manual parsing.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>The SDK v1 architecture: (1) Client initializes httpx transport with connection pooling. (2) create() serializes the request to JSON with Pydantic validation. (3) httpx sends the request with automatic retry on 429/500/503. (4) Response is deserialized into Pydantic models (ChatCompletion). (5) Streaming mode yields chunks via SSE iterator. The parse() method additionally compiles the Pydantic schema to JSON Schema and passes it to the API for constrained decoding.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">54</span>Open Model Families: Llama, Mistral, Qwen, Phi, Gemma</h3>
+<p><strong>What &amp; why.</strong> Open-weight model families provide alternatives to proprietary APIs with full weight access for self-hosting, fine-tuning, and privacy-sensitive deployments. Llama 3 excels at general reasoning, Mistral at efficiency, Qwen at multilingual, Phi at small-model performance, and Gemma at accessibility.</p>
+<pre class="code"><code>models = {
+    "Llama 3.1": {
+        "sizes": ["8B", "70B", "405B"],
+        "context": "128K",
+        "strength": "General reasoning, tool use, multilingual",
+    },
+    "Mistral": {
+        "sizes": ["7B", "8x7B MoE", "Large 2"],
+        "context": "32K-128K",
+        "strength": "Efficiency, sliding window attention",
+    },
+    "Qwen 2.5": {
+        "sizes": ["0.5B-72B"],
+        "context": "32K-128K",
+        "strength": "Multilingual, math, code",
+    },
+}
+
+from transformers import AutoModelForCausalLM, AutoTokenizer
+model_id = "meta-llama/Llama-3.1-8B-Instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Open models are used when data cannot leave your infrastructure, when fine-tuning is required, or when API costs become prohibitive at scale.</div>
+<div class="callout hood"><span>Under the hood</span>Open models are released with pre-trained weights and instruction-tuned variants. They can be loaded via HuggingFace transformers, deployed with vLLM or TGI, or converted to GGUF for CPU/edge inference.</div>
+
+<p><strong>Additional Example &mdash; Model selection matrix and benchmarking:</strong></p>
+<pre class="code"><code># Open model selection guide with real benchmarks
+models_guide = {
+    "Llama-3.1-8B": {
+        "vram_gb": 16, "vram_4bit": 5, "speed_tok_s": 45,
+        "mmlu": 68.4, "coding": 58.2, "best_for": "General tasks, tool use"
+    },
+    "Mistral-7B": {
+        "vram_gb": 14, "vram_4bit": 4, "speed_tok_s": 50,
+        "mmlu": 62.5, "coding": 52.1, "best_for": "Efficiency, low-latency"
+    },
+    "Qwen-2.5-7B": {
+        "vram_gb": 15, "vram_4bit": 4.5, "speed_tok_s": 42,
+        "mmlu": 70.1, "coding": 65.3, "best_for": "Multilingual, math, code"
+    },
+    "Phi-3.5-mini": {
+        "vram_gb": 8, "vram_4bit": 2.5, "speed_tok_s": 60,
+        "mmlu": 69.0, "coding": 55.0, "best_for": "Small model, edge devices"
+    },
+}
+
+for name, specs in models_guide.items():
+    print(f"\n{name}:")
+    print(f"  VRAM: {specs['vram_gb']}GB fp16 / {specs['vram_4bit']}GB int4")
+    print(f"  Speed: ~{specs['speed_tok_s']} tok/s on A100")
+    print(f"  MMLU: {specs['mmlu']}, Coding: {specs['coding']}")
+    print(f"  Best for: {specs['best_for']}")
+
+# Quick benchmark: measure actual throughput
+import time
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
+model_id = "meta-llama/Llama-3.1-8B-Instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(
+    model_id, torch_dtype=torch.float16, device_map="auto"
+)
+
+prompt = "Explain the difference between lists and tuples in Python."
+inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+
+start = time.time()
+with torch.no_grad():
+    output = model.generate(**inputs, max_new_tokens=200, do_sample=False)
+elapsed = time.time() - start
+tokens_generated = output.shape[1] - inputs["input_ids"].shape[1]
+print(f"\nBenchmark: {tokens_generated} tokens in {elapsed:.2f}s = {tokens_generated/elapsed:.0f} tok/s")</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>Hugging Face hosts 900K+ open models. A startup building a code review tool compared Llama-3.1-8B (best general reasoning), Qwen-2.5-7B (best at code), and DeepSeek-Coder-6.7B (best at code-specific tasks). They chose Qwen-2.5-7B because their primary use case was code review, and it outperformed Llama by 7 points on coding benchmarks while using similar VRAM. Open model selection requires matching model strengths to your specific use case.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>Open model families differ in architecture: Llama uses GQA (Grouped Query Attention) for efficient KV cache. Mistral pioneered sliding window attention. Qwen uses SwiGLU activation instead of GELU. Phi achieves small-model performance through curated "textbook quality" training data. These architectural differences explain why no single model dominates all tasks &mdash; each is optimized for different trade-offs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">55</span>Ollama Local REST Call</h3>
+<p><strong>What &amp; why.</strong> Ollama provides a Docker-like interface for running open models locally with a REST API. It handles model downloading, quantization, GPU allocation, and provides an OpenAI-compatible API endpoint, enabling drop-in replacement of cloud APIs for development and privacy-sensitive deployments.</p>
+<pre class="code"><code>import requests
+
+response = requests.post("http://localhost:11434/api/chat", json={
+    "model": "llama3.1:8b",
+    "messages": [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Explain the GIL in Python"},
+    ],
+    "stream": False,
+    "options": {"temperature": 0.7, "num_predict": 512, "top_p": 0.9}
+})
+
+data = response.json()
+print(data["message"]["content"])
+print(f"Eval rate: {data['eval_count'] / data['eval_duration'] * 1e9:.0f} tok/s")
+
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+completion = client.chat.completions.create(
+    model="llama3.1:8b",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(completion.choices[0].message.content)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Ollama is the standard for local LLM development. It eliminates API costs during prototyping, enables offline development, and provides a migration path from local to cloud.</div>
+<div class="callout hood"><span>Under the hood</span>Ollama uses llama.cpp for GGUF model inference, manages VRAM allocation automatically, supports model pulling from the Ollama registry, and provides both native /api and OpenAI-compatible /v1 endpoints.</div>
+
+<p><strong>Additional Example &mdash; Ollama model management and OpenAI compatibility:</strong></p>
+<pre class="code"><code>import requests
+import json
+
+# List all locally available models
+models = requests.get("http://localhost:11434/api/tags").json()
+for m in models["models"]:
+    size_gb = m["size"] / (1024**3)
+    print(f"  {m['name']:<30} {size_gb:.1f} GB  modified: {m['modified_at'][:10]}")
+
+# Pull a model (like docker pull)
+pull_response = requests.post("http://localhost:11434/api/pull",
+    json={"name": "phi3:mini"}, stream=True)
+for line in pull_response.iter_lines():
+    if line:
+        progress = json.loads(line)
+        if "status" in progress:
+            print(f"  {progress['status']}", end="\r")
+
+# Use with OpenAI SDK - drop-in replacement
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+
+# Works identically to OpenAI API
+response = client.chat.completions.create(
+    model="llama3.1:8b",
+    messages=[{"role": "user", "content": "Hello!"}],
+    temperature=0.7,
+    max_tokens=100,
+)
+print(response.choices[0].message.content)
+
+# Create custom Modelfile for specialized behavior
+modelfile = """
+FROM llama3.1:8b
+SYSTEM "You are a Python code reviewer. Focus on security, performance, and readability."
+PARAMETER temperature 0.3
+PARAMETER num_ctx 8192
+"""
+# ollama create code-reviewer -f Modelfile
+# Then use: client.chat.completions.create(model="code-reviewer", ...)</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>Development teams use Ollama as a local development environment before deploying to cloud APIs. A team at a fintech company built their entire LLM pipeline against Ollama locally, then switched to OpenAI for production by changing only the base_url and api_key. The OpenAI-compatible interface means zero code changes between local development and cloud deployment.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>Ollama's architecture: (1) Model files are stored in ~/.ollama/models (GGUF format). (2) The server process manages a model pool with automatic loading/unloading based on memory pressure. (3) GPU layers are offloaded to CUDA/Metal automatically based on available VRAM. (4) The /api/chat endpoint uses the native llama.cpp chat template. (5) The /v1 endpoint translates OpenAI format to llama.cpp format, including message roles and stop sequences.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">56</span>Token Cost Math</h3>
+<p><strong>What &amp; why.</strong> LLM pricing is per-token with different rates for input and output. Understanding cost breakdown is essential for budgeting production systems. Output tokens typically cost 3-5x more than input tokens because they require sequential autoregressive generation.</p>
+<pre class="code"><code>pricing = {
+    "gpt-4o":        {"input": 2.50, "output": 10.00},
+    "gpt-4o-mini":   {"input": 0.15, "output": 0.60},
+    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+}
+
+model = "gpt-4o"
+input_tokens = 1200
+output_tokens = 300
+requests_per_day = 10000
+
+daily_input = input_tokens * requests_per_day
+daily_output = output_tokens * requests_per_day
+daily_cost = (daily_input * pricing[model]["input"] +
+              daily_output * pricing[model]["output"]) / 1_000_000
+
+print(f"Daily cost: ${daily_cost:.2f}")
+print(f"Monthly cost: ${daily_cost * 30:.2f}")
+print(f"Annual cost: ${daily_cost * 365:.2f}")
+
+optimized_output = int(output_tokens * 0.9)
+optimized_daily = (daily_input * pricing[model]["input"] +
+                   optimized_output * requests_per_day * pricing[model]["output"]) / 1_000_000
+print(f"Savings with 10% shorter responses: ${daily_cost - optimized_daily:.2f}/day")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost modeling is required for every production LLM deployment. Output token optimization often yields the largest cost savings because output tokens are 3-5x more expensive.</div>
+<div class="callout hood"><span>Under the hood</span>OpenAI charges output tokens at higher rates because they require a full forward pass per generated token (autoregressive), while input tokens are processed in a single parallel forward pass.</div>
+
+<p><strong>Additional Example &mdash; Cost optimization strategies and budget alerts:</strong></p>
+<pre class="code"><code>import tiktoken
+
+pricing = {
+    "gpt-4o":        {"input": 2.50, "output": 10.00},
+    "gpt-4o-mini":   {"input": 0.15, "output": 0.60},
+    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+}
+
+def cost_analysis(prompt: str, expected_output_tokens: int, model: str):
+    """Full cost analysis for a single request."""
+    enc = tiktoken.encoding_for_model(model)
+    input_tokens = len(enc.encode(prompt))
+    output_tokens = expected_output_tokens
+    
+    prices = pricing[model]
+    input_cost = input_tokens * prices["input"] / 1_000_000
+    output_cost = output_tokens * prices["output"] / 1_000_000
+    total_cost = input_cost + output_cost
+    
+    print(f"Model: {model}")
+    print(f"  Input:  {input_tokens:>6} tokens x ${prices['input']}/1M = ${input_cost:.6f}")
+    print(f"  Output: {output_tokens:>6} tokens x ${prices['output']}/1M = ${output_cost:.6f}")
+    print(f"  Total:  ${total_cost:.6f}")
+    print(f"  Output is {output_cost/total_cost*100:.0f}% of cost")
+    return total_cost
+
+# Compare models for same task
+task = "Summarize this 1000-word article about climate change in 3 bullet points."
+print("=== Model Comparison ===")
+for model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]:
+    cost_analysis(task, expected_output_tokens=100, model=model)
+    print()
+
+# Cost optimization: prompt compression
+def compress_prompt(prompt: str) -> str:
+    """Reduce token count while preserving meaning."""
+    # Remove filler words
+    compressed = prompt.replace("please", "").replace("could you", "")
+    compressed = compressed.replace("I would like", "").replace("want to", "")
+    # Use shorter synonyms
+    compressed = compressed.replace("demonstrate", "show")
+    compressed = compressed.replace("implement", "build")
+    compressed = compressed.replace("utilize", "use")
+    return " ".join(compressed.split())
+
+original = "Please could you demonstrate how to implement a rate limiter?"
+compressed = compress_prompt(original)
+print(f"Original: {original}")
+print(f"Compressed: {compressed}")
+print(f"Savings: {len(original) - len(compressed)} chars")</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>A SaaS company spending $50K/month on OpenAI APIs implemented three optimizations: (1) Switched classification tasks from gpt-4o to gpt-4o-mini ($14K saved), (2) Reduced system prompt from 500 to 200 tokens via compression ($8K saved), (3) Added caching for repeated queries ($12K saved). Total monthly savings: $34K (68%) with no quality degradation on their use case.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>Cost asymmetry exists because input tokens are processed in one parallel forward pass (all tokens simultaneously), while output tokens require sequential generation (one at a time). Each output token requires: (1) Full attention computation over all tokens (including KV cache). (2) FFN processing. (3) Vocabulary projection and sampling. This means generating 1000 output tokens costs roughly 1000x more compute than processing 1000 input tokens.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">57</span>Hallucination Basics</h3>
+<p><strong>What &amp; why.</strong> LLMs generate plausible-sounding text that may be factually incorrect &mdash; a phenomenon called hallucination. The model has no access to real-world truth; it produces statistically likely continuations. Hallucinations are most common for recent events, specific statistics, citations, and niche topics.</p>
+<pre class="code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content":
+        "Cite 3 research papers on transformer attention with authors and years"}],
+    temperature=0.0,
+)
+print(response.choices[0].message.content)
+# WARNING: May produce plausible but non-existent paper titles
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[
+        {"role": "system", "content": (
+            "Only state facts you are confident about. If unsure, say I don't know. "
+            "Never fabricate citations or statistics."
+        )},
+        {"role": "user", "content": "Cite 3 papers on transformer attention"},
+    ],
+    temperature=0.0,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hallucination awareness is critical for any LLM application making decisions. Medical, legal, and customer-facing applications must include verification layers or RAG grounding.</div>
+<div class="callout hood"><span>Under the hood</span>Hallucinations occur because the model optimizes for plausibility, not truth. RAG and tool use ground the model in external data, reducing but not eliminating hallucinations.</div>
+
+<p><strong>Additional Example &mdash; Hallucination detection and mitigation patterns:</strong></p>
+<pre class="code"><code>from openai import OpenAI
+import numpy as np
+
+client = OpenAI()
+
+def detect_hallucination_risk(text: str) -> dict:
+    """Identify patterns that indicate hallucination risk."""
+    risk_signals = {
+        "citations": any(marker in text for marker in ["et al.", "(2024)", "published in"]),
+        "specific_numbers": any(c.isdigit() for c in text.split()),
+        "proper_nouns": len([w for w in text.split() if w[0].isupper() and len(w) > 3]) > 3,
+        "confidence_words": any(w in text.lower() for w in ["definitely", "certainly", "always"]),
+    }
+    risk_score = sum(risk_signals.values()) / len(risk_signals)
+    return {"signals": risk_signals, "risk_score": risk_score}
+
+# Fact-checking with logprobs
+def confidence_check(question: str) -> dict:
+    """Use logprobs to measure model confidence."""
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": question}],
+        logprobs=True,
+        top_logprobs=3,
+    )
+    logprobs_list = response.choices[0].logprobs.content
+    avg_confidence = np.mean([np.exp(lp.logprob) for lp in logprobs_list])
+    min_confidence = min([np.exp(lp.logprob) for lp in logprobs_list])
+    return {
+        "avg_confidence": avg_confidence,
+        "min_confidence": min_confidence,
+        "likely_hallucination": min_confidence < 0.1,
+    }
+
+# Self-consistency check: ask multiple times
+def self_consistency(question: str, n_samples: int = 3) -> dict:
+    """Multiple samples to detect hallucination via disagreement."""
+    responses = []
+    for _ in range(n_samples):
+        r = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": question}],
+            temperature=0.7,
+        )
+        responses.append(r.choices[0].message.content)
+    # Simple consistency: count unique responses
+    unique = len(set(responses))
+    return {
+        "n_unique": unique,
+        "consistent": unique == 1,
+        "sample": responses[0],
+    }
+
+result = self_consistency("What is the capital of France?")
+print(f"Consistent: {result['consistent']}, Unique answers: {result['n_unique']}")</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>Google's Bard launched with a hallucination in its demo (incorrect JWST facts), costing Alphabet $100B in market cap. Production systems now implement multi-layer defenses: (1) System prompts that discourage fabrication, (2) RAG grounding with source attribution, (3) Confidence scoring via logprobs, (4) Self-consistency checks across multiple samples, (5) Human review for low-confidence outputs.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>Hallucination occurs because the model's objective function rewards plausibility, not truth. The training data contains errors, outdated facts, and contradictions. The model averages over these conflicting signals. When uncertain, it defaults to the statistically most likely continuation, which may be factually wrong. Mitigation strategies work at different levels: prompting (constraining behavior), RAG (providing ground truth), and post-processing (detecting inconsistencies).</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Intermediate<small>Tier 2 &mdash; Transformer internals, KV cache, streaming, and GGUF serving</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">58</span>Transformer Block Anatomy: Attention, FFN, Residual, LayerNorm</h3>
+<p><strong>What &amp; why.</strong> Each transformer block contains two sublayers: multi-head self-attention (computing token relationships) and a feed-forward network (applying non-linear transformation). Each sublayer is wrapped with a residual connection and layer normalization. Understanding this stack explains how LLMs process and store knowledge.</p>
+<pre class="code"><code>import torch
+import torch.nn as nn
+
+class TransformerBlock(nn.Module):
+    def __init__(self, d_model: int, n_heads: int, d_ff: int):
+        super().__init__()
+        self.attention = nn.MultiheadAttention(d_model, n_heads, batch_first=True)
+        self.norm1 = nn.LayerNorm(d_model)
+        self.ffn = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.GELU(),
+            nn.Linear(d_ff, d_model),
+        )
+        self.norm2 = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(0.1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        attn_out, _ = self.attention(x, x, x)
+        x = self.norm1(x + self.dropout(attn_out))
+        ffn_out = self.ffn(x)
+        x = self.norm2(x + self.dropout(ffn_out))
+        return x</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding transformer blocks explains model capacity, knowledge storage (FFN layers store factual associations), and why fine-tuning certain layers affects different capabilities.</div>
+<div class="callout hood"><span>Under the hood</span>The residual connection enables gradient flow through deep networks. LayerNorm stabilizes training. The FFN is a two-layer MLP with 4x expansion, and research suggests factual knowledge is primarily stored in FFN parameters.</div>
+
+<p><strong>Additional Example &mdash; Visualizing what each transformer sublayer does:</strong></p>
+<pre class="code"><code>import torch
+import torch.nn as nn
+
+def trace_transformer_block():
+    """Demonstrate what each sublayer contributes."""
+    d_model = 64
+    block = nn.TransformerEncoderLayer(
+        d_model=d_model, nhead=8, dim_feedforward=256,
+        activation="gelu", batch_first=True
+    )
+    
+    x = torch.randn(1, 10, d_model)  # batch=1, seq_len=10, d_model=64
+    print(f"Input shape: {x.shape}")
+    
+    # After self-attention: tokens have mixed information
+    # Token 5 now contains info from tokens 0-9
+    attn_out, _ = block.self_attn(x, x, x)
+    print(f"After attention: {attn_out.shape} (tokens now know about each other)")
+    print(f"  Attention diff: {(attn_out - x).abs().mean():.4f}")
+    
+    # After FFN: each token processed independently but with richer representation
+    ffn_out = block.linear2(block.activation(block.linear1(attn_out)))
+    print(f"After FFN: {ffn_out.shape} (each token transformed independently)")
+    print(f"  FFN diff: {(ffn_out - attn_out).abs().mean():.4f}")
+    
+    # Full block with residuals
+    output = block(x)
+    print(f"Output shape: {output.shape}")
+    print(f"  Residual preserved: {(output - x).abs().mean():.4f} (small = residual working)")
+
+trace_transformer_block()
+
+# Layer-by-layer analysis of what LLMs learn
+# Early layers (0-4): syntax, word relationships
+# Middle layers (5-20): semantics, reasoning
+# Late layers (21-31): task-specific, output formatting
+print("\nLayer specialization pattern:")
+for layer_group, role in [
+    ("Layers 0-4", "Syntax and word relationships"),
+    ("Layers 5-20", "Semantics and reasoning"),
+    ("Layers 21-31", "Task-specific and output formatting"),
+]:
+    print(f"  {layer_group}: {role}")</code></pre>
+
+<div class="callout usage"><span>Real-World Use Case</span>When fine-tuning LLMs, understanding transformer anatomy guides which layers to train. Research shows early layers are general (transfer well), middle layers hold reasoning (fine-tune carefully), and late layers are task-specific (fine-tune aggressively). LoRA adapters target specific layers based on this insight &mdash; rank-16 adapters on layers 16-31 often match full fine-tuning quality at 1% of the cost.</div>
+
+<div class="callout hood"><span>Internal Behavior Deep-Dive</span>The transformer block processes data in two phases: (1) Attention phase &mdash; tokens communicate with each other, sharing information. Each token's representation becomes a weighted average of all tokens' values. (2) FFN phase &mdash; each token processes its enriched representation independently through a neural network. This two-phase design is key: attention mixes information across tokens, then FFN transforms each token's understanding. The residual connections ensure that if a sublayer doesn't help, the information passes through unchanged.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">59</span>RoPE Positional Encoding</h3>
+<p><strong>What &amp; why.</strong> Rotary Position Embedding (RoPE) encodes token positions by rotating query and key vectors in attention, so their dot product naturally decays with distance. Unlike absolute position embeddings, RoPE enables length extrapolation: models trained on 4K context can generalize to 32K+ with proper scaling.</p>
+<pre class="code"><code>import torch
+import math
+
+def rope_rotate(x: torch.Tensor, seq_len: int, base: float = 10000.0):
+    """Apply rotary position embedding to query/key tensors."""
+    dim = x.shape[-1]
+    freqs = 1.0 / (base ** (torch.arange(0, dim, 2).float() / dim))
+    positions = torch.arange(seq_len).float()
+    angles = torch.outer(positions, freqs)
+
+    cos = angles.cos()
+    sin = angles.sin()
+
+    x1 = x[..., ::2]
+    x2 = x[..., 1::2]
+    rotated = torch.stack([
+        x1 * cos - x2 * sin,
+        x1 * sin + x2 * cos,
+    ], dim=-1).flatten(-2)
+    return rotated</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>RoPE is used in Llama, Mistral, Qwen, and most modern open models. Understanding it explains why some models handle long contexts better.</div>
+<div class="callout hood"><span>Under the hood</span>RoPE applies a rotation matrix to each pair of dimensions in the query and key vectors. The rotation angle is proportional to the token position, creating a distance-dependent attention decay.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">60</span>KV Cache Purpose and Mechanics</h3>
+<p><strong>What &amp; why.</strong> During autoregressive generation, each new token attends to all previous tokens. Without caching, this requires recomputing key and value projections for all previous tokens at every step. The KV cache stores previously computed keys and values, reducing generation from O(n^2) to O(n) per step.</p>
+<pre class="code"><code>import torch
+
+class SimpleAttention(nn.Module):
+    def __init__(self, d_model: int):
+        super().__init__()
+        self.qkv = nn.Linear(d_model, 3 * d_model)
+
+    def forward(self, x, kv_cache=None):
+        q, k, v = self.qkv(x).chunk(3, dim=-1)
+
+        if kv_cache is not None:
+            k = torch.cat([kv_cache["k"], k], dim=1)
+            v = torch.cat([kv_cache["v"], v], dim=1)
+
+        new_cache = {"k": k.detach(), "v": v.detach()}
+        attn = torch.softmax(
+            q @ k.transpose(-2, -1) / (k.shape[-1] ** 0.5), dim=-1
+        )
+        return attn @ v, new_cache</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>KV caching is fundamental to all LLM serving. It reduces generation latency from quadratic to linear, enables streaming output, and is the basis for prefix caching and paged attention.</div>
+<div class="callout hood"><span>Under the hood</span>The KV cache stores key and value tensors for each layer and position. For a 70B model with 128K context, the KV cache can consume 40+ GB of VRAM.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">61</span>Logits, Softmax, and Decoding Internals</h3>
+<p><strong>What &amp; why.</strong> The model's final layer produces logits &mdash; unnormalized scores for every token in the vocabulary (typically 32K-128K tokens). Softmax converts these to probabilities. Decoding strategies (greedy, beam search, sampling) select the next token from this distribution.</p>
+<pre class="code"><code>import torch
+import torch.nn.functional as F
+
+vocab_size = 50257
+logits = torch.randn(1, 1, vocab_size)
+
+greedy_token = logits.argmax(dim=-1)
+print(f"Greedy: token {greedy_token.item()}")
+
+temperature = 0.7
+scaled_logits = logits / temperature
+
+top_k = 10
+values, indices = torch.topk(scaled_logits, top_k)
+scaled_logits[0, 0, :] = float("-inf")
+scaled_logits[0, 0, indices] = values
+
+probs = F.softmax(scaled_logits, dim=-1)
+sampled_token = torch.multinomial(probs[0, 0], num_samples=1)
+print(f"Sampled: token {sampled_token.item()}, prob: {probs[0, 0, sampled_token.item()]:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Logits manipulation is the basis for constrained decoding, watermarking, and guided generation. Understanding this pipeline enables fine-grained control over model output.</div>
+<div class="callout hood"><span>Under the hood</span>The vocabulary projection is the largest single matrix in the model. Softmax requires subtracting the max logit for numerical stability. The output distribution can be modified by logit bias, suppression, or guided decoding.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">62</span>Repetition Penalties</h3>
+<p><strong>What &amp; why.</strong> LLMs frequently repeat phrases due to high-probability loops in the output distribution. Repetition penalties reduce the logits of previously generated tokens, breaking these cycles. The frequency penalty reduces tokens proportional to their count, while the presence penalty applies a flat reduction to any previously seen token.</p>
+<pre class="code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Write a poem about the ocean"}],
+    temperature=0.8,
+    frequency_penalty=0.5,
+    presence_penalty=0.3,
+    max_tokens=200,
+)
+print(response.choices[0].message.content)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Repetition penalties are essential for creative writing, long-form generation, and any application where diverse output is required.</div>
+<div class="callout hood"><span>Under the hood</span>frequency_penalty modifies logits by subtracting (penalty * count) for each previously generated token. presence_penalty subtracts a flat value for any token that has appeared at least once.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">63</span>JSON Mode and response_format</h3>
+<p><strong>What &amp; why.</strong> JSON mode constrains model output to valid JSON, eliminating parsing failures. OpenAI's response_format parameter supports raw JSON mode and structured outputs with Pydantic schemas. This is essential for API integrations, data extraction, and any pipeline requiring machine-parseable output.</p>
+<pre class="code"><code>from openai import OpenAI
+from pydantic import BaseModel
+
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "List 3 Python web frameworks with pros"}],
+    response_format={"type": "json_object"},
+    temperature=0.0,
+)
+import json
+data = json.loads(response.choices[0].message.content)
+print(json.dumps(data, indent=2))
+
+class Framework(BaseModel):
+    name: str
+    pros: list[str]
+    cons: list[str]
+
+response = client.beta.chat.completions.parse(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Compare FastAPI, Django, and Flask"}],
+    response_format=list[Framework],
+    temperature=0.0,
+)
+for fw in response.choices[0].message.parsed:
+    print(f"{fw.name}: {fw.pros}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>JSON mode is used in every LLM pipeline that produces structured data: API integrations, data extraction, classification, and tool calling.</div>
+<div class="callout hood"><span>Under the hood</span>Structured outputs use constrained decoding where invalid tokens are masked from the logits at each generation step, guaranteeing valid output without post-generation validation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">64</span>SSE Streaming Consumption</h3>
+<p><strong>What &amp; why.</strong> Server-Sent Events (SSE) stream LLM output token-by-token, reducing time-to-first-token from seconds to milliseconds. This is essential for user-facing chat interfaces where perceived responsiveness matters more than total generation time.</p>
+<pre class="code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+stream = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Explain the CAP theorem"}],
+    stream=True,
+)
+
+full_response = ""
+for chunk in stream:
+    delta = chunk.choices[0].delta
+    if delta.content:
+        full_response += delta.content
+        print(delta.content, end="", flush=True)
+
+print(f"\n\nTotal length: {len(full_response)} chars")
+
+stream = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Hello"}],
+    stream=True,
+    stream_options={"include_usage": True},
+)
+for chunk in stream:
+    if chunk.usage:
+        print(f"Tokens: {chunk.usage}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SSE streaming is the standard for chat interfaces, real-time code generation, and any application where users wait for LLM output.</div>
+<div class="callout hood"><span>Under the hood</span>SSE uses HTTP chunked transfer encoding. Each chunk is a server event containing a delta (new tokens) and metadata. The client processes events incrementally.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">65</span>Request Batching for Throughput</h3>
+<p><strong>What &amp; why.</strong> Processing multiple requests simultaneously on GPU is dramatically more efficient than sequential processing. Batching groups independent requests into a single forward pass, maximizing GPU utilization and reducing per-request latency by 2-5x.</p>
+<pre class="code"><code>import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_id = "meta-llama/Llama-3.1-8B-Instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto")
+
+prompts = [
+    "What is Python?",
+    "What is Rust?",
+    "What is Go?",
+    "What is JavaScript?",
+]
+
+inputs = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True)
+inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+with torch.no_grad():
+    outputs = model.generate(**inputs, max_new_tokens=100, do_sample=False)
+
+for i, output in enumerate(outputs):
+    response = tokenizer.decode(output[inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+    print(f"Q{i+1}: {prompts[i]}\nA: {response}\n")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Batching is essential for offline processing, production serving (vLLM, TGI), and cost optimization when processing multiple requests simultaneously.</div>
+<div class="callout hood"><span>Under the hood</span>GPU utilization scales with batch size because transformer operations are memory-bandwidth bound. Larger batches fill more SMs, reducing overhead relative to computation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">66</span>Embeddings vs Chat Endpoint Differences</h3>
+<p><strong>What &amp; why.</strong> Embedding endpoints convert text to fixed-length vectors for similarity and retrieval. Chat endpoints generate text autoregressively for conversation and completion. They use different architectures, pricing, and usage patterns. Confusing them is a common mistake.</p>
+<pre class="code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+embed_response = client.embeddings.create(
+    model="text-embedding-3-small",
+    input="How do I reset my password?",
+)
+vector = embed_response.data[0].embedding
+print(f"Embedding: {len(vector)} dims, {embed_response.usage.total_tokens} tokens")
+
+chat_response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "How do I reset my password?"}],
+)
+generated = chat_response.choices[0].message.content
+print(f"Chat: {chat_response.usage.total_tokens} tokens")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Correct endpoint selection is fundamental: use embeddings for indexing, search, and comparison; use chat for generation, conversation, and reasoning.</div>
+<div class="callout hood"><span>Under the hood</span>Embedding models use a single forward pass (no generation loop), making them orders of magnitude cheaper. Chat models run autoregressive generation with KV cache.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">67</span>Params-to-VRAM Estimation</h3>
+<p><strong>What &amp; why.</strong> Model VRAM requirements scale with parameter count and precision. A 7B model at fp16 requires ~14 GB, while int4 quantization reduces this to ~3.5 GB. The KV cache adds additional VRAM proportional to context length and batch size.</p>
+<pre class="code"><code>configs = [
+    {"name": "Llama-3.1-8B fp16",  "params": 8e9,  "bpp": 2, "kv_gb": 1.0},
+    {"name": "Llama-3.1-8B int4",  "params": 8e9,  "bpp": 0.5, "kv_gb": 1.0},
+    {"name": "Llama-3.1-70B fp16", "params": 70e9, "bpp": 2, "kv_gb": 8.0},
+    {"name": "Llama-3.1-70B int4", "params": 70e9, "bpp": 0.5, "kv_gb": 8.0},
+    {"name": "Llama-3.1-405B fp16", "params": 405e9, "bpp": 2, "kv_gb": 32.0},
+]
+
+for cfg in configs:
+    model_gb = (cfg["params"] * cfg["bpp"]) / 1e9
+    total_gb = model_gb + cfg["kv_gb"]
+    overhead = total_gb * 0.15
+    required = total_gb + overhead
+    print(f"{cfg['name']:.<30} Model: {model_gb:.1f}GB  "
+          f"KV: {cfg['kv_gb']:.1f}GB  Total: {required:.1f}GB")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>VRAM estimation is essential for GPU selection, multi-GPU planning, and determining whether a model fits on available hardware.</div>
+<div class="callout hood"><span>Under the hood</span>The formula is: VRAM = params * bytes_per_param + kv_cache_size + activation_memory. Activation memory is model-specific and depends on sequence length and batch size.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">68</span>GGUF and llama-cpp-python Inference</h3>
+<p><strong>What &amp; why.</strong> GGUF is the standard format for running quantized models on CPU and GPU via llama.cpp. It supports various quantization levels (Q4_K_M, Q5_K_S, Q8_0) and enables running 7-70B models on consumer hardware. llama-cpp-python provides a Python wrapper with OpenAI-compatible API.</p>
+<pre class="code"><code>from llama_cpp import Llama
+
+llm = Llama(
+    model_path="./models/llama-3.1-8b-instruct-q4_k_m.gguf",
+    n_ctx=4096,
+    n_gpu_layers=-1,
+    verbose=False,
+)
+
+output = llm.create_chat_completion(
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Explain Python decorators"},
+    ],
+    temperature=0.7,
+    max_tokens=256,
+)
+print(output["choices"][0]["message"]["content"])
+
+embeddings = llm.create_embedding("test text")
+print(f"Dimensions: {len(embeddings['data'][0]['embedding'])}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>GGUF models are the standard for local development, edge deployment, and privacy-sensitive environments. llama-cpp-python provides a drop-in replacement for OpenAI SDK.</div>
+<div class="callout hood"><span>Under the hood</span>GGUF stores model weights with quantization metadata. llama.cpp uses SIMD-optimized CPU kernels (AVX2, ARM NEON) and optional CUDA/Metal GPU offloading.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Advanced<small>Tier 3 &mdash; Attention mechanics, quantization, vLLM, and optimization</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">69</span>Scaled Dot-Product Attention: QKV Worked Example</h3>
+<p><strong>What &amp; why.</strong> Attention computes: Attention(Q,K,V) = softmax(QK^T / sqrt(d_k)) * V. Queries ask "what am I looking for?", keys say "what do I contain?", and values are the actual content. Scaling by sqrt(d_k) prevents saturation, and softmax converts to weights.</p>
+<pre class="code"><code>import torch
+import torch.nn.functional as F
+import math
+
+def scaled_dot_product_attention(Q, K, V, mask=None):
+    d_k = Q.shape[-1]
+    scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, float("-inf"))
+    weights = F.softmax(scores, dim=-1)
+    return torch.matmul(weights, V), weights
+
+batch, seq_len, d_model = 1, 4, 8
+n_heads = 2
+d_k = d_model // n_heads
+
+x = torch.randn(batch, seq_len, d_model)
+W_q = torch.randn(d_model, d_model)
+W_k = torch.randn(d_model, d_model)
+W_v = torch.randn(d_model, d_model)
+
+Q = (x @ W_q).view(batch, seq_len, n_heads, d_k).transpose(1, 2)
+K = (x @ W_k).view(batch, seq_len, n_heads, d_k).transpose(1, 2)
+V = (x @ W_v).view(batch, seq_len, n_heads, d_k).transpose(1, 2)
+
+output, attn_weights = scaled_dot_product_attention(Q, K, V)
+print(f"Output shape: {output.shape}")
+print(f"Attention weights sum: {attn_weights.sum(dim=-1)}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding QKV is essential for interpreting attention visualizations, debugging model behavior, and designing attention modifications.</div>
+<div class="callout hood"><span>Under the hood</span>The sqrt(d_k) scaling prevents dot products from growing too large, which would push softmax into regions with extremely small gradients, destroying gradient flow during training.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">70</span>Multi-Head Attention</h3>
+<p><strong>What &amp; why.</strong> Multi-head attention runs multiple attention computations in parallel, each with different learned projections. This allows different heads to capture different relationships: one for syntax, another for coreference, another for structure. Outputs are concatenated and projected back.</p>
+<pre class="code"><code>import torch
+import torch.nn as nn
+import math
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model: int, n_heads: int):
+        super().__init__()
+        assert d_model % n_heads == 0
+        self.n_heads = n_heads
+        self.d_k = d_model // n_heads
+        self.W_q = nn.Linear(d_model, d_model)
+        self.W_k = nn.Linear(d_model, d_model)
+        self.W_v = nn.Linear(d_model, d_model)
+        self.W_o = nn.Linear(d_model, d_model)
+
+    def forward(self, x):
+        B, T, C = x.shape
+        Q = self.W_q(x).view(B, T, self.n_heads, self.d_k).transpose(1, 2)
+        K = self.W_k(x).view(B, T, self.n_heads, self.d_k).transpose(1, 2)
+        V = self.W_v(x).view(B, T, self.n_heads, self.d_k).transpose(1, 2)
+
+        scores = Q @ K.transpose(-2, -1) / math.sqrt(self.d_k)
+        weights = torch.softmax(scores, dim=-1)
+        out = weights @ V
+
+        out = out.transpose(1, 2).contiguous().view(B, T, C)
+        return self.W_o(out)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-head attention is the core mechanism in all transformer models. Understanding it explains model capacity and why GQA reduces KV cache.</div>
+<div class="callout hood"><span>Under the hood</span>Each head operates on d_k = d_model/n_heads dimensions. Grouped Query Attention (GQA) shares K,V heads across multiple Q heads, reducing KV cache size by 4-8x.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">71</span>Causal Masking in Decoder Models</h3>
+<p><strong>What &amp; why.</strong> Decoder-only models use causal masking to prevent tokens from attending to future positions during training. This enables parallel training while maintaining the autoregressive property. The mask is a lower-triangular matrix applied to attention scores.</p>
+<pre class="code"><code>import torch
+
+def causal_mask(seq_len: int) -> torch.Tensor:
+    """Create lower-triangular causal attention mask."""
+    mask = torch.tril(torch.ones(seq_len, seq_len))
+    return mask
+
+mask = causal_mask(5)
+print(mask)
+# tensor([[1, 0, 0, 0, 0],
+#         [1, 1, 0, 0, 0],
+#         [1, 1, 1, 0, 0],
+#         [1, 1, 1, 1, 0],
+#         [1, 1, 1, 1, 1]])
+
+seq_len = 5
+scores = torch.randn(1, 1, seq_len, seq_len)
+masked_scores = scores.masked_fill(mask == 0, float("-inf"))
+weights = torch.softmax(masked_scores, dim=-1)
+print(f"Row sums: {weights.sum(dim=-1)}")  # all 1.0</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Causal masking is fundamental to decoder-only models (GPT, Llama, Mistral). Understanding it explains why left-to-right generation is required.</div>
+<div class="callout hood"><span>Under the hood</span>During training, the causal mask enables computing loss for all positions simultaneously. Without it, each position would require a separate forward pass.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">72</span>Quantization: GPTQ, AWQ, bitsandbytes</h3>
+<p><strong>What &amp; why.</strong> Quantization reduces model weights from fp16 (2 bytes) to int4 (0.5 bytes) or int8 (1 byte), cutting VRAM by 2-4x. GPTQ uses layer-wise calibration. AWQ preserves important weights at full precision. bitsandbytes provides seamless int8/int4 loading.</p>
+<pre class="code"><code>from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype="float16",
+    bnb_4bit_use_double_quant=True,
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-3.1-8B-Instruct",
+    quantization_config=bnb_config,
+    device_map="auto",
+)
+
+model_gptq = AutoModelForCausalLM.from_pretrained(
+    "TheBloke/Llama-3.1-8B-Instruct-GPTQ",
+    device_map="auto",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Quantization is mandatory for running 7B+ models on consumer GPUs. bitsandbytes is the easiest for on-the-fly quantization.</div>
+<div class="callout hood"><span>Under the hood</span>GPTQ uses second-order information (Hessian approximation) to minimize quantization error. AWQ identifies salient channels and preserves them at higher precision.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">73</span>vLLM: Paged Attention and Continuous Batching</h3>
+<p><strong>What &amp; why.</strong> vLLM is a high-throughput LLM serving engine using PagedAttention (virtual memory for KV caches) and continuous batching (adding/removing requests mid-batch). PagedAttention eliminates KV cache fragmentation. Continuous batching maintains GPU saturation.</p>
+<pre class="code"><code># vLLM serving with OpenAI-compatible API
+# pip install vllm
+# vllm serve meta-llama/Llama-3.1-8B-Instruct \
+#   --tensor-parallel-size 1 \
+#   --max-model-len 4096 \
+#   --gpu-memory-utilization 0.9
+
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="token-abc123")
+
+response = client.chat.completions.create(
+    model="meta-llama/Llama-3.1-8B-Instruct",
+    messages=[{"role": "user", "content": "Explain PagedAttention"}],
+    temperature=0.7,
+    max_tokens=512,
+)
+print(response.choices[0].message.content)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>vLLM is the standard for production LLM serving, achieving 2-24x throughput over naive HuggingFace inference.</div>
+<div class="callout hood"><span>Under the hood</span>PagedAttention splits KV caches into fixed-size blocks, allocating them on demand. This eliminates 60-80% memory waste from pre-allocated contiguous KV caches.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">74</span>Speculative Decoding</h3>
+<p><strong>What &amp; why.</strong> Speculative decoding uses a small draft model to generate candidate tokens, verified by the large model in a single forward pass. When the draft predicts correctly, multiple tokens are accepted simultaneously, achieving 2-3x speedup with identical output distribution.</p>
+<pre class="code"><code>def speculative_decode_step(large_model, small_model, prompt_ids, gamma=5):
+    """Simplified speculative decoding step."""
+    draft_tokens = []
+    draft_input = prompt_ids.clone()
+    for _ in range(gamma):
+        draft_logits = small_model(draft_input).logits[:, -1, :]
+        next_token = draft_logits.argmax(dim=-1)
+        draft_tokens.append(next_token)
+        draft_input = torch.cat([draft_input, next_token.unsqueeze(1)], dim=1)
+
+    candidate = torch.cat(
+        [prompt_ids] + [t.unsqueeze(1) for t in draft_tokens], dim=1
+    )
+    large_logits = large_model(candidate).logits[:, -gamma - 1 :, :]
+
+    accepted = []
+    for draft_token, large_logit in zip(draft_tokens, large_logits):
+        large_token = large_logit.argmax(dim=-1)
+        if draft_token == large_token:
+            accepted.append(draft_token)
+        else:
+            break
+    return accepted</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Speculative decoding reduces latency for single-request scenarios. It is most effective when the draft model is much smaller (1-2B) than the target model (7-70B).</div>
+<div class="callout hood"><span>Under the hood</span>Verification (scoring multiple tokens in parallel) is cheaper than generation (one token at a time). Accepting 3 out of 5 tokens means 3x speedup with identical output distribution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">75</span>logprobs and Confidence Estimation</h3>
+<p><strong>What &amp; why.</strong> logprobs reveal the model's confidence in each generated token. High logprobs indicate certainty; low logprobs indicate uncertainty. This enables confidence-aware applications: triggering human review when uncertain, calibrating answer reliability, and detecting hallucinations.</p>
+<pre class="code"><code>from openai import OpenAI
+import numpy as np
+
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "What is the capital of France?"}],
+    logprobs=True,
+    top_logprobs=5,
+)
+
+for token_info in response.choices[0].logprobs.content:
+    token = token_info.token
+    prob = np.exp(token_info.logprob)
+    top5 = [(t.token, np.exp(t.logprob)) for t in token_info.top_logprobs]
+    print(f"Token: '{token}' prob={prob:.4f} alternatives: {top5[:3]}")
+
+probs = [np.exp(ti.logprob) for ti in response.choices[0].logprobs.content]
+confidence = np.mean(probs)
+print(f"Overall confidence: {confidence:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Logprobs enable confidence-gated applications: route low-confidence responses to human review, aggregate multiple samples for self-consistency voting.</div>
+<div class="callout hood"><span>Under the hood</span>OpenAI returns logprobs for the selected token and top alternatives. The entropy of the distribution measures uncertainty. High entropy indicates the model considers multiple continuations equally likely.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">76</span>Constrained Decoding with Outlines and Guidance</h3>
+<p><strong>What &amp; why.</strong> Constrained decoding forces model output to conform to a grammar, schema, or regex by masking invalid tokens at each generation step. Libraries like outlines and guidance maintain a state machine tracking valid tokens, ensuring 100% valid output.</p>
+<pre class="code"><code>import outlines
+from pydantic import BaseModel
+
+class Recipe(BaseModel):
+    name: str
+    ingredients: list[str]
+    steps: list[str]
+    prep_time_minutes: int
+
+model = outlines.models.transformers("meta-llama/Llama-3.1-8B-Instruct")
+generator = outlines.generate.json(model, Recipe)
+
+result = generator("Create a recipe for chocolate chip cookies")
+print(type(result))  # Recipe
+print(result.name)
+print(result.steps)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Constrained decoding is essential for production systems requiring guaranteed valid output: API integrations, tool calling schemas, and database inserts.</div>
+<div class="callout hood"><span>Under the hood</span>The library compiles the schema into a finite-state automaton. At each generation step, valid next tokens are computed from the automaton state, and invalid tokens are masked in the logit tensor.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">77</span>Long-Context Strategies vs RAG</h3>
+<p><strong>What &amp; why.</strong> Long-context models (128K-200K tokens) can process entire documents in one pass. However, RAG remains cost-effective and often more accurate for large corpora. The decision depends on document count, corpus size, and whether precise retrieval or holistic understanding is required.</p>
+<pre class="code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+def long_context_qa(document: str, question: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "Answer based ONLY on the provided document."},
+            {"role": "user", "content": f"Document:\n{document}\n\nQuestion: {question}"},
+        ],
+        max_tokens=500,
+        temperature=0.0,
+    )
+    return response.choices[0].message.content
+
+def rag_qa(retrieved_chunks: list[str], question: str) -> str:
+    context = "\n\n---\n\n".join(retrieved_chunks)
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "Answer based ONLY on the provided context."},
+            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
+        ],
+        max_tokens=500,
+        temperature=0.0,
+    )
+    return response.choices[0].message.content</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Long-context is simpler for single-document QA. RAG is superior for multi-document corpora, cost-sensitive applications, and scenarios requiring source attribution.</div>
+<div class="callout hood"><span>Under the hood</span>Long-context models exhibit "lost in the middle" behavior: attending more strongly to the beginning and end of context, missing information in the middle.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Very Advanced / Expert<small>Tier 4 &mdash; Training pipeline, parallelism, capacity planning, and reliability</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">78</span>Pretraining vs SFT vs RLHF vs DPO Pipeline</h3>
+<p><strong>What &amp; why.</strong> LLM development follows a pipeline: pretraining (next-token prediction on web data), supervised fine-tuning (instruction-following demonstrations), RLHF (human preference alignment via reward modeling), and DPO (direct preference optimization without a reward model). Each stage progressively improves the model's usefulness and safety.</p>
+<pre class="code"><code># The four-stage LLM training pipeline
+pipeline = {
+    "Stage 1: Pretraining": {
+        "data": "Web crawl (trillions of tokens)",
+        "objective": "Next-token prediction",
+        "result": "Base model with world knowledge",
+        "example": "Llama-3.1-8B (base)",
+    },
+    "Stage 2: SFT": {
+        "data": "Instruction-response pairs (10K-100K)",
+        "objective": "Learn to follow instructions",
+        "result": "Instruction-following model",
+        "example": "Llama-3.1-8B-Instruct",
+    },
+    "Stage 3: RLHF": {
+        "data": "Human preference rankings",
+        "objective": "Align with human preferences",
+        "result": "Helpful, harmless, honest model",
+        "example": "ChatGPT, Claude",
+    },
+    "Stage 4: DPO": {
+        "data": "Chosen vs rejected response pairs",
+        "objective": "Direct preference optimization",
+        "result": "Aligned model without reward model",
+        "example": "Zephyr, many open models",
+    },
+}
+
+# DPO: simpler alternative to RLHF
+# Requires only (prompt, chosen, rejected) triples
+# Trains a policy model directly against preference data</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding the pipeline explains why base models cannot follow instructions, why SFT alone is insufficient, and how DPO simplifies alignment. Fine-tuning your own models requires choosing the right stage.</div>
+<div class="callout hood"><span>Under the hood</span>Pretraining uses massive compute (thousands of GPUs for weeks). SFT is relatively cheap (hours on a single GPU). RLHF requires training a reward model and running PPO. DPO collapses RLHF into a single supervised training step.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">79</span>Mixture-of-Experts Routing</h3>
+<p><strong>What &amp; why.</strong> Mixture-of-Experts (MoE) models use sparse activation: only a subset of expert FFN layers process each token. A router network selects top-k experts per token, reducing total FLOPs while maintaining model capacity. This allows training larger models at lower compute cost.</p>
+<pre class="code"><code>import torch
+import torch.nn as nn
+
+class MoELayer(nn.Module):
+    def __init__(self, d_model: int, n_experts: int, top_k: int = 2):
+        super().__init__()
+        self.experts = nn.ModuleList([
+            nn.Sequential(nn.Linear(d_model, d_model * 4), nn.GELU(), nn.Linear(d_model * 4, d_model))
+            for _ in range(n_experts)
+        ])
+        self.router = nn.Linear(d_model, n_experts)
+        self.top_k = top_k
+
+    def forward(self, x):
+        router_logits = self.router(x)
+        weights, indices = torch.topk(router_logits.softmax(dim=-1), self.top_k, dim=-1)
+        weights = weights / weights.sum(dim=-1, keepdim=True)
+
+        output = torch.zeros_like(x)
+        for i, expert in enumerate(self.experts):
+            mask = (indices == i).any(dim=-1)
+            if mask.any():
+                output[mask] += (weights[:, i:i+1] * expert(x[mask])).squeeze(0)
+        return output
+
+# Mistral 8x7B: 8 experts, 2 active per token
+# Total params: 46.7B, active params: 12.9B
+# FLOPs: equivalent to 12.9B dense model</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MoE is used in Mixtral, Qwen-MoE, and DeepSeek-MoE. It enables training models with 100B+ parameters at a fraction of the compute cost of dense models.</div>
+<div class="callout hood"><span>Under the hood</span>The router learns to specialize experts on different types of inputs (code, math, language). Load balancing losses prevent expert collapse where all tokens route to the same expert.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">80</span>Flash Attention: IO-Aware Implementation</h3>
+<p><strong>What &amp; why.</strong> Flash Attention computes exact attention in fewer memory accesses by tiling the computation and using SRAM (on-chip memory) instead of repeatedly reading from HBM (GPU memory). It reduces memory from O(n^2) to O(n) and achieves 2-4x speedup by minimizing memory bandwidth bottleneck.</p>
+<pre class="code"><code># Flash Attention is a drop-in replacement for standard attention
+# Most modern frameworks enable it automatically
+
+import torch
+from transformers import AutoModelForCausalLM
+
+# Flash Attention 2 is enabled by default in recent transformers
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-3.1-8B-Instruct",
+    torch_dtype=torch.float16,
+    attn_implementation="flash_attention_2",  # explicit selection
+    device_map="auto",
+)
+
+# Compare attention implementations
+# "eager": standard O(n^2) memory
+# "sdpa": PyTorch scaled_dot_product_attention (uses Flash when available)
+# "flash_attention_2": Flash Attention 2 implementation
+
+# Memory comparison for 8K context, 32 heads, 128 dim:
+# Standard: ~1.3 GB per layer
+# Flash:    ~0.3 GB per layer</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Flash Attention is essential for long-context models and high-throughput serving. It is the default in vLLM, TGI, and modern HuggingFace transformers.</div>
+<div class="callout hood"><span>Under the hood</span>Flash Attention tiles the attention computation, keeping blocks in SRAM. It uses online softmax (computing softmax incrementally) to avoid materializing the full attention matrix in HBM, reducing memory from O(n^2) to O(n).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">81</span>Tensor and Pipeline Parallel Inference</h3>
+<p><strong>What &amp; why.</strong> Models too large for a single GPU require splitting across multiple GPUs. Tensor parallelism splits individual layers across GPUs (each GPU computes part of each layer). Pipeline parallelism splits layers across GPUs (each GPU holds a subset of complete layers). Both are needed for models exceeding single-GPU VRAM.</p>
+<pre class="code"><code># Tensor parallelism: split model across GPUs
+# vLLM handles this automatically
+# vllm serve meta-llama/Llama-3.1-70B-Instruct --tensor-parallel-size 4
+
+# Pipeline parallelism: split layers across GPUs
+# Each GPU holds a subset of transformer blocks
+# GPU 0: layers 0-19
+# GPU 1: layers 20-39
+# GPU 2: layers 40-59
+# GPU 3: layers 60-79
+
+# Typical configurations for 70B model:
+configs = {
+    "4xA100-80GB tensor": {
+        "tp": 4, "pp": 1,
+        "memory_per_gpu": "20GB model + 30GB KV",
+        "interference": "None",
+    },
+    "8xA100-40GB mixed": {
+        "tp": 2, "pp": 2,
+        "memory_per_gpu": "18GB model + 15GB KV",
+        "interference": "Moderate",
+    },
+}
+
+# Multi-node: 8 GPUs per node, 2 nodes
+# vllm serve ... --tensor-parallel-size 8 --pipeline-parallel-size 2</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Tensor parallelism is preferred for low-latency single-request serving. Pipeline parallelism is preferred for throughput when VRAM is the constraint. Most production deployments use a combination.</div>
+<div class="callout hood"><span>Under the hood</span>Tensor parallelism requires all-reduce communication between GPUs at every layer (NCCL). Pipeline parallelism requires bubble-free scheduling with micro-batching to maintain throughput.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">82</span>Prefix Caching Economics</h3>
+<p><strong>What &amp; why.</strong> Prefix caching stores the KV cache for common prompt prefixes (system messages, retrieved context) across requests. When the same prefix appears in multiple requests, the cached KV is reused, saving the full prompt processing time. This can reduce costs by 50-80% for applications with shared system prompts.</p>
+<pre class="code"><code># vLLM prefix caching: automatic KV reuse
+# vllm serve model --enable-prefix-caching
+
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="token")
+
+# This system message is 2000 tokens - cached after first request
+system_prompt = "You are a helpful assistant specialized in Python..." * 100
+
+# First request: full processing cost
+response1 = client.chat.completions.create(
+    model="model",
+    messages=[
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "What is a decorator?"},
+    ],
+)
+
+# Subsequent requests with same prefix: cached KV reuse
+response2 = client.chat.completions.create(
+    model="model",
+    messages=[
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "What is a generator?"},
+    ],
+)
+
+# Cost savings: prompt processing skipped for cached prefix
+# First request: 2000 prompt tokens processed
+# Second request: only ~20 new prompt tokens processed</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Prefix caching is essential for chat applications with long system prompts, RAG systems with shared context, and multi-turn conversations where early messages repeat.</div>
+<div class="callout hood"><span>Under the hood</span>vLLM hashes prompt token sequences to detect prefix matches. Cached KV blocks are shared via reference counting, eliminating redundant computation while maintaining correctness.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">83</span>TTFT, TBT, and Throughput-Latency Metrics</h3>
+<p><strong>What &amp; why.</strong> Time-to-First-Token (TTFT) measures prompt processing latency. Time-Between-Tokens (TBT) measures generation speed. Throughput measures tokens per second across all requests. These three metrics capture the full performance picture: TTFT for responsiveness, TBT for reading speed, throughput for cost efficiency.</p>
+<pre class="code"><code>import time
+from openai import OpenAI
+
+client = OpenAI()
+
+def benchmark(prompt: str, n_tokens: int = 100):
+    """Measure TTFT and TBT for a single request."""
+    start = time.time()
+    first_token_time = None
+    tokens = 0
+
+    stream = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=n_tokens,
+        stream=True,
+    )
+
+    for chunk in stream:
+        if chunk.choices[0].delta.content:
+            if first_token_time is None:
+                first_token_time = time.time()
+            tokens += 1
+
+    ttft = (first_token_time - start) if first_token_time else float("inf")
+    total_time = time.time() - start
+    tbt = total_time / max(tokens, 1)
+    throughput = tokens / total_time
+
+    return {
+        "ttft_ms": ttft * 1000,
+        "tbt_ms": tbt * 1000,
+        "tokens_per_sec": throughput,
+        "total_tokens": tokens,
+    }
+
+result = benchmark("Explain quantum computing in detail", n_tokens=200)
+print(f"TTFT: {result['ttft_ms']:.0f}ms, "
+      f"TBT: {result['tbt_ms']:.0f}ms, "
+      f"Throughput: {result['tokens_per_sec']:.0f} tok/s")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>These metrics are the standard for benchmarking LLM serving. TTFT under 500ms is the target for chat applications. TBT under 30ms per token provides smooth reading experience.</div>
+<div class="callout hood"><span>Under the hood</span>TTFT is dominated by prompt processing (prefill). TBT is dominated by single-token generation (decode). Throughput is maximized by batching, which increases TTFT but improves overall cost efficiency.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">84</span>vLLM vs TGI vs TensorRT-LLM vs Ollama Comparison</h3>
+<p><strong>What &amp; why.</strong> Multiple LLM serving frameworks exist with different trade-offs. vLLM optimizes for throughput with PagedAttention. TGI (HuggingFace) provides production-ready serving with token streaming. TensorRT-LLM (NVIDIA) maximizes GPU utilization via kernel optimization. Ollama prioritizes simplicity for local development.</p>
+<pre class="code"><code># Framework comparison
+frameworks = {
+    "vLLM": {
+        "strength": "Highest throughput, PagedAttention",
+        "use_case": "Production serving, high-traffic APIs",
+        "hardware": "NVIDIA GPU",
+        "openai_compat": True,
+        "install": "pip install vllm",
+        "start": "vllm serve model_name",
+    },
+    "TGI": {
+        "strength": "Production-ready, HuggingFace ecosystem",
+        "use_case": "Enterprise deployment, HF model hub integration",
+        "hardware": "NVIDIA GPU, AWS Inferentia",
+        "openai_compat": True,
+        "install": "docker pull ghcr.io/huggingface/text-generation-inference",
+        "start": "text-generation-launcher --model-id model_name",
+    },
+    "TensorRT-LLM": {
+        "strength": "Fastest single-request latency, NVIDIA optimized",
+        "use_case": "NVIDIA-optimized inference, minimal latency",
+        "hardware": "NVIDIA GPU only",
+        "openai_compat": True,
+        "install": "pip install tensorrt-llm",
+        "start": "trtllm-serve --model model_name",
+    },
+    "Ollama": {
+        "strength": "Simplest setup, local development",
+        "use_case": "Local development, prototyping, personal use",
+        "hardware": "CPU, Metal, CUDA",
+        "openai_compat": True,
+        "install": "brew install ollama",
+        "start": "ollama serve",
+    },
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Start with Ollama for development. Graduate to vLLM or TGI for production. Use TensorRT-LLM for NVIDIA-optimized deployment. All support OpenAI-compatible APIs for easy migration.</div>
+<div class="callout hood"><span>Under the hood</span>vLLM and TGI both use continuous batching and PagedAttention. TensorRT-LLM compiles models to optimized CUDA kernels. Ollama wraps llama.cpp with automatic model management.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Real-Time Projects &amp; Use Cases<small>Tier 5 &mdash; build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Local Model Playground with Streaming UI</h3>
+<p>Build a web-based playground for testing local LLMs with streaming output, model switching, temperature controls, and conversation history using FastAPI backend and React frontend.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Set up FastAPI backend with Ollama client integration and SSE streaming endpoint</li><li>Implement WebSocket-based streaming that proxies Ollama's SSE output to the frontend</li><li>Build React frontend with chat interface, streaming text display, and conversation history</li><li>Add parameter controls: model selector, temperature slider, max_tokens, top_p, stop sequences</li><li>Implement token counting and cost estimation using tiktoken for input/output accounting</li><li>Add conversation management: save, load, clear, and export chat histories as JSON</li><li>Implement model switching: list available Ollama models, hot-swap without restarting</li><li>Add performance metrics panel showing TTFT, TBT, and tokens/second in real-time</li></ol>
+<pre class="code"><code>from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+import requests
+
+app = FastAPI()
+
+@app.get("/api/chat")
+async def chat(model: str, messages: list, temperature: float = 0.7):
+    async def stream():
+        response = requests.post(
+            "http://localhost:11434/api/chat",
+            json={"model": model, "messages": messages, "stream": True,
+                  "options": {"temperature": temperature}},
+            stream=True,
+        )
+        for line in response.iter_lines():
+            if line:
+                yield line.decode() + "\n"
+    return StreamingResponse(stream(), media_type="text/event-stream")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>FastAPI SSE streaming endpoint design</li><li>Ollama REST API integration and model management</li><li>React streaming text rendering with useState and useEffect</li><li>Real-time performance metrics (TTFT, TBT) measurement</li><li>Conversation persistence with JSON export</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Token-Cost Analytics Wrapper</h3>
+<p>Build a middleware wrapper around the OpenAI SDK that tracks token usage, costs, latency, and model performance across all API calls, with a dashboard for cost monitoring and budget alerts.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Create a decorated OpenAI client wrapper that intercepts all completions.create calls</li><li>Track input_tokens, output_tokens, cost, latency_ms, and model for every request</li><li>Implement a SQLite database for persistent storage of all API call metrics</li><li>Build budget management: set daily/monthly limits with configurable alert thresholds</li><li>Create a FastAPI dashboard endpoint with aggregated stats by model, time period, and endpoint</li><li>Implement cost projection: estimate monthly cost based on current usage trends</li><li>Add anomaly detection: flag requests exceeding 2x average token count or latency</li><li>Build a CLI tool for querying usage history and exporting reports</li></ol>
+<pre class="code"><code>import time
+import tiktoken
+from openai import OpenAI
+import sqlite3
+
+class TokenTracker:
+    def __init__(self, db_path: str = "token_usage.db"):
+        self.client = OpenAI()
+        self.conn = sqlite3.connect(db_path)
+        self.conn.execute("""CREATE TABLE IF NOT EXISTS usage (
+            id INTEGER PRIMARY KEY, timestamp REAL, model TEXT,
+            input_tokens INTEGER, output_tokens INTEGER,
+            cost_usd REAL, latency_ms REAL)""")
+
+    def chat(self, messages, model="gpt-4o", **kwargs):
+        enc = tiktoken.encoding_for_model(model)
+        input_tokens = sum(len(enc.encode(m["content"])) for m in messages)
+
+        t0 = time.time()
+        response = self.client.chat.completions.create(
+            model=model, messages=messages, **kwargs
+        )
+        latency_ms = (time.time() - t0) * 1000
+        output_tokens = response.usage.completion_tokens
+
+        # pricing per 1M tokens
+        prices = {"gpt-4o": (2.50, 10.00), "gpt-4o-mini": (0.15, 0.60)}
+        inp, outp = prices.get(model, (2.50, 10.00))
+        cost = (input_tokens * inp + output_tokens * outp) / 1_000_000
+
+        self.conn.execute(
+            "INSERT INTO usage VALUES (NULL, ?, ?, ?, ?, ?, ?)",
+            (time.time(), model, input_tokens, output_tokens, cost, latency_ms),
+        )
+        self.conn.commit()
+        return response</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>OpenAI SDK client wrapping with cost tracking</li><li>SQLite-based metrics storage and aggregation</li><li>Budget management with threshold alerts</li><li>Usage analytics and cost projection</li><li>CLI reporting tool design</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Offline Document QA with Local GGUF</h3>
+<p>Build a fully offline document question-answering system using a local GGUF model via llama-cpp-python, with document chunking, embedding-based retrieval, and streaming answer generation without any API calls.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Download a GGUF model (Llama-3.1-8B-Instruct-Q4_K_M) and load via llama-cpp-python</li><li>Implement document loader that reads PDFs and markdown files with text extraction</li><li>Build text chunker with configurable chunk size (512 tokens) and overlap (64 tokens)</li><li>Use llama-cpp-python's built-in embedding for document vectorization</li><li>Implement brute-force cosine similarity search over chunk embeddings</li><li>Build prompt template that injects retrieved chunks as context and streams the answer</li><li>Add streaming output: display tokens as generated with chunk source attribution</li><li>Create CLI interface: load documents, ask questions, view sources, adjust retrieval params</li></ol>
+<pre class="code"><code>from llama_cpp import Llama
+import numpy as np
+
+# Load local GGUF model
+llm = Llama(model_path="./models/llama-3.1-8b-instruct-q4_k_m.gguf",
+            n_ctx=4096, n_gpu_layers=-1, embedding=True)
+
+# Document chunking and embedding
+def chunk_and_embed(text: str, chunk_size: int = 512):
+    words = text.split()
+    chunks = []
+    for i in range(0, len(words), chunk_size - 64):
+        chunk = " ".join(words[i:i + chunk_size])
+        chunks.append(chunk)
+    embeddings = [llm.create_embedding(c)["data"][0]["embedding"] for c in chunks]
+    return chunks, np.array(embeddings)
+
+def retrieve(query: str, chunks, chunk_embs, k: int = 3):
+    q_emb = np.array(llm.create_embedding(query)["data"][0]["embedding"])
+    scores = chunk_embs @ q_emb / (np.linalg.norm(chunk_embs, axis=1) * np.linalg.norm(q_emb))
+    top_k = np.argsort(scores)[::-1][:k]
+    return [(chunks[i], float(scores[i])) for i in top_k]
+
+# Stream answer from retrieved context
+def qa(query: str, chunks, chunk_embs):
+    context = "\n\n".join(c for c, _ in retrieve(query, chunks, chunk_embs))
+    prompt = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
+    for token in llm(prompt, max_tokens=512, stream=True, temperature=0.3):
+        print(token["choices"][0]["text"], end="", flush=True)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>GGUF model loading and inference via llama-cpp-python</li><li>Document chunking with overlap for semantic completeness</li><li>Local embedding generation without external APIs</li><li>Brute-force vector retrieval with cosine similarity</li><li>Streaming generation with context injection</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Next-token prediction</td><td>Core LLM objective: predict P(next_token | context)</td><td>model(input_ids).logits[:, -1, :]</td></tr>
+<tr><td>BPE tokenization</td><td>Iterative byte-pair merging for text-to-token conversion</td><td>tiktoken.get_encoding("cl100k_base")</td></tr>
+<tr><td>Context window</td><td>Maximum tokens model processes in one forward pass</td><td>GPT-4: 128K, Claude: 200K, local: 4K-32K</td></tr>
+<tr><td>Chat roles</td><td>System (behavior), User (input), Assistant (response)</td><td>{"role": "system", "content": "..."}</td></tr>
+<tr><td>Temperature</td><td>Scales logits: 0=deterministic, 1=diverse</td><td>temperature=0.7</td></tr>
+<tr><td>top_p / top_k</td><td>Nucleus sampling / top-k token filtering</td><td>top_p=0.9, top_k=50</td></tr>
+<tr><td>max_tokens / stop</td><td>Output length limit and termination strings</td><td>max_tokens=500, stop=["\\n\\n"]</td></tr>
+<tr><td>OpenAI SDK v1</td><td>Synchronous client with chat.completions.create</td><td>client.beta.chat.completions.parse()</td></tr>
+<tr><td>Open models</td><td>Self-hostable: Llama, Mistral, Qwen, Phi, Gemma</td><td>AutoModelForCausalLM.from_pretrained()</td></tr>
+<tr><td>Ollama</td><td>Local model serving with REST API</td><td>requests.post("localhost:11434/api/chat")</td></tr>
+<tr><td>Token cost</td><td>Input/output pricing per 1M tokens</td><td>input * $2.50/1M + output * $10/1M</td></tr>
+<tr><td>Hallucination</td><td>Model generates plausible but incorrect text</td><td>Mitigate with RAG and uncertainty prompts</td></tr>
+<tr><td>Transformer block</td><td>Attention + FFN + residual + LayerNorm</td><td>nn.MultiheadAttention + nn.Sequential</td></tr>
+<tr><td>RoPE</td><td>Rotary positional encoding for length extrapolation</td><td>rotation by position * frequency</td></tr>
+<tr><td>KV cache</td><td>Store computed keys/values to avoid recomputation</td><td>torch.cat([cache["k"], new_k], dim=1)</td></tr>
+<tr><td>Logits/softmax</td><td>Raw scores converted to token probabilities</td><td>F.softmax(logits / temperature, dim=-1)</td></tr>
+<tr><td>Repetition penalty</td><td>Reduce previously seen tokens to prevent loops</td><td>frequency_penalty=0.5, presence_penalty=0.3</td></tr>
+<tr><td>JSON mode</td><td>Constrain output to valid JSON via response_format</td><td>response_format={"type": "json_object"}</td></tr>
+<tr><td>SSE streaming</td><td>Token-by-token output via Server-Sent Events</td><td>stream=True in completions.create</td></tr>
+<tr><td>QKV attention</td><td>Query-Key-Value scaled dot-product attention</td><td>softmax(QK^T / sqrt(d_k)) @ V</td></tr>
+<tr><td>Multi-head attention</td><td>Parallel attention heads capturing different relations</td><td>nn.MultiheadAttention(d_model, n_heads)</td></tr>
+<tr><td>Causal mask</td><td>Lower-triangular mask preventing future token access</td><td>torch.tril(torch.ones(T, T))</td></tr>
+<tr><td>Quantization</td><td>Reduce weight precision: fp16 to int4/int8</td><td>BitsAndBytesConfig(load_in_4bit=True)</td></tr>
+<tr><td>vLLM</td><td>PagedAttention serving engine for high throughput</td><td>vllm serve model --tensor-parallel-size 4</td></tr>
+<tr><td>Speculative decoding</td><td>Draft model generates, large model verifies</td><td>2-3x speedup, identical output distribution</td></tr>
+<tr><td>logprobs</td><td>Token-level confidence scores for output text</td><td>logprobs=True, top_logprobs=5</td></tr>
+<tr><td>Constrained decoding</td><td>Mask invalid tokens via grammar/schema state machine</td><td>outlines.generate.json(model, Schema)</td></tr>
+<tr><td>Long-context vs RAG</td><td>Full document vs retrieval for QA</td><td>Single doc: context; multi-doc: RAG</td></tr>
+<tr><td>Pretraining pipeline</td><td>Pretrain &rarr; SFT &rarr; RLHF/DPO stages</td><td>contrastive loss, reward model, DPO loss</td></tr>
+<tr><td>MoE</td><td>Sparse expert routing, active params &lt; total</td><td>top-k routing per token, load balancing</td></tr>
+<tr><td>Flash Attention</td><td>IO-aware tiling, O(n) memory, exact attention</td><td>attn_implementation="flash_attention_2"</td></tr>
+<tr><td>Tensor/Pipeline parallel</td><td>Split model across multiple GPUs</td><td>--tensor-parallel-size N --pipeline-parallel-size M</td></tr>
+<tr><td>Prefix caching</td><td>Reuse KV cache for shared prompt prefixes</td><td>--enable-prefix-caching</td></tr>
+<tr><td>TTFT / TBT</td><td>Time-to-first-token / time-between-tokens metrics</td><td>stream=True, measure delta timestamps</td></tr>
+<tr><td>Serving frameworks</td><td>vLLM (throughput), TGI (enterprise), TRT-LLM (latency), Ollama (simple)</td><td>vllm serve / text-generation-launcher</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="embeddings.html">&larr; Embeddings</a><a href="prompting.html">Prompting &rarr;</a></footer>
+</body></html>

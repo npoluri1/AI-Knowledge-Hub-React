@@ -1,0 +1,1943 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReAct Patterns — Reasoning + Acting — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / ReAct Patterns — Reasoning + Acting</span><span class="spacer"></span>
+<a class="navlink" href="autogen.html">&larr; AutoGen</a> <a class="navlink" href="ai-design-patterns.html">AI Design Patterns &rarr;</a></nav>
+<header class="hero"><div class="mono">RE</div><div><h1>ReAct Patterns — Reasoning + Acting</h1>
+<p class="tagline">Interleave natural language reasoning with tool-calling actions to ground LLM outputs in real-world data and computations.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>ReAct (Reasoning + Acting) is the pattern of interleaving explicit reasoning traces with tool-calling actions. The LLM thinks about what to do, takes an action, observes the result, and reasons again. This grounds outputs in real data rather than hallucinated facts. This chapter covers the original paper's grammar, modern function-calling implementations, advanced patterns, and production considerations.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Thought-Action-Observation grammar, prompt templates, parsing, toy tools</td><td>You can implement a basic ReAct loop from scratch</td></tr>
+<tr><td>Tier 2</td><td>Function-calling ReAct, strict schemas, self-correction, memory, logging</td><td>You can build production ReAct agents with tool calling</td></tr>
+<tr><td>Tier 3</td><td>Plan-and-Execute, ReWOO, Reflexion, Tree-of-Thoughts, multi-agent ReAct</td><td>You can apply advanced reasoning-acting patterns</td></tr>
+<tr><td>Tier 4</td><td>Theoretical foundations, cost-quality analysis, production governance</td><td>You can reason about when and how to deploy ReAct</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready ReAct applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Thought-Action-Observation grammar, parsing, basic tools</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>ReAct Paper Origin: Reasoning Traces Help</h3>
+<p><strong>What &amp; why.</strong> The ReAct paper (Yao et al., 2022) demonstrated that interleaving reasoning traces (Thought) with actions (Action) and observations (Observation) significantly improves LLM performance on complex tasks. The key insight: reasoning traces make the LLM's decision process explicit and auditable, while actions ground the reasoning in real data. Pure chain-of-thought reasoning hallucinates facts; pure action-taking lacks strategic planning. ReAct combines both.</p>
+<pre class="code><code># The ReAct paradigm:
+# Thought: What do I know and what should I do next?
+# Action: Call a tool to get more information
+# Observation: What did the tool return?
+# ... repeat until Final Answer
+
+# Conceptual ReAct loop (no framework needed)
+import re
+
+def react_loop(query, tools, llm_call, max_steps=5):
+    """Minimal ReAct implementation."""
+    prompt = f"""Answer the question: {query}
+
+Use this format:
+Thought: [your reasoning]
+Action: [tool_name]
+Action Input: [input for the tool]
+Observation: [tool will fill this]
+... (repeat as needed)
+Final Answer: [your answer]
+"""
+    for step in range(max_steps):
+        response = llm_call(prompt)
+        
+        # Check for Final Answer
+        if "Final Answer:" in response:
+            answer = response.split("Final Answer:")[-1].strip()
+            return answer, response
+        
+        # Parse action
+        action_match = re.search(r"Action:\s*(.+)", response)
+        input_match = re.search(r"Action Input:\s*(.+)", response)
+        
+        if action_match and input_match:
+            tool_name = action_match.group(1).strip()
+            tool_input = input_match.group(1).strip()
+            
+            # Execute tool
+            observation = tools[tool_name](tool_input)
+            prompt += f"\n{response}\nObservation: {observation}\n"
+    
+    return "Max steps reached", prompt</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ReAct is the foundational pattern for all tool-using LLM agents. It appears in search-augmented QA, code generation with debugging, data analysis with validation, and any task where the LLM needs to ground its reasoning in external data.</div>
+<div class="callout hood"><span>Under the hood</span>ReAct works by giving the LLM a structured prompt template that constrains output to the Thought-Action-Observation format. The loop extracts actions, executes tools, feeds observations back, and continues until a final answer is produced. The reasoning trace enables debugging and auditing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Thought-Action-Observation Grammar</h3>
+<p><strong>What &amp; why.</strong> The ReAct grammar defines a strict format for LLM output: each step must contain a Thought (reasoning about the current state and next action), an Action (tool to invoke), an Action Input (parameters for the tool), and an Observation (result from the tool). This structured format makes parsing reliable and ensures the LLM follows a disciplined reasoning process rather than generating free-form text.</p>
+<pre class="code"><code># ReAct grammar in a prompt template
+REACT_PROMPT = """Answer the question using the tools available.
+
+You must follow this exact format for each step:
+
+Thought: [Analyze the current situation and plan the next action]
+Action: [The tool name to use - must be one of: {tool_names}]
+Action Input: [The input to pass to the tool]
+Observation: [This will be filled in by the system after action]
+
+When you have enough information, provide:
+Thought: I now have enough information to answer
+Final Answer: [Your complete answer to the question]
+
+Question: {question}
+"""
+
+# Example conversation following the grammar:
+# Thought: I need to find the population of France
+# Action: search
+# Action Input: population of France 2024
+# Observation: France population: 68.17 million (2024 est.)
+# Thought: I now have the information needed
+# Final Answer: The population of France is approximately 68.17 million.
+
+# The grammar constrains the LLM to a predictable output format
+# which enables reliable parsing and tool execution</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The TAO grammar is the standard format for ReAct implementations. Use it in custom prompt templates when building ReAct agents from scratch. Frameworks like LangChain abstract this grammar, but understanding it is essential for debugging and customization.</div>
+<div class="callout hood"><span>Under the hood</span>The grammar is enforced through the system prompt. The LLM is instructed to follow the format, and parsing code extracts actions and inputs using regex. The Observation field is injected by the system after tool execution, creating a feedback loop that guides the LLM's reasoning.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Handwritten Prompt Template</h3>
+<p><strong>What &amp; why.</strong> A handwritten ReAct prompt template gives you full control over the reasoning format, tool descriptions, and behavioral instructions. While frameworks provide built-in templates, understanding how to write your own enables customization for specific domains. The template must include: role definition, tool descriptions, the TAO format, and termination instructions.</p>
+<pre class="code"><code># Handwritten ReAct prompt template
+REACT_TEMPLATE = """You are a research assistant that answers questions
+by searching for information and performing calculations.
+
+Available tools:
+{tool_descriptions}
+
+You MUST use this format for every step:
+
+Thought: [Your reasoning about what to do next]
+Action: [One of the available tool names]
+Action Input: [The exact input for the chosen tool]
+Observation: [System fills this with tool output]
+
+After enough information is gathered:
+Thought: I can now answer the question
+Final Answer: [Complete answer with citations]
+
+Important rules:
+- Always start with a Thought
+- Only use tools listed above
+- Include specific details in Action Input
+- If a tool returns an error, try a different approach
+- Provide sources in Final Answer when possible
+
+Question: {input}
+"""
+
+# Tool descriptions for the template
+tools_desc = """
+1. search(query: str) - Search the web for information
+2. calculate(expression: str) - Evaluate a math expression
+3. lookup(term: str) - Look up a term in the knowledge base
+"""
+
+# Fill the template
+prompt = REACT_TEMPLATE.format(
+    tool_descriptions=tools_desc,
+    input="What is the GDP of Japan divided by its population?",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Handwritten templates are essential for domain-specific ReAct agents: legal research with case lookup, medical research with clinical database access, or financial analysis with market data tools. Customize the template for your specific tool set and domain requirements.</div>
+<div class="callout hood"><span>Under the hood</span>The prompt template is the entire mechanism for enforcing ReAct behavior. The LLM follows the format because the system prompt instructs it to. There is no code-level enforcement of the grammar; it relies on the LLM's instruction-following capability.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Parsing the Action Line: Regex</h3>
+<p><strong>What &amp; why.</strong> Parsing the Action and Action Input lines from the LLM's response is critical for reliable ReAct execution. Regex-based parsing extracts tool names and parameters from the structured output. The parser must handle variations: extra whitespace, missing colons, or slightly different formatting. Robust parsing prevents execution failures due to minor LLM output variations.</p>
+<pre class="code"><code>import re
+
+def parse_react_response(response):
+    """Parse a ReAct-format response into components."""
+    result = {
+        "thought": "",
+        "action": None,
+        "action_input": None,
+        "final_answer": None,
+    }
+    
+    # Extract Thought
+    thought_match = re.search(r"Thought:\s*(.+?)(?:\nAction:|\nFinal Answer:|\Z)", response, re.DOTALL)
+    if thought_match:
+        result["thought"] = thought_match.group(1).strip()
+    
+    # Check for Final Answer
+    final_match = re.search(r"Final Answer:\s*(.+)", response, re.DOTALL)
+    if final_match:
+        result["final_answer"] = final_match.group(1).strip()
+        return result
+    
+    # Extract Action
+    action_match = re.search(r"Action:\s*(.+)", response)
+    if action_match:
+        result["action"] = action_match.group(1).strip()
+    
+    # Extract Action Input (everything after Action Input: until Observation or end)
+    input_match = re.search(r"Action Input:\s*(.+?)(?:\nObservation:|\Z)", response, re.DOTALL)
+    if input_match:
+        result["action_input"] = input_match.group(1).strip()
+    
+    return result
+
+# Test parsing
+sample = """Thought: I need to search for the latest AI news
+Action: search
+Action Input: latest AI developments 2025
+Observation: [tool output would go here]"""
+
+parsed = parse_react_response(sample)
+print(f"Action: {parsed['action']}")
+print(f"Input: {parsed['action_input']}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Robust parsing is essential for ReAct reliability. LLMs occasionally format output slightly differently: extra spaces, missing colons, or multi-line action inputs. Test your parser against diverse LLM outputs to ensure reliability.</div>
+<div class="callout hood"><span>Under the hood</span>The parser uses regex with flexible patterns to handle output variations. The non-greedy .*? with re.DOTALL handles multi-line fields. The parser checks for Final Answer first (termination) before looking for Action (continuation).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Executing Against Toy Tools</h3>
+<p><strong>What &amp; why.</strong> Toy tools demonstrate the ReAct loop without external dependencies. Simple tools like calculator, string reversal, or list operations let you test the reasoning loop, parsing, and observation injection. This is the fastest way to validate a ReAct implementation before connecting real tools.</p>
+<pre class="code"><code>import re
+
+# Toy tool implementations
+tools = {
+    "calculator": lambda expr: str(eval(expr)) if all(c in "0123456789+-*/.() " for c in expr) else "Error: invalid expression",
+    "reverse": lambda s: s[::-1],
+    "upper": lambda s: s.upper(),
+    "word_count": lambda s: str(len(s.split())),
+    "lookup": lambda term: {"python": "Programming language created in 1991", "java": "Object-oriented language by Sun Microsystems"}.get(term.lower(), f"No info found for: {term}"),
+}
+
+def run_react_step(prompt, llm_call):
+    """Execute one ReAct step."""
+    response = llm_call(prompt)
+    
+    # Parse action
+    action_match = re.search(r"Action:\s*(\w+)", response)
+    input_match = re.search(r"Action Input:\s*(.+?)(?:\n|$)", response)
+    
+    if "Final Answer:" in response:
+        answer = response.split("Final Answer:")[-1].strip()
+        return None, answer
+    
+    if action_match and input_match:
+        tool_name = action_match.group(1)
+        tool_input = input_match.group(1).strip()
+        
+        if tool_name in tools:
+            observation = tools[tool_name](tool_input)
+        else:
+            observation = f"Error: Unknown tool '{tool_name}'"
+        
+        new_prompt = prompt + f"\n{response}\nObservation: {observation}\n"
+        return new_prompt, None
+    
+    return prompt + f"\n{response}\n", None
+
+# Simulated LLM responses for testing
+responses = [
+    "Thought: I need to calculate 15 * 23\nAction: calculator\nAction Input: 15 * 23",
+    "Thought: I now have the result\nFinal Answer: 15 multiplied by 23 equals 345",
+]
+
+prompt = "What is 15 * 23?"
+for resp in responses:
+    prompt, answer = run_react_step(prompt, lambda _: resp)
+    if answer:
+        print(f"Answer: {answer}")
+        break</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Toy tools are essential for testing and debugging ReAct implementations. They enable fast iteration without API costs or network dependencies. Test parsing, tool dispatch, observation injection, and termination conditions with toy tools before deploying real ones.</div>
+<div class="callout hood"><span>Under the hood</span>Toy tools follow the same interface as production tools: string input, string output. The ReAct loop does not distinguish between toy and production tools; only the tool implementations differ. This makes upgrading from toy to production tools straightforward.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Observation Truncation Hygiene</h3>
+<p><strong>What &amp; why.</strong> Tool observations can be very large: web search returns full pages, database queries return thousands of rows, and code execution outputs can be lengthy. Large observations consume context window tokens and can cause the LLM to lose focus. Observation truncation keeps the context manageable by summarizing or truncating large outputs to a fixed size.</p>
+<pre class="code"><code>def truncate_observation(observation, max_chars=2000):
+    """Truncate long observations to fit context window."""
+    if len(observation) <= max_chars:
+        return observation
+    
+    truncated = observation[:max_chars]
+    # Try to truncate at a sentence boundary
+    last_period = truncated.rfind(".")
+    if last_period > max_chars * 0.8:  # At least 80% utilized
+        truncated = truncated[:last_period + 1]
+    
+    return truncated + f"\n... [truncated, {len(observation)} total chars]"
+
+def summarize_observation(observation, max_chars=2000):
+    """Summarize long observations instead of truncating."""
+    if len(observation) <= max_chars:
+        return observation
+    
+    # For web pages: extract key sentences
+    sentences = observation.split(". ")
+    key_sentences = []
+    current_len = 0
+    for sentence in sentences:
+        if current_len + len(sentence) > max_chars:
+            break
+        key_sentences.append(sentence)
+        current_len += len(sentence)
+    
+    return ". ".join(key_sentences) + "."
+
+# Usage in ReAct loop
+def process_observation(obs):
+    """Standard observation processing."""
+    obs = truncate_observation(obs, max_chars=2000)
+    return obs</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Observation truncation is essential for production ReAct. Without it, a single large observation can consume most of the context window, leaving little room for reasoning. Set max_chars based on your model's context window and typical observation sizes.</div>
+<div class="callout hood"><span>Under the hood</span>Truncation strategies include: hard truncation at character count, sentence-aware truncation (preserving complete sentences), and summarization (using the LLM to compress the observation). Hard truncation is fastest; summarization preserves the most information.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Stopping on Final Answer</h3>
+<p><strong>What &amp; why.</strong> The ReAct loop must terminate when the LLM produces a Final Answer. Without a clear termination signal, the loop continues indefinitely. The standard approach: instruct the LLM to end with "Final Answer: [answer]" and check for this pattern after each response. Additional termination guards include max steps limit and timeout to prevent runaway loops.</p>
+<pre class="code"><code>import re
+import time
+
+def react_loop(query, tools, llm_call, max_steps=10, timeout=60):
+    """ReAct loop with proper termination."""
+    start_time = time.time()
+    prompt = f"""Answer: {query}
+
+Thought: [your reasoning]
+Action: [tool_name]
+Action Input: [input]
+Observation: [result]
+...
+Thought: I have the answer
+Final Answer: [answer]
+"""
+    
+    for step in range(max_steps):
+        # Timeout check
+        if time.time() - start_time > timeout:
+            return "Timeout exceeded", prompt
+        
+        response = llm_call(prompt)
+        
+        # Final Answer check (primary termination)
+        if "Final Answer:" in response:
+            answer = response.split("Final Answer:")[-1].strip()
+            return answer, response
+        
+        # Parse and execute action
+        action_match = re.search(r"Action:\s*(\w+)", response)
+        input_match = re.search(r"Action Input:\s*(.+?)(?:\n|$)", response)
+        
+        if not action_match or not input_match:
+            prompt += f"\n{response}\nObservation: Please use the correct format.\n"
+            continue
+        
+        tool_name = action_match.group(1)
+        tool_input = input_match.group(1).strip()
+        
+        if tool_name not in tools:
+            observation = f"Unknown tool: {tool_name}. Available: {list(tools.keys())}"
+        else:
+            observation = tools[tool_name](tool_input)
+        
+        prompt += f"\n{response}\nObservation: {observation}\n"
+    
+    return "Max steps reached", prompt</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Always implement multiple termination safeguards: Final Answer detection, max steps limit, and timeout. Without these, a confused LLM can loop indefinitely, consuming tokens and time.</div>
+<div class="callout hood"><span>Under the hood</span>The termination check happens after each LLM response, before tool execution. If Final Answer is detected, the loop returns immediately. The max_steps guard prevents infinite loops even if the LLM never produces a Final Answer.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Worked Example: Hotpot-Style Question</h3>
+<p><strong>What &amp; why.</strong> HotpotQA-style questions require multi-hop reasoning: the answer depends on information from multiple sources. ReAct handles this naturally: the agent searches for the first fact, reasons about what else is needed, searches for the second fact, and combines them. This worked example demonstrates the full ReAct loop with multiple tool calls and progressive reasoning.</p>
+<pre class="code"><code># Worked example: Multi-hop question
+# Q: "What is the capital of the country where the 2024 Olympics were held?"
+
+# Step 1: Initial reasoning and search
+# Thought: I need to find where the 2024 Olympics were held
+# Action: search
+# Action Input: 2024 Olympics host city
+# Observation: The 2024 Summer Olympics were held in Paris, France
+
+# Step 2: Reasoning about the next step
+# Thought: The 2024 Olympics were in Paris, France. Now I need the capital
+# Action: search
+# Action Input: capital of France
+# Observation: The capital of France is Paris
+
+# Step 3: Final answer
+# Thought: I now have both facts
+# Final Answer: The 2024 Olympics were held in Paris, France, which is also the capital of France
+
+# Implementation of multi-hop ReAct
+import re
+
+knowledge_base = {
+    "2024 olympics host": "Paris, France",
+    "capital of france": "Paris",
+    "2028 olympics host": "Los Angeles, USA",
+    "capital of usa": "Washington, D.C.",
+}
+
+def search(query):
+    for key, value in knowledge_base.items():
+        if key in query.lower():
+            return value
+    return f"No results for: {query}"
+
+tools = {"search": search}
+
+# The agent naturally decomposes multi-hop questions:
+# 1. Find fact A (host city)
+# 2. Use fact A to search for fact B (capital)
+# 3. Combine facts into final answer</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-hop reasoning is ReAct's killer feature. It handles questions that require combining information from multiple sources: "Who directed the movie that won Best Picture at the ceremony where Halle Berry won Best Actress?" The agent decomposes the question and searches iteratively.</div>
+<div class="callout hood"><span>Under the hood</span>Each Thought step reasons about what information is missing and what action would provide it. The observation from the previous step feeds into the next Thought, enabling progressive information gathering. This is fundamentally different from single-step retrieval.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>ReAct vs Plain Chain-of-Thought</h3>
+<p><strong>What &amp; why.</strong> Chain-of-Thought (CoT) reasoning asks the LLM to "think step by step" without tool access. ReAct adds tool-calling actions to CoT, grounding reasoning in real data. CoT can hallucinate facts because it relies entirely on the LLM's internal knowledge. ReAct prevents hallucination by checking facts against external tools. The tradeoff: ReAct is slower (multiple LLM calls + tool executions) but more accurate for fact-dependent tasks.</p>
+<pre class="code><code># Chain-of-Thought (CoT): reasoning only, no tools
+cot_prompt = """
+Question: What is the population of the country with the largest GDP?
+Think step by step.
+Answer: [LLM reasons using internal knowledge, may hallucinate]
+"""
+
+# ReAct: reasoning + tool calls, grounded in data
+react_prompt = """
+Question: What is the population of the country with the largest GDP?
+
+Thought: I need to find the country with the largest GDP first
+Action: search
+Action Input: country with largest GDP 2024
+Observation: United States has the largest GDP at $28.78 trillion
+
+Thought: Now I need the population of the US
+Action: search
+Action Input: population of United States 2024
+Observation: 334.9 million (2024 estimate)
+
+Thought: I have both facts
+Final Answer: The United States has the largest GDP ($28.78T) with a population of approximately 334.9 million.
+"""
+
+# Key difference:
+# CoT: "The US has the largest GDP... I think the population is about 330 million"
+#   (may be wrong, no way to verify)
+# ReAct: searches for GDP ranking, then searches for exact population
+#   (facts are verified against real data)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Use CoT for tasks that rely on reasoning about known facts: logic puzzles, math problems, and code review. Use ReAct for tasks that require current or specific information: research, data analysis, and fact-checking. The key distinction: does the task need external data?</div>
+<div class="callout hood"><span>Under the hood</span>CoT is a single LLM call with a "think step by step" instruction. ReAct is a loop of multiple LLM calls, each producing a Thought and Action. ReAct's accuracy advantage comes from tool-grounded facts; CoT's speed advantage comes from fewer LLM calls.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Failure Mode: Hallucinated Observation</h3>
+<p><strong>What &amp; why.</strong> A common ReAct failure is the hallucinated observation: the LLM generates an Observation without actually calling a tool. This happens when the LLM is confident in its answer and skips the Action step, fabricating an observation that confirms its belief. This defeats the purpose of ReAct. Prevention: always validate that the Observation was produced by a real tool call.</p>
+<pre class="code"><code>import re
+
+def validate_react_step(response, tools):
+    """Check for hallucinated observations."""
+    # Check if LLM skipped Action and went straight to Observation
+    has_action = bool(re.search(r"Action:\s*\w+", response))
+    has_observation = bool(re.search(r"Observation:\s*.+", response))
+    has_final = bool(re.search(r"Final Answer:", response))
+    
+    if has_observation and not has_action and not has_final:
+        return False, "Hallucinated observation: no Action found before Observation"
+    
+    # Check if Action name is valid
+    if has_action:
+        action_match = re.search(r"Action:\s*(\w+)", response)
+        tool_name = action_match.group(1)
+        if tool_name not in tools:
+            return False, f"Invalid tool: {tool_name}"
+    
+    return True, "Valid step"
+
+# Example of hallucinated observation:
+# "Thought: I know the answer is 42
+#  Observation: The answer is 42"
+# (No Action was called; observation is fabricated)
+
+# Prevention: inject reminder after each step
+REACT_REMINDER = """
+Remember: You MUST call a tool using Action and Action Input.
+Do not write Observation yourself - the system fills that in.
+If you know the answer, use Final Answer instead.
+"""</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hallucinated observations are a critical failure mode in production ReAct. Always validate that actions precede observations. Inject reminders in the prompt to reinforce the grammar. Monitor for hallucination patterns in production logs.</div>
+<div class="callout hood"><span>Under the hood</span>The hallucination occurs because the LLM generates the entire response at once, including the Observation field. Without code-level validation, a fabricated observation looks identical to a real one. The only difference is that a real observation was produced by tool execution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Iteration Cap Defaults</h3>
+<p><strong>What &amp; why.</strong> ReAct loops need iteration caps to prevent runaway execution. The cap depends on task complexity: simple lookup tasks need 2-3 steps, research tasks need 5-8, and complex analysis may need 10-15. Setting the cap too low causes premature termination; too high wastes tokens. Default to 5 for general use, adjust based on task type.</p>
+<pre class="code"><code># Iteration cap guidelines by task type
+ITERATION_CAPS = {
+    "simple_lookup": 3,    # "What is X?" -> search -> answer
+    "factual_qa": 5,       # "What is X and how does Y relate?" -> 2 searches
+    "research": 8,         # "Analyze X in context of Y" -> multiple searches + analysis
+    "complex_analysis": 12, # "Compare X, Y, Z across dimensions" -> many steps
+    "code_generation": 10,  # Write -> test -> debug -> verify
+}
+
+def adaptive_react_loop(query, tools, llm_call, task_type="factual_qa"):
+    """ReAct loop with adaptive iteration cap."""
+    max_steps = ITERATION_CAPS.get(task_type, 5)
+    steps_used = 0
+    
+    prompt = f"Answer: {query}\n\n"
+    
+    for step in range(max_steps):
+        steps_used += 1
+        response = llm_call(prompt)
+        
+        if "Final Answer:" in response:
+            answer = response.split("Final Answer:")[-1].strip()
+            return {
+                "answer": answer,
+                "steps": steps_used,
+                "max_steps": max_steps,
+                "efficiency": steps_used / max_steps,
+            }
+        
+        # ... execute action and continue
+    
+    return {
+        "answer": "Max iterations reached",
+        "steps": steps_used,
+        "max_steps": max_steps,
+        "efficiency": 1.0,
+    }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Adaptive iteration caps balance thoroughness with efficiency. Simple tasks should complete quickly; complex tasks deserve more steps. Monitor actual step counts in production to calibrate defaults over time.</div>
+<div class="callout hood"><span>Under the hood</span>The iteration cap is a hard limit on the number of LLM calls + tool executions. Each step typically costs one LLM call (for Thought + Action) plus one tool execution. The total cost is approximately (steps * LLM_cost) + (tool_executions * tool_cost).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Reading Real ReAct Trajectories</h3>
+<p><strong>What &amp; why.</strong> Real ReAct trajectories reveal how the pattern works in practice: the reasoning quality varies, tools sometimes return unexpected results, and the agent must adapt. Studying trajectories from production systems helps you understand failure modes, optimize prompts, and calibrate iteration caps. Log every step for debugging and analysis.</p>
+<pre class="code"><code>import json
+import time
+
+class TrajectoryLogger:
+    """Log ReAct trajectories for analysis."""
+    
+    def __init__(self):
+        self.steps = []
+        self.start_time = time.time()
+    
+    def log_step(self, step_num, thought, action, action_input, observation):
+        self.steps.append({
+            "step": step_num,
+            "thought": thought,
+            "action": action,
+            "action_input": action_input,
+            "observation": observation[:500],  # Truncate for storage
+            "timestamp": time.time() - self.start_time,
+        })
+    
+    def log_final(self, answer):
+        self.steps.append({
+            "step": "final",
+            "answer": answer,
+            "total_time": time.time() - self.start_time,
+            "total_steps": len(self.steps),
+        })
+    
+    def save(self, filepath):
+        with open(filepath, "w") as f:
+            json.dump(self.steps, f, indent=2)
+    
+    def summary(self):
+        return {
+            "steps": len(self.steps),
+            "total_time": self.steps[-1].get("total_time", 0) if self.steps else 0,
+            "actions": [s["action"] for s in self.steps if "action" in s],
+        }
+
+# Usage in ReAct loop
+logger = TrajectoryLogger()
+
+# In the loop, after each step:
+# logger.log_step(step, thought, action, action_input, observation)
+
+# After completion:
+# logger.log_final(answer)
+# logger.save("trajectory_001.json")
+# print(logger.summary())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Trajectory logging is essential for debugging, evaluation, and optimization. Log every step including thoughts, actions, inputs, observations, and timing. Analyze trajectories to identify failure patterns, optimize prompts, and improve tool descriptions.</div>
+<div class="callout hood"><span>Under the hood</span>A trajectory is a chronological record of every decision point in a ReAct execution. It captures not just what happened but why (via thoughts). This makes trajectories the primary artifact for post-mortem analysis and prompt engineering.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Function-calling ReAct, self-correction, memory, logging</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Function-Calling Modern ReAct: No Text Parsing</h3>
+<p><strong>What &amp; why.</strong> Modern LLMs support native function calling, eliminating the need for text parsing. Instead of extracting "Action: search" from the response text, the LLM returns structured tool calls that the runtime executes directly. This is more reliable than regex parsing: no formatting errors, no hallucinated actions, and automatic parameter validation. LangChain and LlamaIndex abstract this into tool-calling agents.</p>
+<pre class="code"><code># Modern ReAct with function calling (no text parsing)
+from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+
+@tool
+def search(query: str) -> str:
+    """Search for information on the web."""
+    return f"Search results for '{query}': [simulated results]"
+
+@tool
+def calculate(expression: str) -> str:
+    """Calculate a mathematical expression."""
+    try:
+        return str(eval(expression))
+    except Exception as e:
+        return f"Error: {e}"
+
+# LLM with native function calling
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# Prompt still uses Thought pattern, but tools are called via function calling
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a helpful assistant. Think step by step."),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}"),
+])
+
+# Agent uses function calling, not text parsing
+agent = create_tool_calling_agent(llm, [search, calculate], prompt)
+executor = AgentExecutor(agent=agent, tools=[search, calculate], verbose=True)
+
+result = executor.invoke({
+    "input": "What is the GDP of France divided by its population?",
+})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Function-calling ReAct is the standard for production. It eliminates parsing failures, handles parameter types correctly, and integrates cleanly with LangChain/LlamaIndex. Use it for all new ReAct implementations unless you need custom parsing for specific reasons.</div>
+<div class="callout hood"><span>Under the hood</span>The LLM generates structured function calls (tool invocations) instead of free-form text. The runtime extracts the function name and arguments, executes the tool, and feeds the result back. No regex parsing is needed because the tool calls are structured data.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Strict Tool Schemas Improve Reliability</h3>
+<p><strong>What &amp; why.</strong> Tool schemas define the expected parameters, types, and descriptions for each tool. Strict schemas with Pydantic models improve reliability: the LLM receives clear parameter specifications, the runtime validates inputs, and type coercion handles edge cases. Vague schemas produce incorrect tool calls; strict schemas with descriptions and examples produce correct calls consistently.</p>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from langchain_core.tools import tool
+
+class SearchInput(BaseModel):
+    query: str = Field(description="The search query to find information")
+    num_results: int = Field(default=3, description="Number of results to return")
+
+class CalculateInput(BaseModel):
+    expression: str = Field(description="Mathematical expression to evaluate, e.g. '2 + 3 * 4'")
+
+@tool(args_schema=SearchInput)
+def search(query: str, num_results: int = 3) -> str:
+    """Search the web for information. Returns search results matching the query."""
+    return f"Found {num_results} results for: {query}"
+
+@tool(args_schema=CalculateInput)
+def calculate(expression: str) -> str:
+    """Evaluate a mathematical expression. Supports +, -, *, /, **, and parentheses."""
+    allowed = set("0123456789+-*/.() ")
+    if not all(c in allowed for c in expression):
+        return "Error: expression contains invalid characters"
+    try:
+        return str(eval(expression))
+    except Exception as e:
+        return f"Error: {e}"
+
+# Strict schemas produce more reliable tool calls
+# The LLM knows exactly what parameters to provide</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Invest in tool schema quality. Clear descriptions, typed parameters, and default values reduce LLM errors. For complex tools, add examples in the description. Use Pydantic models for automatic validation and documentation generation.</div>
+<div class="callout hood"><span>Under the hood</strong>Tool schemas are sent to the LLM as part of the function definition. The LLM uses these schemas to generate correctly structured calls. Pydantic validation runs after the LLM generates the call, catching type errors before execution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Self-Correction After Tool Errors</h3>
+<p><strong>What &amp; why.</strong> Tools can fail: API timeouts, invalid inputs, permission errors, and empty results. A robust ReAct agent detects tool errors and self-corrects: it reasons about the error, tries a different approach, or asks for clarification. The error message is fed back as an observation, and the LLM uses it to adjust its strategy.</p>
+<pre class="code><code>from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+
+@tool
+def search(query: str) -> str:
+    """Search for information."""
+    # Simulate occasional failures
+    if "broken" in query.lower():
+        return "Error: Search API temporarily unavailable. Try again later."
+    return f"Results for: {query}"
+
+@tool
+def calculate(expression: str) -> str:
+    """Calculate a math expression."""
+    try:
+        return str(eval(expression))
+    except ZeroDivisionError:
+        return "Error: Division by zero. Check your expression."
+    except Exception as e:
+        return f"Error: {e}"
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", (
+        "You are a helpful assistant. When a tool returns an error:\n"
+        "1. Analyze the error message\n"
+        "2. Try a different approach or tool\n"
+        "3. If the same error persists after 2 attempts, report the issue"
+    )),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}"),
+])
+
+agent = create_tool_calling_agent(llm, [search, calculate], prompt)
+executor = AgentExecutor(
+    agent=agent,
+    tools=[search, calculate],
+    verbose=True,
+    max_iterations=8,  # Allow retries after errors
+)
+
+result = executor.invoke({"input": "Search for broken API data and calculate 2+2"})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Self-correction is what makes ReAct robust in production. Tools fail in unpredictable ways. The agent must detect failures, reason about causes, and try alternatives. Always include error handling instructions in the system prompt.</div>
+<div class="callout hood"><span>Under the hood</span>Error messages are returned as tool observations. The LLM processes the error and reasons about next steps. If the error is transient (timeout), the agent retries. If it's permanent (invalid input), the agent tries a different tool or approach.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Observation Summarization for Big Payloads</h3>
+<p><strong>What &amp; why.</strong> Some tools return very large observations: full web pages, database result sets, or log files. Sending the full observation to the LLM wastes tokens and may exceed context limits. Observation summarization uses a separate LLM call or heuristic to compress the observation into key points before feeding it back to the reasoning loop.</p>
+<pre class="code"><code>def summarize_observation(observation, llm=None, max_tokens=500):
+    """Summarize a large observation for the reasoning loop."""
+    if len(observation) < 1000:
+        return observation
+    
+    if llm:
+        # LLM-based summarization
+        summary_prompt = f"""Summarize this information concisely, preserving key facts:
+        
+{observation[:4000]}
+
+Key points:"""
+        response = llm.invoke(summary_prompt)
+        return response.content
+    else:
+        # Heuristic summarization: extract first N sentences
+        sentences = observation.split(". ")
+        summary = []
+        total_len = 0
+        for sent in sentences:
+            if total_len + len(sent) > max_tokens * 4:  # Approximate char count
+                break
+            summary.append(sent)
+            total_len += len(sent)
+        return ". ".join(summary) + "."
+
+# Usage in ReAct loop
+def react_with_summarization(query, tools, llm):
+    """ReAct with observation summarization."""
+    # ... in the loop after tool execution:
+    observation = tools[action](action_input)
+    observation = summarize_observation(observation, llm=llm)
+    # Feed summarized observation back to reasoning</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Observation summarization is essential when tools return large payloads: web scraping (full pages), database queries (many rows), or file reading (large files). It reduces token usage while preserving the key information needed for reasoning.</div>
+<div class="callout hood"><span>Under the hood</span>Summarization adds one extra LLM call per large observation. The tradeoff: extra API cost for the summary vs. savings from reduced context size in subsequent reasoning steps. For very large observations, the savings typically outweigh the cost.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Parallel Thoughts: Batching Tool Calls</h3>
+<p><strong>What &amp; why.</strong> Some ReAct scenarios benefit from parallel tool calls: when multiple independent lookups can be performed simultaneously. Modern LLM function calling supports returning multiple tool calls in a single response. This reduces latency by executing tools concurrently rather than sequentially. The agent still reasons about which tools to call, but the calls happen in parallel.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+
+@tool
+def get_population(country: str) -> str:
+    """Get the population of a country."""
+    data = {"USA": "334.9M", "China": "1.41B", "India": "1.43B"}
+    return data.get(country, f"Unknown: {country}")
+
+@tool
+def get_gdp(country: str) -> str:
+    """Get the GDP of a country."""
+    data = {"USA": "$28.78T", "China": "$18.53T", "India": "$3.94T"}
+    return data.get(country, f"Unknown: {country}")
+
+@tool
+def get_area(country: str) -> str:
+    """Get the area of a country."""
+    data = {"USA": "9.83M km2", "China": "9.60M km2", "India": "3.29M km2"}
+    return data.get(country, f"Unknown: {country}")
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+tools = [get_population, get_gdp, get_area]
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "Compare countries by gathering all data efficiently."),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}"),
+])
+
+agent = create_tool_calling_agent(llm, tools, prompt)
+executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
+# The LLM may call get_population, get_gdp, and get_area in parallel
+result = executor.invoke({
+    "input": "Compare USA and China: population, GDP, and area",
+})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Parallel tool calls reduce latency when multiple independent lookups are needed. Instead of 3 sequential calls (population, then GDP, then area), the agent makes all 3 in one step. This is especially valuable for comparison tasks.</div>
+<div class="callout hood"><span>Under the hood</span>LangChain's AgentExecutor detects when the LLM returns multiple tool calls and executes them concurrently using asyncio. The results are collected and fed back as multiple observations. The LLM then reasons over all observations together.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>ReAct with Memory: Scratchpad Reuse</h3>
+<p><strong>What &amp; why.</strong> ReAct agents benefit from memory: storing previous reasoning steps, tool results, and intermediate conclusions. The scratchpad is the conversation history that accumulates during a ReAct run. Reusing scratchpad information prevents redundant tool calls and enables the agent to reference earlier findings. For multi-session agents, persistent memory carries context across conversations.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.memory import ConversationBufferWindowMemory
+
+@tool
+def search(query: str) -> str:
+    """Search for information."""
+    return f"Results for '{query}': [simulated data]"
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# Memory retains context across ReAct runs
+memory = ConversationBufferWindowMemory(
+    k=5,  # Keep last 5 interactions
+    memory_key="chat_history",
+    return_messages=True,
+)
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", (
+        "You are a research assistant. Use previous findings "
+        "from chat history before making new tool calls."
+    )),
+    ("placeholder", "{chat_history}"),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}"),
+])
+
+agent = create_tool_calling_agent(llm, [search], prompt, prompt)
+executor = AgentExecutor(
+    agent=agent, tools=[search],
+    memory=memory, verbose=True,
+)
+
+# First run: searches for information
+executor.invoke({"input": "What is the capital of France?"})
+
+# Second run: can reference previous findings
+executor.invoke({"input": "What is the population of that city?"})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Memory prevents redundant tool calls in multi-turn ReAct sessions. If the agent already searched for a fact, it can reference the cached result instead of searching again. Use windowed memory to limit context growth.</div>
+<div class="callout hood"><span>Under the hood</span>Memory stores the chat history (human messages and AI responses) between ReAct runs. The scratchpad within a single run stores intermediate thoughts and observations. Together, they give the agent both short-term (within-run) and long-term (across-run) context.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Trajectory Logging: JSONL Schema</h3>
+<p><strong>What &amp; why.</strong> Structured trajectory logging captures every step of a ReAct execution in JSONL format for analysis, debugging, and evaluation. Each line represents one step with fields for thought, action, observation, timing, and token usage. JSONL enables efficient streaming writes and line-by-line analysis without loading entire files into memory.</p>
+<pre class="code"><code>import json
+import time
+
+class ReActLogger:
+    """Structured JSONL trajectory logger."""
+    
+    def __init__(self, filepath):
+        self.filepath = filepath
+        self.step_count = 0
+        self.start_time = time.time()
+    
+    def log_step(self, thought, action, action_input, observation, tokens_used=0):
+        self.step_count += 1
+        entry = {
+            "step": self.step_count,
+            "timestamp": time.time() - self.start_time,
+            "thought": thought,
+            "action": action,
+            "action_input": action_input,
+            "observation": observation[:1000],
+            "tokens": tokens_used,
+        }
+        with open(self.filepath, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    
+    def log_final(self, answer, total_tokens=0):
+        entry = {
+            "step": "final",
+            "timestamp": time.time() - self.start_time,
+            "answer": answer,
+            "total_steps": self.step_count,
+            "total_tokens": total_tokens,
+        }
+        with open(self.filepath, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    
+    def load_trajectory(self):
+        """Load all steps from the JSONL file."""
+        steps = []
+        with open(self.filepath) as f:
+            for line in f:
+                steps.append(json.loads(line))
+        return steps
+
+# Usage
+logger = ReActLogger("trajectory_001.jsonl")
+# In the loop:
+# logger.log_step(thought, action, action_input, observation)
+# After completion:
+# logger.log_final(answer)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>JSONL trajectories are the standard for ReAct analysis. Use them for debugging production runs, building evaluation datasets, and training fine-tuning data. Each trajectory is a complete record of the agent's reasoning process.</div>
+<div class="callout hood"><span>Under the hood</span>JSONL (JSON Lines) is a format where each line is a complete JSON object. This enables streaming writes (append one line at a time) and line-by-line reading (no need to parse the entire file). It is the standard format for LLM trajectory data.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Success Detection Heuristics</h3>
+<p><strong>What &amp; why.</strong> Detecting whether a ReAct run succeeded is not trivial. The agent may produce an answer that looks correct but is actually hallucinated, or it may produce a partial answer. Success heuristics check for: tool call count (did it use tools?), answer specificity (is the answer concrete?), and tool result quality (did tools return useful data?). Combine these heuristics for reliable success detection.</p>
+<pre class="code"><code>import re
+
+class SuccessDetector:
+    """Detect ReAct run success with multiple heuristics."""
+    
+    def __init__(self):
+        self.min_tool_calls = 1
+        self.min_answer_length = 20
+    
+    def detect(self, trajectory):
+        """Analyze trajectory for success signals."""
+        steps = [s for s in trajectory if s.get("action")]
+        final = [s for s in trajectory if s.get("step") == "final"]
+        
+        if not final:
+            return {"success": False, "reason": "No final answer produced"}
+        
+        answer = final[0].get("answer", "")
+        
+        # Heuristic 1: Did the agent use tools?
+        tool_calls = len(steps)
+        if tool_calls < self.min_tool_calls:
+            return {"success": False, "reason": f"Only {tool_calls} tool calls"}
+        
+        # Heuristic 2: Is the answer substantive?
+        if len(answer) < self.min_answer_length:
+            return {"success": False, "reason": "Answer too short"}
+        
+        # Heuristic 3: Did tools return useful data?
+        observations = [s.get("observation", "") for s in steps]
+        error_count = sum(1 for o in observations if "error" in o.lower())
+        if error_count > len(observations) * 0.5:
+            return {"success": False, "reason": "Too many tool errors"}
+        
+        # Heuristic 4: Answer doesn't contain error messages
+        if "error" in answer.lower() or "unable" in answer.lower():
+            return {"success": False, "reason": "Answer indicates failure"}
+        
+        return {"success": True, "tool_calls": tool_calls, "answer_length": len(answer)}
+
+detector = SuccessDetector()
+# result = detector.detect(trajectory)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Success detection is essential for production ReAct: it determines whether to trust the answer, retry, or escalate to a human. Multiple heuristics catch different failure modes. Tune thresholds based on your specific use case.</div>
+<div class="callout hood"><span>Under the hood</span>Heuristic-based success detection is fast and deterministic. For higher accuracy, use LLM-judged evaluation: a separate LLM call evaluates the answer quality. Heuristics are the first line of defense; LLM evaluation is the second.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Replanning After Dead Ends</h3>
+<p><strong>What &amp; why.</strong> ReAct agents sometimes reach dead ends: a tool returns no useful data, a search finds nothing, or a calculation produces an unexpected result. Replanning detects dead ends and generates a new strategy. The agent reasons about why the current approach failed and formulates an alternative plan. This is critical for robustness in real-world scenarios where tools are unreliable.</p>
+<pre class="code"><code>def detect_dead_end(observation, previous_observations):
+    """Detect if the current approach has hit a dead end."""
+    dead_end_signals = [
+        "no results",
+        "not found",
+        "error",
+        "unable to",
+        "empty",
+        "timeout",
+    ]
+    
+    # Check current observation
+    obs_lower = observation.lower()
+    if any(signal in obs_lower for signal in dead_end_signals):
+        return True
+    
+    # Check for repeated observations (stuck in a loop)
+    if len(previous_observations) >= 3:
+        if observation == previous_observations[-1] == previous_observations[-2]:
+            return True
+    
+    return False
+
+def replan_prompt(original_thought, dead_end_obs, original_action):
+    """Generate a replanning prompt after a dead end."""
+    return f"""The previous approach failed:
+Original thought: {original_thought}
+Action taken: {original_action}
+Result: {dead_end_obs}
+
+Reason about why this failed and propose a different approach.
+Consider:
+1. Alternative tools that might work
+2. Different search queries
+3. Breaking the problem into smaller parts
+4. Using different data sources"""
+
+# In the ReAct loop:
+# if detect_dead_end(observation, obs_history):
+#     replan = replan_prompt(thought, observation, action)
+#     prompt += replan</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Dead end detection prevents wasted iterations. When an approach fails, immediately pivot rather than retrying the same action. Detect repeated observations (loop detection) and empty results as dead end signals.</div>
+<div class="callout hood"><span>Under the hood</span>Replanning adds a meta-reasoning step: instead of continuing with the current plan, the agent steps back and formulates a new strategy. This is a higher-order reasoning capability that makes the agent more resilient.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Mixing Search, Calculator, and Code Tools</h3>
+<p><strong>What &amp; why.</strong> Real-world ReAct agents combine multiple tool types: search for information retrieval, calculator for numerical operations, and code execution for complex analysis. The agent must select the right tool for each step based on the task requirements. This tool diversity enables handling diverse subtasks within a single ReAct run.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+
+@tool
+def search(query: str) -> str:
+    """Search for information on the web."""
+    return f"Search results: {query} - [simulated data]"
+
+@tool
+def calculate(expression: str) -> str:
+    """Calculate a mathematical expression."""
+    try:
+        return str(eval(expression))
+    except Exception as e:
+        return f"Error: {e}"
+
+@tool
+def python_code(code: str) -> str:
+    """Execute Python code for complex analysis."""
+    try:
+        result = {}
+        exec(code, {"__builtins__": {}}, result)
+        return str(result.get("result", "No result variable defined"))
+    except Exception as e:
+        return f"Error: {e}"
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+tools = [search, calculate, python_code]
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", (
+        "You have access to three types of tools:\n"
+        "- search: Find information\n"  
+        "- calculate: Do math\n"
+        "- python_code: Complex analysis (define 'result' variable)\n"
+        "Choose the best tool for each step."
+    )),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}"),
+])
+
+agent = create_tool_calling_agent(llm, tools, prompt)
+executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+
+# Agent naturally selects appropriate tools:
+# - search for "What is X?"
+# - calculate for "What is 15% of 230?"
+# - python_code for "Sort this list and find the median"
+result = executor.invoke({
+    "input": "What is the GDP of France? What is 15% of that? Create a bar chart.",
+})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Mixed tool sets enable handling diverse tasks in a single run. The agent selects search for information, calculator for numbers, and code for complex operations. Provide clear tool descriptions to help the LLM choose correctly.</div>
+<div class="callout hood"><span>Under the hood</span>The LLM selects tools based on the task description and tool schemas. Search tools are chosen for information retrieval, calculators for arithmetic, and code executors for complex operations. The tool selection is implicit in the function calling mechanism.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Plan-and-Execute, ReWOO, Reflexion, ToT, multi-agent ReAct</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Plan-and-Execute: Upfront Plan Then Steps</h3>
+<p><strong>What &amp; why.</strong> Plan-and-Execute separates planning from execution. A planner LLM creates a complete plan (list of steps) upfront, then an executor LLM carries out each step. This contrasts with ReAct's reactive approach where each step is planned on-the-fly. Plan-and-Execute is more efficient for well-understood tasks: the plan is created once, and execution follows it systematically. ReAct is better for exploratory tasks where the path is uncertain.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.tools import tool
+from pydantic import BaseModel, Field
+
+@tool
+def search(query: str) -> str:
+    """Search for information."""
+    return f"Results for: {query}"
+
+@tool
+def calculate(expression: str) -> str:
+    """Calculate a math expression."""
+    try:
+        return str(eval(expression))
+    except Exception as e:
+        return f"Error: {e}"
+
+# Step 1: Plan
+plan_prompt = ChatPromptTemplate.from_messages([
+    ("system", "Create a step-by-step plan. Return numbered steps."),
+    ("human", "Task: {input}\n\nCreate a plan:"),
+])
+
+# Step 2: Execute each step
+execute_prompt = ChatPromptTemplate.from_messages([
+    ("system", "Execute the given step using available tools."),
+    ("human", "Step: {step}\nContext: {context}\n\nExecute this step:"),
+])
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# Planner creates the plan
+plan_chain = plan_prompt | llm
+plan_response = plan_chain.invoke({"input": "Compare GDP of USA and China per capita"})
+plan = plan_response.content
+
+# Executor carries out each step
+steps = [line.strip() for line in plan.split("\n") if line.strip().startswith(("1", "2", "3"))]
+context = ""
+for step in steps:
+    execute_chain = execute_prompt | llm
+    result = execute_chain.invoke({"step": step, "context": context})
+    context += f"\n{step}: {result.content}"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Plan-and-Execute is ideal for tasks with predictable structure: research reports, data analysis pipelines, and document generation. The upfront plan enables better resource allocation and early termination if the plan is clearly wrong.</div>
+<div class="callout hood"><span>Under the hood</span>The planner uses the LLM to decompose the task into steps. Each step is then executed independently, with previous results as context. This is a two-phase approach: planning (one LLM call) then execution (one LLM call per step).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>ReWOO: Decouple Plan, Evidence, Workers</h3>
+<p><strong>What &amp; why.</strong> ReWOO (Reasoning Without Observation) separates the planning phase from evidence gathering. A planner creates a complete plan with all tool calls upfront, without seeing intermediate results. Workers then execute all tool calls in parallel. A synthesizer combines all evidence into a final answer. This architecture reduces LLM calls: the planner runs once, workers run in parallel, and the synthesizer runs once.</p>
+<pre class="code"><code># ReWOO architecture (conceptual)
+# 1. Planner: Creates all tool calls upfront
+# 2. Workers: Execute all tool calls (parallel)
+# 3. Synthesizer: Combines evidence into answer
+
+from pydantic import BaseModel, Field
+
+class ToolCall(BaseModel):
+    step_id: str
+    tool_name: str
+    tool_input: str
+    depends_on: list[str] = Field(default_factory=list)
+
+class ReWOOLattice(BaseModel):
+    plan: list[ToolCall]
+    evidence: dict = Field(default_factory=dict)
+
+# Planner creates all tool calls without seeing results
+planner_prompt = """
+Given this question, create a complete plan of tool calls.
+Return a JSON list of tool calls, each with:
+- step_id: unique identifier
+- tool_name: the tool to call
+- tool_input: the input for the tool
+- depends_on: list of step_ids this depends on
+
+Question: {input}
+
+Plan (JSON list of tool calls):
+"""
+
+# Workers execute all independent tool calls in parallel
+# The depends_on field determines execution order
+
+# Synthesizer combines all evidence
+synthesizer_prompt = """
+Question: {input}
+Evidence: {evidence}
+
+Based on this evidence, provide a complete answer:
+"""
+
+# ReWOO is more efficient than ReAct because:
+# - Planner runs once (not per step)
+# - Workers run in parallel
+# - Synthesizer runs once
+# Total LLM calls: ~3 (vs ReAct's 2 * steps)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ReWOO is optimal for tasks where the tool calls are predictable upfront: comparison tasks, fact gathering, and structured analysis. It reduces latency by parallelizing tool execution and minimizing LLM calls.</div>
+<div class="callout hood"><span>Under the hood</span>ReWOO inverts the ReAct paradigm: instead of reasoning after each observation, it plans all actions upfront. This is faster but less adaptive: if a tool call fails, the plan cannot be modified. The tradeoff is speed vs. flexibility.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Reflexion: Verbal-RL Self-Improvement</h3>
+<p><strong>What &amp; why.</strong> Reflexion adds self-reflection to ReAct: after each run, the agent evaluates its performance, identifies failures, and generates lessons for the next attempt. This creates a verbal reinforcement learning loop where the agent improves through self-critique. The key innovation: storing reflection summaries as memory that informs future runs, enabling progressive improvement without weight updates.</p>
+<pre class="code"><code># Reflexion pattern:
+# 1. Attempt: Run ReAct with current strategy
+# 2. Evaluate: Score the attempt against success criteria
+# 3. Reflect: Generate lessons from failures
+# 4. Store: Save reflections as memory
+# 5. Retry: Run ReAct again with reflections as context
+
+class ReflexionAgent:
+    def __init__(self, llm, tools):
+        self.llm = llm
+        self.tools = tools
+        self.reflections = []  # Stored lessons
+    
+    def attempt(self, task):
+        """Run ReAct with current reflections."""
+        reflection_context = "\n".join([
+            f"Lesson {i+1}: {r}" for i, r in enumerate(self.reflections)
+        ])
+        
+        prompt = f"""Task: {task}
+
+Previous lessons:
+{reflection_context}
+
+Use these lessons to avoid past mistakes. Think step by step."""
+        
+        # Run ReAct loop with the prompt
+        return self._run_react(prompt)
+    
+    def evaluate(self, task, result):
+        """Evaluate the attempt."""
+        eval_prompt = f"""Task: {task}
+Result: {result}
+
+Rate this result 1-5 and explain what went wrong:
+"""
+        return self.llm.invoke(eval_prompt)
+    
+    def reflect(self, task, result, evaluation):
+        """Generate lessons from failures."""
+        reflect_prompt = f"""Task: {task}
+Result: {result}
+Evaluation: {evaluation}
+
+What specific lessons should you learn to do better next time?
+Be concrete and actionable."""
+        
+        reflection = self.llm.invoke(reflect_prompt)
+        self.reflections.append(reflection.content)
+        return reflection.content</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Reflexion is valuable for tasks where the same type of task is repeated: code generation (each attempt teaches debugging strategies), research (each run improves search queries), and analysis (each iteration refines methodology).</div>
+<div class="callout hood"><span>Under the hood</span>Reflexion stores verbal reflections instead of gradient updates. The reflections are injected into the prompt for subsequent attempts, giving the agent context about past failures. This is a lightweight form of learning that does not require model fine-tuning.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Tree-of-Thoughts vs ReAct: Exploration Tradeoffs</h3>
+<p><strong>What &amp; why.</strong> Tree-of-Thoughts (ToT) explores multiple reasoning paths simultaneously, evaluating each branch before committing. ReAct follows a single path, adjusting at each step. ToT is better for tasks with clear evaluation functions (puzzles, planning), while ReAct is better for tasks requiring external data (research, analysis). ToT is more expensive due to multiple parallel reasoning paths.</p>
+<pre class="code"><code># ReAct: Linear path with tool grounding
+# Thought -> Action -> Observation -> Thought -> Action -> ...
+
+# Tree-of-Thoughts: Branching exploration
+#         Thought 1
+#        /    |    \
+#    Thought 2a  Thought 2b  Thought 2c
+#      |          |            |
+#   Eval: 3    Eval: 1      Eval: 4  <- Evaluate branches
+#              (prune)       (explore)
+
+# When to use which:
+# ToT: Tasks with verifiable intermediate states
+#   - Puzzle solving (is this state closer to solution?)
+#   - Planning (does this plan satisfy constraints?)
+#   - Game playing (is this position winning?)
+
+# ReAct: Tasks requiring external data
+#   - Research (need to search for facts)
+#   - Analysis (need to compute results)
+#   - Q&A (need to verify information)
+
+# Hybrid: ToT for planning, ReAct for execution
+# 1. Use ToT to explore possible plans
+# 2. Evaluate plans with heuristics
+# 3. Execute the best plan with ReAct</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choose ToT when you have a clear evaluation function and need to explore multiple paths. Choose ReAct when you need external data at each step. For complex tasks, combine both: ToT for strategy, ReAct for execution.</div>
+<div class="callout hood"><span>Under the hood</span>ToT generates multiple candidate thoughts at each step, evaluates them (via LLM or heuristic), and prunes low-quality branches. This is a search algorithm applied to reasoning. ReAct is a greedy search: it always follows the current best path.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>LATS: Lookahead Search Brief</h3>
+<p><strong>What &amp; why.</strong> LATS (Language Agent Tree Search) combines Monte Carlo Tree Search (MCTS) with LLM agents. It expands reasoning branches, simulates outcomes, and backpropagates evaluation scores to select the best path. LATS is the most sophisticated exploration strategy: it balances exploration (trying new paths) with exploitation (following proven paths). It is expensive but produces high-quality results for complex tasks.</p>
+<pre class="code"><code># LATS: MCTS applied to LLM reasoning
+# 1. Selection: Choose a node to expand (UCT algorithm)
+# 2. Expansion: Generate child thoughts
+# 3. Simulation: Evaluate the thought (LLM or heuristic)
+# 4. Backpropagation: Update node values
+
+# Conceptual LATS implementation
+class LATNode:
+    def __init__(self, state, parent=None):
+        self.state = state
+        self.parent = parent
+        self.children = []
+        self.visits = 0
+        self.value = 0.0
+    
+    def uct(self, exploration_weight=1.4):
+        """Upper Confidence Bound for Trees."""
+        if self.visits == 0:
+            return float("inf")
+        return self.value / self.visits + exploration_weight * (
+            (2 * (self.parent.visits or 1) / self.visits) ** 0.5
+        )
+
+def lats_search(root, llm, tools, max_iterations=50):
+    """Simplified LATS search."""
+    for _ in range(max_iterations):
+        # Selection: traverse tree using UCT
+        node = select_node(root)
+        
+        # Expansion: generate new child
+        child = expand_node(node, llm, tools)
+        
+        # Simulation: evaluate the child
+        value = simulate(child, llm)
+        
+        # Backpropagation: update ancestors
+        backpropagate(child, value)
+    
+    # Return best path
+    return get_best_path(root)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LATS is for high-stakes tasks where quality is worth the computational cost: complex planning, multi-step reasoning with evaluation, and tasks where the best solution must be found. It is overkill for simple lookups or straightforward analysis.</div>
+<div class="callout hood"><span>Under the hood</span>LATS applies MCTS to LLM reasoning: each thought is a tree node, simulations use the LLM to evaluate quality, and backpropagation updates node values. The UCT algorithm balances exploration and exploitation, ensuring the search is both thorough and efficient.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Self-Ask: Follow-Up Questions Pattern</h3>
+<p><strong>What &amp; why.</strong> Self-Ask is a pattern where the LLM generates follow-up questions to decompose complex queries. Instead of answering directly, the agent asks itself intermediate questions, answers each one, and combines the answers. This is a natural decomposition strategy: "Who was the US president when the iPhone was released?" becomes "When was the iPhone released?" then "Who was US president in that year?"</p>
+<pre class="code"><code>def self_ask(query, llm_call, tools):
+    """Self-Ask pattern: decompose complex questions."""
+    decompose_prompt = f"""Question: {query}
+
+Is this a compound question? If yes, break it into simpler questions.
+If no, answer directly.
+
+Are follow-up questions needed? Yes or No.
+If Yes, list the follow-up questions.
+"""
+    
+    response = llm_call(decompose_prompt)
+    
+    if "No" in response and "follow-up" in response.lower():
+        # Simple question: answer directly
+        answer_prompt = f"Question: {query}\nAnswer:"
+        return llm_call(answer_prompt)
+    
+    # Compound question: extract and answer sub-questions
+    # Then combine answers into final response
+    
+    # Example decomposition:
+    # Q: "Who was US president when iPhone released?"
+    # Follow-up 1: "When was iPhone released?" -> 2007
+    # Follow-up 2: "Who was US president in 2007?" -> George W. Bush
+    # Final: "George W. Bush was US president when the iPhone was released in 2007."</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Self-Ask is valuable for multi-hop questions that require combining facts from different domains. It naturally decomposes complex queries into simpler, answerable sub-questions. It is simpler to implement than full ReAct for fact-composition tasks.</div>
+<div class="callout hood"><span>Under the hood</span>Self-Ask uses the LLM to detect compound questions and generate sub-questions. Each sub-question is answered independently, and the answers are combined. This is a recursive decomposition: sub-questions may themselves be compound.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Confidence-Aware Stopping Thresholds</h3>
+<p><strong>What &amp; why.</strong> Not all ReAct runs need the same number of steps. Confidence-aware stopping lets the agent terminate early when it is confident in its answer, or continue when uncertainty is high. The agent assesses confidence after each step and decides whether to stop or continue. This optimizes the cost-quality tradeoff: confident answers save tokens; uncertain answers get more investigation.</p>
+<pre class="code"><code>def confidence_check(answer, evidence, threshold=0.8):
+    """Assess confidence in the current answer."""
+    # Simple heuristic confidence scoring
+    confidence_signals = {
+        "has_evidence": len(evidence) >= 2,
+        "consistent": answer not in str(evidence),  # Not just repeating evidence
+        "specific": len(answer.split()) >= 5,  # Detailed answer
+        "no_uncertainty_markers": not any(w in answer.lower() for w in ["maybe", "possibly", "unclear"]),
+        "used_tools": len(evidence) > 0,
+    }
+    
+    score = sum(confidence_signals.values()) / len(confidence_signals)
+    return score >= threshold, score
+
+def react_with_confidence(query, tools, llm_call, confidence_threshold=0.8):
+    """ReAct loop with confidence-aware stopping."""
+    evidence = []
+    prompt = f"Answer: {query}\n\n"
+    
+    for step in range(10):
+        response = llm_call(prompt)
+        
+        if "Final Answer:" in response:
+            answer = response.split("Final Answer:")[-1].strip()
+            is_confident, score = confidence_check(answer, evidence)
+            
+            if is_confident:
+                return {"answer": answer, "confidence": score, "steps": step + 1}
+            else:
+                # Not confident: continue reasoning
+                prompt += f"\n{response}\nObservation: Provide more specific evidence.\n"
+                continue
+        
+        # Execute tool and collect evidence
+        # ... (standard ReAct tool execution)
+    
+    return {"answer": "Max steps", "confidence": 0, "steps": 10}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Confidence-aware stopping optimizes cost for variable-difficulty tasks. Simple questions terminate in 2 steps; complex questions use 8-10. Set thresholds based on your quality requirements: higher thresholds for high-stakes decisions.</div>
+<div class="callout hood"><span>Under the hood</span>Confidence scoring can be heuristic (pattern matching) or LLM-based (a separate evaluation call). Heuristic scoring is fast but less accurate; LLM scoring is accurate but adds cost. Combine both for the best balance.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Multi-Agent ReAct: Specialist Tools</h3>
+<p><strong>What &amp; why.</strong> Multi-agent ReAct assigns different tool sets to different agents, each specializing in a domain. A router agent directs the query to the appropriate specialist. Each specialist has domain-specific tools and expertise. This parallelizes the work and produces higher-quality results because each agent is focused on its domain.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+
+# Specialist tools
+@tool
+def web_search(query: str) -> str:
+    """Search the web for current information."""
+    return f"Web results for: {query}"
+
+@tool  
+def code_execute(code: str) -> str:
+    """Execute Python code."""
+    try:
+        return str(eval(code))
+    except Exception as e:
+        return f"Error: {e}"
+
+@tool
+def db_query(sql: str) -> str:
+    """Query the database."""
+    return f"DB results for: {sql}"
+
+# Research specialist
+research_agent = create_tool_calling_agent(
+    ChatOpenAI(model="gpt-4o"),
+    [web_search],
+    ChatPromptTemplate.from_messages([
+        ("system", "You are a research specialist. Use web search."),
+        ("human", "{input}"),
+        ("placeholder", "{agent_scratchpad}"),
+    ]),
+)
+
+# Code specialist
+code_agent = create_tool_calling_agent(
+    ChatOpenAI(model="gpt-4o"),
+    [code_execute],
+    ChatPromptTemplate.from_messages([
+        ("system", "You are a code specialist. Execute code to solve problems."),
+        ("human", "{input}"),
+        ("placeholder", "{agent_scratchpad}"),
+    ]),
+)
+
+# Data specialist
+data_agent = create_tool_calling_agent(
+    ChatOpenAI(model="gpt-4o"),
+    [db_query],
+    ChatPromptTemplate.from_messages([
+        ("system", "You are a data specialist. Query databases."),
+        ("human", "{input}"),
+        ("placeholder", "{agent_scratchpad}"),
+    ]),
+)
+
+# Router directs to appropriate specialist
+specialists = {
+    "research": research_agent,
+    "code": code_agent,
+    "data": data_agent,
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-agent ReAct is ideal for complex tasks that span multiple domains: data analysis (research + code + database), content production (research + writing + editing), and troubleshooting (logs + code + documentation).</div>
+<div class="callout hood"><span>Under the hood</span>Each specialist agent has a focused tool set and system prompt. A router (another LLM call or classifier) determines which specialist should handle each sub-task. The specialists run independently, and their results are combined by a synthesizer agent.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Theoretical foundations, production governance, and hybrid architectures</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Theory: Interleaving Rationale Grounding Acting Distributions</h3>
+<p><strong>What &amp; why.</strong> The theoretical foundation of ReAct is that interleaving rationale (Thought) with acting (Action) creates a grounded reasoning distribution. Without actions, the LLM's reasoning distribution drifts from reality (hallucination). With actions, each observation anchors the reasoning in factual data. The interleaving prevents distributional drift: each action resets the reasoning to a grounded state. This explains why ReAct outperforms both pure CoT (no grounding) and pure action-taking (no planning).</p>
+<pre class="code"><code># Theoretical insight:
+# P(answer | query) is estimated differently by CoT vs ReAct
+
+# CoT: P(answer | query) = LLM generates answer from internal knowledge
+#   Risk: Distribution drift (hallucination)
+#   The LLM's internal representation may not match reality
+
+# ReAct: P(answer | query, obs1, obs2, ...) where observations are real data
+#   Each observation grounds the distribution
+#   Risk: Tool errors or misleading data (but at least it's grounded)
+
+# The interleaving creates a Markov chain:
+# state_0 = query
+# state_1 = query + thought_1 + action_1 + observation_1
+# state_2 = state_1 + thought_2 + action_2 + observation_2
+# ...
+# Each state is grounded by the observation
+
+# This is why observation quality matters:
+# Bad observation -> wrong grounding -> wrong reasoning -> wrong answer
+# Good observation -> correct grounding -> correct reasoning -> correct answer</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding the theoretical basis helps you debug and optimize ReAct systems. When the agent produces wrong answers, check whether observations are grounding the reasoning correctly. Bad grounding (wrong tools, misleading data) is the primary failure mode.</div>
+<div class="callout hood"><span>Under the hood</span>The theory explains ReAct's empirical success: it constrains the LLM's reasoning to be consistent with observed data. Each observation acts as a checkpoint that prevents the reasoning from drifting into hallucination. The quality of the final answer depends on the quality of the observations.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>When ReAct Hurts: Overthinking Simple Tasks</h3>
+<p><strong>What &amp; why.</strong> ReAct is not always the best pattern. For simple tasks (direct questions, simple calculations, single-lookup Q&A), ReAct adds unnecessary overhead: extra LLM calls for thoughts, tool execution latency, and token costs. A direct LLM call may produce the same answer faster and cheaper. Use a router to detect task complexity and route simple tasks to direct LLM calls, complex tasks to ReAct.</p>
+<pre class="code"><code>def route_by_complexity(query, llm):
+    """Route to direct LLM or ReAct based on task complexity."""
+    classification_prompt = f"""Classify this task:
+    
+Task: {query}
+
+Is this a simple task (direct answer, single fact, basic calculation)
+or a complex task (multi-step reasoning, multiple facts, analysis)?
+
+Answer: simple or complex
+"""
+    response = llm.invoke(classification_prompt)
+    
+    if "simple" in response.content.lower():
+        return "direct"
+    return "react"
+
+def handle_query(query, tools, llm):
+    """Smart routing between direct LLM and ReAct."""
+    route = route_by_complexity(query, llm)
+    
+    if route == "direct":
+        # Single LLM call, no tools
+        response = llm.invoke(query)
+        return {"answer": response.content, "method": "direct", "cost": "low"}
+    else:
+        # Full ReAct loop with tools
+        return react_loop(query, tools, llm)
+
+# Examples:
+# "What is 2+2?" -> direct (no need for ReAct)
+# "Compare GDP of 5 countries" -> ReAct (needs multiple searches)
+# "What color is the sky?" -> direct (common knowledge)
+# "What is the current CEO of Tesla's net worth?" -> ReAct (needs search)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Overthinking is a real cost problem. A simple "what is Python?" question does not need 5 tool calls. Build complexity routers to minimize unnecessary ReAct overhead. Most production systems benefit from this optimization.</div>
+<div class="callout hood"><span>Under the hood</span>The complexity router is a separate LLM call that classifies task difficulty. This adds one extra LLM call but saves many calls for simple tasks. The classification can also use cheaper models (GPT-4o-mini) to reduce routing cost.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Cost-Quality Frontier Analysis</h3>
+<p><strong>What &amp; why.</strong> Every ReAct configuration sits on a cost-quality frontier: more steps and better tools improve quality but increase cost. Analyze this frontier by running evaluations at different configurations (step counts, tool sets, models) and plotting quality vs. cost. This enables informed decisions about which configuration to use for each task type.</p>
+<pre class="code"><code>import time
+
+def benchmark_react_config(query, tools, llm, max_steps, config_name):
+    """Benchmark a specific ReAct configuration."""
+    start = time.time()
+    
+    # Run ReAct with the given config
+    # (simplified - actual implementation would use the full loop)
+    steps_used = 0
+    for step in range(max_steps):
+        steps_used += 1
+        # ... run step
+    
+    elapsed = time.time() - start
+    
+    return {
+        "config": config_name,
+        "max_steps": max_steps,
+        "steps_used": steps_used,
+        "time": elapsed,
+        "estimated_cost": steps_used * 0.003,  # Approximate per step
+    }
+
+# Cost-quality frontier analysis
+configs = [
+    {"name": "fast", "max_steps": 2},
+    {"name": "balanced", "max_steps": 5},
+    {"name": "thorough", "max_steps": 10},
+    {"name": "exhaustive", "max_steps": 15},
+]
+
+# Run benchmarks and plot the frontier
+# Quality increases with steps but with diminishing returns
+# Cost increases linearly with steps
+# Optimal point: where marginal quality gain < marginal cost</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost-quality analysis is essential for production deployment. Run evaluations at multiple configurations and identify the optimal point for your quality requirements and budget. This data drives configuration decisions.</div>
+<div class="callout hood"><span>Under the hood</span>The cost-quality curve typically shows diminishing returns: steps 1-3 provide large quality gains; steps 4-8 provide moderate gains; steps 9+ provide marginal gains. The optimal stopping point depends on your quality bar and budget.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Production Rollout: Shadow Mode First</h3>
+<p><strong>What &amp; why.</strong> Deploy ReAct agents in shadow mode before production: run the agent alongside the existing system, compare outputs, but do not serve the agent's responses to users. Shadow mode reveals failure modes, cost patterns, and quality issues without affecting users. After validating quality and cost, gradually shift traffic to the ReAct agent.</p>
+<pre class="code"><code>import logging
+
+class ShadowModeReAct:
+    """Run ReAct in shadow mode alongside existing system."""
+    
+    def __init__(self, react_agent, existing_system):
+        self.react_agent = react_agent
+        self.existing_system = existing_system
+        self.logger = logging.getLogger("shadow_react")
+    
+    def handle_query(self, query):
+        # Always run existing system (production)
+        production_result = self.existing_system(query)
+        
+        # Shadow: run ReAct but don't serve its result
+        try:
+            shadow_result = self.react_agent(query)
+            self.logger.info(json.dumps({
+                "query": query,
+                "production": production_result,
+                "shadow": shadow_result,
+                "match": production_result == shadow_result,
+            }))
+        except Exception as e:
+            self.logger.error(f"Shadow run failed: {e}")
+        
+        # Serve production result (shadow is observation only)
+        return production_result
+    
+    def promote_to_production(self, threshold=0.9):
+        """Promote ReAct to production after validation."""
+        # Analyze shadow logs
+        # If match rate > threshold, promote
+        pass</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Shadow mode is the safest way to deploy ReAct agents. It provides real-world data without user impact. Run shadow mode for at least one week before promoting to production. Monitor quality, cost, and failure patterns.</div>
+<div class="callout hood"><span>Under the hood</span>Shadow mode runs the ReAct agent in parallel with the existing system. Both receive the same input; only the existing system's output is served. Shadow results are logged for comparison. This reveals how the ReAct agent performs on real traffic.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Governance: Reviewing Sampled Trajectories</h3>
+<p><strong>What &amp; why.</strong> Production ReAct systems require governance: regular review of agent trajectories to ensure quality, safety, and compliance. Sample trajectories randomly, review them manually or with LLM judges, and track quality metrics over time. Governance catches issues that automated metrics miss: inappropriate tool usage, biased reasoning, and safety violations.</p>
+<pre class="code"><code>import json
+import random
+
+class TrajectoryGovernance:
+    """Sample and review ReAct trajectories for governance."""
+    
+    def __init__(self, trajectory_dir, sample_rate=0.1):
+        self.trajectory_dir = trajectory_dir
+        self.sample_rate = sample_rate
+    
+    def sample_trajectories(self, count=10):
+        """Randomly sample trajectories for review."""
+        # Load all trajectory files
+        # Randomly select sample_rate fraction
+        # Return for manual or LLM review
+        pass
+    
+    def review_checklist(self, trajectory):
+        """Checklist for trajectory review."""
+        return {
+            "tool_usage_appropriate": None,  # Did the agent use tools correctly?
+            "reasoning_sound": None,         # Was the reasoning logical?
+            "no_hallucination": None,        # Did the agent avoid fabricating facts?
+            "safe_tool_calls": None,         # Were tool calls safe and appropriate?
+            "cost_reasonable": None,         # Was the cost appropriate for the task?
+            "answer_accurate": None,         # Was the final answer correct?
+        }
+    
+    def generate_report(self, reviewed_trajectories):
+        """Generate governance report from reviews."""
+        issues = []
+        for traj, review in reviewed_trajectories:
+            for check, passed in review.items():
+                if passed is False:
+                    issues.append({
+                        "trajectory": traj.get("id"),
+                        "issue": check,
+                        "severity": "high" if "hallucination" in check else "medium",
+                    })
+        
+        return {
+            "total_reviewed": len(reviewed_trajectories),
+            "issues_found": len(issues),
+            "issues": issues,
+        }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Governance is mandatory for production ReAct in regulated industries. Sample 5-10% of trajectories for review. Track issue rates over time. Use LLM-judged evaluation for scale; manual review for calibration.</div>
+<div class="callout hood"><span>Under the hood</span>Governance reviews check both technical quality (did the agent follow the ReAct grammar?) and semantic quality (was the reasoning sound and the answer correct?). Issues are categorized by severity and tracked for remediation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Hybrid Architectures: Graph-Loop-ReAct Stack</h3>
+<p><strong>What &amp; why.</strong> Production systems often combine multiple patterns: LangGraph for orchestration, ReAct for tool-using agents, and simple LLM calls for routing. The hybrid stack uses each pattern where it excels: graphs for workflow control, ReAct for grounded reasoning, and direct calls for simple tasks. This produces the most efficient and maintainable architecture.</p>
+<pre class="code"><code>from langgraph.graph import StateGraph, START, END
+from langchain_openai import ChatOpenAI
+from langchain_core.tools import tool
+from typing import TypedDict
+
+class AppState(TypedDict):
+    query: str
+    complexity: str
+    answer: str
+    source: str
+
+@tool
+def search(query: str) -> str:
+    """Search for information."""
+    return f"Results for: {query}"
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# Node 1: Route by complexity (simple LLM call)
+def router(state: AppState) -> dict:
+    response = llm.invoke(f"Is this simple or complex? {state['query']}")
+    return {"complexity": "simple" if "simple" in response.content.lower() else "complex"}
+
+# Node 2: Direct answer (simple LLM call)
+def direct_answer(state: AppState) -> dict:
+    response = llm.invoke(state["query"])
+    return {"answer": response.content, "source": "direct"}
+
+# Node 3: ReAct agent (tool-using loop)
+def react_answer(state: AppState) -> dict:
+    # Full ReAct loop with tools
+    # ... (implement ReAct loop)
+    return {"answer": "React result", "source": "react"}
+
+def route(state: AppState) -> str:
+    return "direct" if state["complexity"] == "simple" else "react"
+
+# Graph orchestrates the hybrid approach
+graph = StateGraph(AppState)
+graph.add_node("router", router)
+graph.add_node("direct", direct_answer)
+graph.add_node("react", react_answer)
+graph.add_edge(START, "router")
+graph.add_conditional_edges("router", route, {"direct": "direct", "react": "react"})
+graph.add_edge("direct", END)
+graph.add_edge("react", END)
+
+app = graph.compile()
+result = app.invoke({"query": "What is 2+2?", "complexity": "", "answer": "", "source": ""})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hybrid architectures are the most practical approach for production. Use LangGraph for workflow orchestration, ReAct for tool-using reasoning, and direct LLM calls for simple tasks. This gives you the best of all patterns.</div>
+<div class="callout hood"><span>Under the hood</span>The graph defines the outer workflow. Within graph nodes, ReAct loops handle tool-using reasoning. Simple tasks bypass ReAct entirely. This layered approach minimizes cost while maximizing quality.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Open Web Researcher with Cited Final Answers</h3>
+<p>Build a ReAct-based research agent that searches the web, synthesizes information from multiple sources, and produces cited final answers. The agent tracks sources throughout the reasoning process and includes citations in the final output.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define a SearchTool that queries a search API and returns structured results with URLs and snippets</li><li>Create a ReAct agent with search and calculate tools using LangChain's create_tool_calling_agent</li><li>Implement source tracking: each search observation records the URL and snippet used</li><li>Add citation extraction: parse search results to extract source URLs and publication dates</li><li>Configure the agent to include citations in Final Answer format</li><li>Implement observation truncation to keep search results within token limits</li><li>Add trajectory logging in JSONL format for evaluation and debugging</li><li>Build a simple web interface using FastAPI that accepts questions and returns cited answers</li></ol>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+import json
+
+sources_used = []
+
+@tool
+def web_search(query: str) -> str:
+    """Search the web for information. Returns results with sources."""
+    # Simulated search results
+    results = [
+        {"title": "Source A", "url": "https://example.com/a", "snippet": "Fact about the topic"},
+        {"title": "Source B", "url": "https://example.com/b", "snippet": "Additional information"},
+    ]
+    
+    # Track sources
+    for r in results:
+        sources_used.append({"url": r["url"], "title": r["title"]})
+    
+    return "\n".join([f"{r['title']}: {r['snippet']} ({r['url']})" for r in results])
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", (
+        "You are a research assistant. Search for information and "
+        "provide answers with citations. Always cite your sources "
+        "in the format [Source Title](URL)."
+    )),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}"),
+])
+
+agent = create_tool_calling_agent(llm, [web_search], prompt)
+executor = AgentExecutor(agent=agent, tools=[web_search], verbose=True, max_iterations=6)
+
+result = executor.invoke({"input": "What are the benefits of microservices?"})
+print(f"Answer: {result['output']}")
+print(f"Sources: {json.dumps(sources_used, indent=2)}")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>ReAct agent with web search tool integration</li><li>Source tracking and citation extraction</li><li>Observation truncation for token management</li><li>Trajectory logging for evaluation</li><li>FastAPI integration for web serving</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Spreadsheet Analyst: Multi-Tool Reasoner</h3>
+<p>Build a ReAct agent that analyzes spreadsheet data using multiple tools: a data loader, a calculator, a chart generator, and a statistics tool. The agent reasons about which tool to use at each step, loading data, computing statistics, and generating visualizations.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Create a DataLoadTool that reads CSV/Excel files and returns column names, row counts, and sample data</li><li>Create a StatsTool that computes summary statistics (mean, median, std, correlations) for specified columns</li><li>Create a ChartTool that generates matplotlib charts based on specified parameters</li><li>Create a FilterTool that filters data by conditions and returns matching rows</li><li>Build the ReAct agent with all four tools using LangChain's tool-calling agent</li><li>Implement a multi-step analysis pipeline: load -> filter -> stats -> chart -> summary</li><li>Add error handling for data format issues, missing columns, and chart generation failures</li><li>Log the full trajectory including data shapes, statistics computed, and charts generated</li></ol>
+<pre class="code"><code>import pandas as pd
+from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+
+@tool
+def load_data(filepath: str) -> str:
+    """Load a CSV file and return its structure."""
+    df = pd.read_csv(filepath)
+    return f"Shape: {df.shape}, Columns: {list(df.columns)}, Sample: {df.head(2).to_dict()}"
+
+@tool
+def compute_stats(filepath: str, column: str) -> str:
+    """Compute statistics for a column."""
+    df = pd.read_csv(filepath)
+    if column not in df.columns:
+        return f"Column '{column}' not found. Available: {list(df.columns)}"
+    stats = df[column].describe()
+    return stats.to_string()
+
+@tool
+def filter_data(filepath: str, column: str, condition: str) -> str:
+    """Filter data by condition."""
+    df = pd.read_csv(filepath)
+    filtered = df.query(f"{column} {condition}")
+    return f"Filtered: {len(filtered)} rows. Sample: {filtered.head(3).to_dict()}"
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+tools = [load_data, compute_stats, filter_data]
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "Analyze spreadsheet data step by step. Load, filter, compute stats."),
+    ("human", "{input}"),
+    ("placeholder", "{agent_scratchpad}"),
+])
+
+agent = create_tool_calling_agent(llm, tools, prompt)
+executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=8)
+
+result = executor.invoke({
+    "input": "Load sales.csv, filter rows where revenue > 1000, compute stats for revenue column"
+})</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Multi-tool ReAct with data analysis tools</li><li>Pandas integration for spreadsheet processing</li><li>Step-by-step analysis with intermediate results</li><li>Error handling for data format issues</li><li>Trajectory logging for analysis audit trail</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Trajectory Eval Dashboard: Replaying JSONL Runs</h3>
+<p>Build an evaluation dashboard that loads JSONL trajectory files, replays ReAct runs step-by-step, and displays reasoning quality metrics. The dashboard helps debug agent failures, evaluate prompt changes, and compare different configurations.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define the JSONL trajectory schema with fields for step, thought, action, observation, timing, and tokens</li><li>Build a trajectory loader that reads JSONL files and parses them into structured step objects</li><li>Create a step-by-step replay viewer that shows each Thought-Action-Observation cycle with expand/collapse</li><li>Implement quality metrics: tool usage count, error rate, steps to completion, and total cost</li><li>Add comparison mode: load two trajectory files side-by-side to compare different runs</li><li>Build filter functionality: filter by task type, success/failure, cost range, and step count</li><li>Implement LLM-judged evaluation: score trajectory quality using a separate LLM call</li><li>Add export functionality: export selected trajectories as training data for fine-tuning</li></ol>
+<pre class="code"><code>import json
+from dataclasses import dataclass
+
+@dataclass
+class TrajectoryStep:
+    step: int
+    thought: str
+    action: str
+    action_input: str
+    observation: str
+    timestamp: float
+    tokens: int
+
+class TrajectoryLoader:
+    """Load and parse JSONL trajectory files."""
+    
+    def __init__(self, filepath):
+        self.filepath = filepath
+        self.steps = self._load()
+    
+    def _load(self):
+        steps = []
+        with open(self.filepath) as f:
+            for line in f:
+                data = json.loads(line)
+                if data.get("step") != "final":
+                    steps.append(TrajectoryStep(
+                        step=data["step"],
+                        thought=data.get("thought", ""),
+                        action=data.get("action", ""),
+                        action_input=data.get("action_input", ""),
+                        observation=data.get("observation", ""),
+                        timestamp=data.get("timestamp", 0),
+                        tokens=data.get("tokens", 0),
+                    ))
+        return steps
+    
+    def metrics(self):
+        """Compute trajectory quality metrics."""
+        return {
+            "total_steps": len(self.steps),
+            "total_tokens": sum(s.tokens for s in self.steps),
+            "tool_calls": len([s for s in self.steps if s.action]),
+            "avg_thought_length": sum(len(s.thought) for s in self.steps) / max(len(self.steps), 1),
+            "total_time": self.steps[-1].timestamp if self.steps else 0,
+        }
+
+class TrajectoryEvaluator:
+    """Evaluate trajectory quality with LLM judgment."""
+    
+    def __init__(self, llm):
+        self.llm = llm
+    
+    def evaluate(self, trajectory):
+        eval_prompt = f"""Evaluate this ReAct trajectory:
+
+Steps:
+{json.dumps([{'thought': s.thought, 'action': s.action, 'observation': s.observation[:200]} for s in trajectory.steps], indent=2)}
+
+Score 1-5 on: reasoning quality, tool usage efficiency, answer accuracy.
+Provide brief justification for each score."""
+        
+        response = self.llm.invoke(eval_prompt)
+        return response.content
+
+# Usage
+loader = TrajectoryLoader("trajectory_001.jsonl")
+print(loader.metrics())
+
+evaluator = TrajectoryEvaluator(llm)
+score = evaluator.evaluate(loader)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>JSONL trajectory parsing and structured loading</li><li>Quality metrics computation for ReAct runs</li><li>Step-by-step replay for debugging</li><li>LLM-judged evaluation for trajectory quality</li><li>Comparison mode for A/B testing configurations</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>ReAct pattern</td><td>Interleave reasoning with tool-calling actions</td><td>Thought -> Action -> Observation loop</td></tr>
+<tr><td>Thought</td><td>LLM reasoning about current state and next action</td><td>Thought: [reasoning text]</td></tr>
+<tr><td>Action</td><td>Tool invocation with structured input</td><td>Action: tool_name, Action Input: input</td></tr>
+<tr><td>Observation</td><td>Tool output fed back to reasoning</td><td>Observation: [tool result]</td></tr>
+<tr><td>Final Answer</td><td>Terminal response ending the loop</td><td>Final Answer: [complete answer]</td></tr>
+<tr><td>Function calling</td><td>Native tool invocation without text parsing</td><td>@tool decorator + create_tool_calling_agent</td></tr>
+<tr><td>Strict schemas</td><td>Pydantic models for tool parameter validation</td><td>@tool(args_schema=MyModel)</td></tr>
+<tr><td>Observation truncation</td><td>Limit observation size to fit context window</td><td>truncate_observation(obs, max_chars=2000)</td></tr>
+<tr><td>Self-correction</td><td>Detect tool errors and try alternatives</td><td>Error handling in system prompt</td></tr>
+<tr><td>Parallel tool calls</td><td>Execute multiple independent tools simultaneously</td><td>AgentExecutor with concurrent tools</td></tr>
+<tr><td>Memory/scratchpad</td><td>Reuse previous reasoning steps and observations</td><td>ConversationBufferWindowMemory</td></tr>
+<tr><td>Trajectory logging</td><td>Record every step as JSONL for analysis</td><td>json.dumps(entry) + "\n"</td></tr>
+<tr><td>Success detection</td><td>Heuristics to determine if ReAct succeeded</td><td>tool_calls > 0, answer != error</td></tr>
+<tr><td>Replanning</td><td>Detect dead ends and formulate new strategy</td><td>detect_dead_end() -> replan_prompt()</td></tr>
+<tr><td>Iteration cap</td><td>Limit total ReAct steps to prevent runaway</td><td>max_iterations=10 on AgentExecutor</td></tr>
+<tr><td>Plan-and-Execute</td><td>Plan upfront, then execute each step</td><td>Planner chain + Executor chain</td></tr>
+<tr><td>ReWOO</td><td>Plan all tool calls upfront, execute in parallel</td><td>Lattice with depends_on graph</td></tr>
+<tr><td>Reflexion</td><td>Self-reflection and lessons for improvement</td><td>attempt -> evaluate -> reflect -> retry</td></tr>
+<tr><td>Tree-of-Thoughts</td><td>Explore multiple reasoning branches</td><td>Branch generation + evaluation + pruning</td></tr>
+<tr><td>LATS</td><td>MCTS applied to LLM reasoning</td><td>UCT selection + simulation + backprop</td></tr>
+<tr><td>Self-Ask</td><td>Decompose complex questions into sub-questions</td><td>Are follow-up questions needed?</td></tr>
+<tr><td>Confidence-aware</td><td>Stop early when confident, continue when uncertain</td><td>confidence_check() threshold</td></tr>
+<tr><td>Multi-agent ReAct</td><td>Specialist agents with domain-specific tools</td><td>Router -> specialist agents</td></tr>
+<tr><td>Cost-quality frontier</td><td>Analyze tradeoff between steps and quality</td><td>Benchmark at multiple max_steps</td></tr>
+<tr><td>Shadow mode</td><td>Run ReAct alongside existing system without serving</td><td>ShadowModeReAct class</td></tr>
+<tr><td>Governance</td><td>Sample and review trajectories for quality</td><td>TrajectoryGovernance class</td></tr>
+<tr><td>Hybrid architecture</td><td>Combine graph + ReAct + direct LLM calls</td><td>LangGraph + ReAct nodes</td></tr>
+<tr><td>Complexity router</td><td>Route simple tasks to direct LLM, complex to ReAct</td><td>route_by_complexity() function</td></tr>
+<tr><td>Hotpot QA</td><td>Multi-hop questions requiring multiple searches</td><td>Search -> reason -> search -> combine</td></tr>
+<tr><td>ReAct vs CoT</td><td>ReAct grounds reasoning in tool data; CoT may hallucinate</td><td>ReAct for fact-dependent tasks</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="autogen.html">&larr; AutoGen</a><a href="ai-design-patterns.html">AI Design Patterns &rarr;</a></footer>
+</body></html>

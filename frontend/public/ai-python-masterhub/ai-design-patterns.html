@@ -1,0 +1,1921 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Design Patterns — Proven Architectures — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / AI Design Patterns — Proven Architectures</span><span class="spacer"></span>
+<a class="navlink" href="react-patterns.html">&larr; ReAct Patterns</a> <a class="navlink" href="guardrails.html">Guardrails &rarr;</a></nav>
+<header class="hero"><div class="mono">DP</div><div><h1>AI Design Patterns — Proven Architectures</h1>
+<p class="tagline">Reusable, battle-tested architectural patterns for composing LLM calls, tools, and human oversight into reliable AI systems.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Design patterns give you named, proven solutions to recurring problems in AI system architecture. Rather than inventing structures from scratch, you select and compose patterns from a shared vocabulary. This chapter covers the essential catalog from single-call baselines through multi-agent orchestration, anti-patterns to avoid, and governance strategies for pattern libraries at scale.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Core vocabulary: what a pattern is, the catalog map, chain, router, single-call, template, validator, retry, cache, fan-out, aggregator, HITL</td><td>You can identify and implement the 12 foundational patterns</td></tr>
+<tr><td>Tier 2</td><td>Orchestrator-workers, evaluator-optimizer, generator-critic, triage, saga, circuit breaker, bulkhead, sidecar, event-sourced, blackboard, mentor-verifier, adapter</td><td>You can compose intermediate patterns for complex workflows</td></tr>
+<tr><td>Tier 3</td><td>Selection matrix, composition safety, anti-patterns, idempotency, versioning, testing seams, observability, cost profiles, latency budgets, refactoring</td><td>You can make informed tradeoff decisions and avoid pitfalls</td></tr>
+<tr><td>Tier 4</td><td>Formal pattern language, distributed variants, consistency models, capability matrices, evolution, org adoption, security, performance, case studies, research</td><td>You can design and govern pattern libraries for enterprise systems</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready pattern-based AI applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Core pattern vocabulary and single-call basics</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>What a Pattern Is: Problem-Force-Solution</h3>
+<p><strong>What &amp; why.</strong> A design pattern is a named, reusable solution to a recurring problem under specific forces. Unlike ad-hoc code, a pattern has a name that communicates intent, a context where it applies, forces that make the problem non-trivial, and a solution structure that resolves those forces. In AI systems, patterns emerge from repeated failures: hallucinations drive the Validator pattern, latency drives the Cache-Aside pattern, and autonomy risks drive the Human-in-the-Loop gate.</p>
+<pre class="code"><code># Pattern anatomy: every pattern has these components
+pattern = {
+    "name": "Retry-With-Feedback",
+    "problem": "LLM calls intermittently fail or return low-quality output",
+    "forces": ["provider unreliability", "quality variance", "cost sensitivity"],
+    "solution": "On failure, feed error details back to the LLM and retry",
+    "tradeoffs": ["increased latency", "higher cost", "improved reliability"],
+    "context": "production pipelines where reliability matters more than speed",
+}
+
+# Using a pattern means applying the structure, not copying code
+# The same pattern appears in different implementations:
+# - RetryWithFeedback class
+# - retry decorator with error context
+# - LangGraph loop node with feedback edge</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every AI architecture discussion uses pattern names as shorthand. Saying "we need a Validator wrapping the output" communicates the structure, tradeoffs, and implementation approach in three words.</div>
+<div class="callout hood"><span>Under the hood</span>The pattern concept comes from Christopher Alexander's architecture work, adopted by the Gang-of-Four for software. In AI, patterns are newer but equally important: they encode hard-won lessons about LLM behavior, failure modes, and composition strategies.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Pattern Catalog Map Overview</h3>
+<p><strong>What &amp; why.</strong> The AI design pattern catalog is organized by complexity: single-call patterns (baseline), composition patterns (multiple calls), control-flow patterns (branching and looping), and systemic patterns (cross-cutting concerns). Understanding the map helps you select the right pattern without implementing everything first. Start simple and add patterns as problems emerge.</p>
+<pre class="code"><code># Pattern catalog map (simplified)
+CATALOG = {
+    "single-call": {
+        "Single LLM Call": "Baseline for any task",
+        "Prompt Template": "Reusable prompt structure",
+        "Validator": "Wrap output with schema check",
+    },
+    "composition": {
+        "Chain/Pipeline": "Sequential steps",
+        "Fan-Out/Gather": "Parallel calls",
+        "Aggregator": "Merge multiple results",
+    },
+    "control-flow": {
+        "Router/Classifier": "Dispatch to handlers",
+        "Retry-With-Feedback": "Loop on failure",
+        "Human-in-the-Loop": "Pause for approval",
+    },
+    "caching": {
+        "Cache-Aside": "Store/retrieve LLM responses",
+    },
+}
+
+# Selection heuristic:
+# 1. Start with Single LLM Call
+# 2. Add Prompt Template for reuse
+# 3. Add Validator for reliability
+# 4. Add Router when you need dispatch
+# 5. Add Chain when steps are sequential
+# 6. Add Fan-Out when steps are parallel</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The catalog map is your architecture planning tool. Before writing code, sketch which patterns you need. This prevents over-engineering (too many patterns) and under-engineering (missing critical patterns like validation).</div>
+<div class="callout hood"><span>Under the hood</span>The catalog mirrors the structure of software design pattern catalogs: patterns at similar complexity levels can be combined, and higher-level patterns often compose lower-level ones. A Saga pattern, for example, composes Chain, Validator, and Retry.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Chain / Pipeline: Sequential Steps</h3>
+<p><strong>What &amp; why.</strong> The Chain pattern connects LLM calls and tools in a linear sequence where each step's output feeds the next step's input. Pipelines are the most common composition pattern: extract then transform then load, or research then draft then review. Each step is independent and testable, and the chain fails fast when any step fails.</p>
+<pre class="code"><code>from typing import Callable
+
+def chain(*steps: Callable) -> Callable:
+    """Compose steps into a sequential pipeline."""
+    def execute(input_data):
+        result = input_data
+        for step in steps:
+            result = step(result)
+        return result
+    return execute
+
+def extract(raw_text: str) -> dict:
+    return {"entities": raw_text.split(","), "length": len(raw_text)}
+
+def transform(data: dict) -> dict:
+    return {"entities": [e.strip().lower() for e in data["entities"]],
+            "count": len(data["entities"])}
+
+def validate(data: dict) -> dict:
+    assert data["count"] > 0, "No entities found"
+    return data
+
+pipeline = chain(extract, transform, validate)
+result = pipeline("Alice, Bob, Charlie")
+print(result)  # {"entities": ["alice", "bob", "charlie"], "count": 3}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Chains appear everywhere: RAG pipelines (retrieve then augment then generate), content pipelines (research then draft then edit), and data pipelines (extract then clean then load). Start with a chain before adding branching.</div>
+<div class="callout hood"><span>Under the hood</span>Each step in the chain is a function with a defined input/output contract. The chain orchestrator handles sequencing, error propagation, and optional logging between steps. Frameworks like LangChain and LangGraph provide chain abstractions with additional features like memory and streaming.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Router / Classifier: Dispatch to Handlers</h3>
+<p><strong>What &amp; why.</strong> The Router pattern classifies incoming requests and dispatches them to specialized handlers. Instead of one LLM call trying to handle everything, a lightweight classifier routes each request to the most appropriate handler: a billing question goes to the billing handler, a technical question goes to the technical handler. This improves accuracy by giving each handler a focused scope.</p>
+<pre class="code"><code>from enum import Enum
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+class Category(Enum):
+    BILLING = "billing"
+    TECHNICAL = "technical"
+    GENERAL = "general"
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+def classify(query: str) -> Category:
+    resp = llm.invoke([HumanMessage(content=(
+        f"Classify into exactly one: billing, technical, general.\n"
+        f"Query: {query}\nCategory:"
+    ))])
+    return Category(resp.content.strip().lower())
+
+handlers = {
+    Category.BILLING: lambda q: f"Billing answer for: {q}",
+    Category.TECHNICAL: lambda q: f"Technical answer for: {q}",
+    Category.GENERAL: lambda q: f"General answer for: {q}",
+}
+
+def route(query: str) -> str:
+    category = classify(query)
+    return handlers[category](query)
+
+print(route("How do I reset my password?"))  # General handler</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Routers power customer support triage, intent classification in chatbots, and model routing (simple queries to cheap models, complex ones to expensive models). The pattern reduces cost by avoiding expensive models for simple tasks.</div>
+<div class="callout hood"><span>Under the hood</span>The classifier can be a fine-tuned small model, a few-shot LLM call, or an embedding-based similarity search. The tradeoff is classifier accuracy versus latency: an LLM classifier adds one call but is more flexible than a rule-based system.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Single LLM Call: Baseline Always Start Here</h3>
+<p><strong>What &amp; why.</strong> Before implementing any complex pattern, start with a single LLM call. The single-call baseline establishes the minimum viable solution: send a prompt, get a response, check if it is good enough. Most tasks need only this. Adding patterns is justified only when the single call fails to meet quality, reliability, or cost requirements. Measure first, then decide.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def baseline_call(query: str) -> dict:
+    """Single LLM call as baseline measurement."""
+    response = llm.invoke([HumanMessage(content=query)])
+    return {
+        "answer": response.content,
+        "tokens_used": response.usage_metadata.get("total_tokens", 0),
+        "model": "gpt-4o",
+        "latency_ms": 0,  # measured externally
+    }
+
+# Always run this first to establish quality baseline
+result = baseline_call("Summarize the benefits of microservices")
+print(f"Answer: {result['answer'][:100]}...")
+print(f"Tokens: {result['tokens_used']}")
+
+# Measure: quality (human eval), cost (tokens), latency (time)
+# Only add patterns if this baseline is insufficient</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every AI project should start with a single-call baseline. It establishes the quality floor and cost ceiling. If a single call with a good prompt achieves 95% accuracy, the remaining 5% may not justify the complexity of multi-call patterns.</div>
+<div class="callout hood"><span>Under the hood</span>The baseline is also your debugging reference. When a complex pattern fails, you compare against the single call to determine if the pattern introduced the failure or if the underlying task is just hard.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Prompt Template as a Pattern</h3>
+<p><strong>What &amp; why.</strong> A Prompt Template is a reusable, parameterized prompt structure that standardizes how you interact with LLMs. Unlike ad-hoc string concatenation, templates separate the prompt structure from the variable data. They enable A/B testing of prompt phrasing, version control of prompts, and consistent behavior across your application. Every pattern that involves an LLM call benefits from templated prompts.</p>
+<pre class="code"><code>from langchain_core.prompts import ChatPromptTemplate
+
+# Structured template with variables
+template = ChatPromptTemplate.from_messages([
+    ("system", (
+        "You are a {domain} expert. Answer concisely. "
+        "If unsure, say 'I don't know'. "
+        "Tone: {tone}. Max length: {max_words} words."
+    )),
+    ("human", "{question}"),
+])
+
+# Instantiate with variables
+prompt = template.invoke({
+    "domain": "Python",
+    "tone": "professional",
+    "max_words": 100,
+    "question": "What are Python decorators?",
+})
+
+# Version control: track template versions
+TEMPLATES = {
+    "v1": template,
+    "v2": ChatPromptTemplate.from_messages([
+        ("system", "You are a {domain} expert. Be concise and accurate."),
+        ("human", "{question}"),
+    ]),
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Templates are the foundation of prompt engineering at scale. They enable systematic testing (swap variables to test edge cases), team collaboration (shared templates), and rollback (revert to a previous template version).</div>
+<div class="callout hood"><span>Under the hood</span>LangChain's ChatPromptTemplate supports variable interpolation, few-shot examples as message placeholders, and conditional prompt sections. The template compiles to a function that maps variables to a list of messages.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Validator: Wrapper Around Outputs</h3>
+<p><strong>What &amp; why.</strong> The Validator pattern wraps LLM outputs with a schema check, catching malformed or out-of-range responses before they propagate downstream. LLMs frequently produce text that looks plausible but violates structural requirements: missing fields, wrong types, or values outside acceptable ranges. A validator catches these early and either fixes them or triggers a retry.</p>
+<pre class="code"><code>from pydantic import BaseModel, Field, field_validator
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+class SentimentResult(BaseModel):
+    label: str = Field(description="positive, negative, or neutral")
+    confidence: float = Field(ge=0.0, le=1.0)
+
+    @field_validator("label")
+    @classmethod
+    def must_be_valid(cls, v):
+        if v not in ("positive", "negative", "neutral"):
+            raise ValueError(f"Invalid label: {v}")
+        return v
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def validate_sentiment(text: str) -> SentimentResult:
+    raw = llm.invoke([HumanMessage(content=(
+        f"Classify sentiment as JSON: {{label, confidence}}\nText: {text}"
+    ))])
+    result = SentimentResult.model_validate_json(raw.content)
+    return result
+
+try:
+    result = validate_sentiment("This is great!")
+    print(f"{result.label}: {result.confidence}")
+except Exception as e:
+    print(f"Validation failed: {e}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Validators are essential for any LLM output that feeds into downstream code. Use them for structured data extraction, classification, parameter generation, and any case where downstream code assumes specific types or ranges.</div>
+<div class="callout hood"><span>Under the hood</span>Pydantic v2 uses Rust-based validation for speed. Combined with structured output (response_format), you can enforce schemas at the API level, reducing validation failures. When validation fails, the error message can feed back to the LLM for correction.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Retry-With-Feedback Loop</h3>
+<p><strong>What &amp; why.</strong> When an LLM call fails or produces invalid output, the Retry-With-Feedback pattern feeds the error details back to the LLM and asks it to try again. Unlike blind retries that repeat the same call, feedback-informed retries give the LLM specific information about what went wrong, enabling self-correction. This dramatically improves success rates for structured output tasks.</p>
+<pre class="code"><code>from pydantic import BaseModel, ValidationError
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+class CalendarEvent(BaseModel):
+    title: str
+    date: str  # YYYY-MM-DD
+    attendees: int
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def retry_with_feedback(query: str, max_retries: int = 3) -> CalendarEvent:
+    errors = []
+    for attempt in range(max_retries):
+        context = query
+        if errors:
+            context += f"\n\nPrevious errors (fix these):\n" + "\n".join(errors)
+        raw = llm.invoke([HumanMessage(content=context)])
+        try:
+            return CalendarEvent.model_validate_json(raw.content)
+        except ValidationError as e:
+            errors.append(f"Attempt {attempt+1}: {e}")
+    raise RuntimeError(f"Failed after {max_retries} attempts: {errors}")
+
+result = retry_with_feedback(
+    "Extract: Team standup on 2025-03-15, 5 people attending. "
+    "Return JSON with title, date, attendees fields."
+)
+print(result)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Retry-with-feedback is critical for structured extraction tasks where the LLM sometimes produces valid-but-wrong JSON, missing fields, or malformed dates. It improves first-pass yield from ~70% to ~95% for complex schemas.</div>
+<div class="callout hood"><span>Under the hood</span>The feedback loop works because LLMs can learn from in-context error messages. Each retry includes the previous errors, creating a few-shot learning effect. The key is providing specific, actionable error messages rather than generic "try again" instructions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Cache-Aside for LLM Responses</h3>
+<p><strong>What &amp; why.</strong> The Cache-Aside pattern stores LLM responses so identical or similar queries can be served from cache instead of making expensive API calls. The application first checks the cache; on a miss, it calls the LLM and stores the result. This reduces cost, latency, and API rate-limit pressure. Semantic caching extends this to similar queries using embedding similarity.</p>
+<pre class="code"><code>import hashlib, json, time
+
+class LLMCache:
+    def __init__(self, ttl_seconds: int = 3600):
+        self.store: dict[str, dict] = {}
+        self.ttl = ttl_seconds
+
+    def _key(self, model: str, prompt: str) -> str:
+        raw = f"{model}:{prompt}"
+        return hashlib.sha256(raw.encode()).hexdigest()
+
+    def get(self, model: str, prompt: str) -> str | None:
+        key = self._key(model, prompt)
+        entry = self.store.get(key)
+        if entry and time.time() - entry["ts"] < self.ttl:
+            return entry["response"]
+        return None
+
+    def set(self, model: str, prompt: str, response: str):
+        key = self._key(model, prompt)
+        self.store[key] = {"response": response, "ts": time.time()}
+
+cache = LLMCache(ttl_seconds=1800)
+
+def cached_llm_call(model: str, prompt: str) -> str:
+    hit = cache.get(model, prompt)
+    if hit:
+        return hit  # cache hit, no API call
+    response = call_llm_api(model, prompt)  # your API call
+    cache.set(model, prompt, response)
+    return response</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Caching is essential for any production LLM system. FAQ-style queries, classification tasks, and template-based generation benefit enormously. Semantic caching (using embeddings to match similar queries) extends the hit rate beyond exact matches.</div>
+<div class="callout hood"><span>Under the hood</span>Cache keys are typically SHA-256 hashes of the model name plus full prompt. TTL (time-to-live) ensures stale responses are refreshed. For semantic caching, compute an embedding of the prompt and use vector similarity (cosine) to find near-duplicate cached queries.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Fan-Out / Gather: Parallel Calls</h3>
+<p><strong>What &amp; why.</strong> The Fan-Out pattern dispatches multiple independent LLM calls in parallel, then Gather collects their results. When a task has independent subtasks, running them concurrently reduces total latency from the sum of individual calls to the duration of the slowest call. This is especially valuable when calling multiple different models or processing multiple documents simultaneously.</p>
+<pre class="code"><code>import asyncio
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+async def summarize_chunk(chunk: str) -> str:
+    from langchain_core.messages import HumanMessage
+    resp = await llm.ainvoke([HumanMessage(content=f"Summarize: {chunk}")])
+    return resp.content
+
+async def fan_out_gather(chunks: list[str]) -> list[str]:
+    tasks = [summarize_chunk(chunk) for chunk in chunks]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    summaries = []
+    for r in results:
+        if isinstance(r, Exception):
+            summaries.append(f"Error: {r}")
+        else:
+            summaries.append(r)
+    return summaries
+
+chunks = [
+    "Python 3.12 introduces type parameter syntax.",
+    "FastAPI supports WebSocket connections natively.",
+    "React 19 adds server components by default.",
+]
+summaries = asyncio.run(fan_out_gather(chunks))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fan-out is used in multi-document RAG (summarize each document in parallel), multi-model evaluation (query multiple models simultaneously), and content generation (generate multiple drafts at once for selection).</div>
+<div class="callout hood"><span>Under the hood</span>asyncio.gather runs coroutines concurrently on the event loop. For CPU-bound work, use ProcessPoolExecutor. The tradeoff: parallel calls increase peak token usage and may hit rate limits, so implement semaphore-based concurrency limiting for production.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Aggregator: Merge Results</h3>
+<p><strong>What &amp; why.</strong> The Aggregator pattern combines multiple LLM outputs into a single coherent result. After Fan-Out produces partial results, the Aggregator merges them using strategies like concatenation, voting, LLM-based synthesis, or weighted averaging. The choice of aggregation strategy depends on the task: voting for classification, LLM synthesis for summarization, and averaging for numerical estimates.</p>
+<pre class="code"><code>from collections import Counter
+
+def aggregate_classifications(labels: list[str]) -> dict:
+    """Majority vote aggregation for classification."""
+    counts = Counter(labels)
+    winner = counts.most_common(1)[0]
+    return {
+        "label": winner[0],
+        "confidence": winner[1] / len(labels),
+        "vote_distribution": dict(counts),
+    }
+
+def aggregate_numerical(values: list[float], weights: list[float] = None) -> dict:
+    """Weighted average aggregation for numerical outputs."""
+    if weights is None:
+        weights = [1.0] * len(values)
+    total_weight = sum(weights)
+    weighted_avg = sum(v * w for v, w in zip(values, weights)) / total_weight
+    variance = sum((v - weighted_avg) ** 2 for v in values) / len(values)
+    return {"value": weighted_avg, "variance": variance, "n": len(values)}
+
+# Example: 3 models classify the same text
+labels = ["positive", "positive", "neutral"]
+result = aggregate_classifications(labels)
+print(f"Consensus: {result['label']} ({result['confidence']:.0%})")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Aggregation is used in ensemble methods (combine multiple model outputs), multi-perspective analysis (merge different viewpoints), and consensus systems (vote on the best answer from multiple LLM calls).</div>
+<div class="callout hood"><span>Under the hood</span>The aggregation pattern mirrors ensemble learning in ML. For classification, majority vote works well. For generation, a separate LLM call can synthesize the best elements from multiple drafts. For numerical outputs, weighted averaging with outlier rejection provides robust estimates.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Human-in-the-Loop Gate</h3>
+<p><strong>What &amp; why.</strong> The Human-in-the-Loop (HITL) pattern inserts a human approval or review step at critical points in an AI pipeline. The system generates output, presents it to a human for approval or correction, and only proceeds after human sign-off. HITL is essential for high-stakes decisions: financial transactions, medical recommendations, legal document generation, and any action that cannot be easily undone.</p>
+<pre class="code"><code>from dataclasses import dataclass
+from enum import Enum
+
+class ApprovalStatus(Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+@dataclass
+class HITLGate:
+    description: str
+    status: ApprovalStatus = ApprovalStatus.PENDING
+    reviewer_notes: str = ""
+
+    def present(self, ai_output: str) -> dict:
+        return {
+            "gate": self.description,
+            "ai_output": ai_output,
+            "status": self.status.value,
+            "action_required": "Approve or reject this output",
+        }
+
+    def approve(self, notes: str = ""):
+        self.status = ApprovalStatus.APPROVED
+        self.reviewer_notes = notes
+
+    def reject(self, reason: str):
+        self.status = ApprovalStatus.REJECTED
+        self.reviewer_notes = reason
+
+gate = HITLGate(description="Approve generated invoice email")
+result = gate.present("Dear customer, your invoice #1234 is due March 15.")
+gate.approve(notes="Looks good, send it")
+print(f"Status: {gate.status.value}")  # approved</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>HITL gates are used in content moderation queues, automated trading systems, medical image analysis, financial compliance, and any system where AI output feeds into real-world actions. Most regulated industries require HITL for critical decisions.</div>
+<div class="callout hood"><span>Under the hood</span>HITL introduces latency (seconds to hours depending on the gate). Design for async: queue the output, notify the human, and resume on approval. Track approval rates to identify which AI outputs consistently need human correction and improve those prompts.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Composition patterns for complex workflows</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Orchestrator-Workers: Decomposition</h3>
+<p><strong>What &amp; why.</strong> The Orchestrator-Workers pattern decomposes a complex task into subtasks, assigns each to a specialized worker, and synthesizes the results. The orchestrator understands the full problem, breaks it into independent subtasks, and coordinates the workers. Each worker has a focused scope and toolset, improving accuracy over a single monolithic prompt trying to do everything.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def orchestrator(task: str) -> dict:
+    plan = llm.invoke([HumanMessage(content=(
+        f"Break this into 3 subtasks, one per line:\n{task}"
+    ))])
+    subtasks = [s.strip() for s in plan.content.split("\n") if s.strip()]
+
+    results = {}
+    for i, subtask in enumerate(subtasks):
+        worker_prompt = f"Complete this subtask concisely: {subtask}"
+        resp = llm.invoke([HumanMessage(content=worker_prompt)])
+        results[f"subtask_{i}"] = {"task": subtask, "result": resp.content}
+
+    synthesis = llm.invoke([HumanMessage(content=(
+        f"Synthesize these results into one coherent answer:\n{results}"
+    ))])
+    return {"subtasks": results, "synthesis": synthesis.content}
+
+answer = orchestrator("Compare Python, Go, and Rust for web server performance")
+print(answer["synthesis"][:200])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Orchestrator-workers power complex research tasks, multi-source analysis, content production pipelines, and any task where one prompt is insufficient. The pattern scales by adding specialized workers for new domains.</div>
+<div class="callout hood"><span>Under the hood</span>The orchestrator is itself an LLM call, so it can hallucinate subtasks. Constrain the decomposition with examples and templates. Workers can run in parallel (asyncio.gather) or sequentially depending on dependencies between subtasks.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Evaluator-Optimizer: Generate-Critique-Refine</h3>
+<p><strong>What &amp; why.</strong> The Evaluator-Optimizer pattern creates a quality loop: one LLM generates output, another evaluates it against criteria, and feedback drives refinement. Unlike simple retry, this pattern uses an independent evaluator to assess quality against explicit rubrics. The generator and evaluator can be different models: a cheaper model for generation, a more capable model for evaluation.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+
+generator = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+evaluator = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def generate_and_refine(topic: str, max_rounds: int = 3) -> str:
+    draft = generator.invoke(f"Write a short paragraph about {topic}").content
+
+    for round_num in range(max_rounds):
+        critique = evaluator.invoke(
+            f"Evaluate this paragraph on clarity and accuracy. "
+            f"List specific improvements:\n\n{draft}"
+        ).content
+
+        if "no improvements" in critique.lower():
+            break
+
+        draft = generator.invoke(
+            f"Refine this paragraph based on feedback:\n\n"
+            f"Current: {draft}\nFeedback: {critique}"
+        ).content
+
+    return draft
+
+final = generate_and_refine("quantum computing applications")
+print(final)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This pattern is used in code review pipelines (generate code, evaluate against standards, refine), content quality loops (draft, edit, polish), and any task where iterative improvement produces meaningfully better output than a single pass.</div>
+<div class="callout hood"><span>Under the hood</span>The key insight is separating generation from evaluation. A single LLM doing both tends to be sycophantic (rating its own output highly). Separate evaluator prompts with explicit rubrics produce more honest assessments. Set max_rounds to prevent infinite refinement loops.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Generator-Critic: Adversarial Pair</h3>
+<p><strong>What &amp; why.</strong> The Generator-Critic pattern pairs two LLMs in an adversarial relationship: the Generator produces output and the Critic actively searches for flaws. Unlike Evaluator-Optimizer which refines, the Critic's job is to find problems, not suggest fixes. This adversarial dynamic surfaces edge cases and weaknesses that a cooperative evaluator might miss.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+
+generator = ChatOpenAI(model="gpt-4o", temperature=0.7)
+critic = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def adversarial_generate(topic: str, rounds: int = 2) -> str:
+    draft = generator.invoke(f"Write a security analysis of {topic}").content
+
+    for _ in range(rounds):
+        attack = critic.invoke(
+            f"Find the 3 weakest claims in this analysis. "
+            f"For each, explain the flaw concisely:\n\n{draft}"
+        ).content
+
+        draft = generator.invoke(
+            f"Defend against these critiques and strengthen the analysis:\n\n"
+            f"Analysis: {draft}\nCriticisms: {attack}"
+        ).content
+
+    return draft
+
+result = adversarial_generate("REST API authentication strategies")
+print(result[:300])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The Generator-Critic pattern is used in red-team exercises (attack the system to find vulnerabilities), argument strengthening (find logical flaws), and robustness testing (surface failure modes before production).</div>
+<div class="callout hood"><span>Under the hood</span>The adversarial dynamic exploits the LLM's ability to reason about weaknesses. The Critic has no stake in the output quality, so it finds genuine flaws. This mirrors peer review in academic publishing and code review in software engineering.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Triage: Escalation Severity Flows</h3>
+<p><strong>What &amp; why.</strong> The Triage pattern classifies incoming requests by severity and routes them to appropriate handlers with different response SLAs. Low-severity issues get automated responses, medium issues queue for human review, and high-severity issues trigger immediate alerts. This prevents critical issues from being buried in a queue of routine requests.</p>
+<pre class="code"><code>from enum import Enum
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+class Severity(Enum):
+    LOW = "low"        # automated response
+    MEDIUM = "medium"  # queue for review
+    HIGH = "high"      # immediate alert
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+def triage(ticket: str) -> dict:
+    resp = llm.invoke([HumanMessage(content=(
+        f"Classify severity (low/medium/high) with one-line reason:\n{ticket}"
+    ))])
+    level = Severity(resp.content.split()[0].strip().lower())
+
+    actions = {
+        Severity.LOW: "auto_reply",
+        Severity.MEDIUM: "add_to_queue",
+        Severity.HIGH: "page_oncall",
+    }
+    return {"severity": level.value, "action": actions[level],
+            "reasoning": resp.content}
+
+print(triage("Production database is unreachable since 3am"))
+# high severity, page_oncall</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Triage is essential for support ticketing systems, incident management, content moderation queues, and any system handling variable-priority requests. It ensures critical issues get human attention immediately.</div>
+<div class="callout hood"><span>Under the hood</span>The triage classifier should be fast and cheap (gpt-4o-mini or a fine-tuned small model). The severity thresholds should be tunable without code changes. Track triage accuracy over time to calibrate the classifier against human judgment.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Saga: Compensation Multi-Step Transactions</h3>
+<p><strong>What &amp; why.</strong> The Saga pattern manages multi-step transactions where each step has a compensating action (undo). If any step fails, the saga executes compensating actions for all completed steps in reverse order. This provides eventual consistency without distributed locks. In AI pipelines, sagas handle steps like API calls, database writes, and email sends that must be rolled back on failure.</p>
+<pre class="code"><code>from dataclasses import dataclass, field
+
+@dataclass
+class SagaStep:
+    name: str
+    action: callable
+    compensate: callable
+
+@dataclass
+class Saga:
+    steps: list[SagaStep] = field(default_factory=list)
+    completed: list[str] = field(default_factory=list)
+
+    def execute(self, context: dict) -> dict:
+        for step in self.steps:
+            try:
+                context = step.action(context)
+                self.completed.append(step.name)
+            except Exception as e:
+                print(f"Step {step.name} failed: {e}")
+                self._compensate(context)
+                return {"status": "rolled_back", "failed_at": step.name}
+        return {"status": "completed", "context": context}
+
+    def _compensate(self, context: dict):
+        for name in reversed(self.completed):
+            step = next(s for s in self.steps if s.name == name)
+            print(f"Compensating: {name}")
+            step.compensate(context)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Sagas are essential for AI workflows that interact with external systems: billing (charge then notify, compensate if notification fails), provisioning (create resource then configure, deprovision on failure), and multi-API orchestration.</div>
+<div class="callout hood"><span>Under the hood</span>Each step's compensate function must be idempotent (safe to run multiple times). The saga can be choreography-based (each step triggers the next) or orchestration-based (a coordinator manages the sequence). The orchestration approach is easier to reason about and debug.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Circuit Breaker: Provider Failures</h3>
+<p><strong>What &amp; why.</strong> The Circuit Breaker pattern prevents cascading failures by detecting when an LLM provider is failing and temporarily stopping requests to it. The breaker has three states: closed (normal), open (failing, reject requests), and half-open (testing recovery). This protects your system from provider outages and prevents wasting tokens on calls that will fail.</p>
+<pre class="code"><code>import time
+
+class CircuitBreaker:
+    def __init__(self, failure_threshold: int = 5, reset_timeout: int = 60):
+        self.failures = 0
+        self.threshold = failure_threshold
+        self.reset_timeout = reset_timeout
+        self.state = "closed"
+        self.opened_at = 0.0
+
+    def call(self, func, *args, **kwargs):
+        if self.state == "open":
+            if time.time() - self.opened_at > self.reset_timeout:
+                self.state = "half-open"
+            else:
+                raise RuntimeError("Circuit breaker is OPEN")
+
+        try:
+            result = func(*args, **kwargs)
+            if self.state == "half-open":
+                self.state = "closed"
+                self.failures = 0
+            return result
+        except Exception as e:
+            self.failures += 1
+            if self.failures >= self.threshold:
+                self.state = "open"
+                self.opened_at = time.time()
+            raise
+
+breaker = CircuitBreaker(failure_threshold=3, reset_timeout=30)
+# Use: result = breaker.call(llm.invoke, prompt)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Circuit breakers are critical for multi-provider architectures: if your primary LLM provider fails, the breaker opens and you fall back to a secondary provider. This is essential for production reliability.</div>
+<div class="callout hood"><span>Under the hood</span>The breaker tracks consecutive failures (not total failures). After the reset_timeout, it enters half-open and allows one test request. If that succeeds, it closes; if it fails, it re-opens. This prevents hammering a recovering provider.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Bulkhead: Resource Isolation Pools</h3>
+<p><strong>What &amp; why.</strong> The Bulkhead pattern isolates resources into separate pools so that a failure or overload in one pool does not exhaust resources for others. In AI systems, this means separate rate-limit pools, token budgets, and connection pools for different features or customers. A high-volume feature cannot starve a critical feature of API calls.</p>
+<pre class="code"><code>import asyncio
+
+class Bulkhead:
+    def __init__(self, name: str, max_concurrent: int, max_queue: int = 10):
+        self.name = name
+        self.semaphore = asyncio.Semaphore(max_concurrent)
+        self.queue_limit = max_queue
+        self.active = 0
+
+    async def execute(self, func, *args, **kwargs):
+        if self.active >= self.queue_limit + self.semaphore._value:
+            raise RuntimeError(f"Bulkhead {self.name} queue full")
+        async with self.semaphore:
+            self.active += 1
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                self.active -= 1
+
+# Separate pools for different features
+billing_bulkhead = Bulkhead("billing", max_concurrent=5)
+chat_bulkhead = Bulkhead("chat", max_concurrent=20)
+embed_bulkhead = Bulkhead("embeddings", max_concurrent=50)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Bulkheads prevent noisy-neighbor problems in multi-tenant systems and protect critical features from being overwhelmed by high-volume non-critical features. Essential for shared LLM infrastructure.</div>
+<div class="callout hood"><span>Under the hood</span>Borrowed from ship design (watertight compartments), the pattern uses semaphores to limit concurrent access. When a bulkhead is full, requests are queued or rejected rather than consuming shared resources. This isolates failure domains.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Sidecar: Guardrail Service Adjacent</h3>
+<p><strong>What &amp; why.</strong> The Sidecar pattern deploys a guardrail service alongside the main LLM service, intercepting inputs and outputs without modifying the core service. The sidecar handles PII detection, content filtering, output validation, and audit logging. This separates safety concerns from business logic, enabling independent evolution of the guardrail and the main service.</p>
+<pre class="code"><code>import re, time
+
+class SidecarGuard:
+    def __init__(self, block_pii: bool = True, max_tokens: int = 1000):
+        self.block_pii = block_pii
+        self.max_tokens = max_tokens
+        self.blocked: list[dict] = []
+
+    def pre_call(self, prompt: str) -> str:
+        if self.block_pii and has_pii(prompt):
+            self.blocked.append({"reason": "PII detected", "ts": time.time()})
+            return redact_pii(prompt)
+        return prompt
+
+    def post_call(self, response: str) -> str:
+        if self.block_pii and has_pii(response):
+            return redact_pii(response)
+        if len(response.split()) > self.max_tokens:
+            return response[:self.max_tokens] + " [truncated]"
+        return response
+
+    def audit_log(self, prompt: str, response: str):
+        log_entry = {"prompt_hash": hash(prompt), "response_len": len(response)}
+        print(f"[audit] {log_entry}")
+
+def has_pii(text: str) -> bool:
+    return bool(re.search(r"\b\d{3}-\d{2}-\d{4}\b|[\w.]+@[\w.]+\b", text))
+
+def redact_pii(text: str) -> str:
+    text = re.sub(r"[\w.]+@[\w.]+", "[REDACTED_EMAIL]", text)
+    return re.sub(r"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED_SSN]", text)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Sidecars are used in microservice architectures where guardrails must apply to multiple LLM services without duplicating logic. They also enable A/B testing guardrail policies independently of the main service.</div>
+<div class="callout hood"><span>Under the hood</span>The sidecar pattern mirrors the Kubernetes sidecar concept: a lightweight process running alongside the main service. In-process, it is a wrapper class. In distributed systems, it is a separate service that the main service calls before and after LLM interactions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Event-Sourced: Run History Append-Only</h3>
+<p><strong>What &amp; why.</strong> Event Sourcing stores every LLM interaction as an immutable event in an append-only log. Instead of storing only the latest state, you store the complete history of prompts, responses, tool calls, and user feedback. This enables full replay, debugging, analytics, and audit compliance. You can reconstruct the state at any point in time by replaying events.</p>
+<pre class="code"><code>import json, time, uuid
+from pathlib import Path
+
+class EventStore:
+    def __init__(self, path: str = "events.jsonl"):
+        self.path = Path(path)
+
+    def append(self, event_type: str, data: dict):
+        event = {
+            "id": str(uuid.uuid4()),
+            "type": event_type,
+            "timestamp": time.time(),
+            "data": data,
+        }
+        with open(self.path, "a") as f:
+            f.write(json.dumps(event) + "\n")
+        return event["id"]
+
+    def replay(self, run_id: str = None) -> list[dict]:
+        events = []
+        with open(self.path) as f:
+            for line in f:
+                event = json.loads(line)
+                if run_id is None or event["data"].get("run_id") == run_id:
+                    events.append(event)
+        return events
+
+store = EventStore()
+store.append("llm_call", {"prompt": "Summarize...", "model": "gpt-4o"})
+store.append("llm_response", {"tokens": 150, "latency_ms": 800})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Event sourcing is essential for regulated industries (finance, healthcare) where you must prove what the AI did and why. It also enables analytics (which prompts produce the best results) and debugging (replay a failing request step by step).</div>
+<div class="callout hood"><span>Under the hood</span>Append-only logs are simple, fast, and naturally concurrent (no write conflicts). Tradeoffs: storage grows unboundedly (implement compaction), and replaying large histories is slow (implement snapshots for state reconstruction).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Blackboard: Shared Solution Space</h3>
+<p><strong>What &amp; why.</strong> The Blackboard pattern provides a shared data structure that multiple agents or components read from and write to. Unlike point-to-point communication, the blackboard decouples producers from consumers. Any agent can contribute information, and any agent can read what others have contributed. This enables emergent collaboration without explicit coordination.</p>
+<pre class="code"><code>from threading import Lock
+
+class Blackboard:
+    def __init__(self):
+        self._data: dict = {}
+        self._lock = Lock()
+
+    def write(self, agent: str, key: str, value):
+        with self._lock:
+            self._data[key] = {"value": value, "agent": agent}
+
+    def read(self, key: str):
+        return self._data.get(key)
+
+    def read_all(self) -> dict:
+        return dict(self._data)
+
+    def keys(self) -> list[str]:
+        return list(self._data.keys())
+
+# Multiple agents contribute to a shared analysis
+bb = Blackboard()
+bb.write("researcher", "facts", ["Python 3.12 released", "New type syntax"])
+bb.write("analyst", "impact", "Breaking changes in 3.12")
+bb.write("reviewer", "verdict", "Safe to upgrade after testing")
+
+print(bb.read_all())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Blackboards are used in multi-agent systems where agents contribute partial solutions: collaborative analysis, brainstorming systems, and sensor fusion. The pattern works well when no single agent has the full picture.</div>
+<div class="callout hood"><span>Under the hood</span>The blackboard pattern originates from AI research in the 1970s (Hearsay-II speech understanding). The key challenge is coordination: agents must decide when enough information has been contributed to reach a conclusion. This is typically managed by a controller agent or a threshold mechanism.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Mentor-Verifier: Teach-Check Loop</h3>
+<p><strong>What &amp; why.</strong> The Mentor-Verifier pattern pairs a teaching agent (Mentor) with a checking agent (Verifier). The Mentor explains concepts and guides reasoning, while the Verifier independently checks the Mentor's claims for accuracy. This creates a self-correcting loop where errors in teaching are caught by verification, and verification failures prompt re-examination.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def mentor_verifier_loop(topic: str, rounds: int = 2) -> str:
+    explanation = llm.invoke(
+        f"Teach me about {topic} step by step."
+    ).content
+
+    for round_num in range(rounds):
+        verification = llm.invoke(
+            f"Verify each claim in this explanation for accuracy. "
+            f"List any errors:\n\n{explanation}"
+        ).content
+
+        if "no errors" in verification.lower():
+            return explanation
+
+        explanation = llm.invoke(
+            f"Fix the errors in this explanation:\n\n"
+            f"Original: {explanation}\nErrors: {verification}"
+        ).content
+
+    return explanation
+
+result = mentor_verifier_loop("CAP theorem in distributed systems")
+print(result[:500])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Mentor-Verifier is used in educational AI systems (tutor that verifies its own explanations), knowledge base construction (write then verify facts), and code documentation (generate docs then verify accuracy against source).</div>
+<div class="callout hood"><span>Under the hood</span>The pattern exploits the fact that LLMs are better at verification than generation. Checking a claim against known facts is easier than generating accurate claims from scratch. The Mentor-Verifier loop progressively improves accuracy through iteration.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Adapter: Normalizing Model APIs</h3>
+<p><strong>What &amp; why.</strong> The Adapter pattern provides a uniform interface across different LLM providers. Instead of writing provider-specific code for OpenAI, Anthropic, Google, and others, the adapter translates a standard interface into each provider's API format. This enables switching providers without changing application code and supports multi-provider strategies like fallback and routing.</p>
+<pre class="code"><code>from abc import ABC, abstractmethod
+
+class LLMAdapter(ABC):
+    @abstractmethod
+    def complete(self, prompt: str, model: str = None) -> str: ...
+
+    @abstractmethod
+    def embed(self, text: str) -> list[float]: ...
+
+class OpenAIAdapter(LLMAdapter):
+    def complete(self, prompt: str, model: str = "gpt-4o") -> str:
+        return f"OpenAI response to: {prompt[:50]}"
+
+    def embed(self, text: str) -> list[float]:
+        return [0.1] * 1536
+
+class AnthropicAdapter(LLMAdapter):
+    def complete(self, prompt: str, model: str = "claude-sonnet-4-20250514") -> str:
+        return f"Anthropic response to: {prompt[:50]}"
+
+    def embed(self, text: str) -> list[float]:
+        return [0.1] * 1024
+
+def summarize(text: str, adapter: LLMAdapter) -> str:
+    return adapter.complete(f"Summarize: {text}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Adapters are essential for multi-provider strategies: fallback (primary fails, switch to secondary), cost optimization (route to cheapest provider for each task), and compliance (different data residency per provider).</div>
+<div class="callout hood"><span>Under the hood</span>The adapter pattern follows the Strategy pattern from GoF. Each adapter encapsulates provider-specific authentication, request formatting, response parsing, and error handling. The application code depends only on the abstract interface.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Selection, composition, and anti-patterns</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Pattern Selection Decision Matrix</h3>
+<p><strong>What &amp; why.</strong> Choosing the right pattern requires evaluating multiple criteria: task complexity, reliability requirements, latency budget, cost constraints, and team expertise. The decision matrix maps these criteria to pattern recommendations. Without a systematic approach, teams either over-engineer (applying patterns everywhere) or under-engineer (missing critical patterns for reliability).</p>
+<pre class="code"><code># Pattern selection decision matrix
+MATRIX = {
+    "Single LLM Call": {
+        "complexity": "low",
+        "reliability": "low",
+        "latency": "fastest",
+        "cost": "lowest",
+        "when": "Simple tasks, exploration, prototyping",
+    },
+    "Chain + Validator": {
+        "complexity": "medium",
+        "reliability": "high",
+        "latency": "moderate",
+        "cost": "moderate",
+        "when": "Sequential multi-step tasks with structured output",
+    },
+    "Router + Handlers": {
+        "complexity": "medium",
+        "reliability": "high",
+        "latency": "moderate",
+        "cost": "varies",
+        "when": "Multiple request types with different handling needs",
+    },
+    "Orchestrator-Workers": {
+        "complexity": "high",
+        "reliability": "high",
+        "latency": "high",
+        "cost": "high",
+        "when": "Complex tasks requiring decomposition and synthesis",
+    },
+}
+
+def select_pattern(complexity: str, reliability: str, latency: str) -> str:
+    for name, criteria in MATRIX.items():
+        if (criteria["complexity"] == complexity and
+            criteria["reliability"] == reliability):
+            return name
+    return "Single LLM Call"
+
+print(select_pattern("medium", "high", "moderate"))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The decision matrix is used in architecture reviews and design discussions. When a team proposes a complex pattern, the matrix provides evidence for whether the complexity is justified by the requirements.</div>
+<div class="callout hood"><span>Under the hood</span>The matrix is not rigid; it is a starting point for discussion. Context matters: a high-latency budget may allow more complex patterns, while a strict latency budget may force simpler approaches even for complex tasks.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Composition: Combining Patterns Safely</h3>
+<p><strong>What &amp; why.</strong> Patterns rarely work in isolation; real systems compose multiple patterns. The challenge is ensuring composed patterns do not conflict: a Retry around a Validator can create infinite loops, and a Circuit Breaker around a Cache can prevent cache population. Safe composition requires understanding pattern interactions and designing explicit boundaries between them.</p>
+<pre class="code"><code>from pydantic import BaseModel
+
+class Output(BaseModel):
+    answer: str
+    confidence: float
+
+def safe_composed_call(prompt: str, max_retries: int = 3) -> Output:
+    errors = []
+    for attempt in range(max_retries):
+        try:
+            raw = llm_call(prompt)  # the LLM call
+            return Output.model_validate_json(raw)  # Validator
+        except ValidationError as e:
+            errors.append(str(e))
+            if attempt < max_retries - 1:
+                prompt += f"\nFix these errors: {errors[-1]}"
+    raise RuntimeError(f"Failed after {max_retries} retries")
+
+# Composition rules:
+# 1. Retry wraps Validator (not the other way around)
+# 2. Circuit Breaker wraps Retry (not individual calls)
+# 3. Cache wraps everything (check cache first)
+# 4. HITL wraps the final output (approve before serving)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Safe composition is the core skill of AI architecture. Every production system composes multiple patterns, and the composition order matters. Document your composition rules and enforce them through code structure.</div>
+<div class="callout hood"><span>Under the hood</span>The composition order follows a layered approach: infrastructure (circuit breaker, bulkhead) at the outermost layer, reliability (retry, validator) in the middle, and business logic (chain, router) at the innermost layer. Cache sits at the boundary between infrastructure and application.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Anti-Pattern: God Prompt (Everything-in-One-Call)</h3>
+<p><strong>What &amp; why.</strong> The God Prompt anti-pattern tries to accomplish everything in a single massive prompt: classification, extraction, generation, validation, and formatting. While it seems efficient, it fails because the LLM's attention is divided across too many objectives, quality degrades for each additional task, and errors compound. Break the God Prompt into focused steps with clear responsibilities.</p>
+<pre class="code"><code># BAD: God Prompt doing everything
+god_prompt = """Analyze this customer email:
+1. Classify the sentiment (positive/negative/neutral)
+2. Extract the customer name, order number, and issue type
+3. Generate a personalized response
+4. Translate the response to Spanish
+5. Rate the email urgency (1-5)
+6. Suggest next steps for the support team
+
+Email: {email}
+
+Return as JSON with all fields."""
+
+# GOOD: Decomposed into focused steps
+def decomposed_pipeline(email: str) -> dict:
+    sentiment = classify_sentiment(email)     # Step 1: focused
+    entities = extract_entities(email)        # Step 2: focused
+    response = generate_response(email)       # Step 3: focused
+    translated = translate(response, "es")    # Step 4: focused
+    urgency = rate_urgency(email)             # Step 5: focused
+    return {
+        "sentiment": sentiment,
+        "entities": entities,
+        "response_en": response,
+        "response_es": translated,
+        "urgency": urgency,
+    }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>God Prompts appear when teams try to minimize API calls for cost reasons. The tradeoff is real but wrong: decomposed calls are individually more reliable, testable, and debuggable, often producing better overall results despite higher token usage.</div>
+<div class="callout hood"><span>Under the hood</span>LLMs have limited attention, and multi-task prompts create attention dilution. Each additional task in a prompt reduces quality for all tasks. Empirically, focused prompts produce 15-30% better results per task than equivalent multi-task prompts.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Anti-Pattern: Silent Retries Masking Bugs</h3>
+<p><strong>What &amp; why.</strong> Silent retries hide failures by automatically retrying without logging or surfacing the original error. This makes debugging nearly impossible: the system appears to work but has hidden quality issues. Silent retries also waste tokens and can amplify bugs by retrying with the same broken prompt. Always log retries with full context.</p>
+<pre class="code"><code># BAD: Silent retry
+def bad_call(prompt):
+    for _ in range(3):
+        try:
+            return llm_call(prompt)
+        except:
+            pass  # silent failure, no logging
+    return None  # caller has no idea retries happened
+
+# GOOD: Transparent retry with logging
+import logging
+
+logger = logging.getLogger("llm_retries")
+
+def good_call(prompt, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            result = llm_call(prompt)
+            if attempt > 0:
+                logger.warning(f"Retry succeeded on attempt {attempt+1}")
+            return result
+        except Exception as e:
+            logger.error(f"Attempt {attempt+1}/{max_retries} failed: {e}")
+            if attempt == max_retries - 1:
+                raise
+            prompt += f"\n[Retry context] Previous error: {e}"
+    raise RuntimeError("Exhausted retries")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Silent retries are a common junior mistake. Always implement retry logging with attempt numbers, error messages, and timing. This data feeds into reliability dashboards and helps identify systematic issues.</div>
+<div class="callout hood"><span>Under the hood</span>Retry logging creates an audit trail that reveals patterns: if retries consistently fail for certain prompt types, there is a systematic issue. Without logging, you only see the final (possibly degraded) output.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Anti-Pattern: Unbounded Autonomy</h3>
+<p><strong>What &amp; why.</strong> Unbounded autonomy gives an AI agent the ability to take actions without limits: unlimited tool calls, no cost caps, no human oversight, and no maximum iteration count. This leads to runaway costs, infinite loops, and unintended actions. Every autonomous system needs explicit boundaries: token budgets, step limits, cost caps, and HITL gates for high-impact actions.</p>
+<pre class="code"><code>from dataclasses import dataclass, field
+
+# BAD: Unbounded agent
+def unbounded_agent(task):
+    while True:  # no termination condition
+        result = llm_call(task)
+        if should_act(result):
+            execute_action(result)  # no cost limit, no oversight
+
+# GOOD: Bounded agent
+@dataclass
+class AgentBudget:
+    max_steps: int = 10
+    max_tokens: int = 50000
+    max_cost_usd: float = 1.00
+    requires_approval: tuple[str, ...] = ("delete", "send_email", "charge")
+
+def bounded_agent(task, budget: AgentBudget):
+    tokens_used = 0
+    for step in range(budget.max_steps):
+        result = llm_call(task)
+        tokens_used += result.tokens
+        if tokens_used > budget.max_tokens:
+            return {"status": "budget_exceeded", "partial": result}
+        if result.action in budget.requires_approval:
+            if not human_approve(result):
+                continue
+        if result.done:
+            return {"status": "completed", "result": result}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Bounded autonomy is critical for production agents. Set hard limits on steps, tokens, and cost. Implement approval gates for irreversible actions. Monitor usage against budgets in real-time.</div>
+<div class="callout hood"><span>Under the hood</span>The budget enforcement is a form of the Bulkhead pattern applied to agent autonomy. Each budget dimension (steps, tokens, cost) is an independent constraint. Violating any constraint terminates the agent and returns partial results.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Idempotency Keys in AI Workflows</h3>
+<p><strong>What &amp; why.</strong> Idempotency keys ensure that repeating an operation produces the same result as running it once. In AI workflows, retries, network errors, and distributed systems can cause duplicate execution. Idempotency keys prevent duplicate billing, duplicate email sends, and duplicate database writes. Every external-facing operation should accept an idempotency key.</p>
+<pre class="code"><code>import uuid, hashlib, json
+
+class IdempotencyStore:
+    def __init__(self):
+        self.results: dict[str, dict] = {}
+
+    def compute_key(self, operation: str, params: dict) -> str:
+        raw = json.dumps({"op": operation, "params": params}, sort_keys=True)
+        return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+    def execute(self, key: str, operation_fn):
+        if key in self.results:
+            return self.results[key]  # return cached result
+        result = operation_fn()
+        self.results[key] = result
+        return result
+
+store = IdempotencyStore()
+
+def charge_customer(customer_id: str, amount: float) -> dict:
+    key = store.compute_key("charge", {"customer": customer_id, "amount": amount})
+    return store.execute(key, lambda: {"charged": amount, "status": "ok"})
+
+# First call executes, second call returns cached result
+print(charge_customer("C001", 49.99))
+print(charge_customer("C001", 49.99))  # same key, same result</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Idempotency is essential for billing APIs, email sending, database writes, and any operation with side effects. Every payment gateway, email service, and messaging system requires idempotency keys for reliability.</div>
+<div class="callout hood"><span>Under the hood</span>Idempotency keys are typically UUIDs generated by the client and sent with the request. The server stores the result keyed by the idempotency key. On duplicate requests, it returns the stored result without re-executing. TTL the keys after 24-48 hours.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Versioned Pattern Implementations</h3>
+<p><strong>What &amp; why.</strong> Versioning pattern implementations enables safe evolution: you can run v1 and v2 side by side, gradually migrate traffic, and roll back on failure. This applies to prompts, models, pipeline structures, and even the patterns themselves. Version everything, test new versions against benchmarks, and migrate traffic with canary deployments.</p>
+<pre class="code"><code>from dataclasses import dataclass
+from typing import Any
+import random
+
+@dataclass
+class PatternVersion:
+    name: str
+    version: str
+    implementation: Any
+    traffic_pct: float = 1.0
+
+class VersionedPattern:
+    def __init__(self, pattern_name: str):
+        self.pattern_name = pattern_name
+        self.versions: dict[str, PatternVersion] = {}
+
+    def register(self, version: str, impl: Any, traffic_pct: float = 1.0):
+        self.versions[version] = PatternVersion(
+            name=self.pattern_name, version=version,
+            implementation=impl, traffic_pct=traffic_pct,
+        )
+
+    def route(self, input_data) -> Any:
+        r = random.random()
+        cumulative = 0.0
+        for ver in self.versions.values():
+            cumulative += ver.traffic_pct
+            if r <= cumulative:
+                return ver.implementation(input_data)
+        latest = list(self.versions.values())[-1]
+        return latest.implementation(input_data)
+
+pipeline = VersionedPattern("summarize")
+pipeline.register("v1", lambda x: f"Summary v1: {x[:50]}", 0.8)
+pipeline.register("v2", lambda x: f"Summary v2: {x[:100]}", 0.2)
+print(pipeline.route("Long text content..."))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Versioning is critical for prompt evolution, model upgrades, and pipeline changes. Run old and new versions simultaneously, compare output quality, and shift traffic gradually. This prevents breaking changes from affecting all users at once.</div>
+<div class="callout hood"><span>Under the hood</span>Versioned patterns mirror canary deployments in infrastructure. The traffic percentage controls the rollout: start at 1%, monitor quality metrics, increase to 10%, 50%, then 100%. Roll back instantly if quality degrades.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Testing Patterns: Unit Seams</h3>
+<p><strong>What &amp; why.</strong> Patterns are only valuable if they are testable. Design patterns with unit seams: injection points where you can substitute mock LLM responses for deterministic testing. Without seams, testing requires real API calls (slow, expensive, non-deterministic). Good pattern design includes seams for mocking, recording, and replaying LLM responses.</p>
+<pre class="code"><code>from unittest.mock import MagicMock
+
+class LLMChain:
+    def __init__(self, llm=None, validator=None):
+        self.llm = llm or ChatOpenAI(model="gpt-4o")
+        self.validator = validator
+
+    def run(self, input_data: str) -> dict:
+        response = self.llm.invoke(input_data)
+        if self.validator:
+            return self.validator(response.content)
+        return {"output": response.content}
+
+# Test seam: inject mock LLM
+def test_chain_with_mock():
+    mock_llm = MagicMock()
+    mock_llm.invoke.return_value = MagicMock(content='{"label": "positive"}')
+    chain = LLMChain(llm=mock_llm)
+    result = chain.run("This is great!")
+    assert result["label"] == "positive"
+    mock_llm.invoke.assert_called_once()
+
+# Recording seam: capture real responses for replay
+class RecordingLLM:
+    def __init__(self, real_llm, filepath):
+        self.real_llm = real_llm
+        self.filepath = filepath
+    def invoke(self, prompt):
+        result = self.real_llm.invoke(prompt)
+        self._record(prompt, result)
+        return result</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Test seams enable unit testing of pattern logic without API calls. Record real LLM responses during development, then use recordings for fast, deterministic tests in CI/CD. This catches logic bugs without the cost or flakiness of live API calls.</div>
+<div class="callout hood"><span>Under the hood</span>The dependency injection pattern from software engineering applies directly to AI patterns. Inject the LLM, not the prompt, as the dependency. This makes patterns testable, composable, and adaptable to different providers.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Observability Hooks per Pattern</h3>
+<p><strong>What &amp; why.</strong> Every pattern should emit structured telemetry: timing, token usage, input/output samples, error rates, and retry counts. Observability hooks are the instrumentation points that feed logs, metrics, and traces. Without per-pattern observability, you cannot diagnose which pattern is responsible when a pipeline fails or performs poorly.</p>
+<pre class="code"><code>import time, json
+
+class ObservablePattern:
+    def __init__(self, name: str):
+        self.name = name
+        self.metrics = {"calls": 0, "errors": 0, "total_ms": 0}
+
+    def observe(self, func):
+        def wrapper(*args, **kwargs):
+            start = time.time()
+            self.metrics["calls"] += 1
+            try:
+                result = func(*args, **kwargs)
+                elapsed_ms = (time.time() - start) * 1000
+                self.metrics["total_ms"] += elapsed_ms
+                print(json.dumps({
+                    "pattern": self.name, "latency_ms": round(elapsed_ms, 1),
+                    "status": "success",
+                }))
+                return result
+            except Exception as e:
+                self.metrics["errors"] += 1
+                print(json.dumps({
+                    "pattern": self.name, "error": str(e), "status": "error",
+                }))
+                raise
+        return wrapper
+
+retry_obs = ObservablePattern("retry_with_feedback")
+@retry_obs.observe
+def call_with_retry(prompt):
+    pass</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Per-pattern observability is essential for production AI systems. When latency spikes, you can identify which pattern is the bottleneck. When errors increase, you can isolate which pattern is failing. This enables targeted optimization.</div>
+<div class="callout hood"><span>Under the hood</span>Observability hooks should emit structured logs (JSON) compatible with log aggregation systems (ELK, Datadog, CloudWatch). Include pattern name, version, latency, tokens, input/output hashes, and error details. Never log full prompts in production (privacy).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Cost Profiles per Pattern</h3>
+<p><strong>What &amp; why.</strong> Every pattern has a distinct cost profile: the number of LLM calls, the average tokens per call, and the computational overhead. Understanding cost profiles enables budget planning and pattern selection based on cost constraints. Some patterns (Cache-Aside) reduce cost; others (Orchestrator-Workers) multiply it.</p>
+<pre class="code"><code># Cost profile comparison (approximate, per request)
+COST_PROFILES = {
+    "Single LLM Call": {
+        "calls": 1, "avg_tokens": 500,
+        "cost_usd": 0.001, "notes": "Baseline cost",
+    },
+    "Chain + Validator": {
+        "calls": 3, "avg_tokens": 1500,
+        "cost_usd": 0.004, "notes": "3x baseline for quality",
+    },
+    "Router + Handler": {
+        "calls": 2, "avg_tokens": 800,
+        "cost_usd": 0.002, "notes": "Slight increase for routing",
+    },
+    "Orchestrator-Workers(3)": {
+        "calls": 5, "avg_tokens": 4000,
+        "cost_usd": 0.012, "notes": "5x baseline for decomposition",
+    },
+    "Evaluator-Optimizer": {
+        "calls": 6, "avg_tokens": 3000,
+        "cost_usd": 0.009, "notes": "Cost depends on quality ceiling",
+    },
+}
+
+def estimate_monthly(pattern: str, requests_per_day: int) -> float:
+    profile = COST_PROFILES[pattern]
+    daily = profile["cost_usd"] * requests_per_day
+    return daily * 30</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost profiles drive architectural decisions. If you handle 100K requests/day and need Orchestrator-Workers, the monthly cost is ~$36K. This may justify investing in caching or simpler patterns for high-volume request types.</div>
+<div class="callout hood"><span>Under the hood</span>Cost profiles should be measured against your actual usage patterns, not toy examples. Instrument your system to capture real token counts per pattern, then update profiles monthly as models and pricing change.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Latency Budgets per Pattern</h3>
+<p><strong>What &amp; why.</strong> Latency budgets define the maximum acceptable time for each pattern in a pipeline. If your overall SLA is 2 seconds and you use a Chain with three steps, each step has roughly 600ms of budget. Exceeding the budget degrades user experience. Design patterns with latency awareness: use smaller models for routing, cache aggressively, and parallelize where possible.</p>
+<pre class="code"><code>import time
+
+class LatencyBudget:
+    def __init__(self, total_ms: int):
+        self.total_ms = total_ms
+        self.steps: list[dict] = []
+
+    def step(self, name: str):
+        return _StepContext(self, name)
+
+    def report(self):
+        used = sum(s["elapsed_ms"] for s in self.steps)
+        remaining = self.total_ms - used
+        for s in self.steps:
+            pct = s["elapsed_ms"] / self.total_ms * 100
+            print(f"  {s['name']}: {s['elapsed_ms']:.0f}ms ({pct:.0f}%)")
+        print(f"  Total: {used:.0f}ms / {self.total_ms}ms")
+        return remaining > 0
+
+class _StepContext:
+    def __init__(self, budget, name):
+        self.budget = budget
+        self.name = name
+    def __enter__(self):
+        self.start = time.time()
+        return self
+    def __exit__(self, *args):
+        elapsed = (time.time() - self.start) * 1000
+        self.budget.steps.append({"name": self.name, "elapsed_ms": elapsed})
+
+budget = LatencyBudget(total_ms=2000)
+with budget.step("classify"):
+    time.sleep(0.1)
+with budget.step("generate"):
+    time.sleep(0.5)
+budget.report()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Latency budgets are essential for user-facing applications. Set budgets per pattern and enforce them: if classification exceeds 200ms, use a smaller model. If generation exceeds 1s, stream the response.</div>
+<div class="callout hood"><span>Under the hood</span>Latency budgets should account for network latency, LLM inference time, and post-processing. Measure P50, P95, and P99 latencies, not just averages. P99 latency often reveals timeout issues hidden by averages.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Refactoring Legacy Prompts into Patterns</h3>
+<p><strong>What &amp; why.</strong> Most AI systems start with ad-hoc prompts that grow into unmaintainable messes. Refactoring legacy prompts into named patterns brings structure: replace string concatenation with Prompt Templates, add Validators around raw outputs, wrap unreliable calls with Retry, and decompose God Prompts into Chains. The refactoring is incremental: apply one pattern at a time and verify quality does not degrade.</p>
+<pre class="code"><code>from pydantic import BaseModel
+from langchain_core.prompts import ChatPromptTemplate
+
+# BEFORE: Legacy ad-hoc prompt
+def legacy_handler(email):
+    prompt = f"""You are a support agent. Analyze: {email}
+    Return sentiment, urgency, and a response. Make it helpful."""
+    raw = openai_call(prompt)
+    parts = raw.split("Sentiment:")
+    sentiment = parts[1].split("\n")[0].strip() if len(parts) > 1 else "unknown"
+    return {"sentiment": sentiment, "raw": raw}
+
+# AFTER: Refactored with patterns
+class SupportAnalysis(BaseModel):
+    sentiment: str
+    urgency: int
+    response: str
+
+template = ChatPromptTemplate.from_messages([
+    ("system", "You are a support agent. Analyze the email concisely."),
+    ("human", "Email: {email}"),
+])
+
+def refactored_handler(email: str) -> SupportAnalysis:
+    prompt = template.invoke({"email": email})
+    raw = llm.invoke(prompt.messages)
+    return retry_with_validation(SupportAnalysis, raw.content)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Most production AI systems need prompt refactoring at some point. The telltale signs: string concatenation in prompts, no validation of outputs, no retry logic, and difficulty adding new features. Refactoring is always worth the investment.</div>
+<div class="callout hood"><span>Under the hood</span>Refactoring legacy prompts follows the same principles as refactoring legacy code: extract methods (decompose), name things (name patterns), add tests (unit seams), and eliminate duplication (shared templates). The key difference is that LLM output is non-deterministic, so testing requires statistical evaluation.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Formal foundations, governance, and enterprise patterns</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Formal Pattern Language: Forces, Tradeoffs, Notation</h3>
+<p><strong>What &amp; why.</strong> A formal pattern language provides notation for expressing pattern relationships: which patterns compose safely, which conflict, and what tradeoffs each imposes. This goes beyond a catalog to create a design grammar. Forces (reliability, cost, latency, safety) are the axes of the language, and each pattern resolves specific forces while creating others.</p>
+<pre class="code"><code>class PatternSpec:
+    def __init__(self, name: str, resolves: list[str],
+                 creates: list[str], compose_with: list[str],
+                 conflicts_with: list[str]):
+        self.name = name
+        self.resolves = resolves    # forces this pattern addresses
+        self.creates = creates      # forces this pattern introduces
+        self.compose_with = compose_with
+        self.conflicts_with = conflicts_with
+
+catalog = {
+    "retry": PatternSpec(
+        name="Retry-With-Feedback",
+        resolves=["transient_failure", "quality_variance"],
+        creates=["increased_latency", "higher_cost"],
+        compose_with=["validator", "circuit_breaker", "cache"],
+        conflicts_with=["strict_slatiming"],
+    ),
+    "validator": PatternSpec(
+        name="Validator",
+        resolves=["malformed_output", "schema_violation"],
+        creates=["retry_loops"],
+        compose_with=["retry", "chain", "router"],
+        conflicts_with=["unstructured_output"],
+    ),
+}
+
+def find_safe_composition(target: str) -> list[str]:
+    spec = catalog[target]
+    return [c for c in spec.compose_with if c in catalog]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>A formal pattern language enables systematic design: you can prove that a proposed composition is safe (no conflicts) and complete (all critical forces are addressed). This is essential for complex systems with many interacting patterns.</div>
+<div class="callout hood"><span>Under the hood</span>The notation mirrors software architecture frameworks like Arc42. Forces are weighted by criticality, and pattern selection optimizes for the highest-weighted forces. Conflict detection prevents anti-pattern compositions before implementation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Distributed Variants Across Services</h3>
+<p><strong>What &amp; why.</strong> When patterns span multiple services (microservices architecture), each pattern instance becomes a distributed coordination problem. A Chain across services requires message passing, a Validator across services requires shared schemas, and a Circuit Breaker across services requires distributed state. Distributed variants add network failure handling, message durability, and eventual consistency.</p>
+<pre class="code"><code>import json, uuid
+
+class DistributedChainStep:
+    def __init__(self, name: str, queue):
+        self.name = name
+        self.queue = queue
+
+    def execute(self, input_data: dict) -> str:
+        message = {
+            "id": str(uuid.uuid4()),
+            "step": self.name,
+            "input": input_data,
+            "chain_id": input_data.get("chain_id", str(uuid.uuid4())),
+        }
+        self.queue.publish(json.dumps(message))
+        return message["id"]
+
+class MessageQueue:
+    def __init__(self):
+        self.messages: list[str] = []
+    def publish(self, msg: str):
+        self.messages.append(msg)
+    def consume(self) -> str | None:
+        return self.messages.pop(0) if self.messages else None
+
+# Service A: publishes "classify" step
+# Service B: consumes "classify", publishes "generate"
+# Service C: consumes "generate", publishes "validate"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Distributed patterns are used in enterprise AI architectures where different teams own different pipeline stages. Each team deploys their pattern instance independently, connected by message queues or event streams.</div>
+<div class="callout hood"><span>Under the hood</span>Distributed patterns trade simplicity for scalability and team autonomy. The cost is operational complexity: distributed tracing, dead letter queues, schema evolution, and eventual consistency. Use distributed patterns only when monolithic patterns cannot meet scale requirements.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>Consistency Models: Eventual vs Strict in Pipelines</h3>
+<p><strong>What &amp; why.</strong> AI pipelines face consistency choices: strict consistency (all steps complete before the result is served) versus eventual consistency (results are served progressively as steps complete). Strict consistency is simpler but slower; eventual consistency improves latency but adds complexity. The choice depends on whether downstream consumers can tolerate partial results.</p>
+<pre class="code"><code>import asyncio
+
+class StrictPipeline:
+    async def run(self, steps, input_data):
+        result = input_data
+        for step in steps:
+            result = await step(result)
+        return result  # only returns when ALL steps are done
+
+class EventualPipeline:
+    def __init__(self, steps):
+        self.steps = steps
+        self.results: dict = {}
+
+    async def run(self, input_data):
+        async def run_step(step, data, key):
+            self.results[key] = {"status": "running"}
+            result = await step(data)
+            self.results[key] = {"status": "done", "result": result}
+
+        tasks = [run_step(s, input_data, f"step_{i}")
+                 for i, s in enumerate(self.steps)]
+        asyncio.gather(*tasks)
+        return self.results</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Strict consistency suits user-facing responses (show nothing until complete). Eventual consistency suits streaming dashboards, progressive rendering, and multi-stage workflows where partial results are useful.</div>
+<div class="callout hood"><span>Under the hood</span>Consistency models in AI pipelines mirror distributed systems tradeoffs. Eventual consistency requires handling partial states in the UI or downstream consumers. Strict consistency requires timeout handling for slow steps.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>Capability Matrices: Mapping Patterns to Products</h3>
+<p><strong>What &amp; why.</strong> Capability matrices map which patterns provide which capabilities, enabling product teams to select the right combination for their features. Instead of asking "which patterns do I need?", teams ask "which capabilities does my feature require?" and the matrix suggests the pattern combination.</p>
+<pre class="code"><code>CAPABILITY_MATRIX = {
+    "customer_chat": {
+        "required_capabilities": ["classification", "response_generation"],
+        "recommended_patterns": ["Router", "Single LLM Call", "Cache-Aside"],
+    },
+    "document_analysis": {
+        "required_capabilities": ["extraction", "validation", "summarization"],
+        "recommended_patterns": ["Chain", "Validator", "Fan-Out", "Aggregator"],
+    },
+    "automated_billing": {
+        "required_capabilities": ["transaction_safety", "error_recovery", "audit"],
+        "recommended_patterns": ["Saga", "Circuit Breaker", "Event-Sourced"],
+    },
+}
+
+def recommend_patterns(feature: str) -> list[str]:
+    spec = CAPABILITY_MATRIX.get(feature)
+    if spec:
+        return spec["recommended_patterns"]
+    return ["Single LLM Call"]
+
+print(recommend_patterns("customer_chat"))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Capability matrices are used in product planning and architecture reviews. When a product manager requests a new feature, the matrix immediately suggests the required patterns, preventing under-engineering or over-engineering.</div>
+<div class="callout hood"><span>Under the hood</span>The matrix is maintained by the architecture team and updated as new patterns emerge and product requirements evolve. It serves as living documentation that bridges product and engineering language.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">41</span>Evolution: Deprecating Patterns Safely</h3>
+<p><strong>What &amp; why.</strong> Patterns evolve: better approaches emerge, requirements change, and providers update their APIs. Deprecating a pattern requires a migration plan: run old and new patterns side by side, monitor quality, and gradually shift traffic. Never delete a pattern that has active users without a deprecation timeline and migration guide.</p>
+<pre class="code"><code>from datetime import datetime, timedelta
+
+class PatternDeprecation:
+    def __init__(self, old_pattern: str, new_pattern: str):
+        self.old = old_pattern
+        self.new = new_pattern
+        self.deprecated_at = datetime.now()
+        self.removal_date = self.deprecated_at + timedelta(days=90)
+        self.migration_log: list[dict] = []
+
+    def migrate(self, component: str):
+        self.migration_log.append({
+            "component": component,
+            "old": self.old,
+            "new": self.new,
+            "migrated_at": datetime.now().isoformat(),
+        })
+
+    def is_active(self) -> bool:
+        return datetime.now() < self.removal_date
+
+    def report(self) -> dict:
+        return {
+            "old_pattern": self.old,
+            "new_pattern": self.new,
+            "days_remaining": (self.removal_date - datetime.now()).days,
+            "migrations": len(self.migration_log),
+            "active": self.is_active(),
+        }
+
+deprecation = PatternDeprecation("v1_chain", "v2_chain")
+deprecation.migrate("summarize_pipeline")
+print(deprecation.report())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Deprecation is critical for prompt evolution, model upgrades, and framework migrations. A structured deprecation process prevents breaking changes and gives teams time to migrate.</div>
+<div class="callout hood"><span>Under the hood</span>Deprecation follows semantic versioning principles: deprecate in a minor version, remove in a major version. Provide migration guides, automated migration tools, and a compatibility layer during the transition period.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">42</span>Org Adoption: Pattern Library Internal</h3>
+<p><strong>What &amp; why.</strong> An internal pattern library standardizes how an organization builds AI systems. It provides named patterns, reference implementations, templates, and guidelines. The library prevents teams from solving the same problems differently, reduces onboarding time, and enables cross-team knowledge sharing. Treat the pattern library as a product with users (the engineering teams).</p>
+<pre class="code"><code>from dataclasses import dataclass, field
+
+@dataclass
+class PatternLibrary:
+    name: str
+    patterns: dict = field(default_factory=dict)
+
+    def register(self, name: str, description: str,
+                 implementation: callable, examples: list[str] = None):
+        self.patterns[name] = {
+            "description": description,
+            "implementation": implementation,
+            "examples": examples or [],
+            "registered_at": "2025-01-01",
+        }
+
+    def search(self, keyword: str) -> list[str]:
+        return [name for name, spec in self.patterns.items()
+                if keyword.lower() in spec["description"].lower()
+                or keyword.lower() in name.lower()]
+
+    def get_template(self, name: str) -> str:
+        pattern = self.patterns.get(name)
+        if pattern:
+            return f"# Template: {name}\n# {pattern['description']}"
+        return f"Pattern '{name}' not found"
+
+lib = PatternLibrary(name="acme-ai-patterns")
+lib.register("retry", "Retry with feedback on failure", retry_with_feedback_fn)
+lib.register("cache", "Cache LLM responses", cache_aside_fn)
+print(lib.search("retry"))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pattern libraries are essential for organizations with multiple AI teams. They ensure consistency, reduce duplication, and enable systematic improvement. Treat the library like internal documentation: versioned, searchable, and reviewed.</div>
+<div class="callout hood"><span>Under the hood</span>The pattern library is typically a Git repository with markdown documentation, reference implementations, and test suites. Contribution guidelines ensure quality: new patterns require a motivation document, reference implementation, and at least one production use case.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">43</span>Security Review Checklist per Pattern</h3>
+<p><strong>What &amp; why.</strong> Every pattern has security implications that must be reviewed before production deployment. A security checklist ensures no pattern is deployed with known vulnerabilities. The checklist covers prompt injection, data leakage, access control, audit logging, and rate limiting. Skipping the checklist creates technical debt that compounds over time.</p>
+<pre class="code"><code>SECURITY_CHECKLIST = {
+    "Router": [
+        "Validate classifier input length",
+        "Rate-limit classification endpoint",
+        "Log routing decisions for audit",
+        "Test adversarial inputs to classifier",
+        "Ensure no prompt injection via classification input",
+    ],
+    "Chain": [
+        "Validate output of each step before feeding to next",
+        "Implement circuit breaker around external calls",
+        "Log step transitions for debugging",
+        "Set timeout per step to prevent hanging",
+        "Sanitize data passed between steps",
+    ],
+    "Orchestrator-Workers": [
+        "Validate orchestrator decomposition",
+        "Limit number of worker calls",
+        "Isolate worker execution (sandboxing)",
+        "Audit all worker tool calls",
+        "Implement budget caps for total cost",
+    ],
+    "Cache": [
+        "Encrypt cached prompts and responses at rest",
+        "Implement cache expiration (TTL)",
+        "Audit cache access logs",
+        "Ensure PII is not cached without redaction",
+        "Prevent cache poisoning via adversarial prompts",
+    ],
+}
+
+def security_review(pattern_name: str) -> list[str]:
+    return SECURITY_CHECKLIST.get(pattern_name, ["No checklist defined"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The security checklist is part of the deployment process. No pattern goes to production without completing the checklist. The checklist is maintained by the security team and updated as new attack vectors are discovered.</div>
+<div class="callout hood"><span>Under the hood</span>Security reviews should be lightweight (30 minutes, not 3 days) but mandatory. For high-risk patterns (Orchestrator-Workers, HITL), require a more thorough review including adversarial testing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">44</span>Performance Engineering: Memoization Boundaries</h3>
+<p><strong>What &amp; why.</strong> Memoization stores function results for identical inputs. In AI pipelines, memoization boundaries define which stages can be memoized and which cannot. Pure functions (deterministic transforms, validators) can always be memoized. LLM calls can be memoized only if the prompt is identical (exact match) or semantically similar (embedding cache). Understanding memoization boundaries prevents caching non-deterministic outputs.</p>
+<pre class="code"><code>import functools, json, hashlib
+
+def memoize_exact(func):
+    """Memoize with exact input match."""
+    cache = {}
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        key = hashlib.sha256(
+            json.dumps({"args": args, "kwargs": kwargs}, sort_keys=True,
+                       default=str).encode()
+        ).hexdigest()
+        if key not in cache:
+            cache[key] = func(*args, **kwargs)
+        return cache[key]
+    return wrapper
+
+# Safe to memoize: deterministic function
+@memoize_exact
+def normalize_text(text: str) -> str:
+    return text.strip().lower()
+
+# Safe to memoize: LLM call (with same prompt)
+@memoize_exact
+def classify_exact(text: str) -> str:
+    return llm_invoke(f"Classify: {text}")  # deterministic if temp=0
+
+# NOT safe to memoize: temperature > 0
+# def classify_fuzzy(text):  # different outputs each time
+#     return llm_invoke(f"Classify: {text}", temperature=0.7)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Memoization is a performance optimization that reduces API calls and latency. Identify memoization boundaries in your pipeline: deterministic steps (always cache), zero-temperature LLM calls (cache with key = prompt hash), and non-deterministic calls (do not cache).</div>
+<div class="callout hood"><span>Under the hood</span>Memoization boundaries are determined by function purity. Pure functions (same input, same output) can be memoized. Impure functions (LLM calls with temperature > 0, time-dependent calls) cannot. Document memoization decisions to prevent accidental caching of non-deterministic outputs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">45</span>Case Studies: Three Real Systems Mapped</h3>
+<p><strong>What &amp; why.</strong> Studying real systems that apply design patterns provides concrete context for pattern selection. Three representative systems illustrate different pattern combinations: a customer support platform (Router + Chain + HITL), a content generation pipeline (Orchestrator-Workers + Evaluator-Optimizer), and a financial compliance system (Saga + Circuit Breaker + Event-Sourced). Each system demonstrates why specific patterns were chosen and what tradeoffs resulted.</p>
+<pre class="code"><code># Case Study 1: Customer Support Platform
+support_stack = {
+    "patterns": ["Router", "Chain", "Cache-Aside", "HITL"],
+    "router": "Classify ticket type (billing/technical/general)",
+    "chain": "Extract intent -> Generate response -> Format output",
+    "cache": "Cache responses for common questions",
+    "hitl": "Route complex tickets to human agents",
+    "result": "60% automated, 40% human-assisted",
+}
+
+# Case Study 2: Content Generation Pipeline
+content_stack = {
+    "patterns": ["Orchestrator-Workers", "Evaluator-Optimizer", "Chain"],
+    "orchestrator": "Decompose topic into research subtasks",
+    "workers": "3 parallel research agents",
+    "evaluator": "Quality review with rubric scoring",
+    "result": "4x faster than single-agent, 15% higher quality",
+}
+
+# Case Study 3: Financial Compliance
+compliance_stack = {
+    "patterns": ["Saga", "Circuit Breaker", "Event-Sourced", "Validator"],
+    "saga": "Charge -> Notify -> Log (compensate on failure)",
+    "circuit_breaker": "Protect payment provider calls",
+    "event_sourced": "Full audit trail of all transactions",
+    "result": "Zero undetected failures, full audit compliance",
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Case studies ground pattern theory in reality. When presenting patterns to stakeholders, use case studies to demonstrate value. When designing a new system, reference similar case studies for pattern selection guidance.</div>
+<div class="callout hood"><span>Under the hood</span>Each case study follows a structure: problem context, pattern selection rationale, implementation decisions, measured outcomes, and lessons learned. This structure enables systematic comparison and transfer of knowledge.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">46</span>Research Frontier: Self-Improving Loops</h3>
+<p><strong>What &amp; why.</strong> Self-improving loops represent the frontier of AI pattern research: systems that learn from their own outputs and improve over time without human intervention. These combine Evaluator-Optimizer with feedback loops that update prompts, fine-tune models, or adjust routing weights. The research explores whether patterns can become adaptive, optimizing themselves based on quality metrics.</p>
+<pre class="code"><code># Conceptual self-improving pipeline
+class SelfImprovingPipeline:
+    def __init__(self):
+        self.metrics: list[dict] = []
+        self.prompt_versions: dict[str, str] = {}
+
+    def run(self, task: str) -> dict:
+        result = generate(task)
+        score = evaluate(result)
+        self.metrics.append({"task": task, "score": score})
+
+        if score < 0.7 and len(self.metrics) > 10:
+            self._improve_prompt(task, result, score)
+
+        return {"result": result, "score": score}
+
+    def _improve_prompt(self, task, result, score):
+        recent = self.metrics[-10:]
+        avg_score = sum(m["score"] for m in recent) / len(recent)
+        if avg_score < 0.6:
+            # Trigger prompt refinement
+            improved = refine_prompt(self.current_prompt, recent)
+            self.prompt_versions[f"v{len(self.prompt_versions)+1}"] = improved
+
+    def improve_report(self) -> dict:
+        return {
+            "total_runs": len(self.metrics),
+            "avg_score": sum(m["score"] for m in self.metrics) / max(len(self.metrics), 1),
+            "versions": len(self.prompt_versions),
+        }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Self-improving loops are emerging in production systems: A/B testing prompt variants, automated prompt optimization, and feedback-driven routing. The research is active but the patterns are already practical for specific use cases.</div>
+<div class="callout hood"><span>Under the hood</span>The challenge is measurement quality: you need reliable evaluation to know if improvement is real. Self-improving loops can overfit to evaluation metrics (Goodhart's Law). The research explores safe boundaries for self-modification.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">47</span>Interview-Style Design Exercises</h3>
+<p><strong>What &amp; why.</strong> Pattern design exercises test your ability to select and compose patterns for realistic scenarios. These exercises present constraints (latency, cost, reliability) and ask you to design a solution using the pattern catalog. Practicing these exercises builds the judgment to make good architectural decisions under pressure.</p>
+<pre class="code"><code># Exercise 1: Design a customer support chatbot
+# Constraints: < 2s response time, 99.9% uptime, < $0.01/query
+# Requirements: Classify intent, answer from knowledge base, escalate complex
+#
+# Solution sketch:
+# 1. Router: classify intent (billing/technical/general)
+# 2. Cache-Aside: check for cached responses to common questions
+# 3. Chain: retrieve context -> generate response -> validate output
+# 4. HITL: escalate if confidence < threshold
+# 5. Circuit Breaker: fallback to secondary model on provider failure
+
+# Exercise 2: Design a document processing pipeline
+# Constraints: Process 1000 docs/hour, < 5% error rate
+# Requirements: Extract entities, summarize, classify, validate
+#
+# Solution sketch:
+# 1. Fan-Out: process docs in parallel (batch of 50)
+# 2. Chain per doc: extract -> summarize -> classify -> validate
+# 3. Aggregator: merge results, vote on classifications
+# 4. Validator: reject docs with extraction errors
+# 5. Retry-With-Feedback: retry failed extractions with error context
+
+# Exercise 3: Design a financial transaction system
+# Constraints: Zero data loss, full audit trail, < 10s SLA
+# Requirements: Process transactions, notify users, log everything
+#
+# Solution sketch:
+# 1. Saga: charge -> notify -> log (compensate on failure)
+# 2. Event-Sourced: append-only log of all operations
+# 3. Circuit Breaker: protect payment provider
+# 4. Idempotency Keys: prevent duplicate charges
+# 5. HITL: approve transactions > $1000</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Design exercises prepare you for architecture interviews, design reviews, and real-world system design. Practice translating constraints into pattern selections and justifying each choice.</div>
+<div class="callout hood"><span>Under the hood</span>Good pattern design starts with constraints, not solutions. List all constraints (latency, cost, reliability, security), identify which forces they create, and select patterns that resolve those forces. Validate the composition for conflicts.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">48</span>Blueprint: Template Repo Structure</h3>
+<p><strong>What &amp; why.</strong> A blueprint template repository provides the directory structure, configuration, and boilerplate for implementing AI design patterns in production. The template includes folders for patterns, prompts, validators, tests, and documentation. Starting from a blueprint prevents ad-hoc structure that becomes unmaintainable.</p>
+<pre class="code"><code># Blueprint repository structure
+BLUEPRINT = """
+ai-patterns-blueprint/
+  patterns/
+    chain/
+      __init__.py
+      chain.py           # Chain pattern implementation
+      chain_config.yaml  # Chain configuration
+      test_chain.py      # Unit tests with mocks
+    router/
+      __init__.py
+      router.py
+      classifier.py      # Classification logic
+      test_router.py
+    validator/
+      __init__.py
+      schemas.py         # Pydantic models
+      test_schemas.py
+  prompts/
+    templates/
+      classify.jinja2
+      generate.jinja2
+    examples/
+      few_shot_examples.json
+  infrastructure/
+    circuit_breaker.py
+    cache.py
+    rate_limiter.py
+  observability/
+    hooks.py
+    metrics.py
+    traces.py
+  docs/
+    PATTERN_CATALOG.md
+    SECURITY_CHECKLIST.md
+    COST_PROFILES.md
+  tests/
+    conftest.py          # Shared fixtures
+    integration/
+    e2e/
+"""
+
+# Usage: clone template, add patterns, configure observability</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The blueprint is the starting point for new AI projects. It ensures consistent structure, includes essential infrastructure (circuit breaker, cache, observability), and provides test scaffolding. Customize the blueprint for your organization's standards.</div>
+<div class="callout hood"><span>Under the hood</span>The blueprint mirrors established Python project conventions: src layout, pytest for testing, YAML for configuration, and Jinja2 for templates. It integrates with CI/CD pipelines for automated testing and deployment.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Support Desk Triage: Router + HITL</h3>
+<p>Build a support desk system that classifies incoming tickets by severity and intent, routes them to specialized handlers, and escalates complex issues to human agents with full context.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Create a Pydantic model for SupportTicket with fields: id, subject, body, category, severity, customer_id</li><li>Build a Router classifier using gpt-4o-mini that categorizes tickets into billing, technical, and general intents</li><li>Implement a SeverityAssessor that scores urgency from 1-5 based on ticket content and customer tier</li><li>Create specialized handlers for each category with focused prompts and tool access</li><li>Build a Cache-Aside layer that stores responses for duplicate or near-duplicate tickets</li><li>Implement an HITL gate that presents tickets with severity >= 4 to human agents with full context</li><li>Add a CircuitBreaker around the primary LLM provider with fallback to a secondary model</li><li>Log all routing decisions, handler outputs, and human interventions to an event store</li></ol>
+<pre class="code"><code>from pydantic import BaseModel
+from enum import Enum
+
+class Category(Enum):
+    BILLING = "billing"
+    TECHNICAL = "technical"
+    GENERAL = "general"
+
+class SupportTicket(BaseModel):
+    id: str
+    subject: str
+    body: str
+    category: Category | None = None
+    severity: int | None = None
+    routed_to: str | None = None
+
+def triage_ticket(ticket: SupportTicket, llm) -> SupportTicket:
+    classification = llm.invoke(
+        f"Classify intent and severity (1-5):\nSubject: {ticket.subject}\nBody: {ticket.body}"
+    )
+    parts = classification.content.split("|")
+    ticket.category = Category(parts[0].strip().lower())
+    ticket.severity = int(parts[1].strip())
+
+    if ticket.severity >= 4:
+        ticket.routed_to = "human_agent"
+    else:
+        ticket.routed_to = f"auto_{ticket.category.value}"
+    return ticket</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Router pattern with multi-class classification</li><li>HITL gate with severity-based escalation thresholds</li><li>Circuit breaker for provider failover</li><li>Cache-aside for duplicate ticket deduplication</li><li>Event-sourced audit trail of all triage decisions</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Content Pipeline: Orchestrator-Workers + Evaluator</h3>
+<p>Build a content production pipeline that decomposes a research topic into subtasks, assigns parallel research workers, synthesizes findings, and runs an evaluation loop to ensure quality before publishing.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Create a ContentRequest Pydantic model with topic, target_audience, word_count, and quality_threshold fields</li><li>Build an Orchestrator that decomposes the topic into 3-5 focused research subtasks</li><li>Implement 3 parallel worker agents: a facts researcher, a statistics gatherer, and a quote collector</li><li>Create a Synthesizer that merges worker outputs into a coherent first draft</li><li>Build an Evaluator with a rubric scoring clarity, accuracy, and engagement on a 1-5 scale</li><li>Implement the generate-critique-refine loop with max 3 rounds and early exit on score >= 4</li><li>Add a Cache-Aside layer to avoid re-researching previously covered topics</li><li>Log all drafts, evaluations, and refinements with token costs per step</li></ol>
+<pre class="code"><code>from pydantic import BaseModel
+from langchain_openai import ChatOpenAI
+
+class ContentRequest(BaseModel):
+    topic: str
+    audience: str
+    word_count: int = 500
+    quality_threshold: float = 4.0
+
+class EvalResult(BaseModel):
+    clarity: int
+    accuracy: int
+    engagement: int
+
+    @property
+    def average(self) -> float:
+        return (self.clarity + self.accuracy + self.engagement) / 3
+
+def produce_content(request: ContentRequest) -> dict:
+    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    draft = llm.invoke(
+        f"Write {request.word_count} words about {request.topic} "
+        f"for {request.audience}"
+    ).content
+    for round_num in range(3):
+        evaluation = evaluate_draft(draft, llm)
+        if evaluation.average >= request.quality_threshold:
+            return {"draft": draft, "score": evaluation.average, "rounds": round_num + 1}
+        draft = refine_draft(draft, evaluation, llm)
+    return {"draft": draft, "score": evaluation.average, "rounds": 3}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Orchestrator-workers with parallel async execution</li><li>Evaluator-optimizer quality loop with rubric scoring</li><li>Multi-worker specialization with focused toolsets</li><li>Cost tracking per pipeline step</li><li>Cache integration for research deduplication</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Resilient Billing Summary: Saga with Compensations</h3>
+<p>Build a billing summary system that charges customers, generates invoices, sends email notifications, and logs transactions with full saga compensation. If any step fails, all previous steps are rolled back.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Create a BillingContext Pydantic model with customer_id, amount, items, invoice_id, and notification_sent fields</li><li>Implement Step 1: ChargeCustomer with compensating RefundCustomer action</li><li>Implement Step 2: GenerateInvoice with compensating VoidInvoice action</li><li>Implement Step 3: SendNotification with compensating void notification (log that original was retracted)</li><li>Implement Step 4: LogTransaction with compensating delete entry action</li><li>Build the Saga orchestrator that executes steps sequentially and compensates on failure</li><li>Add a CircuitBreaker around the payment provider with timeout of 5 seconds</li><li>Implement idempotency keys for each step to prevent duplicate charges or notifications</li></ol>
+<pre class="code"><code>from pydantic import BaseModel
+import uuid, time
+
+class BillingContext(BaseModel):
+    customer_id: str
+    amount: float
+    items: list[dict]
+    invoice_id: str | None = None
+    notification_sent: bool = False
+    transaction_logged: bool = False
+
+class SagaStep:
+    def __init__(self, name, action, compensate):
+        self.name = name
+        self.action = action
+        self.compensate = compensate
+
+def charge_customer(ctx: BillingContext) -> BillingContext:
+    print(f"Charging {ctx.customer_id}: ${ctx.amount}")
+    return ctx
+
+def refund_customer(ctx: BillingContext) -> BillingContext:
+    print(f"Refunding {ctx.customer_id}: ${ctx.amount}")
+    return ctx
+
+def generate_invoice(ctx: BillingContext) -> BillingContext:
+    ctx.invoice_id = str(uuid.uuid4())[:8]
+    print(f"Invoice created: {ctx.invoice_id}")
+    return ctx
+
+def void_invoice(ctx: BillingContext) -> BillingContext:
+    print(f"Voiding invoice: {ctx.invoice_id}")
+    ctx.invoice_id = None
+    return ctx
+
+steps = [
+    SagaStep("charge", charge_customer, refund_customer),
+    SagaStep("invoice", generate_invoice, void_invoice),
+]</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Saga pattern with compensating transactions</li><li>Circuit breaker for payment provider resilience</li><li>Idempotency keys preventing duplicate operations</li><li>Event-sourced billing audit trail</li><li>End-to-end rollback testing methodology</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Pattern</td><td>Named reusable solution to a recurring problem under forces</td><td>Problem-Force-Solution-Syntax template</td></tr>
+<tr><td>Catalog Map</td><td>Organized view of patterns by complexity and category</td><td>Single-call, composition, control-flow, caching</td></tr>
+<tr><td>Chain/Pipeline</td><td>Sequential steps where each output feeds the next input</td><td>chain(step1, step2, step3)</td></tr>
+<tr><td>Router</td><td>Classify and dispatch to specialized handlers</td><td>classify(query) -> handler(input)</td></tr>
+<tr><td>Single LLM Call</td><td>Baseline: always start here before adding complexity</td><td>llm.invoke([HumanMessage(content=query)])</td></tr>
+<tr><td>Prompt Template</td><td>Reusable parameterized prompt structure</td><td>ChatPromptTemplate.from_messages([...])</td></tr>
+<tr><td>Validator</td><td>Wrap output with Pydantic schema check</td><td>Output.model_validate_json(raw)</td></tr>
+<tr><td>Retry-With-Feedback</td><td>Loop on failure with error context for self-correction</td><td>for attempt in range(max_retries): ...</td></tr>
+<tr><td>Cache-Aside</td><td>Store LLM responses for identical or similar queries</td><td>cache.get(key) / cache.set(key, value)</td></tr>
+<tr><td>Fan-Out / Gather</td><td>Dispatch parallel LLM calls, collect results</td><td>asyncio.gather(*tasks)</td></tr>
+<tr><td>Aggregator</td><td>Combine multiple outputs via voting, synthesis, or averaging</td><td>Counter(labels).most_common(1)</td></tr>
+<tr><td>HITL Gate</td><td>Pause pipeline for human approval at critical points</td><td>gate.present(output) / gate.approve()</td></tr>
+<tr><td>Orchestrator-Workers</td><td>Decompose task, assign workers, synthesize results</td><td>orchestrator -> workers -> synthesizer</td></tr>
+<tr><td>Evaluator-Optimizer</td><td>Generate, evaluate against rubric, refine iteratively</td><td>for round in range(max_rounds): ...</td></tr>
+<tr><td>Generator-Critic</td><td>Adversarial pair: generator creates, critic finds flaws</td><td>critic.invoke(f"Find weaknesses in: {draft}")</td></tr>
+<tr><td>Triage</td><td>Classify severity, route to appropriate handler SLA</td><td>Severity.LOW / MEDIUM / HIGH</td></tr>
+<tr><td>Saga</td><td>Multi-step transaction with compensating rollbacks</td><td>steps[i].compensate(context)</td></tr>
+<tr><td>Circuit Breaker</td><td>Stop requests to failing provider, test recovery</td><td>breaker.call(func, *args)</td></tr>
+<tr><td>Bulkhead</td><td>Isolate resources into separate pools per feature</td><td>Bulkhead(name, max_concurrent)</td></tr>
+<tr><td>Sidecar</td><td>Guardrail service adjacent to main LLM service</td><td>sidecar.pre_call() / sidecar.post_call()</td></tr>
+<tr><td>Event-Sourced</td><td>Append-only log of all LLM interactions</td><td>store.append("event", data)</td></tr>
+<tr><td>Blackboard</td><td>Shared data structure for multi-agent collaboration</td><td>bb.write(agent, key, value)</td></tr>
+<tr><td>Mentor-Verifier</td><td>Teaching agent with independent verification agent</td><td>mentor.invoke() then verifier.invoke()</td></tr>
+<tr><td>Adapter</td><td>Uniform interface across different LLM providers</td><td>class LLMAdapter(ABC): ...</td></tr>
+<tr><td>Decision Matrix</td><td>Map requirements to pattern recommendations</td><td>select_pattern(complexity, reliability, latency)</td></tr>
+<tr><td>Composition</td><td>Layer patterns: infrastructure outer, logic inner</td><td>Cache(Retry(Validator(LLM)))</td></tr>
+<tr><td>God Prompt Anti-Pattern</td><td>Everything-in-one-call degrades quality</td><td>Decompose into focused chain steps</td></tr>
+<tr><td>Silent Retries Anti-Pattern</td><td>Hidden retries mask systematic bugs</td><td>Always log attempt, error, timing</td></tr>
+<tr><td>Unbounded Autonomy Anti-Pattern</td><td>No limits leads to runaway costs</td><td>AgentBudget(max_steps, max_tokens, max_cost)</td></tr>
+<tr><td>Idempotency Keys</td><td>Prevent duplicate operations on retry</td><td>hash(op + params) -> key</td></tr>
+<tr><td>Versioned Patterns</td><td>Run old and new side by side with traffic split</td><td>register("v1", impl, traffic_pct=0.8)</td></tr>
+<tr><td>Testing Seams</td><td>Inject mocks for deterministic testing</td><td>LLMChain(llm=mock_llm)</td></tr>
+<tr><td>Observability Hooks</td><td>Emit structured telemetry per pattern</td><td>ObservablePattern("name").observe(func)</td></tr>
+<tr><td>Cost Profiles</td><td>Approximate cost per pattern per request</td><td>COST_PROFILES[pattern]["cost_usd"]</td></tr>
+<tr><td>Latency Budgets</td><td>Max acceptable time per pattern in pipeline</td><td>LatencyBudget(total_ms=2000)</td></tr>
+<tr><td>Formal Pattern Language</td><td>Notation for composition safety and force resolution</td><td>PatternSpec(resolves, creates, compose_with)</td></tr>
+<tr><td>Distributed Patterns</td><td>Patterns spanning multiple microservices via queues</td><td>DistributedChainStep(name, queue)</td></tr>
+<tr><td>Capability Matrix</td><td>Map product features to required patterns</td><td>CAPABILITY_MATRIX[feature]["patterns"]</td></tr>
+<tr><td>Security Checklist</td><td>Mandatory review items per pattern before deployment</td><td>SECURITY_CHECKLIST[pattern_name]</td></tr>
+<tr><td>Memoization Boundaries</td><td>Which pipeline stages can be cached safely</td><td>@memoize_exact on deterministic functions</td></tr>
+<tr><td>Self-Improving Loops</td><td>Systems that learn from outputs and improve prompts</td><td>metrics feed back to prompt refinement</td></tr>
+<tr><td>Blueprint Template</td><td>Standard repo structure for pattern implementations</td><td>patterns/, prompts/, tests/, docs/</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="react-patterns.html">&larr; ReAct Patterns</a><a href="guardrails.html">Guardrails &rarr;</a></footer>
+</body></html>

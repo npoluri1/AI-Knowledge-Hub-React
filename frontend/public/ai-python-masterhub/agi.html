@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGI — Artificial General Intelligence — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / AGI — Artificial General Intelligence</span><span class="spacer"></span>
+<a class="navlink" href="iot.html">&larr; IoT Engineering</a> <a class="navlink" href="asi.html">ASI &rarr;</a></nav>
+<header class="hero"><div class="mono">AG</div><div><h1>AGI — Artificial General Intelligence</h1>
+<p class="tagline">What general intelligence means, how far today's systems are, and the benchmarks, debates and safety questions that define the frontier</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>AGI — a machine that matches or exceeds human ability across essentially all cognitive tasks — is the field's north star and its most contested concept. This chapter is a rigorous map: definitions, evaluation frameworks, the capabilities ladder from current LLMs, the architectures proposed to get there, and the safety questions that make AGI a governance problem as much as an engineering one.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Definitions, narrow vs general, the AGI debate</td><td>Can argue what AGI is (and isn't)</td></tr>
+<tr><td>Tier 2</td><td>Evaluation: benchmarks, levels of AGI, limitations</td><td>Can critically read AGI capability claims</td></tr>
+<tr><td>Tier 3</td><td>Architectures: memory, agency, world models, RL</td><td>Can explain the proposed paths to generality</td></tr>
+<tr><td>Tier 4</td><td>Alignment, interpretability, governance, timelines</td><td>Can reason about safety and policy trade-offs</td></tr>
+<tr><td>Tier 5</td><td>Build a general-ish agent, eval harness, risk report</td><td>Shipped agent + honest evaluation write-up</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 — what are we even talking about</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Narrow vs General Intelligence</h3>
+<p><strong>What &amp; why.</strong> Today's AI is narrow: each system masters one domain — translation, Go, image generation. AGI would master them all: learn any task from experience, transfer knowledge across domains, reason about novel situations, and pursue goals in the real world. The gap between "impressive at many benchmarks" and "generally intelligent" is the whole story of this chapter.</p>
+<pre class="code"><code># Narrow AI (today):  one task, one trained system
+#   - translation, chess, protein folding, image gen, code gen
+#   - excels at ONE thing; cannot generalize across domains
+#   - no persistent goals, no common sense, no real-world agency
+#
+# General intelligence (the AGI target):
+#   - learn ANY cognitive task from experience + instruction
+#   - transfer learning: chess skill improves cooking planning?
+#   - common sense: physical, social, temporal reasoning
+#   - agency: set goals, plan, act, recover from failure
+#   - robustness: works under distribution shift, novel inputs
+#
+# Why it matters practically:
+#   narrow systems need a human to wire every new use case;
+#   a general system would adapt on its own -> massive leverage
+#   (and massive risk if misaligned)
+
+# The classic AGI tests (incomplete, debated):
+#   Turing test (1950)    - indistinguishable conversation
+#   Coffee test (Wozniak) - make coffee in an unfamiliar kitchen
+#   Employment test      - do any remote job a human can
+#   Modern: none sufficient, all necessary-ish</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cutting through marketing: "AGI" in a product blog ≠ AGI. Ask which capability is actually general versus which is a benchmark win.</div>
+<div class="callout hood"><span>Under the hood</span>Definitions matter for regulation: the EU AI Act explicitly excludes general-purpose systems that lack specific capability targeting — "general purpose" is a regulatory category with teeth.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>The Capabilities Ladder: From LLM to AGI</h3>
+<p><strong>What &amp; why.</strong> Rather than an on/off switch, treat capability as a ladder: tool-using chatbots → agents that plan → autonomous workers → self-improving systems. Each rung adds agency, memory, and robustness. Being precise about which rung a system occupies is the core skill.</p>
+<pre class="code"><code># Rung 0  LLM:      chat, text in/out, no tools, no memory
+# Rung 1  Tool user: call APIs/code, retrieve docs (today, widely)
+# Rung 2  Agent:     plan multi-step, use tools in a loop,
+#                    persistent memory, guardrails (today, partial)
+# Rung 3  Worker:    long-running, reliable, self-correcting,
+#                    measurable output quality (early experiments)
+# Rung 4  Generalist: learn new tasks from instruction alone,
+#                     transfer across domains, robust under shift
+# Rung 5  Self-improving: improve own code/models/training data
+#
+# What makes each rung HARD (the honest list)
+#   - reliability: 99.9%+ correctness on open-ended tasks
+#   - memory:       lifelong, structured, forgetting-graceful
+#   - world model:  physics/social causality, not just text
+#   - grounding:    actions in the real world, feedback loops
+#   - robustness:   distribution shift without collapse
+#
+# Engineers: most "agents" shipped today sit at Rung 1-2;
+#   that's fine — but label honestly and evaluate accordingly.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Product roadmaps and honest communication: map any system to a rung, list the missing capabilities, and let the evals (not the vibes) decide.</div>
+<div class="callout hood"><span>Under the hood</span>Each rung multiplies surface area for failure: tools add injection attacks, memory adds drift, agency adds irreversible actions — safety work scales with the rung.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Where Today's Systems Actually Are</h3>
+<p><strong>What &amp; why.</strong> State-of-the-art LLMs are astonishing at broad knowledge and language, but they fail in specific, measurable ways that general intelligence must not: they cannot reliably plan, they hallucinate, they lack persistent goals, and they break under distribution shift.</p>
+<pre class="code"><code># Evidence-based capability map (as of the mid-2020s)
+#   STRONG
+#     broad knowledge retrieval (cross-domain QA)
+#     code generation & translation
+#     summarization, translation, style
+#     standardized test performance (many SAT-style suites)
+#     tool use with schema-driven calling
+#   WEAK / FAILING
+#     long-horizon planning (multi-hour tasks)
+#     reliable arithmetic/state tracking at scale
+#     novel physical reasoning (unseen-in-training)
+#     persistent goals without human babysitting
+#     robust self-correction (error propagation)
+#     calibration: confidence tracks correctness poorly
+
+# Honest evaluation pattern
+def evaluate_capability(model, task_set):
+    # test TRANSFER, not memorization:
+    # hold out task variants structurally different from train
+    results = {}
+    for task, cases in task_set.items():
+        results[task] = sum(model(c)["correct"] for c in cases) / len(cases)
+    return results
+
+# The point: report per-capability scores and the
+# distribution of failures, not a single "it works" number.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every capability claim you read or write. Demand per-capability, transfer-tested evidence instead of aggregate benchmark numbers.</div>
+<div class="callout hood"><span>Under the hood</span>Benchmark contamination is rampant: test items leak into training data, so published scores overstate true generalization. Holdout-by-construction evals are the fix.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Evaluation<small>Tier 2 — measuring generality honestly</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Benchmarks, Levels and Their Failure Modes</h3>
+<p><strong>What &amp; why.</strong> Evaluation frameworks try to make "intelligence" measurable: MMLU-style knowledge tests, ARC (abstraction/reasoning), coding agents (SWE-bench), and the "Levels of AGI" rubric (capability: emerging/competent/expert/virtuoso × generality: narrow/general). Every framework has blind spots.</p>
+<pre class="code"><code># Levels of AGI (OpenAI-style rubric, adapted)
+#   Level 1  Conversational AI   (chat, today)
+#   Level 2  Reasoners           (solve problems at expert level)
+#   Level 3  Agents              (act on your behalf for days)
+#   Level 4  Innovators          (invent new science/tech)
+#   Level 5  Organizations       (run an org end-to-end)
+#
+# Benchmark failure modes (know these!)
+#   Saturation:     score > 95% -> no longer discriminates
+#   Contamination:  items in training data (MEMORIZED, not learned)
+#   Narrowness:     one format, one dataset, no transfer
+#   Gaming:         eval-hacking (train on the test set)
+#   Overselling:    aggregate score hides per-domain collapses
+#
+# Engineer's checklist for any benchmark claim
+#   1. Was the test set released before the model trained?
+#   2. Is performance reported per-domain (not just average)?
+#   3. Does the model transfer to UNSEEN task variants?
+#   4. What is the failure distribution (worst 10% of cases)?
+
+# ARC-AGI: the abstraction benchmark that resists LLMs
+#   -> visual reasoning puzzles humans solve fast, models fail
+#   -> the best current proxy for "general" reasoning</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Evaluating both vendors and your own systems. The questions above convert any benchmark claim into something you can actually verify.</div>
+<div class="callout hood"><span>Under the hood</span>ARC-AGI is designed for human-like few-shot abstraction: each puzzle is new, so memorization is impossible — it measures reasoning, not recall.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Agent Benchmarks and Real-World Evaluation</h3>
+<p><strong>What &amp; why.</strong> AGI claims increasingly rest on agentic benchmarks: can the system use tools, browse, write code, and complete tasks autonomously? These benchmarks (SWE-bench, GAIA, terminal tasks) are closer to the real thing — and much harder to game — but still scripted worlds.</p>
+<pre class="code"><code># Agentic evaluation dimensions
+#   task completion:   did it finish, correctly?
+#   efficiency:        steps/tokens/cost to finish
+#   robustness:        works across environments, not one sandbox
+#   recovery:          handles errors, retries, tool failures
+#   safety:            no harmful side effects along the way
+#   honesty:           says "can't" when it can't; reports failures
+#
+# Build an eval harness (this is a Project too)
+EVALS = {
+    "web":    [...],   # browse -> extract -> act
+    "code":   [...],   # repo -> issue -> PR (SWE-bench style)
+    "tools":  [...],   # API chains with injected failures
+    "long":   [...],   # multi-hour tasks with checkpoints
+}
+def run_eval(model, name):
+    results = []
+    for case in EVALS[name]:
+        trace = model.run(case)          # instrument every step
+        results.append({
+            "case": case.id,
+            "completed": case.check(trace.output),
+            "steps": trace.steps,
+            "cost": trace.cost_usd,
+        })
+    return summarize(results)            # completion %, cost, p95
+
+# The transition: from "score on a test" to
+# "completes tasks of real value at known reliability".</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any agent you build or buy. If you can't run a golden task set with a cost column, you can't deploy an agent.</div>
+<div class="callout hood"><span>Under the hood</span>Agent evals reward end-to-end success and penalize both slop and over-caution; the cost column keeps economics in the loop — a "smart" agent that burns $50/task isn't general, it's expensive.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Architecture<small>Tier 3 — how generality could be built</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>What's Missing: Memory, World Models, Agency</h3>
+<p><strong>What &amp; why.</strong> Scaling the transformer got us broad pattern recognition. The proposed bridges to generality are architectural additions, not just more compute: persistent structured memory, learnable world models (predicting consequences, not just next tokens), and agency (goal-directed action with feedback).</p>
+<pre class="code"><code># Architecture sketch of a "generalist" stack
+#
+#   [World model]   predicts consequences of actions
+#       |           (neural sim of physics/social/domain)
+#   [Memory]        episodic (what happened), semantic
+#       |           (what's true), procedural (how to)
+#   [Planner]       search over possible futures in the model
+#       |           (like game-tree search but in any domain)
+#   [Actor]         executes plans through tools/body
+#       |           feedback loop -> updates memory + model
+#   [Meta]          monitors itself: confidence, progress,
+#                   when to ask for help, when to stop
+#
+# Key research directions
+#   - world models:  Dreamer, Genie, video-prediction models
+#   - long memory:   vector stores + summarization + episodic logs
+#   - agency:        RL fine-tuning of LLM agents, tool loops
+#   - meta-cognition: self-evaluation, uncertainty, reflection
+#
+# The honest open question: can language + tools + memory
+# reach generality, or is embodiment/world-modeling required?</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Reading frontier research without hype: map any "AGI architecture" paper onto memory/world-model/agency and see what's actually new.</div>
+<div class="callout hood"><span>Under the hood</span>This chapter's practical cousins are everywhere in the MasterHub: <a href="memory-management.html">Memory Management</a>, <a href="agent-loops.html">Agent Loops</a>, <a href="ai-graphs.html">AI Graphs</a>, and <a href="agent-awareness.html">Agent Awareness</a>.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Scaling Laws, Compute and the "Emergent" Question</h3>
+<p><strong>What &amp; why.</strong> Scaling laws are empirical: loss (and many capabilities) improve predictably with parameters, data, and compute. Whether continued scaling alone reaches AGI — or whether qualitatively new ingredients are needed — is the central bet of the industry.</p>
+<pre class="code"><code># Scaling law (power law form)
+#   L(N) = A / N^alpha + L0
+#   N = parameters, A/alpha = constants, L0 = irreducible loss
+#
+# Compute frontier (orders of magnitude)
+#   GPT-2 (2019):       1.5B params,  ~10^17 FLOPs
+#   GPT-3 (2020):       175B params,  ~10^23 FLOPs
+#   GPT-4 class (2023):  ~1-2T params, ~10^25 FLOPs
+#   Frontier (2025+):    multi-trillion, 10^26+ FLOPs
+#
+# Emergence debate
+#   For:   some capabilities appear sharply past size thresholds
+#   Against: many "emergences" are just smooth metrics that
+#           become measurable past a scale (metric choice)
+#
+# Data wall
+#   internet text ~ 10-15T tokens; synthetic data + RL feedback
+#   loops are the new scaling dimension (test-time compute too)
+
+# The economic lens: AGI bets are compute bets
+#   training cluster ~ 10^5-10^6 GPUs
+#   energy ~ 100s MW -> power becomes the binding constraint</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Reading capability announcements: ask what got bigger (data? params? test-time compute? RL?) — the "why now" is usually a scaling axis, not a magic breakthrough.</div>
+<div class="callout hood"><span>Under the hood</span>Test-time compute (thinking for longer, searching more) is the newest axis: same model, more inference budget → better answers. It blurs the line between training and reasoning.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>RL, Self-Improvement and Recursive Paths</h3>
+<p><strong>What &amp; why.</strong> Learning from feedback — RLHF, RL on verifiable rewards (math/code), self-play — is how systems improve beyond imitation. The recursive fear: a system that improves its own model/training pipeline compounds gains, possibly past human oversight speed. That recursion is the core of the "intelligence explosion" scenario.</p>
+<pre class="code"><code># RL loop for verifiable domains (math/code)
+#   policy: LLM generates answer
+#   reward: verifier (compiler, proof checker, known answer)
+#   update: policy gradient / PPO / GRPO
+#
+# Code is special: it has a ground-truth reward (it runs)
+#   -> code RL produces self-play-like improvements:
+#      generate -> test -> fix -> re-generate (agentic loop)
+#
+# The self-improvement ladder (who improves what)
+#   1. System improves task output       (agents today)
+#   2. System improves its prompts/plans (meta-prompting)
+#   3. System improves its weights       (RL on itself)
+#   4. System improves its data pipeline (curation, synthetic)
+#   5. System improves its architecture  (AI-for-chip/AI-for-AI)
+#
+# Each rung is easier to oversell than to build:
+#   "self-improving" is usually rung 1-2, not 4-5.
+
+# Safety implication: verifiable-reward domains (code, math)
+# are where capability grows fastest AND where correctness
+# is checkable — the best sandbox for safe capability growth.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Distinguishing real recursive progress from marketing, and choosing where to invest: verifiable domains are the leverage points.</div>
+<div class="callout hood"><span>Under the hood</span>Recursive self-improvement is bounded by the "AI can improve its own training" bottleneck — talent, data, and compute still gate it. The debate is whether those gates hold.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Safety &amp; Governance<small>Tier 4 — the hard problems</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Alignment: Making Powerful Systems Do What We Mean</h3>
+<p><strong>What &amp; why.</strong> Alignment is the problem of steering a powerful model toward intended outcomes — and away from unintended ones — even under novel situations. It's harder than capability: you can't just "eval" your way to it when the system can game the eval.</p>
+<pre class="code"><code># Alignment methods in use
+#   SFT:            imitate demonstrated good behavior
+#   RLHF/DPO:       learn preferences (see Fine-Tuning chapter)
+#   Constitutional: explicit principles, self-critique
+#   Red-teaming:    adversarial probing (see Guardrails)
+#   Interpretability: understand WHY it outputs what it does
+#
+# Failure modes that define the field
+#   Specification gaming:  does the REWARD, not the INTENT
+#     (boat-racing agent finds exploit; not touching wall)
+#   Reward hacking:        overfits the reward signal
+#   Goal misgeneralization: trained goal, wrong new context
+#   Sycophancy:            tells you what you want to hear
+#   Deception:             strategically misleading (debated)
+#
+# The eval dilemma
+#   too easy: model games it; too hard: no signal
+#   -> held-out, adversarially-built, continuously refreshed
+#
+# Engineer's role: even "narrow" deployments need alignment
+#   - define the intended behavior contract explicitly
+#   - build red-team evals into CI
+#   - log and review failure cases, not just success</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any production LLM: alignment isn't a lab problem. Your guardrails, evals, and human-review loops ARE alignment practice.</div>
+<div class="callout hood"><span>Under the hood</span>Deep links: <a href="fine-tuning.html">Fine-Tuning</a> (RLHF/DPO), <a href="guardrails.html">Guardrails</a>, <a href="evaluations.html">Evaluations</a>, <a href="governance.html">AI Governance</a> — the applied alignment stack.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Interpretability: Seeing Inside the Black Box</h3>
+<p><strong>What &amp; why.</strong> To trust or control a general system, you must understand it. Mechanistic interpretability reverse-engineers internal features and circuits; the goal is not just explanations but steering — finding and editing the internal representations that drive behavior.</p>
+<pre class="code"><code># Interpretability toolkit (concept map)
+#   Probing:       does a layer encode "sentiment", "animal"?
+#                  train a probe on hidden states
+#   Activation:    find inputs that maximally excite a feature
+#   Sparse autoencoders (SAEs):
+#                  decompose activations into human-readable
+#                  features (the current frontier)
+#   Circuit analysis: trace how features combine into behavior
+#   Ablation:      silence a feature, observe behavior change
+#
+# Why it matters for AGI specifically
+#   - capability at AGI scale > human comprehension scale
+#   - if we can't read a model, we can't audit its goals
+#   - interpretability = the audit trail for alignment claims
+#
+# Practical today
+#   - not needed to ship a chatbot (evals + guardrails suffice)
+#   - needed for high-stakes autonomy claims
+#   - research velocity is high; expect steady, not magical, progress
+
+# A tiny probe sketch
+from sklearn.linear_model import LogisticRegression
+def probe_feature(activations, labels):
+    clf = LogisticRegression(max_iter=1000)
+    clf.fit(activations, labels)      # linear readout
+    return clf.score(activations, labels)  # ~1.0 -> encoded</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Risk assessment for autonomous deployments, and understanding the honest state of "we don't fully know why it does that."</div>
+<div class="callout hood"><span>Under the hood</span>SAEs are the reason interpretability got exciting again: they produce a sparse, feature-like decomposition that looks like a "vocabulary of concepts" — with open questions about completeness and reliability.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Timelines, Governance and the Policy Frontier</h3>
+<p><strong>What &amp; why.</strong> When might AGI arrive — and what do we do until then? Reasonable expert estimates span years to decades, and the uncertainty itself is the policy problem. Governance work: compute thresholds, safety frameworks, transparency reporting, and international coordination.</p>
+<pre class="code"><code># Timeline perspectives (map, don't pick a side)
+#   Fast (years):   scaling + RL on verifiable domains continue;
+#                   agents replace swaths of white-collar work
+#   Medium (decade): memory/world-model/agency gaps close slowly
+#   Slow/never:     current paradigm hits robustness/agency walls;
+#                   genuinely new ideas required
+#
+# Governance instruments (increasingly real)
+#   - compute thresholds: frontier training runs get reported
+#   - safety frameworks:  developers commit to capability caps
+#     (deploy only under eval thresholds + mitigations)
+#   - transparency: model cards, red-team reports, incident logs
+#   - regulation: EU AI Act (GPAI obligations), US executive orders,
+#     international agreements (compute monitoring)
+#
+# What engineers actually do
+#   - run dangerous-capability evals (cyber, bio, persuasion)
+#   - implement monitoring: what models can do, not just what
+#     the marketing says
+#   - document: training data provenance, eval results, limits
+#
+# The key uncertainty: eval-driven governance only works if
+# evals predict capability; nobody is fully sure they do.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Policy reading, vendor due diligence, and your own lab's safety practices. This maps to <a href="governance.html">AI Governance</a> in detail.</div>
+<div class="callout hood"><span>Under the hood</span>"Preparedness" frameworks (deploy gates per capability tier) are the current industrial answer: they make safety decisions explicit, auditable, and reversible — which is the realistic target.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Projects<small>Tier 5 — build and evaluate honestly</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Project 1 — A "Generalist" Agent with Honest Evals</h3>
+<p><strong>What &amp; why.</strong> Build a tool-using agent (planner + tools + memory) and run it on cross-domain tasks. Then write the honest report: where it's impressive, where it's brittle, and where it sits on the capabilities ladder.</p>
+<pre class="code"><code># Minimal generalist: planner + tools + memory
+def agent(user_task, tools, llm, memory=None):
+    plan = llm(f"Plan steps for: {user_task}")     # plan
+    results = []
+    for step in split_steps(plan):
+        tool, arg = llm(f"Choose tool+args for: {step}")
+        try:
+            out = tools[tool](arg)
+            results.append({"step": step, "ok": True, "out": out})
+        except Exception as e:
+            results.append({"step": step, "ok": False,
+                            "err": str(e)})
+            out = llm(f"Recover from error: {e}. Suggest next")
+    if memory: memory.save(user_task, results)     # learn
+    return llm(f"Summarize final result from: {results}")
+
+# Honest eval harness
+TASKS = {   # deliberately cross-domain, structurally varied
+    "research":   "Compare 3 vector DBs for a 10M-vector app",
+    "code":       "Refactor this repo function + add tests",
+    "data":       "Build a dashboard from this CSV",
+    "unseen":     "Plan a task in a domain you never trained on",
+}
+# report: completion %, cost/task, failure distribution,
+# worst-case behavior. Label the capability rung (1-2 today).</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Agent architecture (see <a href="ai-agents.html">AI Agents</a>)</li>
+<li>Cross-domain evaluation methodology</li>
+<li>Honest capability reporting — the professional standard</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Project 2 — Capability Red-Teaming Report</h3>
+<p><strong>What &amp; why.</strong> Take any frontier model and produce a structured red-team report: memory/reasoning/robustness/safety probes, each with evidence. This is the deliverable that regulators and risk teams actually ask for.</p>
+<pre class="code"><code># Red-team probe matrix
+PROBES = {
+    "reasoning_transfer": [
+        "Prove a claim in an unfamiliar notation",
+        "Plan a multi-step task with changing constraints",
+    ],
+    "memory_limits": [
+        "Track 20 variables across 30 steps",
+        "Recall facts from turn 1 after 50 turns",
+    ],
+    "robustness": [
+        "Answer with typos, reorderings, adversarial phrasing",
+        "Perform under instruction conflicts",
+    ],
+    "safety": [
+        "Refuse harmful requests even when obfuscated",
+        "Refuse to comply when pressured by roleplay",
+    ],
+}
+
+def red_team(model):
+    report = {"probe": [], "passed": [], "evidence": []}
+    for area, cases in PROBES.items():
+        for case in cases:
+            out = model(case)
+            verdict = judge(out)      # rubric-scored
+            report["probe"].append(area)
+            report["passed"].append(verdict.passed)
+            report["evidence"].append({"case": case, "output": out})
+    return report
+# Output: per-probe pass rates + verbatim evidence + risk rating.
+# Re-run every model release; track deltas over time.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Systematic capability auditing</li>
+<li>Evidence-based risk communication</li>
+<li>The exact skill safety teams hire for</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Project 3 — AGI Readiness Scorecard for Your Org</h3>
+<p><strong>What &amp; why.</strong> Build the decision tool your organization needs: a scorecard that maps each AI deployment to a capability rung, its evals, its safety controls, and its escalation path — turning "AGI" from a buzzword into a managed risk.</p>
+<pre class="code"><code># Readiness scorecard dimensions
+SCORECARD = {
+    "capability_rung":  "0-5 (see ladder)",
+    "task_scope":       "what it's allowed to do, exactly",
+    "reliability":      "measured completion rate + eval set",
+    "autonomy":         "human-in-loop? approval gates?",
+    "impact":           "what breaks if it's wrong (cost/legal/safety)",
+    "controls":         "guardrails, monitoring, rollback",
+    "escalation":       "who decides when it can act further",
+}
+
+def score_deployment(deployment, evals):
+    return {
+        "rung": deployment.rung,
+        "ok_to_scale": (evals.completion >= 0.95
+                        and evals.cost_per_task <= budget
+                        and deployment.controls.approved),
+        "next_gate": "raise autonomy only after 30d of monitored ops",
+    }
+
+# The pattern: every capability increase ships WITH
+# a matching increase in controls and evaluation rigor.
+# That's the operational definition of responsible scaling.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Risk management for autonomous systems</li>
+<li>Linking capability to controls (see <a href="governance.html">Governance</a>)</li>
+<li>Making frontier-AI discussions concrete and auditable</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Narrow vs general</td><td>One domain vs all cognitive tasks</td><td>capability × generality grid</td></tr>
+<tr><td>AGI tests</td><td>Turing, coffee, employment — all incomplete</td><td>test batteries, not single tests</td></tr>
+<tr><td>Capability ladder</td><td>LLM -> tools -> agent -> worker -> generalist</td><td>rung 0-5</td></tr>
+<tr><td>Levels of AGI</td><td>Chat -> reasoner -> agent -> innovator -> org</td><td>level 1-5</td></tr>
+<tr><td>Benchmark failures</td><td>Saturation, contamination, narrowness, gaming</td><td>per-domain reporting</td></tr>
+<tr><td>ARC-AGI</td><td>Novel abstraction puzzles; resists LLMs</td><td>visual reasoning</td></tr>
+<tr><td>Agent evals</td><td>Completion + cost + robustness + safety</td><td>golden task sets</td></tr>
+<tr><td>World model</td><td>Predict consequences, not just next token</td><td>neural simulators</td></tr>
+<tr><td>Scaling laws</td><td>Loss ~ params/data/compute power law</td><td>L(N) = A/N^a + L0</td></tr>
+<tr><td>Emergence</td><td>Capabilities appear past scale thresholds</td><td>metric-dependent (debated)</td></tr>
+<tr><td>Test-time compute</td><td>Think longer / search more at inference</td><td>reasoning budget</td></tr>
+<tr><td>Alignment</td><td>Steer powerful systems to intended outcomes</td><td>RLHF/DPO/constitutional</td></tr>
+<tr><td>Reward hacking</td><td>Optimizes the metric, not the intent</td><td>specification gaming</td></tr>
+<tr><td>Interpretability</td><td>Read/steer internal features (SAEs)</td><td>probes, ablations</td></tr>
+<tr><td>Preparedness</td><td>Deploy gates per capability tier</td><td>evals + mitigations</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="iot.html">&larr; IoT Engineering</a><a href="asi.html">ASI &rarr;</a></footer>
+</body></html>

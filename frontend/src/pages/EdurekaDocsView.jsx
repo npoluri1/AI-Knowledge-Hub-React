@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import RichText from '../components/RichText'
 import fileManifest from '../fileManifest.json'
+import FetchButton from '../components/FetchButton'
+import { useLang } from '../i18n'
+import { refreshFileCatalog } from '../api'
 
 const EDUREKHA_SLUG = 'edurekha_docs'
 
@@ -60,6 +63,7 @@ function docSortKey(name) {
 }
 
 export default function EdurekaDocsView() {
+  const { t } = useLang()
   const [docs, setDocs] = useState([])
   const [sections, setSections] = useState([])
   const [loading, setLoading] = useState(true)
@@ -129,18 +133,21 @@ export default function EdurekaDocsView() {
 
   return (
     <div className="edureka-docs">
-      <Link to="/" className="back-link">← Back to Home</Link>
-      <h2 className="chapter-title">📚 Edureka Generative AI Master Program</h2>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
+      <div className="page-header-row">
+        <h2 className="chapter-title">📚 {t('Edureka Generative AI Master Program')}</h2>
+        <FetchButton onFetch={() => refreshFileCatalog('Edureka program docs')} label={t('Fetch Latest')} />
+      </div>
       <p className="chapter-preview">
         {docs.length} documents loaded sequentially — system prompts, phases, tools, projects, career plans.
         Scroll through the full program content or use the sidebar to jump to a section.
       </p>
 
       <div className="edureka-stats">
-        <span className="stat-badge">📄 <strong>{docs.length}</strong> Documents</span>
-        <span className="stat-badge">📖 <strong>{progress.loaded}</strong> / {progress.total} Loaded</span>
-        {loading && <span className="stat-badge edureka-loading-indicator">⏳ Fetching…</span>}
-        {!loading && <span className="stat-badge">✅ All loaded</span>}
+        <span className="stat-badge">📄 <strong>{docs.length}</strong> {t('Documents')}</span>
+        <span className="stat-badge">📖 <strong>{progress.loaded}</strong> / {progress.total} {t('Loaded')}</span>
+        {loading && <span className="stat-badge edureka-loading-indicator">⏳ {t('Fetching…')}</span>}
+        {!loading && <span className="stat-badge">✅ {t('All loaded')}</span>}
       </div>
 
       {loading && (
@@ -155,7 +162,7 @@ export default function EdurekaDocsView() {
       <div className="edureka-layout">
         {/* Table of Contents / Navigation Sidebar */}
         <nav className="edureka-toc">
-          <div className="edureka-toc-title">📖 Contents</div>
+          <div className="edureka-toc-title">📖 {t('Contents')}</div>
           {sections.map((sec, i) => (
             <div
               key={i}

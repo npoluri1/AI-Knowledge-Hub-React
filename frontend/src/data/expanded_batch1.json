@@ -1,0 +1,2628 @@
+{
+  "deep-learning": [
+    {
+      "title": "Neural Network Architecture",
+      "description": "The structural design of interconnected layers of artificial neurons.",
+      "tldr": "Neural networks consist of layers of interconnected nodes organized in input, hidden, and output layers. Each connection has a learnable weight. Networks learn by forward propagation and backpropagation.",
+      "keyPoints": [
+        "Activation Function",
+        "Backpropagation",
+        "Loss Function",
+        "Epoch",
+        "Vanishing Gradient"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Image Recognition",
+          "text": "CNNs power facial recognition, medical imaging, and autonomous vehicles."
+        },
+        {
+          "num": "2",
+          "title": "NLP",
+          "text": "Transformers power ChatGPT, Google Translate, and sentiment analysis."
+        },
+        {
+          "num": "3",
+          "title": "Autonomous Systems",
+          "text": "Self-driving cars use multi-modal neural networks."
+        }
+      ],
+      "howItWorks": "Neural networks are inspired by biological neurons. Each neuron receives inputs, multiplies by weights, sums them, adds bias, and applies an activation function. A single neuron learns only linear relationships. Stacking layers enables learning increasingly abstract features: first edges, then textures, then shapes, then objects. Training uses backpropagation: compute loss, calculate gradients, update weights opposite to gradient.",
+      "pitfalls": [
+        {
+          "text": "Adding more layers always improves performance. Deeper networks can degrade due to vanishing gradients."
+        },
+        {
+          "text": "Neural networks are black boxes. SHAP and Grad-CAM provide interpretability."
+        },
+        {
+          "text": "More neurons always means better learning. Excessive capacity leads to overfitting."
+        },
+        {
+          "text": "All neural networks need GPU. Small networks train fine on CPU."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Activation Function",
+          "definition": "Non-linear function (ReLU, Sigmoid, Tanh) enabling complex pattern learning."
+        },
+        {
+          "term": "Backpropagation",
+          "definition": "Algorithm computing gradients using the chain rule."
+        },
+        {
+          "term": "Loss Function",
+          "definition": "Measures discrepancy between predictions and targets."
+        },
+        {
+          "term": "Epoch",
+          "definition": "One complete pass through the training dataset."
+        },
+        {
+          "term": "Vanishing Gradient",
+          "definition": "Gradients become tiny in deep networks, preventing early layer learning."
+        }
+      ],
+      "relatedConcepts": [
+        "Backpropagation",
+        "Gradient Descent",
+        "Transfer Learning"
+      ],
+      "codeExamples": [
+        {
+          "title": "Neural Network from Scratch",
+          "lang": "Python",
+          "code": "import numpy as np\n\nclass NeuralNetwork:\n    def __init__(self, in_sz, hid_sz, out_sz):\n        self.W1 = np.random.randn(in_sz, hid_sz) * 0.01\n        self.b1 = np.zeros((1, hid_sz))\n        self.W2 = np.random.randn(hid_sz, out_sz) * 0.01\n        self.b2 = np.zeros((1, out_sz))\n    def relu(self, z): return np.maximum(0, z)\n    def softmax(self, z):\n        e = np.exp(z - z.max(axis=1, keepdims=True))\n        return e / e.sum(axis=1, keepdims=True)\n    def forward(self, X):\n        self.h = self.relu(X @ self.W1 + self.b1)\n        return self.softmax(self.h @ self.W2 + self.b2)\n    def loss(self, p, y): return -np.log(p[range(len(y)), y]).mean()\n\nX = np.array([[0,0],[0,1],[1,0],[1,1]])\ny = np.array([0,1,1,0])\nmodel = NeuralNetwork(2, 8, 2)\nfor i in range(1000):\n    out = model.forward(X)\n    if i % 200 == 0: print(f'Step {i}: loss={model.loss(out,y):.4f}')\nprint('Preds:', np.argmax(model.forward(X), axis=1))"
+        }
+      ]
+    },
+    {
+      "title": "Transformers",
+      "description": "Architecture using self-attention to process sequential data in parallel.",
+      "tldr": "Transformers use self-attention to process all tokens simultaneously, enabling parallel training and long-range dependencies. They replaced RNNs as the dominant architecture for NLP and are now used in vision, audio, and multi-modal tasks.",
+      "keyPoints": [
+        "Self-Attention",
+        "Multi-Head Attention",
+        "Positional Encoding",
+        "Causal Mask"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Large Language Models",
+          "text": "GPT-4, Claude, and Gemini are transformer-based."
+        },
+        {
+          "num": "2",
+          "title": "Computer Vision",
+          "text": "Vision Transformers achieve state-of-the-art image classification."
+        },
+        {
+          "num": "3",
+          "title": "Protein Folding",
+          "text": "AlphaFold2 predicts 3D protein structures using transformers."
+        }
+      ],
+      "howItWorks": "Self-attention computes relevance scores between all token pairs through Q,K,V matrices. Attention(Q,K,V)=softmax(QK^T/sqrt(d_k))*V. Unlike RNNs which process sequentially, transformers process all tokens in parallel. Multi-head attention runs multiple operations in parallel. Positional encodings give tokens position information since the architecture is permutation-invariant.",
+      "pitfalls": [
+        {
+          "text": "O(n^2) memory limits context window size."
+        },
+        {
+          "text": "Attention weights are not importance scores."
+        },
+        {
+          "text": "RNNs can be more efficient for simple sequential patterns."
+        },
+        {
+          "text": "Massive data needed for pre-training; fine-tuning works with less."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Self-Attention",
+          "definition": "Each token computes relevance with all other tokens."
+        },
+        {
+          "term": "Multi-Head Attention",
+          "definition": "Multiple attention operations in parallel with different projections."
+        },
+        {
+          "term": "Positional Encoding",
+          "definition": "Adds position information to token embeddings."
+        },
+        {
+          "term": "Causal Mask",
+          "definition": "Prevents tokens from attending to future tokens in decoder-only models."
+        }
+      ],
+      "relatedConcepts": [
+        "Backpropagation",
+        "Attention Mechanism",
+        "Neural Network Architecture"
+      ],
+      "codeExamples": [
+        {
+          "title": "Self-Attention from Scratch",
+          "lang": "Python",
+          "code": "import numpy as np\n\ndef self_attention(X, dk):\n    Q = X @ np.random.randn(X.shape[1], dk) * 0.1\n    K = X @ np.random.randn(X.shape[1], dk) * 0.1\n    V = X @ np.random.randn(X.shape[1], dk) * 0.1\n    scores = Q @ K.T / np.sqrt(dk)\n    w = np.exp(scores) / np.exp(scores).sum(-1, keepdims=True)\n    return w @ V\n\nX = np.random.randn(4, 8)\nprint('Output shape:', self_attention(X, 4).shape)"
+        }
+      ]
+    },
+    {
+      "title": "Backpropagation",
+      "description": "The algorithm computing gradients through the network using the chain rule.",
+      "tldr": "Backpropagation efficiently computes the gradient of the loss with respect to every weight by applying the chain rule backwards from output to input, enabling weight updates via gradient descent.",
+      "keyPoints": [
+        "Gradient",
+        "Chain Rule",
+        "Forward Pass",
+        "Gradient Descent"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Every Neural Network",
+          "text": "All neural networks use backpropagation for training."
+        },
+        {
+          "num": "2",
+          "title": "Automatic Differentiation",
+          "text": "PyTorch and TensorFlow implement it automatically via autograd."
+        },
+        {
+          "num": "3",
+          "title": "Scientific Computing",
+          "text": "Physics-informed neural networks use it to solve differential equations."
+        }
+      ],
+      "howItWorks": "Imagine a factory assembly line. If the final product is defective, backpropagation traces the error backwards through each station, computing how much each weight contributed. It applies the chain rule: dL/dw = dL/da * da/dz * dz/dw. The backward pass computes all partial derivatives efficiently in one sweep, reusing intermediate computations for O(n) complexity.",
+      "pitfalls": [
+        {
+          "text": "Can get stuck in local minima; high-dimensional surfaces have saddle points."
+        },
+        {
+          "text": "Vanishing gradients prevent deep network training; solved by ReLU and residual connections."
+        },
+        {
+          "text": "Requires differentiable functions; non-differentiable ops break gradient flow."
+        },
+        {
+          "text": "Only used during training; inference is just a forward pass."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Gradient",
+          "definition": "Vector of partial derivatives pointing in direction of steepest increase."
+        },
+        {
+          "term": "Chain Rule",
+          "definition": "d(f(g(x))/dx = f'(g(x)) * g'(x)."
+        },
+        {
+          "term": "Forward Pass",
+          "definition": "Computing output by passing input through each layer."
+        },
+        {
+          "term": "Gradient Descent",
+          "definition": "Updates weights by moving opposite to gradient, scaled by learning rate."
+        }
+      ],
+      "relatedConcepts": [
+        "Gradient Descent",
+        "Neural Network Architecture",
+        "Optimizers"
+      ],
+      "codeExamples": [
+        {
+          "title": "Backpropagation Manually",
+          "lang": "Python",
+          "code": "import numpy as np\nnp.random.seed(42)\nX = np.random.randn(100, 1)\ny = 2 * X + 1 + np.random.randn(100, 1) * 0.1\n\nW1 = np.random.randn(1, 4) * 0.1\nW2 = np.random.randn(4, 1) * 0.1\nlr = 0.01\n\nfor i in range(1000):\n    h = np.maximum(0, X @ W1)\n    out = h @ W2\n    loss = np.mean((out - y)**2)\n    dout = 2*(out-y)/100\n    dW2 = h.T @ dout\n    dh = dout @ W2.T\n    dW1 = X.T @ (dh * (X@W1 > 0))\n    W2 -= lr*dW2; W1 -= lr*dW1\n    if i%200==0: print(f'Step {i}: loss={loss:.4f}')\nprint(f'Learned: W2={W2.flatten()}')"
+        }
+      ]
+    },
+    {
+      "title": "Convolutional Neural Networks",
+      "description": "Networks using learnable filters to extract spatial features from images.",
+      "tldr": "CNNs apply learnable filters that detect local patterns (edges, textures, objects). They share weights across spatial locations, making them parameter-efficient and translation-invariant for image tasks.",
+      "keyPoints": [
+        "Convolution",
+        "Filter (Kernel)",
+        "Pooling",
+        "Feature Map"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Medical Imaging",
+          "text": "CNNs detect tumors, lesions, and diabetic retinopathy."
+        },
+        {
+          "num": "2",
+          "title": "Autonomous Vehicles",
+          "text": "Real-time CNNs detect pedestrians and traffic signs at 30+ FPS."
+        },
+        {
+          "num": "3",
+          "title": "Manufacturing",
+          "text": "CNNs inspect products, detecting microscopic defects."
+        }
+      ],
+      "howItWorks": "A CNN examines images like humans: first detecting edges (layer 1), then textures (layer 2), then shapes (layer 3), then objects (deeper layers). Each convolutional layer applies multiple learnable filters that slide across the input, computing dot products. Pooling layers reduce spatial dimensions, providing translation invariance. After convolutional-pooling blocks, features flatten for classification.",
+      "pitfalls": [
+        {
+          "text": "Not rotation or scale invariant; augmentation helps but doesn't solve this."
+        },
+        {
+          "text": "Require large datasets; use transfer learning from pretrained models."
+        },
+        {
+          "text": "Pooling loses spatial info; modern nets use strided convolutions."
+        },
+        {
+          "text": "Not best for sequences; use transformers or RNNs for text/time series."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Convolution",
+          "definition": "Sliding a learnable filter over input to detect local patterns."
+        },
+        {
+          "term": "Filter (Kernel)",
+          "definition": "Small learnable matrix detecting specific patterns."
+        },
+        {
+          "term": "Pooling",
+          "definition": "Downsampling reducing spatial dimensions."
+        },
+        {
+          "term": "Feature Map",
+          "definition": "Output of applying a convolutional filter."
+        }
+      ],
+      "relatedConcepts": [
+        "Neural Network Architecture",
+        "Transfer Learning",
+        "Data Augmentation"
+      ],
+      "codeExamples": [
+        {
+          "title": "Simple CNN",
+          "lang": "Python",
+          "code": "import torch.nn as nn\n\nclass SimpleCNN(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.features = nn.Sequential(\n            nn.Conv2d(1, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),\n            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2))\n        self.fc = nn.Sequential(nn.Linear(64*7*7, 128), nn.ReLU(), nn.Linear(128, 10))\n    def forward(self, x):\n        return self.fc(self.features(x).view(x.size(0), -1))\n\nm = SimpleCNN()\nprint(f'Params: {sum(p.numel() for p in m.parameters()):,}')"
+        }
+      ]
+    },
+    {
+      "title": "Recurrent Neural Networks",
+      "description": "Networks with recurrent connections that process sequential data via hidden state.",
+      "tldr": "RNNs process sequences step-by-step, maintaining a hidden state across time steps. While replaced by transformers for most tasks, they remain important for understanding sequence modeling fundamentals.",
+      "keyPoints": [
+        "Hidden State",
+        "LSTM",
+        "GRU",
+        "BPTT"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Speech Recognition",
+          "text": "Early speech-to-text used RNNs for frame-by-frame audio processing."
+        },
+        {
+          "num": "2",
+          "title": "Time Series",
+          "text": "LSTMs predict stock prices and energy consumption from historical data."
+        },
+        {
+          "num": "3",
+          "title": "Music Generation",
+          "text": "RNNs generate music by learning note and rhythm patterns."
+        }
+      ],
+      "howItWorks": "An RNN processes sequences one element at a time: h_t = f(h_{t-1}, x_t). The hidden state carries information from previous steps. Challenges include vanishing gradients over long sequences. LSTMs solve this with cell state and gate mechanisms (forget, input, output gates). GRUs simplify with two gates (reset, update).",
+      "pitfalls": [
+        {
+          "text": "Vanishing gradients make long-range learning hard."
+        },
+        {
+          "text": "Sequential processing cannot be parallelized like transformers."
+        },
+        {
+          "text": "Struggle with sequences longer than ~200 steps."
+        },
+        {
+          "text": "Teacher forcing creates exposure bias between training and inference."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Hidden State",
+          "definition": "Vector summarizing all information seen so far in the sequence."
+        },
+        {
+          "term": "LSTM",
+          "definition": "Uses gate mechanisms to control information flow, solving vanishing gradients."
+        },
+        {
+          "term": "GRU",
+          "definition": "Simplified LSTM with fewer parameters, often comparable performance."
+        },
+        {
+          "term": "BPTT",
+          "definition": "Backpropagation Through Time: training algorithm for RNNs."
+        }
+      ],
+      "relatedConcepts": [
+        "Neural Network Architecture",
+        "Transformers",
+        "Time Series Analysis"
+      ],
+      "codeExamples": [
+        {
+          "title": "LSTM for Sequence Prediction",
+          "lang": "Python",
+          "code": "import torch\nimport torch.nn as nn\n\nmodel = nn.LSTM(input_size=1, hidden_size=32, num_layers=2, batch_first=True)\nfc = nn.Linear(32, 1)\n\nx = torch.randn(8, 50, 1)  # batch=8, seq_len=50\nout, (h, c) = model(x)\nresult = fc(out[:, -1, :])\nprint(f'Input: {x.shape}, Output: {result.shape}')"
+        }
+      ]
+    },
+    {
+      "title": "Generative Adversarial Networks",
+      "description": "Two networks trained in opposition to generate realistic synthetic data.",
+      "tldr": "GANs have a generator creating fake data and a discriminator distinguishing real from fake. Through adversarial training, the generator learns to produce increasingly realistic outputs.",
+      "keyPoints": [
+        "Generator",
+        "Discriminator",
+        "Mode Collapse",
+        "FID Score"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Image Generation",
+          "text": "StyleGAN generates photorealistic faces that don't exist."
+        },
+        {
+          "num": "2",
+          "title": "Data Augmentation",
+          "text": "Medical researchers generate synthetic X-rays for rare conditions."
+        },
+        {
+          "num": "3",
+          "title": "Super Resolution",
+          "text": "SRGAN enhances low-resolution images to high-resolution."
+        }
+      ],
+      "howItWorks": "Imagine an art forger (generator) and critic (discriminator) in an arms race. The forger creates paintings to fool the critic while the critic learns to spot fakes. Minimax game: min_G max_D E[log D(x)] + E[log(1-D(G(z)))]. Generator improves by fooling discriminator. Training is unstable; mode collapse is common.",
+      "pitfalls": [
+        {
+          "text": "Training is notoriously unstable; mode collapse is common."
+        },
+        {
+          "text": "No single metric for quality; FID and IS are proxies."
+        },
+        {
+          "text": "Require large datasets and significant compute."
+        },
+        {
+          "text": "Diffusion models are replacing GANs for many tasks."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Generator",
+          "definition": "Creates synthetic data from random noise."
+        },
+        {
+          "term": "Discriminator",
+          "definition": "Classifies inputs as real or generated."
+        },
+        {
+          "term": "Mode Collapse",
+          "definition": "Generator produces limited variety of outputs."
+        },
+        {
+          "term": "FID Score",
+          "definition": "Frchet Inception Distance: measures quality of generated images."
+        }
+      ],
+      "relatedConcepts": [
+        "Neural Network Architecture",
+        "Autoencoders",
+        "Diffusion Models"
+      ],
+      "codeExamples": [
+        {
+          "title": "Simple GAN",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass G(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.net = nn.Sequential(nn.Linear(1,32), nn.ReLU(), nn.Linear(32,1))\n    def forward(self, z): return self.net(z)\n\nclass D(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.net = nn.Sequential(nn.Linear(1,32), nn.LeakyReLU(0.2), nn.Linear(32,1), nn.Sigmoid())\n    def forward(self, x): return self.net(x)\n\ng, d = G(), D()\nopt_g = torch.optim.Adam(g.parameters(), lr=0.001)\nopt_d = torch.optim.Adam(d.parameters(), lr=0.001)\ncrit = nn.BCELoss()\nreal = torch.randn(100, 1) + 2\n\nfor i in range(500):\n    z = torch.randn(100, 1)\n    fake = g(z).detach()\n    d_loss = crit(d(real), torch.ones(100,1)) + crit(d(fake), torch.zeros(100,1))\n    opt_d.zero_grad(); d_loss.backward(); opt_d.step()\n    g_loss = crit(d(g(torch.randn(100,1))), torch.ones(100,1))\n    opt_g.zero_grad(); g_loss.backward(); opt_g.step()\nprint('Generated:', g(torch.randn(5,1)).detach().flatten().round().tolist())"
+        }
+      ]
+    },
+    {
+      "title": "Transfer Learning",
+      "description": "Reusing a pretrained model on a new task with less data.",
+      "tldr": "Transfer learning takes a model pretrained on a large dataset and fine-tunes it for a specific task. This reduces training time and data requirements while often achieving better performance than training from scratch.",
+      "keyPoints": [
+        "Pretrained Model",
+        "Fine-Tuning",
+        "Feature Extraction",
+        "Domain Adaptation"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Medical Imaging",
+          "text": "Models pretrained on ImageNet fine-tuned for X-ray analysis."
+        },
+        {
+          "num": "2",
+          "title": "NLP",
+          "text": "BERT pretrained on internet text, fine-tuned for sentiment analysis."
+        },
+        {
+          "num": "3",
+          "title": "Defect Detection",
+          "text": "Manufacturers fine-tune vision models for specific product defects."
+        }
+      ],
+      "howItWorks": "Like a medical student who studied general anatomy then specializes in cardiology. Generic knowledge transfers directly; only specific knowledge needs learning. Early layers learn generic features (edges, textures) useful for any task. Freeze early layers, train only new layers. Strategies: feature extraction (freeze all, train head) and fine-tuning (unfreeze some, small learning rate).",
+      "pitfalls": [
+        {
+          "text": "Negative transfer if source/target domains differ greatly."
+        },
+        {
+          "text": "Fine-tuning can cause catastrophic forgetting of pretrained features."
+        },
+        {
+          "text": "Domain mismatch requires adaptation techniques."
+        },
+        {
+          "text": "With <100 samples, feature extraction works best."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Pretrained Model",
+          "definition": "Model trained on large dataset serving as starting point."
+        },
+        {
+          "term": "Fine-Tuning",
+          "definition": "Continuing training on new task with small learning rate."
+        },
+        {
+          "term": "Feature Extraction",
+          "definition": "Using pretrained model as fixed feature extractor."
+        },
+        {
+          "term": "Domain Adaptation",
+          "definition": "Techniques for cross-domain performance transfer."
+        }
+      ],
+      "relatedConcepts": [
+        "Neural Network Architecture",
+        "Data Augmentation",
+        "Fine-Tuning"
+      ],
+      "codeExamples": [
+        {
+          "title": "Transfer Learning with ResNet",
+          "lang": "Python",
+          "code": "import torch\nimport torchvision.models as models\n\nmodel = models.resnet18(weights='IMAGENET1K_V1')\nfor p in model.parameters(): p.requires_grad = False\nmodel.fc = nn.Linear(model.fc.in_features, 5)\n\ntrainable = sum(p.numel() for p in model.parameters() if p.requires_grad)\ntotal = sum(p.numel() for p in model.parameters())\nprint(f'Trainable: {trainable:,} / {total:,} ({100*trainable/total:.1f}%)')"
+        }
+      ]
+    },
+    {
+      "title": "Autoencoders",
+      "description": "Networks learning compressed representations via encode-decode bottleneck.",
+      "tldr": "Autoencoders compress input to a latent space and reconstruct it. Used for dimensionality reduction, anomaly detection, denoising, and generative modeling. VAEs extend this for generation.",
+      "keyPoints": [
+        "Encoder",
+        "Decoder",
+        "Latent Space",
+        "VAE"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Anomaly Detection",
+          "text": "Train on normal products; anomalies produce high reconstruction error."
+        },
+        {
+          "num": "2",
+          "title": "Image Denoising",
+          "text": "Denoising autoencoders remove noise from medical images."
+        },
+        {
+          "num": "3",
+          "title": "Drug Discovery",
+          "text": "VAEs generate novel molecular structures from latent space."
+        }
+      ],
+      "howItWorks": "Encoder compresses input x to latent z: z=enc(x). Decoder reconstructs: x_hat=dec(z). Trained to minimize reconstruction error. The bottleneck forces learning compressed representations. VAEs add probabilistic structure: encoder outputs mean and variance, z is sampled from distribution, making latent space continuous for generation.",
+      "pitfalls": [
+        {
+          "text": "Can learn identity function if latent space is too large."
+        },
+        {
+          "text": "VAEs produce blurry images compared to GANs."
+        },
+        {
+          "text": "Latent space may not be meaningful without proper regularization."
+        },
+        {
+          "text": "Not as good for generation as modern diffusion models."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Encoder",
+          "definition": "Maps input to compressed latent representation."
+        },
+        {
+          "term": "Decoder",
+          "definition": "Reconstructs input from latent representation."
+        },
+        {
+          "term": "Latent Space",
+          "definition": "Compressed representation space capturing important features."
+        },
+        {
+          "term": "VAE",
+          "definition": "Variational Autoencoder: learns probabilistic latent space for generation."
+        }
+      ],
+      "relatedConcepts": [
+        "Generative Adversarial Networks",
+        "Dimensionality Reduction",
+        "Anomaly Detection"
+      ],
+      "codeExamples": [
+        {
+          "title": "Autoencoder for Anomaly Detection",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass AE(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.enc = nn.Sequential(nn.Linear(20,16), nn.ReLU(), nn.Linear(16,4))\n        self.dec = nn.Sequential(nn.Linear(4,16), nn.ReLU(), nn.Linear(16,20))\n    def forward(self, x): return self.dec(self.enc(x))\n\nnormal = torch.randn(500, 20) * 0.5\nanomaly = torch.randn(50, 20) * 2 + 5\nmodel = AE()\nopt = torch.optim.Adam(model.parameters(), lr=0.001)\n\nfor i in range(200):\n    loss = nn.MSELoss()(model(normal), normal)\n    opt.zero_grad(); loss.backward(); opt.step()\n\nwith torch.no_grad():\n    ne = nn.MSELoss(reduction='none')(model(normal), normal).mean(1)\n    ae = nn.MSELoss(reduction='none')(model(anomaly), anomaly).mean(1)\n    print(f'Normal err: {ne.mean():.4f}, Anomaly err: {ae.mean():.4f}')"
+        }
+      ]
+    },
+    {
+      "title": "Batch Normalization",
+      "description": "Normalizing layer inputs to stabilize and accelerate training.",
+      "tldr": "BN normalizes activations to zero mean and unit variance per mini-batch. Reduces internal covariate shift, allows higher learning rates, and acts as mild regularization.",
+      "keyPoints": [
+        "Internal Covariate Shift",
+        "Running Statistics",
+        "Layer Normalization"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Deep Networks",
+          "text": "Without BN, networks >10 layers are hard to train."
+        },
+        {
+          "num": "2",
+          "title": "GAN Training",
+          "text": "BN stabilizes GAN training, preventing mode collapse."
+        },
+        {
+          "num": "3",
+          "title": "NLP",
+          "text": "Layer normalization (variant) is critical for transformers."
+        }
+      ],
+      "howItWorks": "Internal covariate shift: each layer's input distribution changes as parameters update. BN normalizes inputs per batch, keeping distributions stable. Learnable gamma and beta allow undoing normalization. Benefit: 10-30x higher learning rates, 5-10x faster training. Slight regularization effect from noisy batch statistics.",
+      "pitfalls": [
+        {
+          "text": "Different behavior during training vs inference; set model.eval() for test."
+        },
+        {
+          "text": "Not ideal for small batch sizes (<8); use Layer Norm."
+        },
+        {
+          "text": "Adds computational overhead for running statistics."
+        },
+        {
+          "text": "Less effective for recurrent networks; use Layer Norm."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Internal Covariate Shift",
+          "definition": "Change in input distributions during training."
+        },
+        {
+          "term": "Running Statistics",
+          "definition": "Moving averages of batch means/variances for inference."
+        },
+        {
+          "term": "Layer Normalization",
+          "definition": "Normalizes across features instead of across batch."
+        }
+      ],
+      "relatedConcepts": [
+        "Neural Network Architecture",
+        "Gradient Descent",
+        "Regularization"
+      ],
+      "codeExamples": [
+        {
+          "title": "Batch Norm Impact",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nplain = nn.Sequential(nn.Linear(100,256), nn.ReLU(), nn.Linear(256,256), nn.ReLU(), nn.Linear(256,10))\nbn_net = nn.Sequential(nn.Linear(100,256), nn.BatchNorm1d(256), nn.ReLU(), nn.Linear(256,256), nn.BatchNorm1d(256), nn.ReLU(), nn.Linear(256,10))\n\nX = torch.randn(500, 100)\ny = torch.randint(0, 10, (500,))\n\nfor name, net in [('Plain', plain), ('With BN', bn_net)]:\n    opt = torch.optim.SGD(net.parameters(), lr=0.1)\n    for _ in range(200):\n        loss = nn.CrossEntropyLoss()(net(X), y)\n        opt.zero_grad(); loss.backward(); opt.step()\n    acc = (net(X).argmax(1)==y).float().mean()\n    print(f'{name}: acc={acc:.3f}')"
+        }
+      ]
+    },
+    {
+      "title": "Dropout Regularization",
+      "description": "Randomly deactivating neurons during training to prevent co-adaptation.",
+      "tldr": "Dropout randomly sets a fraction of neurons to zero during each training step. Prevents neurons from co-adapting and acts as an implicit ensemble of sub-networks.",
+      "keyPoints": [
+        "Dropout Rate",
+        "Co-adaptation",
+        "MC Dropout"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "LLMs",
+          "text": "GPT and BERT use dropout throughout their architectures."
+        },
+        {
+          "num": "2",
+          "title": "Image Classification",
+          "text": "Dropout in FC layers of CNNs prevents overfitting."
+        },
+        {
+          "num": "3",
+          "title": "Medical Diagnosis",
+          "text": "Dropout provides more calibrated uncertainty estimates."
+        }
+      ],
+      "howItWorks": "Like a teacher randomly removing students each day, forcing remaining students to work independently. Each neuron kept with probability p. During inference, all neurons kept but scaled by p. Equivalent to averaging exponential number of sub-networks, reducing variance and improving generalization.",
+      "pitfalls": [
+        {
+          "text": "Only during training, not inference; use model.eval()."
+        },
+        {
+          "text": "High rates (>0.5) can prevent learning; use 0.1-0.3."
+        },
+        {
+          "text": "Less effective for convolutional layers; use SpatialDropout2D."
+        },
+        {
+          "text": "Adds training noise which can slow convergence."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Dropout Rate",
+          "definition": "Probability of dropping a neuron; typical: 0.1-0.3."
+        },
+        {
+          "term": "Co-adaptation",
+          "definition": "Neurons relying on specific other neurons, creating fragile representations."
+        },
+        {
+          "term": "MC Dropout",
+          "definition": "Running dropout during inference to estimate uncertainty."
+        }
+      ],
+      "relatedConcepts": [
+        "Regularization",
+        "Neural Network Architecture",
+        "Batch Normalization"
+      ],
+      "codeExamples": [
+        {
+          "title": "Dropout Effect",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass Net(nn.Module):\n    def __init__(self, dp=False):\n        super().__init__()\n        layers = [nn.Linear(20,128), nn.ReLU()]\n        if dp: layers.append(nn.Dropout(0.5))\n        layers += [nn.Linear(128,2)]\n        self.net = nn.Sequential(*layers)\n    def forward(self, x): return self.net(x)\n\nX = torch.randn(300, 20)\ny = (X[:,0]+X[:,1]>0).long()\n\nfor name, dp in [('No DP', False), ('With DP', True)]:\n    m = Net(dp)\n    opt = torch.optim.Adam(m.parameters())\n    for _ in range(500):\n        loss = nn.CrossEntropyLoss()(m(X), y)\n        opt.zero_grad(); loss.backward(); opt.step()\n    print(f'{name}: train_acc={((m(X).argmax(1)==y).float().mean()):.3f}')"
+        }
+      ]
+    },
+    {
+      "title": "Residual Connections",
+      "description": "Skip connections adding input directly to output, enabling very deep networks.",
+      "tldr": "Residual connections: y = F(x) + x. Allows gradients to flow directly, solving degradation problem. ResNets enabled 150+ layer networks.",
+      "keyPoints": [
+        "Skip Connection",
+        "Degradation Problem",
+        "Identity Mapping"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Deep Vision",
+          "text": "ResNet-152 achieves 3.57% top-5 error on ImageNet."
+        },
+        {
+          "num": "2",
+          "title": "Transformers",
+          "text": "Every transformer block uses residual connections."
+        },
+        {
+          "num": "3",
+          "title": "U-Net",
+          "text": "Skip connections between encoder and decoder for segmentation."
+        }
+      ],
+      "howItWorks": "Without skip connections, deeper networks often perform worse. ResNets make it easy: blocks only learn residuals F(x)=H(x)-x. If optimal is identity, F(x) learns zero. Skip connections create gradient highways preventing vanishing gradients in very deep networks.",
+      "pitfalls": [
+        {
+          "text": "Add memory overhead; input must be stored until skip connection."
+        },
+        {
+          "text": "Minimal benefit for shallow networks (<10 layers)."
+        },
+        {
+          "text": "Dimension changes require 1x1 convolution in skip path."
+        },
+        {
+          "text": "Can mask layer failure; if a layer learns nothing, skip carries signal."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Skip Connection",
+          "definition": "Shortcut adding input directly to output."
+        },
+        {
+          "term": "Degradation Problem",
+          "definition": "Adding layers increases training error; residuals solve this."
+        },
+        {
+          "term": "Identity Mapping",
+          "definition": "Skip connection where input is added directly."
+        }
+      ],
+      "relatedConcepts": [
+        "Neural Network Architecture",
+        "Backpropagation",
+        "Batch Normalization"
+      ],
+      "codeExamples": [
+        {
+          "title": "Residual Block",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass ResBlock(nn.Module):\n    def __init__(self, dim):\n        super().__init__()\n        self.block = nn.Sequential(nn.Linear(dim,dim), nn.ReLU(), nn.Linear(dim,dim))\n    def forward(self, x): return torch.relu(self.block(x) + x)  # Skip!\n\nmodel = nn.Sequential(nn.Linear(10,64), *[ResBlock(64) for _ in range(5)], nn.Linear(64,2))\nx = torch.randn(32, 10)\nprint(f'Output: {model(x).shape}, With skip connections for gradient flow')"
+        }
+      ]
+    },
+    {
+      "title": "Attention Mechanism",
+      "description": "Dynamic focus on relevant input parts when producing each output.",
+      "tldr": "Attention computes weighted sums of input elements based on learned relevance. Core mechanism behind transformers, enabling long-range dependency capture.",
+      "keyPoints": [
+        "Self-Attention",
+        "Cross-Attention",
+        "Scaled Dot-Product"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Translation",
+          "text": "Decoder focuses on relevant source words when translating."
+        },
+        {
+          "num": "2",
+          "title": "Visual QA",
+          "text": "Models focus on specific image regions when answering questions."
+        },
+        {
+          "num": "3",
+          "title": "Speech",
+          "text": "Attention aligns audio frames with text tokens."
+        }
+      ],
+      "howItWorks": "When processing output element, which inputs matter? (1) Compute attention scores between queries and keys. (2) Apply softmax for weights summing to 1. (3) Weighted sum of values. Attention(Q,K,V) = softmax(QK^T/sqrt(d_k))*V. Multi-head attention runs this with multiple projections simultaneously.",
+      "pitfalls": [
+        {
+          "text": "O(n^2) in sequence length; expensive for long sequences."
+        },
+        {
+          "text": "Not all attention weights are meaningful; some are regularization."
+        },
+        {
+          "text": "Cross-attention attends between two different sequences."
+        },
+        {
+          "text": "Causal masking prevents attending to future tokens."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Self-Attention",
+          "definition": "Attention within a single sequence."
+        },
+        {
+          "term": "Cross-Attention",
+          "definition": "Attention between two different sequences."
+        },
+        {
+          "term": "Scaled Dot-Product",
+          "definition": "Standard scoring: dot product scaled by sqrt(d_k)."
+        }
+      ],
+      "relatedConcepts": [
+        "Transformers",
+        "Neural Network Architecture",
+        "Self-Attention"
+      ],
+      "codeExamples": [
+        {
+          "title": "Multi-Head Attention",
+          "lang": "Python",
+          "code": "import numpy as np\n\nclass MHA:\n    def __init__(self, dm=8, nh=2):\n        self.dk, self.nh = dm//nh, nh\n        self.Wq = np.random.randn(dm,dm)*0.1\n        self.Wk = np.random.randn(dm,dm)*0.1\n        self.Wv = np.random.randn(dm,dm)*0.1\n    def forward(self, x):\n        Q, K, V = x@self.Wq, x@self.Wk, x@self.Wv\n        n = len(x)\n        Q = Q.reshape(n,self.nh,self.dk).transpose(1,0,2)\n        K = K.reshape(n,self.nh,self.dk).transpose(1,0,2)\n        V = V.reshape(n,self.nh,self.dk).transpose(1,0,2)\n        outs = []\n        for h in range(self.nh):\n            s = Q[h]@K[h].T/np.sqrt(self.dk)\n            w = np.exp(s)/np.exp(s).sum(-1,keepdims=True)\n            outs.append(w@V[h])\n        return np.concatenate(outs, -1)\n\nprint(MHA().forward(np.random.randn(5,8)).shape)"
+        }
+      ]
+    },
+    {
+      "title": "Optimizers",
+      "description": "Algorithms updating model parameters to minimize loss, beyond basic gradient descent.",
+      "tldr": "Optimizers determine how weights are updated. Adaptive optimizers like Adam adjust learning rates per-parameter based on historical gradient statistics, leading to faster convergence.",
+      "keyPoints": [
+        "Adam",
+        "Learning Rate",
+        "Learning Rate Schedule",
+        "Weight Decay"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "LLMs",
+          "text": "AdamW with warmup schedules handle sparse gradients in transformers."
+        },
+        {
+          "num": "2",
+          "title": "Computer Vision",
+          "text": "SGD with momentum and cosine scheduling for ResNet training."
+        },
+        {
+          "num": "3",
+          "title": "RL",
+          "text": "PPO uses Adam for policy network updates."
+        }
+      ],
+      "howItWorks": "SGD with momentum adds velocity for consistent gradient directions. RMSprop normalizes by recent gradient magnitude. Adam combines both with bias correction. AdamW decouples weight decay. Different parameters may need different learning rates; adaptive methods handle this automatically.",
+      "pitfalls": [
+        {
+          "text": "Adam converges faster but may generalize worse than SGD for vision."
+        },
+        {
+          "text": "Learning rate is the most important hyperparameter."
+        },
+        {
+          "text": "Schedules (cosine, warmup) are essential for large models."
+        },
+        {
+          "text": "AdamW weight decay differs from L2 regularization."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Adam",
+          "definition": "Adaptive Moment Estimation combining momentum and RMSprop."
+        },
+        {
+          "term": "Learning Rate",
+          "definition": "Step size for parameter updates."
+        },
+        {
+          "term": "Learning Rate Schedule",
+          "definition": "Strategy for changing LR during training."
+        },
+        {
+          "term": "Weight Decay",
+          "definition": "Penalizing large weights for regularization."
+        }
+      ],
+      "relatedConcepts": [
+        "Gradient Descent",
+        "Backpropagation",
+        "Regularization"
+      ],
+      "codeExamples": [
+        {
+          "title": "Optimizer Comparison",
+          "lang": "Python",
+          "code": "import numpy as np\n\ndef rosenbrock_grad(x, y):\n    return np.array([-2*(1-x)-400*x*(y-x**2), 200*(y-x**2)])\n\npos = np.array([-1.0, 1.0])\nv = np.zeros(2); s = np.zeros(2)\nfor t in range(1, 501):\n    g = rosenbrock_grad(pos[0], pos[1])\n    v = 0.9*v + 0.1*g\n    s = 0.999*s + 0.001*g**2\n    pos -= 0.01*(v/(1-0.9**t))/(np.sqrt(s/(1-0.999**t))+1e-8)\nprint(f'Adam converged to: ({pos[0]:.4f}, {pos[1]:.4f}), True: (1.0, 1.0)')"
+        }
+      ]
+    },
+    {
+      "title": "Data Augmentation",
+      "description": "Techniques artificially increasing training data diversity via transformations.",
+      "tldr": "Data augmentation creates new training examples by applying transformations like rotation, flipping, cropping. Improves generalization and is especially valuable with scarce data.",
+      "keyPoints": [
+        "Mixup",
+        "Cutout",
+        "RandAugment"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Medical Imaging",
+          "text": "X-rays augmented with rotation, brightness changes, elastic deformations."
+        },
+        {
+          "num": "2",
+          "title": "Autonomous Driving",
+          "text": "Brightness, weather, and geometric variations for diverse conditions."
+        },
+        {
+          "num": "3",
+          "title": "NLP",
+          "text": "Synonym replacement, back-translation, random deletion."
+        }
+      ],
+      "howItWorks": "Key insight: a cat is still a cat whether flipped, brightened, or rotated. Training on variations makes the model focus on invariant features. Image: flip, crop, rotate, color jitter, mixup, cutmix. Text: synonym replacement, back-translation. Tabular: SMOTE, Gaussian noise.",
+      "pitfalls": [
+        {
+          "text": "Augmentations should reflect realistic variations."
+        },
+        {
+          "text": "Over-augmentation can hurt if labels no longer apply."
+        },
+        {
+          "text": "Most valuable for small datasets; diminishing returns with massive data."
+        },
+        {
+          "text": "Test-time augmentation (TTA) averages predictions on augmented inputs."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Mixup",
+          "definition": "Blending two images and labels linearly."
+        },
+        {
+          "term": "Cutout",
+          "definition": "Randomly masking rectangular regions of images."
+        },
+        {
+          "term": "RandAugment",
+          "definition": "Applying N random transformations with magnitude M."
+        }
+      ],
+      "relatedConcepts": [
+        "Transfer Learning",
+        "Regularization",
+        "Neural Network Architecture"
+      ],
+      "codeExamples": [
+        {
+          "title": "Augmentation Pipeline",
+          "lang": "Python",
+          "code": "from torchvision import transforms\n\ntrain_tf = transforms.Compose([\n    transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),\n    transforms.RandomHorizontalFlip(),\n    transforms.RandomRotation(15),\n    transforms.ColorJitter(brightness=0.2, contrast=0.2),\n    transforms.ToTensor(),\n    transforms.Normalize([0.485,0.456,0.406], [0.229,0.224,0.225]),\n    transforms.RandomErasing(p=0.2)\n])\nval_tf = transforms.Compose([\n    transforms.Resize(256), transforms.CenterCrop(224),\n    transforms.ToTensor(),\n    transforms.Normalize([0.485,0.456,0.406], [0.229,0.224,0.225])\n])\nprint('Train: RandomCrop, HFlip, Rotation, ColorJitter, Erasing')\nprint('Val: Resize + CenterCrop (no randomness)')"
+        }
+      ]
+    },
+    {
+      "title": "Loss Functions",
+      "description": "Mathematical functions quantifying prediction error, guiding optimization.",
+      "tldr": "Loss functions measure prediction error. Cross-entropy for classification, MSE for regression, contrastive loss for similarity, task-specific losses for detection and segmentation.",
+      "keyPoints": [
+        "Cross-Entropy",
+        "MSE",
+        "Focal Loss",
+        "Triplet Loss"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Object Detection",
+          "text": "YOLO uses localization + classification + objectness losses."
+        },
+        {
+          "num": "2",
+          "title": "Face Verification",
+          "text": "Triplet loss learns embeddings where same-person faces are close."
+        },
+        {
+          "num": "3",
+          "title": "RL",
+          "text": "Policy gradient uses cross-entropy to update policies."
+        }
+      ],
+      "howItWorks": "Loss defines the objective. Binary cross-entropy penalizes confident wrong predictions exponentially. Categorical cross-entropy with softmax ensures outputs sum to 1. MSE penalizes large errors heavily. Focal loss handles class imbalance by downweighting easy examples. Choice of loss fundamentally shapes what the model learns.",
+      "pitfalls": [
+        {
+          "text": "Use nn.CrossEntropyLoss which combines log-softmax and NLL stably."
+        },
+        {
+          "text": "Class-weighted losses essential for imbalanced datasets."
+        },
+        {
+          "text": "Label smoothing (0.1/0.9 instead of 0/1) improves calibration."
+        },
+        {
+          "text": "Multi-task loss weighting requires careful tuning."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Cross-Entropy",
+          "definition": "Measures difference between predicted and true distributions."
+        },
+        {
+          "term": "MSE",
+          "definition": "Average squared differences; standard for regression."
+        },
+        {
+          "term": "Focal Loss",
+          "definition": "Downweights easy examples to focus on hard ones."
+        },
+        {
+          "term": "Triplet Loss",
+          "definition": "Ensures anchor-positive closer than anchor-negative by a margin."
+        }
+      ],
+      "relatedConcepts": [
+        "Gradient Descent",
+        "Classification Metrics",
+        "Regularization"
+      ],
+      "codeExamples": [
+        {
+          "title": "Loss Function Comparison",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nlogits = torch.tensor([2.0, 0.5, -1.0, -2.0])\nlabels = torch.tensor([1.0, 1.0, 0.0, 0.0])\nprint(f'BCE: {nn.BCEWithLogitsLoss()(logits, labels):.4f}')\n\nlogits_mc = torch.randn(5, 10)\nlabels_mc = torch.randint(0, 10, (5,))\nprint(f'CrossEntropy: {nn.CrossEntropyLoss()(logits_mc, labels_mc):.4f}')"
+        }
+      ]
+    },
+    {
+      "title": "Vision Transformers",
+      "description": "Transformers applied to images by treating patches as tokens.",
+      "tldr": "ViT splits images into patches, embeds them linearly, and processes with a standard transformer. When pretrained on large datasets, ViTs match CNNs while offering attention-based interpretability.",
+      "keyPoints": [
+        "Patch Embedding",
+        "[CLS] Token",
+        "Attention Map"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Image Classification",
+          "text": "ViT-L/14 achieves 87.8% top-1 on ImageNet."
+        },
+        {
+          "num": "2",
+          "title": "Medical Imaging",
+          "text": "ViTs analyze histopathology slides capturing long-range spatial relationships."
+        },
+        {
+          "num": "3",
+          "title": "Video",
+          "text": "ViViT processes video as spatiotemporal patches for action recognition."
+        }
+      ],
+      "howItWorks": "224x224 image with 16x16 patches becomes 196 tokens. Each patch flattened and projected to embedding dimension. [CLS] token prepended, positional embeddings added. Standard transformer encoder processes the sequence. Without convolution inductive bias, ViTs need more data but learn more flexible representations.",
+      "pitfalls": [
+        {
+          "text": "Need 100M+ images for pretraining to match CNNs."
+        },
+        {
+          "text": "O(n^2) attention over patches is expensive."
+        },
+        {
+          "text": "Cannot handle variable-resolution inputs without interpolation."
+        },
+        {
+          "text": "DeiT shows careful training recipes enable smaller dataset training."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Patch Embedding",
+          "definition": "Splitting image into patches and projecting to embeddings."
+        },
+        {
+          "term": "[CLS] Token",
+          "definition": "Learnable token whose representation is used for classification."
+        },
+        {
+          "term": "Attention Map",
+          "definition": "Visualization of which patches the model focuses on."
+        }
+      ],
+      "relatedConcepts": [
+        "Transformers",
+        "Attention Mechanism",
+        "Convolutional Neural Networks"
+      ],
+      "codeExamples": [
+        {
+          "title": "ViT Patch Embedding",
+          "lang": "Python",
+          "code": "import torch.nn as nn\n\nclass PatchEmbed(nn.Module):\n    def __init__(self, img=224, patch=16, ch=3, dim=768):\n        super().__init__()\n        self.proj = nn.Conv2d(ch, dim, patch, stride=patch)\n    def forward(self, x): return self.proj(x).flatten(2).transpose(1,2)\n\npe = PatchEmbed()\nimg = torch.randn(2, 3, 224, 224)\npatches = pe(img)\nprint(f'Image: {img.shape} -> Patches: {patches.shape} ({(224//16)**2} patches of 768-dim)')"
+        }
+      ]
+    },
+    {
+      "title": "Object Detection",
+      "description": "Identifying and localizing multiple objects with bounding boxes and classes.",
+      "tldr": "Object detection combines classification with localization. Two-stage (Faster R-CNN) proposes then classifies. Single-stage (YOLO, SSD) does both at once for real-time detection.",
+      "keyPoints": [
+        "Bounding Box",
+        "IoU",
+        "NMS",
+        "Anchor Boxes"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Autonomous Vehicles",
+          "text": "Detect pedestrians, vehicles, traffic signs in real-time."
+        },
+        {
+          "num": "2",
+          "title": "Surveillance",
+          "text": "Count people, detect weapons, monitor crowd density."
+        },
+        {
+          "num": "3",
+          "title": "Retail",
+          "text": "Track product placement and customer behavior."
+        }
+      ],
+      "howItWorks": "YOLO divides image into grid; each cell predicts bounding boxes and class probabilities. Anchor boxes provide pre-defined shapes refined by the model. Non-maximum suppression removes duplicate detections. IoU measures box overlap; >0.5 is typically correct. Training uses localization + classification loss.",
+      "pitfalls": [
+        {
+          "text": "NMS can remove valid overlapping detections in crowds."
+        },
+        {
+          "text": "Small objects harder to detect; use feature pyramid networks."
+        },
+        {
+          "text": "Extreme class imbalance; focal loss helps."
+        },
+        {
+          "text": "Anchor sizes tuned via k-means on ground truth boxes."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Bounding Box",
+          "definition": "Rectangle (x,y,w,h) localizing an object."
+        },
+        {
+          "term": "IoU",
+          "definition": "Intersection over Union: ratio of overlap to union area."
+        },
+        {
+          "term": "NMS",
+          "definition": "Removes overlapping detections keeping highest confidence."
+        },
+        {
+          "term": "Anchor Boxes",
+          "definition": "Pre-defined box shapes the model learns to adjust."
+        }
+      ],
+      "relatedConcepts": [
+        "Convolutional Neural Networks",
+        "Transfer Learning",
+        "Loss Functions"
+      ],
+      "codeExamples": [
+        {
+          "title": "Simple Object Detection",
+          "lang": "Python",
+          "code": "import torch.nn as nn\n\nclass Detector(nn.Module):\n    def __init__(self, nc=20, na=3):\n        super().__init__()\n        self.backbone = nn.Sequential(\n            nn.Conv2d(3,32,3,stride=2,padding=1), nn.ReLU(),\n            nn.Conv2d(32,64,3,stride=2,padding=1), nn.ReLU())\n        self.head = nn.Conv2d(64, na*(5+nc), 1)\n    def forward(self, x):\n        f = self.backbone(x)\n        return self.head(f).flatten(2).transpose(1,2)\n\nm = Detector()\nout = m(torch.randn(1,3,416,416))\nprint(f'Output: {out.shape} -> [x,y,w,h,obj,classes] per anchor')"
+        }
+      ]
+    },
+    {
+      "title": "Image Segmentation",
+      "description": "Classifying every pixel into categories for pixel-level predictions.",
+      "tldr": "Segmentation assigns class labels to every pixel. Semantic: all cars one class. Instance: car 1, car 2. Panoptic: both. U-Net is the most widely used architecture.",
+      "keyPoints": [
+        "U-Net",
+        "Semantic Segmentation",
+        "Instance Segmentation",
+        "Dice Loss"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Medical Imaging",
+          "text": "U-Net segments organs and tumors in CT/MRI."
+        },
+        {
+          "num": "2",
+          "title": "Autonomous Driving",
+          "text": "Segment road scenes into road, vehicles, pedestrians, sky."
+        },
+        {
+          "num": "3",
+          "title": "Satellite",
+          "text": "Map land use from satellite imagery."
+        }
+      ],
+      "howItWorks": "U-Net has symmetric encoder-decoder with skip connections. Encoder captures context via convolutions and pooling. Decoder upsamples and recovers spatial resolution. Skip connections combine high-level semantics with low-level spatial details. For semantic segmentation, output has C channels, each pixel classified independently.",
+      "pitfalls": [
+        {
+          "text": "Pixel-level annotations are extremely expensive."
+        },
+        {
+          "text": "Class imbalance is severe; use dice loss or focal loss."
+        },
+        {
+          "text": "Evaluate with mIoU, not pixel accuracy."
+        },
+        {
+          "text": "Post-processing with CRF can improve boundaries."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "U-Net",
+          "definition": "Encoder-decoder with skip connections for segmentation."
+        },
+        {
+          "term": "Semantic Segmentation",
+          "definition": "Per-pixel classification without distinguishing instances."
+        },
+        {
+          "term": "Instance Segmentation",
+          "definition": "Detecting and segmenting each object separately."
+        },
+        {
+          "term": "Dice Loss",
+          "definition": "Loss based on Dice coefficient, handles class imbalance."
+        }
+      ],
+      "relatedConcepts": [
+        "Convolutional Neural Networks",
+        "Transfer Learning",
+        "Object Detection"
+      ],
+      "codeExamples": [
+        {
+          "title": "U-Net Architecture",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass UNet(nn.Module):\n    def __init__(self, in_ch=3, nc=1):\n        super().__init__()\n        self.enc1 = nn.Sequential(nn.Conv2d(in_ch,64,3,padding=1), nn.ReLU())\n        self.enc2 = nn.Sequential(nn.Conv2d(64,128,3,padding=1), nn.ReLU())\n        self.pool = nn.MaxPool2d(2)\n        self.up = nn.ConvTranspose2d(128,64,2,stride=2)\n        self.dec = nn.Sequential(nn.Conv2d(128,64,3,padding=1), nn.ReLU())\n        self.out = nn.Conv2d(64, nc, 1)\n    def forward(self, x):\n        e1 = self.enc1(x)\n        e2 = self.enc2(self.pool(e1))\n        d = self.dec(torch.cat([self.up(e2), e1], 1))\n        return self.out(d)\n\nm = UNet()\nout = m(torch.randn(1,3,256,256))\nprint(f'Input: [1,3,256,256] -> Output: {out.shape}')"
+        }
+      ]
+    },
+    {
+      "title": "Image Generation",
+      "description": "Creating synthetic images using GANs, VAEs, and diffusion models.",
+      "tldr": "Image generation evolved from GANs to VAEs to diffusion models. Diffusion models now produce state-of-the-art results by learning to reverse gradual noising.",
+      "keyPoints": [
+        "Diffusion Process",
+        "Denoising Score Matching",
+        "Latent Diffusion"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Content Creation",
+          "text": "Midjourney and DALL-E generate images from text descriptions."
+        },
+        {
+          "num": "2",
+          "title": "Data Augmentation",
+          "text": "Generate synthetic training data for rare conditions."
+        },
+        {
+          "num": "3",
+          "title": "Art",
+          "text": "Artists use generative models as creative tools."
+        }
+      ],
+      "howItWorks": "Diffusion models: forward diffusion adds Gaussian noise until pure noise. Reverse process learns to denoise step by step. Model predicts noise at each step. At generation: start with random noise, iteratively denoise. Classifier-free guidance enables text conditioning. Slower than GANs but higher quality and diversity.",
+      "pitfalls": [
+        {
+          "text": "Slow inference (50+ forward passes); distillation helps."
+        },
+        {
+          "text": "Inherit biases from training data."
+        },
+        {
+          "text": "Memory intensive; several GB for high-res."
+        },
+        {
+          "text": "ControlNet enables fine-grained control beyond text prompts."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Diffusion Process",
+          "definition": "Gradual noise addition over T steps turning data to noise."
+        },
+        {
+          "term": "Denoising Score Matching",
+          "definition": "Training model to predict noise at each step."
+        },
+        {
+          "term": "Latent Diffusion",
+          "definition": "Running diffusion in compressed latent space for efficiency."
+        }
+      ],
+      "relatedConcepts": [
+        "Generative Adversarial Networks",
+        "Autoencoders",
+        "Neural Network Architecture"
+      ],
+      "codeExamples": [
+        {
+          "title": "Simple Diffusion",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass Denoiser(nn.Module):\n    def __init__(self): super().__init__()\n    def forward(self, x, t): return nn.Linear(2,2)(x)  # simplified\n\ndef forward_diffusion(x0, t, betas):\n    noise = torch.randn_like(x0)\n    a = torch.cumprod(1-betas, 0)[t]\n    return torch.sqrt(a)*x0 + torch.sqrt(1-a)*noise, noise\n\nbetas = torch.linspace(0.0001, 0.02, 100)\nx0 = torch.randn(10, 2)\nxt, noise = forward_diffusion(x0, torch.randint(0,100,(10,)), betas)\nprint(f'x0: {x0.shape}, xt (noised): {xt.shape}, noise: {noise.shape}')"
+        }
+      ]
+    },
+    {
+      "title": "Neural Architecture Search",
+      "description": "Automated methods for designing optimal neural network architectures.",
+      "tldr": "NAS automates architecture design. RL-based controllers propose architectures, evolutionary algorithms evolve them, DARTS makes search differentiable.",
+      "keyPoints": [
+        "Search Space",
+        "DARTS",
+        "Weight Sharing"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "EfficientNets",
+          "text": "NAS with compound scaling achieves SOTA with 8x fewer params than ResNet-50."
+        },
+        {
+          "num": "2",
+          "title": "Mobile",
+          "text": "NAS finds architectures optimized for mobile latency constraints."
+        },
+        {
+          "num": "3",
+          "title": "Hardware-Aware",
+          "text": "Optimize for specific hardware (TPUs, edge GPUs)."
+        }
+      ],
+      "howItWorks": "NAS defines a search space of possible architectures and uses search algorithms to find the best combination. DARTS makes architecture choices differentiable for gradient-based optimization. Key challenge: enormous search space. Weight sharing and efficient strategies make NAS practical.",
+      "pitfalls": [
+        {
+          "text": "Computationally expensive: thousands of GPU hours."
+        },
+        {
+          "text": "Search space design limits what can be found."
+        },
+        {
+          "text": "Results may not transfer across datasets/hardware."
+        },
+        {
+          "text": "Manual design with domain knowledge often beats NAS."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Search Space",
+          "definition": "Set of all possible architectures to explore."
+        },
+        {
+          "term": "DARTS",
+          "definition": "Differentiable Architecture Search using gradient optimization."
+        },
+        {
+          "term": "Weight Sharing",
+          "definition": "Sharing weights across candidates to avoid training each from scratch."
+        }
+      ],
+      "relatedConcepts": [
+        "Neural Network Architecture",
+        "Transfer Learning",
+        "AutoML"
+      ],
+      "codeExamples": [
+        {
+          "title": "Random Architecture Search",
+          "lang": "Python",
+          "code": "import random, numpy as np\n\ndef build_model(config):\n    import torch.nn as nn\n    layers = []\n    in_c = 3\n    for out_c, k, pool in config:\n        layers += [nn.Conv2d(in_c, out_c, k, padding=k//2), nn.ReLU()]\n        if pool: layers.append(nn.MaxPool2d(2))\n        in_c = out_c\n    layers += [nn.AdaptiveAvgPool2d(1), nn.Flatten(), nn.Linear(in_c, 10)]\n    return nn.Sequential(*layers)\n\nresults = []\nfor _ in range(20):\n    cfg = [(random.choice([16,32,64]), random.choice([3,5]), random.choice([True,False])) for _ in range(random.randint(2,5))]\n    m = build_model(cfg)\n    params = sum(p.numel() for p in m.parameters())\n    acc = 0.5 + 0.1*np.log(params/1000) + random.uniform(-0.05, 0.05)\n    results.append((acc, params, cfg))\nresults.sort(reverse=True)\nfor i,(a,p,c) in enumerate(results[:3]):\n    print(f'#{i+1}: acc={a:.3f}, params={p:,}, layers={len(c)}')"
+        }
+      ]
+    },
+    {
+      "title": "Neural ODEs",
+      "description": "Modeling hidden state dynamics as continuous differential equations.",
+      "tldr": "Neural ODEs parameterize dh/dt as a neural network, treating ResNets as discretized continuous transformations. Enables memory-efficient training and adaptive computation.",
+      "keyPoints": [
+        "ODE Solver",
+        "Adjoint Method"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Time Series",
+          "text": "Model irregular time series with uneven observation intervals."
+        },
+        {
+          "num": "2",
+          "title": "Physics",
+          "text": "Learn physical dynamics from data, combining NNs with differential equations."
+        },
+        {
+          "num": "3",
+          "title": "Generative Models",
+          "text": "Continuous Normalizing Flows use Neural ODEs for density estimation."
+        }
+      ],
+      "howItWorks": "Standard network: h_{t+1} = h_t + f(h_t). Neural ODE: dh/dt = f(h(t), t). Output computed by integrating from t=0 to t=1 using ODE solvers. Adjoint method enables memory-efficient backpropagation. Benefits: adaptive computation, continuous-time modeling, reversible architecture.",
+      "pitfalls": [
+        {
+          "text": "Slower than standard networks due to ODR overhead."
+        },
+        {
+          "text": "Requires adjoint method or checkpointing."
+        },
+        {
+          "text": "Numerical stability issues with stiff ODEs."
+        },
+        {
+          "text": "Best for continuous-time problems."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "ODE Solver",
+          "definition": "Numerical methods (Euler, RK4) for integrating differential equations."
+        },
+        {
+          "term": "Adjoint Method",
+          "definition": "Computes gradients through ODE solvers with constant memory."
+        }
+      ],
+      "relatedConcepts": [
+        "Neural Network Architecture",
+        "Backpropagation",
+        "Time Series Analysis"
+      ],
+      "codeExamples": [
+        {
+          "title": "Neural ODE Concept",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass ODEFunc(nn.Module):\n    def __init__(self, dim):\n        super().__init__()\n        self.net = nn.Sequential(nn.Linear(dim,32), nn.Tanh(), nn.Linear(32,dim))\n    def forward(self, t, h): return self.net(h)\n\n# Simple Euler integration\ndef euler.solve(f, h0, t_end, dt=0.01):\n    h, t = h0, 0.0\n    while t < t_end:\n        h = h + dt * f(t, h)\n        t += dt\n    return h\n\node = ODEFunc(2)\nh0 = torch.tensor([1.0, 0.0])\nhf = euler.solve(ode, h0, 2.0)\nprint(f'Initial: {h0.tolist()}, Final: {hf.detach().tolist()}')"
+        }
+      ]
+    }
+  ],
+  "nlp-llms": [
+    {
+      "title": "Tokenization",
+      "description": "Breaking text into subword units that models process as input.",
+      "tldr": "Tokenization converts raw text into numerical tokens. BPE tokenizers split text into subword units, balancing vocabulary size with the ability to represent any word. Critical first step in NLP.",
+      "keyPoints": [
+        "BPE",
+        "Vocabulary",
+        "Subword Tokenization",
+        "Special Tokens"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Multilingual NLP",
+          "text": "SentencePiece handles 100+ languages without preprocessing."
+        },
+        {
+          "num": "2",
+          "title": "Code Generation",
+          "text": "Code tokenizers handle syntax efficiently, reducing token count 30-50%."
+        },
+        {
+          "num": "3",
+          "title": "Medical NLP",
+          "text": "Medical tokenizers preserve drug names and terminology."
+        }
+      ],
+      "howItWorks": "BPE starts with individual characters and iteratively merges most frequent pairs. Frequent words remain single tokens; rare words split into meaningful subwords. This balances character-level (too long) and word-level (huge vocab) tokenization. SentencePiece handles any language without pre-tokenization.",
+      "pitfalls": [
+        {
+          "text": "Tokenization boundaries don't always align with linguistic boundaries."
+        },
+        {
+          "text": "Different tokenizers produce different counts for same text."
+        },
+        {
+          "text": "Special tokens have specific meanings varying by model."
+        },
+        {
+          "text": "Byte-level BPE handles Unicode but can split multibyte characters."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "BPE",
+          "definition": "Iterative algorithm merging frequent token pairs to build vocabulary."
+        },
+        {
+          "term": "Vocabulary",
+          "definition": "Complete set of tokens a tokenizer can produce."
+        },
+        {
+          "term": "Subword Tokenization",
+          "definition": "Splitting text between word and character level."
+        },
+        {
+          "term": "Special Tokens",
+          "definition": "Reserved tokens like [CLS], [SEP], [PAD] with specific roles."
+        }
+      ],
+      "relatedConcepts": [
+        "Transformers",
+        "Large Language Models",
+        "Embeddings"
+      ],
+      "codeExamples": [
+        {
+          "title": "BPE Tokenization",
+          "lang": "Python",
+          "code": "def bpe(text, n_merges=5):\n    tokens = list(text.encode())\n    for i in range(n_merges):\n        pairs = {}\n        for j in range(len(tokens)-1):\n            p = (tokens[j], tokens[j+1])\n            pairs[p] = pairs.get(p, 0) + 1\n        if not pairs: break\n        best = max(pairs, key=pairs.get)\n        new = [best[0]*256+best[1]]\n        merged = []\n        j = 0\n        while j < len(tokens):\n            if j < len(tokens)-1 and (tokens[j],tokens[j+1]) == best:\n                merged.append(256+i); j += 2\n            else:\n                merged.append(tokens[j]); j += 1\n        tokens = merged\n        print(f'Merge {i+1}: {best} -> {256+i}')\n    return tokens\n\nresult = bpe('the cat sat on the mat ' * 3)\nprint(f'Final tokens: {len(result)}')"
+        }
+      ]
+    },
+    {
+      "title": "Word Embeddings",
+      "description": "Dense vector representations capturing semantic meaning and relationships.",
+      "tldr": "Word embeddings map words to vectors where similar words are close. Word2Vec, GloVe learned from large corpora. Contextual embeddings (BERT, GPT) produce different vectors per context.",
+      "keyPoints": [
+        "Word2Vec",
+        "GloVe",
+        "FastText",
+        "Distributional Hypothesis"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Search",
+          "text": "Google understands 'fix a leaky faucet' matches 'plumbing repair'."
+        },
+        {
+          "num": "2",
+          "title": "Recommendations",
+          "text": "Netflix uses embeddings to find similar content."
+        },
+        {
+          "num": "3",
+          "title": "Translation",
+          "text": "Learned aligned embeddings where 'dog' is close to 'perro'."
+        }
+      ],
+      "howItWorks": "Word2Vec uses distributional hypothesis: similar contexts = similar meanings. Skip-gram predicts surrounding words from center. The weight matrix IS the embedding: king - man + woman ≈ queen. GloVe uses global co-occurrence. FastText includes subwords. BERT produces contextual embeddings solving polysemy.",
+      "pitfalls": [
+        {
+          "text": "Static embeddings fail on polysemy (bank = river vs financial)."
+        },
+        {
+          "text": "Quality depends on training corpus; domain-specific is better."
+        },
+        {
+          "text": "100-300 dimensions work well; too many add noise."
+        },
+        {
+          "text": "Can encode biases from training data."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Word2Vec",
+          "definition": "Models learning embeddings by predicting words from context."
+        },
+        {
+          "term": "GloVe",
+          "definition": "Global Vectors: learns from word co-occurrence statistics."
+        },
+        {
+          "term": "FastText",
+          "definition": "Extends Word2Vec with subword information for unknown words."
+        },
+        {
+          "term": "Distributional Hypothesis",
+          "definition": "Words in similar contexts have similar meanings."
+        }
+      ],
+      "relatedConcepts": [
+        "Tokenization",
+        "Transformers",
+        "Natural Language Processing"
+      ],
+      "codeExamples": [
+        {
+          "title": "Word2Vec Skip-gram",
+          "lang": "Python",
+          "code": "import numpy as np\n\nvocab = ['the','cat','sat','on','mat']\nw2i = {w:i for i,w in enumerate(vocab)}\nemb = np.random.randn(5, 10) * 0.01  # 5 words, 10-dim\n\n# Training pair: center='cat', context='sat'\ncenter = w2i['cat']\ncontext = w2i['sat']\nscore = emb[center] @ emb.T  # similarities to all words\nprobs = np.exp(score) / np.exp(score).sum()\nprint(f'Word embeddings shape: {emb.shape}')\nprint(f'Similarity cat->sat: {np.dot(emb[center], emb[context]):.4f}')"
+        }
+      ]
+    },
+    {
+      "title": "BERT and Encoder Models",
+      "description": "Bidirectional transformer models learning contextual representations.",
+      "tldr": "BERT processes text bidirectionally, learning deep contextual representations via masked language modeling. Fine-tuned for classification, NER, QA.",
+      "keyPoints": [
+        "MLM",
+        "[CLS] Token",
+        "Fine-Tuning"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Search",
+          "text": "BERT update improved search understanding based on meaning."
+        },
+        {
+          "num": "2",
+          "title": "Customer Support",
+          "text": "Auto-route support tickets to right department."
+        },
+        {
+          "num": "3",
+          "title": "Legal",
+          "text": "Contract analysis identifying relevant clauses."
+        }
+      ],
+      "howItWorks": "BERT's key innovation: bidirectional context. Uses masked language model: mask 15% of tokens and predict them from context. Forces deep language understanding. Fine-tuning adds task-specific head. BERT-base: 12 layers, 768 dim, 110M params. BERT-large: 24 layers, 1024 dim, 340M params.",
+      "pitfalls": [
+        {
+          "text": "Cannot generate text; encoder-only for understanding."
+        },
+        {
+          "text": "512 token limit; not for long documents."
+        },
+        {
+          "text": "Requires labeled data for fine-tuning."
+        },
+        {
+          "text": "[CLS] token may not capture most task-relevant info."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "MLM",
+          "definition": "Masked Language Model: predict masked tokens from bidirectional context."
+        },
+        {
+          "term": "[CLS] Token",
+          "definition": "Classification token whose final state represents entire input."
+        },
+        {
+          "term": "Fine-Tuning",
+          "definition": "Continuing training on specific downstream task with labeled data."
+        }
+      ],
+      "relatedConcepts": [
+        "Transformers",
+        "Tokenization",
+        "Transfer Learning"
+      ],
+      "codeExamples": [
+        {
+          "title": "BERT Text Classification",
+          "lang": "Python",
+          "code": "from transformers import BertTokenizer, BertForSequenceClassification\nimport torch\n\ntokenizer = BertTokenizer.from_pretrained('bert-base-uncased')\nmodel = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)\n\ninputs = tokenizer(['Great product!', 'Terrible quality.'], padding=True, truncation=True, return_tensors='pt')\nwith torch.no_grad():\n    pred = torch.softmax(model(**inputs).logits, dim=1)\nprint(f'Predictions: {pred}')"
+        }
+      ]
+    },
+    {
+      "title": "GPT and Decoder Models",
+      "description": "Autoregressive models generating text by predicting next token.",
+      "tldr": "GPT models generate text token by token, each conditioned on all previous tokens. Pretrained on massive text corpora, prompted or fine-tuned for any language task.",
+      "keyPoints": [
+        "Autoregressive",
+        "Causal Attention",
+        "Temperature",
+        "Context Window"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Conversational AI",
+          "text": "ChatGPT, Claude, Gemini power chatbots and virtual assistants."
+        },
+        {
+          "num": "2",
+          "title": "Code Generation",
+          "text": "GitHub Copilot generates code from descriptions."
+        },
+        {
+          "num": "3",
+          "title": "Content Creation",
+          "text": "Marketing teams generate product descriptions at scale."
+        }
+      ],
+      "howItWorks": "GPT uses causal attention: each token attends only to previous tokens. Autoregressive: P(x_t | x_1...x_{t-1}). Pretrained with next-token prediction. Generation: sample from predicted distribution, feed back as input. Temperature controls randomness. GPT-4 reportedly has 1T+ parameters.",
+      "pitfalls": [
+        {
+          "text": "Can hallucinate plausible but incorrect information."
+        },
+        {
+          "text": "Context window limits input length."
+        },
+        {
+          "text": "Inherit biases from training data."
+        },
+        {
+          "text": "Prompt engineering significantly affects output quality."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Autoregressive",
+          "definition": "Generating one token at a time, conditioned on previous tokens."
+        },
+        {
+          "term": "Causal Attention",
+          "definition": "Masking preventing attention to future tokens."
+        },
+        {
+          "term": "Temperature",
+          "definition": "Parameter controlling sampling randomness."
+        },
+        {
+          "term": "Context Window",
+          "definition": "Maximum tokens a model can process."
+        }
+      ],
+      "relatedConcepts": [
+        "Transformers",
+        "Attention Mechanism",
+        "Tokenization",
+        "Prompt Engineering"
+      ],
+      "codeExamples": [
+        {
+          "title": "Mini GPT",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass MiniGPT(nn.Module):\n    def __init__(self, vs, dm=64, nh=2, nl=2):\n        super().__init__()\n        self.emb = nn.Embedding(vs, dm)\n        self.pos = nn.Embedding(256, dm)\n        layer = nn.TransformerDecoderLayer(dm, nh, batch_first=True)\n        self.dec = nn.TransformerDecoder(layer, nl)\n        self.head = nn.Linear(dm, vs)\n    def forward(self, x):\n        p = torch.arange(x.size(1), device=x.device).unsqueeze(0)\n        x = self.emb(x) + self.pos(p)\n        mask = nn.Transformer.generate_square_subsequent_mask(x.size(1))\n        return self.head(self.dec(x, torch.zeros(1,1,x.size(-1)), tgt_mask=mask))\n\nm = MiniGPT(1000)\nprint(f'Params: {sum(p.numel() for p in m.parameters()):,}')"
+        }
+      ]
+    },
+    {
+      "title": "Prompt Engineering",
+      "description": "Designing effective inputs to elicit desired LLM outputs.",
+      "tldr": "Prompt engineering crafts instructions, examples, and context to guide LLM behavior. Techniques: few-shot, chain-of-thought, system prompts. Good prompts improve output without model changes.",
+      "keyPoints": [
+        "Few-Shot",
+        "Chain-of-Thought",
+        "System Prompt",
+        "Temperature"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Customer Service",
+          "text": "System prompts instruct models to follow brand guidelines."
+        },
+        {
+          "num": "2",
+          "title": "Data Extraction",
+          "text": "Structured prompts extract data from unstructured text."
+        },
+        {
+          "num": "3",
+          "title": "Code Review",
+          "text": "Prompts instruct LLMs to find bugs and security issues."
+        }
+      ],
+      "howItWorks": "LLMs are sensitive to phrasing. Few-shot provides examples. Chain-of-thought asks 'think step by step', improving reasoning. System prompts set persona and constraints. Instruction tuning fine-tunes on instruction-response pairs. Temperature and top-p control output randomness.",
+      "pitfalls": [
+        {
+          "text": "Prompts are fragile; small changes produce different outputs."
+        },
+        {
+          "text": "Biased examples lead to biased outputs."
+        },
+        {
+          "text": "Adversarial prompts can bypass safety measures."
+        },
+        {
+          "text": "Longer prompts cost more and use more context window."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Few-Shot",
+          "definition": "Providing examples of input-output pairs to guide behavior."
+        },
+        {
+          "term": "Chain-of-Thought",
+          "definition": "Asking model to show reasoning step by step."
+        },
+        {
+          "term": "System Prompt",
+          "definition": "Instructions setting model role and constraints."
+        },
+        {
+          "term": "Temperature",
+          "definition": "Controls randomness; 0=deterministic, 1+=creative."
+        }
+      ],
+      "relatedConcepts": [
+        "Large Language Models",
+        "GPT and Decoder Models",
+        "Tokenization"
+      ],
+      "codeExamples": [
+        {
+          "title": "Prompt Techniques",
+          "lang": "Python",
+          "code": "# Zero-shot\nzero_shot = 'Classify: The food was great but service slow.\\nSentiment:'\n\n# Few-shot\nfew_shot = '''Classify reviews.\nReview: Great product!\\nSentiment: Positive\nReview: Waste of money.\\nSentiment: Negative\nReview: The food was great but service slow.\\nSentiment:'''\n\n# Chain-of-thought\ncot = '''Classify. Think step by step.\nReview: The food was great but service slow.\n1. Positive: food was great\n2. Negative: service was slow\n3. Mixed but mostly positive\nSentiment:'''"
+        }
+      ]
+    },
+    {
+      "title": "Fine-Tuning Language Models",
+      "description": "Adapting pretrained LLMs to specific tasks with task-specific data.",
+      "tldr": "Fine-tuning continues training on domain-specific data. Full fine-tuning updates all parameters. LoRA/QLoRA update only ~0.1% of parameters, making it accessible with limited compute.",
+      "keyPoints": [
+        "LoRA",
+        "RLHF",
+        "Catastrophic Forgetting",
+        "Instruction Tuning"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Legal AI",
+          "text": "Fine-tuned on legal documents for terminology and formats."
+        },
+        {
+          "num": "2",
+          "title": "Medical Chatbots",
+          "text": "Fine-tuned on medical Q&A for accurate health information."
+        },
+        {
+          "num": "3",
+          "title": "Code Assistants",
+          "text": "Fine-tuned on internal codebases for company conventions."
+        }
+      ],
+      "howItWorks": "Full fine-tuning updates all parameters with 10-100x smaller learning rate to prevent catastrophic forgetting. LoRA adds small trainable matrices to frozen weights. QLoRA quantizes base model to 4-bit. Instruction fine-tuning uses (instruction, response) pairs. RLHF aligns outputs with human preferences.",
+      "pitfalls": [
+        {
+          "text": "Catastrophic forgetting: lose pretrained knowledge."
+        },
+        {
+          "text": "Data quality > quantity; 1K high-quality > 100K noisy."
+        },
+        {
+          "text": "Overfitting common with small datasets."
+        },
+        {
+          "text": "Must evaluate both task performance and general capability."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "LoRA",
+          "definition": "Low-Rank Adaptation: trains ~0.1% of parameters via low-rank matrices."
+        },
+        {
+          "term": "RLHF",
+          "definition": "Reinforcement Learning from Human Feedback for alignment."
+        },
+        {
+          "term": "Catastrophic Forgetting",
+          "definition": "Losing pretrained knowledge during fine-tuning."
+        },
+        {
+          "term": "Instruction Tuning",
+          "definition": "Fine-tuning on instruction-response pairs."
+        }
+      ],
+      "relatedConcepts": [
+        "Large Language Models",
+        "Transformers",
+        "Transfer Learning"
+      ],
+      "codeExamples": [
+        {
+          "title": "LoRA Fine-Tuning",
+          "lang": "Python",
+          "code": "import torch.nn as nn, math\n\nclass LoRA(nn.Module):\n    def __init__(self, linear, rank=4, alpha=1.0):\n        super().__init__()\n        self.orig = linear\n        self.orig.weight.requires_grad = False\n        d = linear.in_features\n        self.A = nn.Parameter(torch.randn(rank,d)/math.sqrt(rank))\n        self.B = nn.Parameter(torch.zeros(linear.out_features, rank))\n        self.scale = alpha / rank\n    def forward(self, x): return self.orig(x) + (x@self.A.T@self.B.T)*self.scale\n\nlora = LoRA(nn.Linear(768, 768), rank=8)\ntrainable = sum(p.numel() for p in lora.parameters() if p.requires_grad)\ntotal = 768*768\nprint(f'Trainable: {trainable:,} / {total:,} ({100*trainable/total:.2f}%)')"
+        }
+      ]
+    },
+    {
+      "title": "Retrieval-Augmented Generation",
+      "description": "Combining LLMs with knowledge retrieval to ground responses in facts.",
+      "tldr": "RAG enhances LLMs by retrieving relevant documents before generating. Grounds models in factual, up-to-date information, reducing hallucinations without retraining.",
+      "keyPoints": [
+        "Vector Database",
+        "Chunking",
+        "Hybrid Search"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Enterprise Search",
+          "text": "Query internal documentation with accurate source citations."
+        },
+        {
+          "num": "2",
+          "title": "Customer Support",
+          "text": "Retrieve help articles for accurate policy-referencing responses."
+        },
+        {
+          "num": "3",
+          "title": "Legal Research",
+          "text": "Search case law databases for relevant precedents."
+        }
+      ],
+      "howItWorks": "Three components: (1) Indexing: documents chunked, embedded, stored in vector DB. (2) Retrieval: find k most relevant chunks via vector similarity. (3) Generation: include chunks in prompt context. Key techniques: chunk optimization, hybrid search, re-ranking, citation generation.",
+      "pitfalls": [
+        {
+          "text": "Chunk size affects retrieval quality."
+        },
+        {
+          "text": "Vector similarity doesn't always mean relevance."
+        },
+        {
+          "text": "Can still hallucinate if context lacks the answer."
+        },
+        {
+          "text": "Document preprocessing is critical for quality."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Vector Database",
+          "definition": "Database for high-dimensional vector search (Pinecone, Chroma)."
+        },
+        {
+          "term": "Chunking",
+          "definition": "Splitting documents for embedding and retrieval."
+        },
+        {
+          "term": "Hybrid Search",
+          "definition": "Combining semantic and keyword search."
+        }
+      ],
+      "relatedConcepts": [
+        "Transformers",
+        "Word Embeddings",
+        "Vector Databases"
+      ],
+      "codeExamples": [
+        {
+          "title": "Simple RAG",
+          "lang": "Python",
+          "code": "import numpy as np\n\n# Simulated embeddings\nnp.random.seed(42)\ndocs = {\n    'Python is a programming language': np.random.randn(8),\n    'ML is a subset of AI': np.random.randn(8),\n    'Neural nets use layers': np.random.randn(8),\n}\nquery = np.random.randn(8)\n\n# Retrieve\nsims = {t: np.dot(e, query)/(np.linalg.norm(e)*np.linalg.norm(query)) for t,e in docs.items()}\nranked = sorted(sims.items(), key=lambda x: x[1], reverse=True)\nprint('Retrieved docs:')\nfor t, s in ranked:\n    print(f'  {s:.3f} - {t}')"
+        }
+      ]
+    },
+    {
+      "title": "Semantic Search",
+      "description": "Finding documents by meaning rather than exact keyword matches.",
+      "tldr": "Semantic search uses embeddings to understand query meaning and find conceptually similar documents. Handles synonyms, paraphrases, and conceptual queries.",
+      "keyPoints": [
+        "Cosine Similarity",
+        "Bi-Encoder",
+        "Cross-Encoder",
+        "ANN"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "E-Commerce",
+          "text": "'affordable wireless headphones for running' finds 'budget Bluetooth sport earbuds'."
+        },
+        {
+          "num": "2",
+          "title": "Enterprise",
+          "text": "Find relevant docs across wikis, Slack, and code repos."
+        },
+        {
+          "num": "3",
+          "title": "Healthcare",
+          "text": "Find research papers despite different terminology."
+        }
+      ],
+      "howItWorks": "Traditional keyword search matches exact words. Semantic search converts queries and documents to embedding vectors, finds most similar via cosine similarity. Bi-encoders for fast retrieval; cross-encoders for higher accuracy. Vector databases enable fast ANN search over millions of documents.",
+      "pitfalls": [
+        {
+          "text": "Can miss exact keyword matches; hybrid approaches help."
+        },
+        {
+          "text": "Embedding quality directly affects search quality."
+        },
+        {
+          "text": "ANN trades some accuracy for speed."
+        },
+        {
+          "text": "Chunking strategy significantly affects retrieval quality."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Cosine Similarity",
+          "definition": "Angle between vectors measuring semantic similarity."
+        },
+        {
+          "term": "Bi-Encoder",
+          "definition": "Separate encoders for query and document; fast but less accurate."
+        },
+        {
+          "term": "Cross-Encoder",
+          "definition": "Joint encoding for accuracy; too slow for large-scale retrieval."
+        },
+        {
+          "term": "ANN",
+          "definition": "Approximate Nearest Neighbor: fast sublinear vector search."
+        }
+      ],
+      "relatedConcepts": [
+        "Word Embeddings",
+        "Transformers",
+        "Vector Databases"
+      ],
+      "codeExamples": [
+        {
+          "title": "Semantic Search",
+          "lang": "Python",
+          "code": "import numpy as np\n\ndef cosine(a, b): return np.dot(a,b)/(np.linalg.norm(a)*np.linalg.norm(b))\n\nnp.random.seed(42)\nemb = {'Python tutorial': np.random.randn(8), 'Java guide': np.random.randn(8),\n       'ML intro': np.random.randn(8), 'Python data science': np.random.randn(8)}\nquery = np.random.randn(8)\n\nresults = sorted([(t, cosine(e, query)) for t,e in emb.items()], key=lambda x: x[1], reverse=True)\nfor t, s in results: print(f'{s:.4f} - {t}')"
+        }
+      ]
+    },
+    {
+      "title": "Text Classification",
+      "description": "Assigning predefined categories to text documents.",
+      "tldr": "Text classification assigns labels to text: sentiment, spam, topic, intent. Ranges from bag-of-words + logistic regression to fine-tuned BERT.",
+      "keyPoints": [
+        "TF-IDF",
+        "Multi-Label",
+        "F1 Score"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Spam Detection",
+          "text": "Billions of emails classified daily as spam or ham."
+        },
+        {
+          "num": "2",
+          "title": "Content Moderation",
+          "text": "Detect hate speech, spam, misinformation on social media."
+        },
+        {
+          "num": "3",
+          "title": "Customer Feedback",
+          "text": "Route support tickets by topic and urgency."
+        }
+      ],
+      "howItWorks": "Binary: logistic regression with TF-IDF is strong baseline. Multi-class: softmax output. Multi-label: sigmoid outputs independently. Modern: fine-tune BERT, RoBERTa, or DistilBERT. Pipeline: preprocess -> tokenize -> encode -> classify. Distilled models: ~10ms vs BERT's ~50ms.",
+      "pitfalls": [
+        {
+          "text": "Class imbalance common; use class weights."
+        },
+        {
+          "text": "Preprocessing helps traditional ML but may hurt transformers."
+        },
+        {
+          "text": "Use macro/micro F1 for imbalanced datasets."
+        },
+        {
+          "text": "Domain-specific models outperform general ones."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "TF-IDF",
+          "definition": "Weights words by importance in document vs corpus."
+        },
+        {
+          "term": "Multi-Label",
+          "definition": "Assigning multiple non-exclusive labels per document."
+        },
+        {
+          "term": "F1 Score",
+          "definition": "Harmonic mean of precision and recall."
+        }
+      ],
+      "relatedConcepts": [
+        "BERT and Encoder Models",
+        "Tokenization",
+        "Word Embeddings"
+      ],
+      "codeExamples": [
+        {
+          "title": "Text Classification Pipeline",
+          "lang": "Python",
+          "code": "from sklearn.feature_extraction.text import TfidfVectorizer\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.pipeline import Pipeline\n\npipe = Pipeline([('tfidf', TfidfVectorizer(ngram_range=(1,2))),\n                 ('clf', LogisticRegression())])\n\ntrain = ['Great product!', 'Terrible quality', 'Love it', 'Waste of money']\nlabels = ['pos', 'neg', 'pos', 'neg']\npipe.fit(train, labels)\nprint(pipe.predict(['Best purchase ever', 'Do not buy this']))"
+        }
+      ]
+    },
+    {
+      "title": "Named Entity Recognition",
+      "description": "Identifying and classifying named entities (people, orgs, locations) in text.",
+      "tldr": "NER extracts structured info from unstructured text by identifying entity spans and classifying into PERSON, ORG, LOC, DATE categories.",
+      "keyPoints": [
+        "Named Entity",
+        "BIO Tagging",
+        "Entity Linking"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Financial Analysis",
+          "text": "Extract company names, executives, figures from earnings reports."
+        },
+        {
+          "num": "2",
+          "title": "Healthcare",
+          "text": "Extract drug names, diagnoses from clinical notes."
+        },
+        {
+          "num": "3",
+          "title": "Legal",
+          "text": "Identify parties, dates, amounts in contracts."
+        }
+      ],
+      "howItWorks": "Modern NER uses token classification with BIO labels (Beginning, Inside, Outside). Fine-tuned BERT achieves >92% F1 on CoNLL-2003. Challenges: nested entities, implicit entities, domain-specific entities not in standard datasets.",
+      "pitfalls": [
+        {
+          "text": "Standard datasets don't cover domain-specific entities."
+        },
+        {
+          "text": "Nested entities not handled by standard BIO tagging."
+        },
+        {
+          "text": "Evaluation requires exact span matching."
+        },
+        {
+          "text": "Cross-lingual models vary by language pair."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Named Entity",
+          "definition": "Real-world object denoted by a name."
+        },
+        {
+          "term": "BIO Tagging",
+          "definition": "B=Beginning, I=Inside, O=Outside of entity spans."
+        },
+        {
+          "term": "Entity Linking",
+          "definition": "Connecting entities to a knowledge base."
+        }
+      ],
+      "relatedConcepts": [
+        "Transformers",
+        "Tokenization",
+        "Text Classification"
+      ],
+      "codeExamples": [
+        {
+          "title": "NER with Transformers",
+          "lang": "Python",
+          "code": "from transformers import pipeline\n\nner = pipeline('ner', model='dbmdz/bert-large-cased-finetuned-conll03-english', aggregation_strategy='simple')\nresults = ner('Apple was founded by Steve Jobs in Cupertino.')\nfor e in results:\n    print(f\"{e['word']:15s} -> {e['entity_group']:5s} ({e['score']:.3f})\")"
+        }
+      ]
+    },
+    {
+      "title": "Text Summarization",
+      "description": "Generating concise summaries preserving key information.",
+      "tldr": "Summarization creates shorter versions of documents. Extractive selects important sentences. Abstractive generates new sentences. Modern approaches use fine-tuned transformers.",
+      "keyPoints": [
+        "Extractive",
+        "Abstractive",
+        "ROUGE",
+        "Faithfulness"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "News Aggregation",
+          "text": "Generate article summaries for quick understanding."
+        },
+        {
+          "num": "2",
+          "title": "Legal Review",
+          "text": "Executive summaries of lengthy contracts and depositions."
+        },
+        {
+          "num": "3",
+          "title": "Research",
+          "text": "Summarize papers to assess relevance quickly."
+        }
+      ],
+      "howItWorks": "Extractive: score sentences by importance, select top ones. Abstractive: BART, T5 generate new text. Key metrics: ROUGE-1/2/L. Long documents need hierarchical approaches. Faithfulness critical: summaries must not hallucinate.",
+      "pitfalls": [
+        {
+          "text": "Abstractive models can hallucinate info not in source."
+        },
+        {
+          "text": "ROUGE measures overlap, not quality."
+        },
+        {
+          "text": "Very long docs exceed context windows."
+        },
+        {
+          "text": "Quality depends on domain; general models may not work."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Extractive",
+          "definition": "Selecting important sentences from original text."
+        },
+        {
+          "term": "Abstractive",
+          "definition": "Generating new sentences capturing main ideas."
+        },
+        {
+          "term": "ROUGE",
+          "definition": "Metric measuring n-gram overlap with reference summaries."
+        },
+        {
+          "term": "Faithfulness",
+          "definition": "Requirement that summaries contain only source information."
+        }
+      ],
+      "relatedConcepts": [
+        "Transformers",
+        "BERT and Encoder Models",
+        "Attention Mechanism"
+      ],
+      "codeExamples": [
+        {
+          "title": "Extractive Summarization",
+          "lang": "Python",
+          "code": "import numpy as np\nfrom sklearn.feature_extraction.text import TfidfVectorizer\nfrom sklearn.metrics.pairwise import cosine_similarity\n\ndef summarize(text, n=2):\n    sents = text.split('. ')\n    tfidf = TfidfVectorizer().fit_transform(sents)\n    sim = cosine_similarity(tfidf)\n    scores = np.ones(len(sents))\n    for _ in range(30):\n        new = np.ones(len(sents))*0.15\n        for i in range(len(sents)):\n            for j in range(len(sents)):\n                if i!=j: new[i] += 0.85*sim[i][j]*scores[j]\n        scores = new\n    top = sorted(np.argsort(scores)[-n:])\n    return '. '.join(sents[i] for i in top)\n\ntext = 'ML is a subset of AI. It learns from data. Deep learning uses neural nets. Transformers revolutionized NLP.'\nprint(summarify(text))"
+        }
+      ]
+    },
+    {
+      "title": "Machine Translation",
+      "description": "Automatically translating text between languages using neural models.",
+      "tldr": "NMT uses encoder-decoder transformers to translate. Modern systems achieve near-human quality for common language pairs.",
+      "keyPoints": [
+        "Back-Translation",
+        "BLEU Score",
+        "Multilingual Model"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Global Communication",
+          "text": "Google Translate processes 100B words daily across 130+ languages."
+        },
+        {
+          "num": "2",
+          "title": "E-Commerce",
+          "text": "Auto-translate product listings for international markets."
+        },
+        {
+          "num": "3",
+          "title": "Localization",
+          "text": "NMT + human post-editing for efficient documentation localization."
+        }
+      ],
+      "howItWorks": "Transformer with cross-attention: encoder processes source, decoder generates target token by token. Key techniques: BPE for rare words, back-translation for training data, multilingual models sharing parameters. Challenges: idioms, cultural references, different word orders.",
+      "pitfalls": [
+        {
+          "text": "Low-resource languages have significantly lower quality."
+        },
+        {
+          "text": "Technical translation requires specialized terminology."
+        },
+        {
+          "text": "Subtle errors can change meaning dangerously."
+        },
+        {
+          "text": "Context matters for word sense disambiguation."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Back-Translation",
+          "definition": "Translating monolingual target data to source for synthetic parallel data."
+        },
+        {
+          "term": "BLEU Score",
+          "definition": "Bilingual Evaluation Understudy: measures n-gram overlap."
+        },
+        {
+          "term": "Multilingual Model",
+          "definition": "Single model trained on multiple language pairs."
+        }
+      ],
+      "relatedConcepts": [
+        "Transformers",
+        "Attention Mechanism",
+        "Tokenization"
+      ],
+      "codeExamples": [
+        {
+          "title": "Seq2Seq Translation",
+          "lang": "Python",
+          "code": "import torch, torch.nn as nn\n\nclass EncDec(nn.Module):\n    def __init__(self, sv, tv, dm=64):\n        super().__init__()\n        self.enc_emb = nn.Embedding(sv, dm)\n        self.dec_emb = nn.Embedding(tv, dm)\n        self.enc = nn.GRU(dm, dm, batch_first=True)\n        self.dec = nn.GRU(dm, dm, batch_first=True)\n        self.out = nn.Linear(dm, tv)\n    def forward(self, src, tgt):\n        _, h = self.enc(self.enc_emb(src))\n        dec_out, _ = self.dec(self.dec_emb(tgt), h)\n        return self.out(dec_out)\n\nm = EncDec(5000, 4000)\nsrc = torch.randint(0, 5000, (32, 20))\ntgt = torch.randint(0, 4000, (32, 15))\nprint(f'Output: {m(src, tgt).shape}')"
+        }
+      ]
+    },
+    {
+      "title": "Question Answering",
+      "description": "Extracting or generating answers to natural language questions.",
+      "tldr": "QA systems answer questions by extracting answer spans or generating free-form answers. Modern systems combine retrieval with generation (RAG).",
+      "keyPoints": [
+        "Extractive QA",
+        "Generative QA",
+        "Reading Comprehension"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Virtual Assistants",
+          "text": "Siri, Alexa answer millions of questions daily."
+        },
+        {
+          "num": "2",
+          "title": "Enterprise Search",
+          "text": "Internal QA systems answer employee questions from docs."
+        },
+        {
+          "num": "3",
+          "title": "Education",
+          "text": "Instant answers to student questions about course material."
+        }
+      ],
+      "howItWorks": "Extractive QA predicts start/end positions of answer in passage. Generative QA generates free-form answers. Pipeline: question understanding -> document retrieval -> passage ranking -> answer extraction/generation. SQuAD benchmark drove significant progress.",
+      "pitfalls": [
+        {
+          "text": "Extractive limited to answers present in text."
+        },
+        {
+          "text": "Generative can hallucinate plausible but incorrect answers."
+        },
+        {
+          "text": "Ambiguous questions may have multiple valid answers."
+        },
+        {
+          "text": "Long-context models reduce need for retrieval QA."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Extractive QA",
+          "definition": "Finding exact answer span in a passage."
+        },
+        {
+          "term": "Generative QA",
+          "definition": "Generating free-form answer from retrieved info."
+        },
+        {
+          "term": "Reading Comprehension",
+          "definition": "Understanding passages and answering questions about them."
+        }
+      ],
+      "relatedConcepts": [
+        "Transformers",
+        "BERT and Encoder Models",
+        "Retrieval-Augmented Generation"
+      ],
+      "codeExamples": [
+        {
+          "title": "Extractive QA",
+          "lang": "Python",
+          "code": "from transformers import pipeline\n\nqa = pipeline('question-answering', model='distilbert-base-cased-distilled-squad')\nresult = qa(question='Who created Python?',\n           context='Python was created by Guido van Rossum in 1991.')\nprint(f\"Answer: {result['answer']} (score: {result['score']:.3f})\")"
+        }
+      ]
+    },
+    {
+      "title": "Sentiment Analysis",
+      "description": "Determining emotional tone (positive, negative, neutral) of text.",
+      "tldr": "Sentiment analysis classifies text by emotional polarity. Beyond pos/neg: fine-grained emotions, aspect-based sentiment, intensity levels.",
+      "keyPoints": [
+        "Aspect-Based Sentiment",
+        "Sentiment Lexicon",
+        "Sarcasm Detection"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Brand Monitoring",
+          "text": "Real-time social media sentiment for PR crisis detection."
+        },
+        {
+          "num": "2",
+          "title": "Financial Markets",
+          "text": "News sentiment predicts stock movements."
+        },
+        {
+          "num": "3",
+          "title": "Product Reviews",
+          "text": "Summarize review sentiment and highlight common themes."
+        }
+      ],
+      "howItWorks": "Document-level: one label per text. Aspect-based: opinions per feature. Approaches: lexicon-based, traditional ML (SVM + TF-IDF), deep learning (fine-tuned BERT). Challenges: sarcasm, negation ('not bad'), implicit sentiment.",
+      "pitfalls": [
+        {
+          "text": "Sarcasm extremely difficult to detect."
+        },
+        {
+          "text": "Aspect-based sentiment requires labeled aspect-opinion pairs."
+        },
+        {
+          "text": "Sentiment lexicons are domain-specific."
+        },
+        {
+          "text": "Multilingual sentiment needs language-specific models."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Aspect-Based Sentiment",
+          "definition": "Extracting sentiment toward specific features."
+        },
+        {
+          "term": "Sentiment Lexicon",
+          "definition": "Dictionary mapping words to sentiment scores."
+        },
+        {
+          "term": "Sarcasm Detection",
+          "definition": "Identifying text where expressed sentiment is opposite to intended."
+        }
+      ],
+      "relatedConcepts": [
+        "Text Classification",
+        "BERT and Encoder Models",
+        "Tokenization"
+      ],
+      "codeExamples": [
+        {
+          "title": "Multi-level Sentiment",
+          "lang": "Python",
+          "code": "from transformers import pipeline\n\nclassifier = pipeline('sentiment-analysis')\nreviews = ['Amazing product!', 'Terrible quality.', 'It works fine.']\nfor r in reviews:\n    result = classifier(r)[0]\n    print(f'{result[\"label\"]:8s} ({result[\"score\"]:.3f}) | {r}')"
+        }
+      ]
+    },
+    {
+      "title": "Language Model Evaluation",
+      "description": "Methods for assessing LLM quality, capabilities, and safety.",
+      "tldr": "Evaluating LLMs requires: perplexity for LM quality, benchmarks (MMLU, HumanEval) for capabilities, human eval for subjective quality, safety benchmarks for harmful outputs.",
+      "keyPoints": [
+        "Perplexity",
+        "MMLU",
+        "HumanEval",
+        "Red-Teaming"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Model Selection",
+          "text": "Compare models before deployment using evaluation suites."
+        },
+        {
+          "num": "2",
+          "title": "Safety",
+          "text": "Red-teaming and safety benchmarks before release."
+        },
+        {
+          "num": "3",
+          "title": "Cost Optimization",
+          "text": "Find smallest model meeting quality requirements."
+        }
+      ],
+      "howItWorks": "Perplexity: lower = better language modeling. MMLU: knowledge across 57 subjects. HumanEval: code generation. GSM8K: math reasoning. TruthfulQA: factual accuracy. Human evaluation rates helpfulness, harmlessness, honesty. LLM-as-judge for automated evaluation.",
+      "pitfalls": [
+        {
+          "text": "Low perplexity doesn't mean useful or safe."
+        },
+        {
+          "text": "Benchmark contamination inflates scores."
+        },
+        {
+          "text": "Human eval is expensive with low inter-annotator agreement."
+        },
+        {
+          "text": "Static benchmarks get saturated quickly."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Perplexity",
+          "definition": "Exponential of average negative log-likelihood."
+        },
+        {
+          "term": "MMLU",
+          "definition": "Massive Multitask Language Understanding across 57 subjects."
+        },
+        {
+          "term": "HumanEval",
+          "definition": "Code generation benchmark: write Python functions from docstrings."
+        },
+        {
+          "term": "Red-Teaming",
+          "definition": "Systematic adversarial testing for vulnerabilities."
+        }
+      ],
+      "relatedConcepts": [
+        "Large Language Models",
+        "Transformers",
+        "Tokenization"
+      ],
+      "codeExamples": [
+        {
+          "title": "Perplexity Calculation",
+          "lang": "Python",
+          "code": "import numpy as np\n\ndef perplexity(log_probs):\n    return np.exp(-np.mean(log_probs))\n\nlog_probs = [-0.1, -0.5, -0.3, -0.2, -0.8]\nprint(f'Perplexity: {perplexity(log_probs):.2f}')\nprint('Lower is better; 1.0 = perfect, vocab_size = random')"
+        }
+      ]
+    },
+    {
+      "title": "Conversational AI",
+      "description": "Building chatbots and dialogue systems using LLMs and dialogue management.",
+      "tldr": "Conversational AI powers chatbots, virtual assistants, and customer service. Modern systems use LLMs with conversation memory, tool use, and guardrails.",
+      "keyPoints": [
+        "Dialogue State",
+        "Tool Calling",
+        "Guardrails",
+        "Memory"
+      ],
+      "whyItMatters": [
+        {
+          "num": "1",
+          "title": "Customer Service",
+          "text": "Handle millions of support queries with consistent quality."
+        },
+        {
+          "num": "2",
+          "title": "Personal Assistants",
+          "text": "Siri, Alexa, Google Assistant manage daily tasks."
+        },
+        {
+          "num": "3",
+          "title": "Healthcare Triage",
+          "text": "Symptom checkers and appointment scheduling bots."
+        }
+      ],
+      "howItWorks": "Modern conversational AI: LLM as backbone, conversation history as context, system prompts for behavior, tool calling for actions (API calls, database queries), guardrails for safety. Key challenges: maintaining context across turns, handling interruptions, detecting user intent, graceful failure handling.",
+      "pitfalls": [
+        {
+          "text": "Context window limits conversation length."
+        },
+        {
+          "text": "Can generate harmful or biased content without guardrails."
+        },
+        {
+          "text": "Tool calling requires careful error handling."
+        },
+        {
+          "text": "Multi-turn consistency is hard to maintain."
+        }
+      ],
+      "keyTerms": [
+        {
+          "term": "Dialogue State",
+          "definition": "Tracks conversation progress and user goals."
+        },
+        {
+          "term": "Tool Calling",
+          "definition": "LLM deciding when to call external APIs or functions."
+        },
+        {
+          "term": "Guardrails",
+          "definition": "Constraints ensuring safe and appropriate responses."
+        },
+        {
+          "term": "Memory",
+          "definition": "Maintaining context across conversation turns."
+        }
+      ],
+      "relatedConcepts": [
+        "GPT and Decoder Models",
+        "Prompt Engineering",
+        "Retrieval-Augmented Generation"
+      ],
+      "codeExamples": [
+        {
+          "title": "Chat with Memory",
+          "lang": "Python",
+          "code": "messages = [{'role':'system','content':'You are a helpful assistant.'}]\n\ndef chat(user_msg):\n    messages.append({'role':'user','content': user_msg})\n    # In production: call LLM API with messages\n    response = f'Echo: {user_msg}'  # placeholder\n    messages.append({'role':'assistant','content': response})\n    return response\n\nprint(chat('Hello!'))\nprint(chat('What did I just say?'))\nprint(f'Conversation has {len(messages)} messages')"
+        }
+      ]
+    }
+  ]
+}

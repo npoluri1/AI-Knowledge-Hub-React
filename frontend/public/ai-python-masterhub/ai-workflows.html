@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Workflows — Designing Reliable LLM Pipelines — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / AI Workflows — Designing Reliable LLM Pipelines</span><span class="spacer"></span>
+<a class="navlink" href="ai-graphs.html">&larr; AI Graphs</a> <a class="navlink" href="ai-agents.html">AI Agents &rarr;</a></nav>
+<header class="hero"><div class="mono">WF</div><div><h1>AI Workflows — Designing Reliable LLM Pipelines</h1>
+<p class="tagline">Compose prompts, models, tools and human checkpoints into deterministic, observable, resumable pipelines</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>An AI workflow is a structured sequence of steps — calls to models, tools, retrievers, validators and humans — composed into a pipeline with defined inputs, outputs and failure handling. Workflows are the difference between a demo and a product: deterministic where it must be, flexible where it can be, and always observable.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Chains, steps, prompts, structured output</td><td>Can build a linear 3-step pipeline with validation</td></tr>
+<tr><td>Tier 2</td><td>Branching, routing, parallel execution, retries</td><td>Can add control flow and make workflows resilient</td></tr>
+<tr><td>Tier 3</td><td>DAG orchestration, state, human-in-the-loop, LangGraph</td><td>Can build resumable, checkpointed workflows</td></tr>
+<tr><td>Tier 4</td><td>Event-driven, sagas, dynamic graphs, observability, cost</td><td>Can design production multi-team workflows</td></tr>
+<tr><td>Tier 5</td><td>Document intelligence, content pipeline, agent workflow</td><td>Shipped pipelines with evals and monitoring</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 — the atomic unit: a step</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Workflow vs Agent: When to Use Which</h3>
+<p><strong>What &amp; why.</strong> A workflow is a fixed graph of steps; an agent is a loop that decides its own next action. Anthropic's guidance: start with the simplest workflow that works; use agents only when open-ended decisions are genuinely required. Predictable tasks belong in workflows.</p>
+<pre class="code"><code># Workflow: fixed path, every run identical shape
+#   input -> [classify] -> [translate] -> [validate] -> output
+
+# Agent: loop with model-chosen next step
+#   input -> think -> act(tool) -> observe -> think -> ... -> done
+
+# Decision guide
+#   Fixed steps, known order?      -> workflow (chain, router)
+#   Steps vary by input?           -> router or dynamic workflow
+#   Free-form problem, tools, loop? -> agent
+
+# Cost & reliability:
+#   Workflows: predictable latency/cost, easy to test
+#   Agents:    flexible, but non-deterministic and harder to eval</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every architecture review. The default should be a workflow; agents are the escape hatch for open-ended tasks.</div>
+<div class="callout hood"><span>Under the hood</span>This mirrors <a href="ai-design-patterns.html">AI Design Patterns</a>: chains, routers, and orchestrator-worker are workflows; the evaluator-optimizer loop is a mini-agent.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>The Linear Chain: Your First Workflow</h3>
+<p><strong>What &amp; why.</strong> The simplest workflow chains steps where each output feeds the next input. Each step wraps one LLM call plus parsing and validation, so failures are caught at the step boundary, not mid-pipeline.</p>
+<pre class="code"><code>from dataclasses import dataclass, field
+from typing import Callable, Any
+
+@dataclass
+class Step:
+    name: str
+    fn: Callable[[dict], dict]
+    retries: int = 2
+
+class Chain:
+    def __init__(self, steps):
+        self.steps = steps
+
+    def run(self, state: dict) -> dict:
+        for step in self.steps:
+            print(f"[workflow] running {step.name}")
+            state = step.fn(state)          # step boundary
+        return state
+
+# --- example: summarize -> extract -> grade ---
+summarize = Step("summarize", lambda s: {
+    **s, "summary": call_llm(f"Summarize: {s['text']}")
+})
+extract = Step("extract", lambda s: {
+    **s, "keywords": parse_json(call_llm(
+        f"Extract keywords as JSON from: {s['summary']}"))
+})
+def grade(s):
+    if not s["keywords"]:
+        raise ValueError("extraction produced no keywords")
+    return {**s, "grade": "ok"}
+grade_step = Step("grade", grade)
+
+pipeline = Chain([summarize, extract, grade_step])
+result = pipeline.run({"text": "..."})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ETL of text, document triage, translation, and every place a fixed sequence of LLM operations is needed.</div>
+<div class="callout hood"><span>Under the hood</span>This is LCEL-style composition (<a href="langchain.html">LangChain</a>) and LangGraph chains — same idea, more tooling: |, RunnableSequence, pydantic output parsers.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Structured Output as a Contract</h3>
+<p><strong>What &amp; why.</strong> Free-form LLM text breaks pipelines. Every step that produces data should return validated, typed structures — using JSON mode / function calling plus Pydantic validation — so downstream steps never guess.</p>
+<pre class="code"><code>from pydantic import BaseModel, Field
+
+class Extract(BaseModel):
+    sentiment: str = Field(description="positive|neutral|negative")
+    score: float = Field(ge=0, le=1)
+    topics: list[str]
+
+# OpenAI-style tool/JSON-mode call
+def call_llm_json(prompt, schema):
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},  # JSON mode
+        tools=[{"type": "function",
+                "function": {"name": "extract",
+                             "parameters": schema.model_json_schema()}}],
+    )
+    return Extract.model_validate_json(
+        response.choices[0].message.tool_calls[0].function.arguments)
+
+out = call_llm_json("The product is great but support is slow.", Extract)
+print(out.sentiment, out.score, out.topics)
+
+# Validation failure = retry with error feedback:
+#   Extract.model_validate_json(raw)  -> raises ValidationError</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every step that must hand data to another step or store it: extraction, routing decisions, evals, database writes.</div>
+<div class="callout hood"><span>Under the hood</span>Deep dive in <a href="tool-calling.html">Tool Calling</a>: schema-driven generation is the same mechanism as function calling, just used for data contracts.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Control Flow<small>Tier 2 — making workflows smart</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Routing: Let the Input Choose the Path</h3>
+<p><strong>What &amp; why.</strong> A router classifies the input and dispatches to a specialized sub-pipeline. This keeps each path simple while the system as a whole covers many cases — the single most common production workflow pattern.</p>
+<pre class="code"><code>from pydantic import BaseModel
+
+class Route(BaseModel):
+    path: str  # one of: billing, engineering, account, sales
+
+def route_step(state):
+    decision = call_llm_json(
+        f"Classify this ticket to a path: {state['ticket']}",
+        Route)
+    return {**state, "path": decision.path}
+
+def billing_handler(state):  return {**state, "answer": call_llm(f"Billing reply: {state['ticket']}")}
+def eng_handler(state):      return {**state, "answer": call_llm(f"Engineering triage: {state['ticket']}")}
+def account_handler(state):  return {**state, "answer": call_llm(f"Account reply: {state['ticket']}")}
+def sales_handler(state):    return {**state, "answer": call_llm(f"Sales reply: {state['ticket']}")}
+
+HANDLERS = {
+    "billing": billing_handler,
+    "engineering": eng_handler,
+    "account": account_handler,
+    "sales": sales_handler,
+}
+
+def router_workflow(ticket):
+    state = {"ticket": ticket}
+    state = route_step(state)
+    return HANDLERS[state["path"]](state)
+
+# Router choice matters:
+#   LLM router: flexible, needs eval on edge cases
+#   Keyword router: cheap, deterministic, no latency</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Support triage, content classification, model selection ("route to GPT-4 vs Haiku"), and intent-based dispatch.</div>
+<div class="callout hood"><span>Under the hood</span>The routing pattern is one of the core <a href="ai-design-patterns.html">AI Design Patterns</a>; production systems add a fallback path and log every route decision.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Parallel Steps and Map-Reduce</h3>
+<p><strong>What &amp; why.</strong> Many workflows fan out: chunk a document and summarize each chunk, then combine. Parallel fan-out cuts latency; map-reduce tames long inputs that exceed context windows.</p>
+<pre class="code"><code>from concurrent.futures import ThreadPoolExecutor
+
+def fan_out(inputs, step_fn, workers=8):
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(pool.map(step_fn, inputs))
+
+# Example: summarize a long document by chunks
+def chunk(text, n=1500):
+    words = text.split()
+    return [" ".join(words[i:i+n]) for i in range(0, len(words), n)]
+
+def summarize_chunk(chunk_text):
+    return call_llm(f"Summarize in 2 sentences: {chunk_text[:1500]}")
+
+def summarize_long(text):
+    summaries = fan_out(chunk(text), summarize_chunk)
+    combined = "\n".join(f"- {s}" for s in summaries)
+    return call_llm(f"Write an executive summary from:\n{combined}")
+
+# Safety: cap parallelism, set per-call timeouts, dedupe inputs
+# map-reduce also works for: extraction, classification, scoring</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Long-document processing, batch extraction, bulk classification, and any embarrassingly-parallel LLM work.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph's Send API implements map-reduce over nodes; production systems also use queues (Celery/Redis) when fan-out is huge.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Retries, Timeouts and Fallbacks</h3>
+<p><strong>What &amp; why.</strong> LLM providers fail: rate limits, timeouts, 5xx, malformed JSON. A resilient workflow retries with backoff, switches models on failure, and degrades gracefully when everything fails.</p>
+<pre class="code"><code>import time, random
+
+def with_retries(fn, retries=3, backoff=1.5, fallback=None):
+    for attempt in range(retries):
+        try:
+            return fn()
+        except Exception as e:
+            print(f"attempt {attempt+1} failed: {e}")
+            if attempt == retries - 1:
+                return fallback if fallback else fn  # degrade
+            time.sleep(backoff * (2 ** attempt) + random.uniform(0, 0.5))
+
+def call_with_fallback(prompt):
+    providers = [call_gpt4, call_claude, call_local]
+    for provider in providers:
+        try:
+            return provider(prompt, timeout=20)
+        except Exception:
+            continue
+    raise RuntimeError("all providers failed")
+
+# Policy essentials
+#   timeout per call:         20-60s
+#   max retries:              3 (exponential backoff + jitter)
+#   retry on:                 429, 5xx, timeouts, parse errors
+#   never retry on:           4xx auth/validation (fix config)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every production LLM integration. Retry policies are the #1 difference between demo and production pipelines.</div>
+<div class="callout hood"><span>Under the hood</span>See <a href="agent-gateway.html">Agent Gateway</a> for provider-level fallbacks, load balancing, and circuit breakers; this pattern composes with it.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Orchestration<small>Tier 3 — stateful DAGs</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>State, Checkpoints and Resumability</h3>
+<p><strong>What &amp; why.</strong> Long workflows must survive crashes. Persist workflow state after every step so a run can resume from the last checkpoint instead of restarting — critical for cost and reliability on multi-minute pipelines.</p>
+<pre class="code"><code>import json, os
+
+class CheckpointedWorkflow:
+    def __init__(self, run_id, steps, store_dir="runs"):
+        self.run_id = run_id
+        self.steps = steps
+        self.store = os.path.join(store_dir, f"{run_id}.json")
+        self.state = self._load() or {}
+
+    def _load(self):
+        if os.path.exists(self.store):
+            with open(self.store) as f:
+                return json.load(f)
+        return None
+
+    def _save(self):
+        os.makedirs(os.path.dirname(self.store), exist_ok=True)
+        with open(self.store, "w") as f:
+            json.dump(self.state, f, indent=2)
+
+    def run(self, initial):
+        self.state = {**initial, **self.state}
+        for name, fn in self.steps:
+            if self.state.get(f"done_{name}"):
+                continue                      # already finished
+            self.state.update(fn(self.state))  # run step
+            self.state[f"done_{name}"] = True
+            self._save()                      # checkpoint after step
+        return self.state
+
+# run_id ties retries to the same state file; a new attempt
+# simply skips completed steps. Combine with idempotent steps.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Long document jobs, batch pipelines, agent runs that take minutes, and any workflow with human approval steps.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph checkpointer, Temporal, and Prefect all do this — the principle is the same: durable state + step-level idempotency.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Human-in-the-Loop Checkpoints</h3>
+<p><strong>What &amp; why.</strong> High-stakes steps (approving a payment, publishing content, emailing a customer) need a human gate. The workflow pauses, emits a review request, and resumes when the decision arrives — never auto-executes irreversible actions.</p>
+<pre class="code"><code>from enum import Enum
+
+class Approval(str, Enum):
+    APPROVE = "approve"
+    EDIT = "edit"
+    REJECT = "reject"
+
+def human_review(state, review_channel="review-queue"):
+    # 1. Publish a review task with the pending action
+    publish(review_channel, {
+        "run_id": state["run_id"],
+        "action": state["draft_action"],
+        "context": state["evidence"],
+    })
+    # 2. BLOCK until a human responds (long-poll / webhook)
+    decision = wait_for_decision(state["run_id"], timeout="24h")
+    # 3. Apply the decision
+    if decision == Approval.APPROVE:
+        return {**state, "status": "approved"}
+    if decision == Approval.EDIT:
+        return {**state, "status": "needs_edit",
+                "feedback": decision.feedback}
+    return {**state, "status": "rejected", "reason": decision.reason}
+
+# Design rules
+#   - irreversible actions ALWAYS need approval
+#   - attach evidence so the human can verify fast
+#   - enforce decision timeouts (escalate, don't block forever)
+#   - audit-log who approved what, when</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Finance, healthcare, publishing, email automation, code-gen review — anywhere a mistake is expensive.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph interrupts implement exactly this: the graph pauses at a node, serializes state, and resumes from a saved snapshot after the human answers.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Building a Workflow with LangGraph</h3>
+<p><strong>What &amp; why.</strong> LangGraph gives you stateful graphs with conditional edges, checkpointing, and human-in-the-loop out of the box. The canonical example: an agentic research workflow with router, tools and a guard.</p>
+<pre class="code"><code>from typing import TypedDict, Literal
+from langgraph.graph import StateGraph, END
+
+class State(TypedDict):
+    question: str
+    plan: str
+    answer: str
+    needs_tools: bool
+
+def plan_node(state):       # step 1: plan
+    return {"plan": call_llm(f"Plan for: {state['question']}"),
+            "needs_tools": True}
+
+def route_after_plan(state) -> Literal["tools", "answer"]:
+    return "tools" if state["needs_tools"] else "answer"
+
+def tools_node(state):      # step 2: use tools
+    return {"plan": state["plan"] + " [searched]"}
+
+def answer_node(state):     # step 3: synthesize
+    return {"answer": call_llm(f"Answer given: {state['plan']}")}
+
+g = StateGraph(State)
+g.add_node("plan", plan_node)
+g.add_node("tools", tools_node)
+g.add_node("answer", answer_node)
+g.set_entry_point("plan")
+g.add_conditional_edges("plan", route_after_plan)
+g.add_edge("tools", "answer")
+g.add_edge("answer", END)
+
+app = g.compile(checkpointer=MemorySaver())  # resumable
+result = app.invoke({"question": "..."},
+                    config={"configurable": {"thread_id": "1"}})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any multi-step LLM app that needs state, branching, or resumption. Full framework coverage in <a href="langgraph.html">LangGraph</a>.</div>
+<div class="callout hood"><span>Under the hood</span>The graph is compiled to an executable; the checkpointer persists state per thread_id, enabling interrupt/resume and even time-travel debugging.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Production<small>Tier 4 — scale and operate</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Event-Driven and Asynchronous Workflows</h3>
+<p><strong>What &amp; why.</strong> For long or bursty workloads, don't hold a process open. Model steps as messages on a queue (SQS, Redis, Kafka): a worker consumes a message, runs a step, and emits the next message. This gives you durability, retries, and horizontal scaling for free.</p>
+<pre class="code"><code># Message-based workflow: each step is a consumer
+#   ingest.queue -> [extract] -> extract.queue -> [grade] -> results
+
+# Worker pseudocode (Celery / SQS / Redis Streams)
+@worker.consumer("extract.queue")
+def extract_worker(message):
+    try:
+        data = extract(message["doc_id"])
+    except TransientError:
+        message.retry(delay=30)          # redeliver later
+        return
+    publish("grade.queue", {"doc_id": message["doc_id"], "data": data})
+
+# Why async wins for production:
+#   - workers scale independently per step
+#   - failed messages are redelivered, not lost
+#   - steps can be replaced without touching the pipeline
+#   - bursts buffer in the queue instead of 5xxing
+
+# Add: DLQ (dead-letter queue) for poison messages,
+#      idempotency keys per message, delivery at-least-once.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Document processing at scale, nightly enrichment jobs, ingestion pipelines, and any workflow with variable load.</div>
+<div class="callout hood"><span>Under the hood</span>At-least-once delivery means your steps must be idempotent: same input twice must produce the same stored result.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Observability and Cost Control</h3>
+<p><strong>What &amp; why.</strong> You cannot operate what you cannot see. Trace every step: which model, tokens in/out, latency, cost, retries, and the input/output of each step — then alert on regressions. Cost per workflow run is a product metric, not an afterthought.</p>
+<pre class="code"><code># Trace a step with OpenTelemetry-style spans
+def traced_step(name, fn, state):
+    span = tracer.start_span(name)
+    span.set_attribute("input_len", len(str(state)))
+    start = time.time()
+    try:
+        result = fn(state)
+        span.set_attribute("status", "ok")
+    except Exception as e:
+        span.set_attribute("status", "error")
+        span.record_exception(e)
+        raise
+    finally:
+        span.set_attribute("duration_ms", (time.time() - start) * 1000)
+        span.end()
+    return result
+
+# Per-run metrics to capture
+#   tokens_in, tokens_out, cost_usd = f(tokens, model)
+#   step_duration_ms, total_duration_ms, retries, route_decision
+# Alert when: cost/run > X, error rate > Y%, p95 latency > Zs
+
+# Tools: Langfuse, LangSmith, Phoenix, OpenTelemetry
+# Full method in the Observability chapter.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every shipped workflow. Cost regressions appear the day after a prompt change; tracing catches them first.</div>
+<div class="callout hood"><span>Under the hood</span>Full coverage in <a href="observability.html">Observability</a> (spans, metrics, sessions) and <a href="evaluations.html">Evaluations</a> (regression gates on workflow outputs).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Workflow Evaluation as CI</h3>
+<p><strong>What &amp; why.</strong> Workflows are software: prompt or step changes should be tested before deploy. Build a golden dataset of (input, expected) pairs, run the workflow, score outputs, and gate deploys on regression thresholds.</p>
+<pre class="code"><code>GOLDEN = [
+    {"input": "Refund for order 123", "path": "billing"},
+    {"input": "App crashes on login", "path": "engineering"},
+    # ... 50-200 representative cases
+]
+
+def eval_workflow(pipeline):
+    results = []
+    for case in GOLDEN:
+        out = pipeline(case["input"])
+        ok = out["path"] == case["path"]
+        results.append({"case": case["input"], "ok": ok,
+                        "got": out["path"]})
+    acc = sum(r["ok"] for r in results) / len(results)
+    return acc, results
+
+# CI gate: block merge if accuracy drops below threshold
+acc, results = eval_workflow(router_workflow)
+assert acc >= 0.95, f"router regression: {acc:.2f}"
+
+# Beyond exact-match:
+#   - LLM-as-judge on answer quality (rubric)
+#   - assert on structure (schema validation)
+#   - assert on safety (no PII, no harmful content)
+#   - cost budget assertions</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any workflow you ship more than once. Evals convert "it works in my notebook" into a deployable contract.</div>
+<div class="callout hood"><span>Under the hood</span>Deep dive: <a href="evaluations.html">Evaluations</a> (judges, rubrics, pairwise) and <a href="mlops.html">MLOps</a> (CI/CD for prompts and models).</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Projects<small>Tier 5 — build the real thing</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Project 1 — Document Intelligence Pipeline</h3>
+<p><strong>What &amp; why.</strong> Ingest a PDF, chunk it, extract structured facts, route by type, and produce a JSON report with citations — the classic enterprise workflow.</p>
+<pre class="code"><code>def document_workflow(pdf_path):
+    state = {"path": pdf_path}
+    state = extract_text_step(state)      # PDF -> text
+    state = chunk_step(state)             # text -> chunks
+    facts = fan_out(state["chunks"], extract_facts_step)
+    state["facts"] = flatten(facts)
+    state["doc_type"] = route_doc(state)  # invoice|contract|report
+    state["report"] = synthesize_report(state)
+    return validate_report(state)         # pydantic + save JSON
+
+# Wire with the Chain + map-reduce + router primitives above.
+# Add checkpointing so 50-page PDFs resume cleanly.
+# Add a review gate before the report is "final".</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Composing chain + fan-out + router into one pipeline</li>
+<li>Structured extraction with Pydantic contracts</li>
+<li>Checkpointed execution for long documents</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Project 2 — Content Factory (Map-Reduce + Human Gate)</h3>
+<p><strong>What &amp; why.</strong> Generate a campaign: brief -> outline -> per-section drafts (parallel) -> consistency pass -> human approval -> publish. Every step typed, every step observable.</p>
+<pre class="code"><code>def content_workflow(brief):
+    state = {"brief": brief}
+    state["outline"] = call_llm_json(f"Outline for: {brief}", Outline)
+    sections = fan_out(
+        [s for s in state["outline"].sections],
+        lambda s: call_llm(f"Draft section '{s.title}': {s.prompt}"))
+    state["drafts"] = sections
+    state["draft_action"] = join_drafts(state)   # full article
+    state = human_review(state)                   # APPROVE/EDIT/REJECT
+    if state["status"] != "approved":
+        return state                              # loop on edits
+    return publish_step(state)
+
+# Add an evaluator node: LLM-judge scores drafts against
+# the brief (tone, coverage) and auto-requests rewrites
+# before the human ever sees it.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Multi-stage generation with quality gates</li>
+<li>Human-in-the-loop for irreversible publishing</li>
+<li>Eval-driven iteration (score -> rewrite -> re-score)</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Project 3 — Guardrailed Agent Workflow</h3>
+<p><strong>What &amp; why.</strong> A workflow that looks like an agent: plan, call tools with approval gates, synthesize, and validate output before delivery. This is the pattern most production "agents" actually are.</p>
+<pre class="code"><code>def production_agent(question):
+    state = {"question": question}
+    state = sanitize_input(state)        # guardrail: injection/PII
+    state = plan_node(state)             # decompose into steps
+    for step in state["plan"]:
+        if step.requires_tool:
+            state = human_review(state)  # approval for risky tools
+            state = tools_node(state)
+    state = answer_node(state)
+    state = validate_output(state)       # guardrail: schema+safety
+    return state
+
+# The same skeleton in LangGraph gives you checkpoints,
+# conditional routing and replay for free.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Workflow-first agent design (deterministic where possible)</li>
+<li>Guardrails at every boundary (see <a href="guardrails.html">Guardrails</a>)</li>
+<li>Observable, resumable, testable production system</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Workflow vs agent</td><td>Fixed graph vs self-directed loop; start with workflow</td><td>chain -> router -> agent</td></tr>
+<tr><td>Linear chain</td><td>Steps pass state forward in order</td><td>state = step.fn(state)</td></tr>
+<tr><td>Structured output</td><td>Every data step returns validated types</td><td>Pydantic + JSON mode</td></tr>
+<tr><td>Router</td><td>Classify input, dispatch to specialized path</td><td>LLM/keys -> HANDLERS[path]</td></tr>
+<tr><td>Map-reduce</td><td>Fan out over chunks, combine results</td><td>ThreadPoolExecutor.map</td></tr>
+<tr><td>Retries</td><td>Backoff + jitter on 429/5xx/timeout</td><td>time.sleep(backoff*2**n)</td></tr>
+<tr><td>Checkpointing</td><td>Persist state per step; resume after crash</td><td>run_id.json + done_* flags</td></tr>
+<tr><td>Human-in-the-loop</td><td>Pause at irreversible steps for approval</td><td>publish + wait_for_decision</td></tr>
+<tr><td>LangGraph</td><td>Stateful graphs, conditional edges, checkpointer</td><td>StateGraph + compile()</td></tr>
+<tr><td>Event-driven</td><td>Steps as queue consumers; scale per step</td><td>publish/consume + DLQ</td></tr>
+<tr><td>Idempotency</td><td>Same input twice = same result</td><td>idempotency keys</td></tr>
+<tr><td>Observability</td><td>Trace every step: tokens, cost, latency</td><td>OpenTelemetry spans</td></tr>
+<tr><td>Eval CI</td><td>Golden set + thresholds gate deploys</td><td>assert acc >= 0.95</td></tr>
+<tr><td>Guardrailed agent</td><td>Workflow-first agent with boundary checks</td><td>sanitize -> plan -> tools -> validate</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="ai-graphs.html">&larr; AI Graphs</a><a href="ai-agents.html">AI Agents &rarr;</a></footer>
+</body></html>

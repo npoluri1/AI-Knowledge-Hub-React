@@ -1,0 +1,2085 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Machine Learning — Algorithms to Production — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Machine Learning — Algorithms to Production</span><span class="spacer"></span>
+<a class="navlink" href="graphics-engineering.html">&larr; Graphics Engineering</a> <a class="navlink" href="embeddings.html">Embeddings &rarr;</a></nav>
+<header class="hero"><div class="mono">ML</div><div><h1>Machine Learning — Algorithms to Production</h1>
+<p class="tagline">From linear regression to production pipelines: master supervised, unsupervised, and production ML with scikit-learn, PyTorch, and modern MLOps practices.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Machine learning spans algorithmic understanding, practical implementation, and production deployment. This chapter progresses from core concepts through advanced techniques and expert-level production concerns. Work through each tier sequentially; the three end-to-end projects consolidate skills across the full ML lifecycle.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>ML paradigms, core algorithms, evaluation metrics, sklearn basics</td><td>Train and evaluate basic classifiers and regressors</td></tr>
+<tr><td>Tier 2</td><td>Preprocessing pipelines, cross-validation, ensemble methods, model selection</td><td>Build robust, reproducible ML pipelines with proper validation</td></tr>
+<tr><td>Tier 3</td><td>Optimization, neural networks from scratch, PyTorch, interpretability, AutoML</td><td>Implement backpropagation and use modern DL frameworks</td></tr>
+<tr><td>Tier 4</td><td>Probabilistic models, dimensionality reduction pitfalls, time-series, anomaly detection, production ML</td><td>Handle production concerns: drift, serving, reproducibility</td></tr>
+<tr><td>Tier 5</td><td>End-to-end projects: churn prediction, house-price regression, fraud detection</td><td>Ship complete ML systems with dashboards and evaluation reports</td></tr></table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — ML paradigms, core algorithms, evaluation metrics, sklearn basics</small></h2>
+<article class="topic-card">
+<h3><span class="tnum">1</span>What Machine Learning Is: Supervised, Unsupervised, and RL</h3>
+<p><strong>What &amp; why.</strong> Machine learning is the practice of building systems that improve automatically through experience. Supervised learning maps inputs to known outputs (classification, regression). Unsupervised learning discovers hidden structure (clustering, dimensionality reduction). Reinforcement learning trains agents to maximize cumulative reward through trial-and-error interaction with an environment.</p>
+<pre class="code"><code>from sklearn.datasets import load_iris, make_blobs
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.cluster import KMeans
+from sklearn.metrics import accuracy_score
+
+X, y = load_iris(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Supervised: classification
+clf = LogisticRegression(max_iter=200)
+clf.fit(X_train, y_train)
+print(f"Supervised accuracy: {accuracy_score(y_test, clf.predict(X_test)):.3f}")
+
+# Unsupervised: clustering
+X_blob, _ = make_blobs(n_samples=300, centers=4, random_state=42)
+kmeans = KMeans(n_clusters=4, n_init=10, random_state=42)
+labels = kmeans.fit_predict(X_blob)
+print(f"Unsupervised clusters: {len(set(labels))} found")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every ML project starts by identifying the paradigm: labeled data suggests supervised learning, unlabeled data suggests unsupervised, and sequential decision-making suggests reinforcement learning.</div>
+<div class="callout hood"><span>Under the hood</span>Supervised algorithms optimize a loss function over labeled examples. Unsupervised algorithms optimize intrinsic objectives (e.g., within-cluster sum of squares). RL algorithms optimize expected cumulative reward via policy gradients or value functions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Features, Labels, and Targets</h3>
+<p><strong>What &amp; why.</strong> Features are the input variables (columns in a DataFrame); labels/targets are the output variable you want to predict. Feature engineering transforms raw data into informative representations. Understanding the feature-target relationship is the foundation of all ML: the quality of features determines the ceiling of model performance.</p>
+<pre class="code"><code>import pandas as pd
+import numpy as np
+
+rng = np.random.default_rng(42)
+df = pd.DataFrame({
+    'age': rng.integers(18, 70, 200),
+    'income': rng.lognormal(10, 0.5, 200),
+    'education_years': rng.integers(8, 22, 200),
+    'hours_per_week': rng.normal(40, 10, 200)
+})
+
+# Feature engineering
+df['income_per_hour'] = df['income'] / (df['hours_per_week'] * 52)
+df['age_group'] = pd.cut(df['age'], bins=[0, 30, 50, 100],
+                         labels=['young', 'mid', 'senior'])
+
+# Target: binary classification
+df['high_earner'] = (df['income'] > df['income'].median()).astype(int)
+
+features = ['age', 'income_per_hour', 'education_years', 'hours_per_week']
+X = df[features].values
+y = df['high_earner'].values
+
+print(f"Feature matrix shape: {X.shape}")
+print(f"Target distribution: {dict(zip(*np.unique(y, return_counts=True)))}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every ML project begins with defining features and targets. Feature engineering is often the highest-leverage activity in the ML pipeline.</div>
+<div class="callout hood"><span>Under the hood</strong>Features should be informative, independent, and complete. Missing features, data leakage (features that encode the target), and irrelevant features degrade model performance. Feature selection and dimensionality reduction address these issues.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Train-Test Split: The Golden Rule</h3>
+<p><strong>What &amp; why.</strong> Never evaluate a model on data it trained on. A train-test split holds out a portion of data (typically 20-30%) for unbiased performance estimation. Stratified splitting preserves class proportions. Random state ensures reproducibility. This is the most fundamental anti-overfitting technique.</p>
+<pre class="code"><code>from sklearn.model_selection import train_test_split
+from sklearn.datasets import make_classification
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+import numpy as np
+
+X, y = make_classification(n_samples=1000, n_features=20,
+                           n_informative=10, n_redundant=5,
+                           random_state=42)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+clf = LogisticRegression(max_iter=1000)
+clf.fit(X_train, y_train)
+
+train_acc = accuracy_score(y_train, clf.predict(X_train))
+test_acc = accuracy_score(y_test, clf.predict(X_test))
+
+print(f"Train accuracy: {train_acc:.4f}")
+print(f"Test accuracy:  {test_acc:.4f}")
+print(f"Gap (overfitting signal): {train_acc - test_acc:.4f}")
+
+# For small datasets, use repeated splits
+from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
+cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3, random_state=42)
+scores = cross_val_score(clf, X, y, cv=cv, scoring='accuracy')
+print(f"CV accuracy: {scores.mean():.4f} +/- {scores.std():.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every model evaluation requires a held-out test set. For small datasets, k-fold cross-validation provides more reliable estimates. For time-series, temporal splits prevent future data leakage.</div>
+<div class="callout hood"><span>Under the hood</span>train_test_split shuffles data then splits at index floor(n * (1-test_size)). Stratify ensures each split has the same class proportion as the full dataset. The test set must never influence any training decision, including preprocessing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Linear Regression and Mean Squared Error</h3>
+<p><strong>What &amp; why.</strong> Linear regression models the relationship between features and a continuous target as a weighted sum plus bias. MSE (Mean Squared Error) measures average squared prediction error, penalizing large errors quadratically. OLS (Ordinary Least Squares) has a closed-form solution; gradient descent scales to larger datasets.</p>
+<pre class="code"><code>import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
+
+rng = np.random.default_rng(42)
+X = rng.uniform(0, 10, (200, 1))
+y = 3.5 * X.ravel() + 2.0 + rng.normal(0, 2, 200)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+lr = LinearRegression()
+lr.fit(X_train, y_train)
+
+y_pred = lr.predict(X_test)
+mse = mean_squared_error(y_test, y_pred)
+rmse = np.sqrt(mse)
+r2 = r2_score(y_test, y_pred)
+
+print(f"Coefficient: {lr.coef_[0]:.4f} (true: 3.5)")
+print(f"Intercept: {lr.intercept_:.4f} (true: 2.0)")
+print(f"MSE: {mse:.4f} | RMSE: {rmse:.4f} | R2: {r2:.4f}")
+
+# Closed-form vs sklearn
+X_b = np.c_[np.ones((len(X_train), 1)), X_train]
+w_closed = np.linalg.inv(X_b.T @ X_b) @ X_b.T @ y_train
+print(f"Closed-form w: {w_closed}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Baseline regression model, feature importance via coefficients, and any continuous prediction task. Linear regression assumptions (linearity, homoscedasticity, normality of residuals) should be checked.</div>
+<div class="callout hood"><span>Under the hood</span>OLS minimizes sum of squared residuals: w = (X^T X)^{-1} X^T y. The pseudoinverse handles multicollinearity. Ridge adds L2 penalty; Lasso adds L1. Both shrink coefficients and improve generalization.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Logistic Regression and the Sigmoid Function</h3>
+<p><strong>What &amp; why.</strong> Despite its name, logistic regression is a classification algorithm. It applies the sigmoid function to a linear combination of features, producing a probability between 0 and 1. The decision boundary is linear in feature space. Cross-entropy loss measures how well predicted probabilities match true labels.</p>
+<pre class="code"><code>from sklearn.linear_model import LogisticRegression
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+import numpy as np
+
+X, y = make_classification(n_samples=500, n_features=10,
+                           n_informative=5, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+lr = LogisticRegression(max_iter=1000)
+lr.fit(X_train, y_train)
+
+# Sigmoid: sigma(z) = 1 / (1 + exp(-z))
+z = X_test @ lr.coef_[0] + lr.intercept_[0]
+probs_manual = 1 / (1 + np.exp(-z))
+probs_sklearn = lr.predict_proba(X_test)[:, 1]
+print(f"Sigmoid match: {np.allclose(probs_manual, probs_sklearn)}")
+
+print(classification_report(y_test, lr.predict(X_test), digits=3))
+
+# Probability calibration check
+from sklearn.calibration import calibration_curve
+prob_true, prob_pred = calibration_curve(y_test, probs_sklearn, n_bins=5)
+print(f"Calibration (expected vs predicted): {list(zip(prob_true.round(2), prob_pred.round(2)))}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Binary and multi-class classification, credit scoring, medical diagnosis, and any task requiring calibrated probability estimates.</div>
+<div class="callout hood"><span>Under the hood</span>Logistic regression minimizes log-loss (binary cross-entropy): -[y*log(p) + (1-y)*log(1-p)]. The sigmoid maps (-inf, +inf) to (0, 1). L2 regularization is applied by default in sklearn to prevent coefficient explosion.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Overfitting and Underfitting</h3>
+<p><strong>What &amp; why.</strong> Overfitting occurs when a model memorizes training data noise, performing well on training but poorly on unseen data. Underfitting occurs when the model is too simple to capture the underlying pattern. The bias-variance tradeoff describes this tension: high bias (underfitting) vs. high variance (overfitting).</p>
+<pre class="code"><code>import numpy as np
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+
+rng = np.random.default_rng(42)
+X = rng.uniform(-1, 1, (100, 1))
+y = np.sin(3 * X.ravel()) + rng.normal(0, 0.3, 100)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+degrees = [1, 3, 5, 10, 20]
+for d in degrees:
+    model = Pipeline([
+        ('poly', PolynomialFeatures(degree=d)),
+        ('lr', LinearRegression())])
+    model.fit(X_train, y_train)
+    train_mse = mean_squared_error(y_train, model.predict(X_train))
+    test_mse = mean_squared_error(y_test, model.predict(X_test))
+    status = "GOOD" if abs(train_mse - test_mse) &lt; 0.1 else \
+             "OVERFIT" if train_mse &lt; test_mse else "UNDERFIT"
+    print(f"Degree {d:2d}: train={train_mse:.4f}  test={test_mse:.4f}  [{status}]")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Diagnosing model performance at the start of every ML project. The learning curve (train/test error vs. training size) is the primary diagnostic tool.</div>
+<div class="callout hood"><span>Under the hood</span>Bias = E[model_pred - true]. Variance = E[(model_pred - E[model_pred])^2]. Total error = bias^2 + variance + irreducible noise. Regularization, ensembles, and cross-validation all address this tradeoff.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Bias-Variance Tradeoff</h3>
+<p><strong>What &amp; why.</strong> The bias-variance decomposition explains why models fail. High bias means the model is too rigid (linear model for non-linear data). High variance means the model is too flexible and sensitive to training data fluctuations. Ensemble methods (bagging reduce variance, boosting reduces bias) are the practical solution.</p>
+<pre class="code"><code>import numpy as np
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import BaggingRegressor, GradientBoostingRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+rng = np.random.default_rng(42)
+X = rng.uniform(0, 1, (300, 5))
+y = np.sum(X * np.array([1, -2, 3, -1, 0.5]), axis=1) + rng.normal(0, 0.5, 300)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+models = {
+    'Deep Tree (high var)': DecisionTreeRegressor(max_depth=15),
+    'Shallow Tree (high bias)': DecisionTreeRegressor(max_depth=2),
+    'Bagging (variance reduction)': BaggingRegressor(
+        n_estimators=50, max_depth=10, random_state=42),
+    'Boosting (bias reduction)': GradientBoostingRegressor(
+        n_estimators=100, max_depth=3, random_state=42)
+}
+
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    train_err = mean_squared_error(y_train, model.predict(X_train))
+    test_err = mean_squared_error(y_test, model.predict(X_test))
+    gap = test_err - train_err
+    print(f"{name:&lt;35s} train={train_err:.4f}  test={test_err:.4f}  gap={gap:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Model selection and tuning decisions: increase model complexity to reduce bias, add regularization or ensembles to reduce variance, use cross-validation to estimate the optimal tradeoff point.</div>
+<div class="callout hood"><span>Under the hood</span>Bias-variance decomposition: E[(y - f(x))^2] = bias^2 + variance + sigma^2. Bagging averages independent high-variance models. Boosting sequentially fits residuals (bias reduction). The irreducible error sets the performance floor.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>k-Nearest Neighbors (kNN)</h3>
+<p><strong>What &amp; why.</strong> kNN is a non-parametric algorithm that classifies a point by majority vote of its k closest training examples. It requires no training phase but has high prediction cost (distance computation to all points). Feature scaling is essential because distance metrics are sensitive to feature magnitudes.</p>
+<pre class="code"><code>from sklearn.neighbors import KNeighborsClassifier
+from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score
+import numpy as np
+
+X, y = load_wine(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+# kNN requires scaled features
+pipe = Pipeline([
+    ('scaler', StandardScaler()),
+    ('knn', KNeighborsClassifier(n_neighbors=5))
+])
+pipe.fit(X_train, y_train)
+
+train_acc = accuracy_score(y_train, pipe.predict(X_train))
+test_acc = accuracy_score(y_test, pipe.predict(X_test))
+print(f"kNN (k=5): train={train_acc:.4f}, test={test_acc:.4f}")
+
+# Find optimal k
+for k in [1, 3, 5, 7, 9, 15, 25]:
+    pipe.set_params(knn__n_neighbors=k)
+    pipe.fit(X_train, y_train)
+    acc = accuracy_score(y_test, pipe.predict(X_test))
+    print(f"  k={k:2d}: test accuracy={acc:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Baseline classifier, recommendation systems, anomaly detection (large distance to k-th neighbor), and small datasets where the decision boundary is complex.</div>
+<div class="callout hood"><span>Under the hood</span>kNN uses KDTree or BallTree for efficient nearest-neighbor search. Time complexity: O(n * d) for brute force, O(n * log(n)) for tree-based. The curse of dimensionality degrades distance metrics in high dimensions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Decision Trees: Gini and Entropy</h3>
+<p><strong>What &amp; why.</strong> Decision trees recursively split data on feature thresholds to maximize class purity. Gini impurity measures the probability of misclassification; entropy measures information disorder. Both produce nearly identical trees in practice. Trees are interpretable but prone to overfitting without pruning or ensembling.</p>
+<pre class="code"><code>from sklearn.tree import DecisionTreeClassifier, export_text
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+X, y = load_iris(return_X_y=True)
+feature_names = load_iris().feature_names
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+for criterion in ['gini', 'entropy']:
+    tree = DecisionTreeClassifier(criterion=criterion, max_depth=3,
+                                   random_state=42)
+    tree.fit(X_train, y_train)
+    acc = accuracy_score(y_test, tree.predict(X_test))
+    print(f"\n{criterion.upper()} (max_depth=3): test accuracy={acc:.4f}")
+    print(export_text(tree, feature_names=feature_names, max_depth=3))
+
+# Feature importance
+tree.fit(X_train, y_train)
+for name, imp in zip(feature_names, tree.feature_importances_):
+    print(f"  {name:&lt;20s}: {imp:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Interpretable models for regulated industries, feature importance analysis, and as base learners in ensemble methods (Random Forest, Gradient Boosting).</div>
+<div class="callout hood"><span>Under the hood</span>Gini: 1 - sum(p_i^2). Entropy: -sum(p_i * log2(p_i)). Both are maximized at 0.5 (binary) for pure splits. CART algorithm greedily picks the split with the highest information gain. Pre-pruning (max_depth, min_samples) prevents overfitting.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Accuracy, Precision, Recall, and F1 Score</h3>
+<p><strong>What &amp; why.</strong> Accuracy is the fraction of correct predictions. Precision measures how many predicted positives are actually positive. Recall measures how many actual positives are correctly identified. F1 is the harmonic mean of precision and recall. For imbalanced datasets, accuracy is misleading; precision/recall/F1 reveal the true picture.</p>
+<pre class="code"><code>from sklearn.metrics import (accuracy_score, precision_score, recall_score,
+                              f1_score, classification_report)
+from sklearn.datasets import make_classification
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+X, y = make_classification(n_samples=1000, n_features=20,
+                           weights=[0.95, 0.05], random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+clf = LogisticRegression(max_iter=1000)
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+
+print(f"Accuracy:  {accuracy_score(y_test, y_pred):.4f}")
+print(f"Precision: {precision_score(y_test, y_pred):.4f}")
+print(f"Recall:    {recall_score(y_test, y_pred):.4f}")
+print(f"F1 Score:  {f1_score(y_test, y_pred):.4f}")
+print()
+print(classification_report(y_test, y_pred, digits=3))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every classification model evaluation. Choose the metric based on the cost of errors: high precision for spam filtering (minimize false positives), high recall for cancer screening (minimize false negatives).</div>
+<div class="callout hood"><span>Under the hood</span>TP = true positive, FP = false positive, FN = false negative. Precision = TP/(TP+FP). Recall = TP/(TP+FN). F1 = 2*P*R/(P+R). Macro-averaging computes per-class then averages; weighted-averaging weights by class frequency.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Confusion Matrix</h3>
+<p><strong>What &amp; why.</strong> The confusion matrix is a table showing actual vs. predicted class counts. It reveals which classes are confused with each other, enabling targeted model improvement. For binary classification, it contains TP, FP, TN, FN. For multi-class, it is an N x N matrix where diagonal elements are correct predictions.</p>
+<pre class="code"><code>from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+import matplotlib.pyplot as plt
+
+X, y = load_digits(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+clf = RandomForestClassifier(n_estimators=100, random_state=42)
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+
+cm = confusion_matrix(y_test, y_pred)
+print("Confusion Matrix:")
+print(cm)
+print(f"\nMost confused pairs:")
+for i in range(len(cm)):
+    for j in range(len(cm)):
+        if i != j and cm[i, j] &gt; 0:
+            print(f"  Actual {i} predicted as {j}: {cm[i, j]} times")
+
+fig, ax = plt.subplots(figsize=(10, 8))
+ConfusionMatrixDisplay.from_estimator(clf, X_test, y_test, ax=ax,
+                                       cmap='Blues', values_format='d')
+ax.set_title('Random Forest - Digit Classification')
+plt.savefig('confusion_matrix.png', dpi=150, bbox_inches='tight')
+plt.close()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-class model evaluation, error analysis to identify which classes need more training data, and debugging class-specific performance issues.</div>
+<div class="callout hood"><span>Under the hood</span>confusion_matrix(y_true, y_pred) builds the matrix via bincount on flat indices. Normalized version divides rows by true class counts (predicts the probability of each class). ConfusionMatrixDisplay uses matplotlib to create the heatmap.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>The sklearn fit-predict Pattern</h3>
+<p><strong>What &amp; why.</strong> Every sklearn model follows the same interface: fit(X, y) trains the model, predict(X) generates predictions, score(X, y) evaluates performance. Transformers use fit_transform(X) for training-time preprocessing. This uniform API means any model can be swapped into any pipeline without changing downstream code.</p>
+<pre class="code"><code>from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.svm import SVC
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import cross_val_score
+
+X, y = load_breast_cancer(return_X_y=True)
+
+# Any model follows fit/predict/score
+model = SVC(kernel='rbf', C=1.0, gamma='scale')
+model.fit(X, y)
+print(f"Full-data accuracy: {model.score(X, y):.4f}")
+
+# Pipeline: chain transformers + estimator
+pipe = Pipeline([
+    ('scaler', StandardScaler()),
+    ('pca', PCA(n_components=10)),
+    ('svm', SVC(kernel='rbf'))
+])
+scores = cross_val_score(pipe, X, y, cv=5, scoring='accuracy')
+print(f"Pipeline CV accuracy: {scores.mean():.4f} +/- {scores.std():.4f}")
+
+# Transformers also follow fit/transform
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+print(f"Original mean: {X.mean(axis=0)[:3].round(2)}")
+print(f"Scaled mean:   {X_scaled.mean(axis=0)[:3].round(4)}")
+
+# Inspect learned parameters
+print(f"Scaler mean_ shape: {scaler.mean_.shape}")
+print(f"PCA components shape: {pipe.named_steps['pca'].components_.shape}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every sklearn workflow. The uniform API enables pipelines, cross-validation, grid search, and model serialization to work identically across all algorithms.</div>
+<div class="callout hood"><span>Under the hood</span>fit() stores learned parameters as trailing-underscore attributes (mean_, coef_, components_). transform() uses these parameters. get_params() and set_params() enable pipeline introspection and hyperparameter tuning via GridSearchCV.</div>
+</article>
+
+</section>
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Preprocessing pipelines, cross-validation, ensembles, model selection</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>StandardScaler, MinMaxScaler, and OneHotEncoder</h3>
+<p><strong>What &amp; why.</strong> Preprocessing transforms raw features into model-ready representations. StandardScaler centers to mean 0 with std 1 (required for SVM, kNN, PCA). MinMaxScaler scales to [0, 1] for neural networks. OneHotEncoder converts categorical columns to binary vectors. Fitting on training data only prevents information leakage.</p>
+<pre class="code"><code>import pandas as pd
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+
+df = pd.DataFrame({
+    'age': [25, 35, 45, 30],
+    'income': [50000, 80000, 120000, 65000],
+    'city': ['NYC', 'LA', 'NYC', 'SF'],
+    'education': ['BS', 'MS', 'PhD', 'BS']
+})
+
+numeric_features = ['age', 'income']
+categorical_features = ['city', 'education']
+
+preprocessor = ColumnTransformer([
+    ('num', StandardScaler(), numeric_features),
+    ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_features)
+])
+
+X_transformed = preprocessor.fit_transform(df)
+feature_names = (preprocessor.named_transformers_['cat']
+                 .get_feature_names_out(categorical_features).tolist())
+
+print(f"Original shape: {df.shape}")
+print(f"Transformed shape: {X_transformed.shape}")
+print(f"Features: {numeric_features + feature_names}")
+print(X_transformed.round(3))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every ML pipeline. Pipelines ensure preprocessing is learned from training data and applied identically to test data, preventing leakage.</div>
+<div class="callout hood"><span>Under the hood</span>StandardScaler: (x - mean) / std. MinMaxScaler: (x - min) / (max - min). OneHotEncoder creates k-1 binary columns for k categories (drop='first' avoids multicollinearity). ColumnTransformer applies different transformations to different column subsets.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>K-Fold and Stratified Cross-Validation</h3>
+<p><strong>What &amp; why.</strong> Cross-validation splits data into k folds, training on k-1 and validating on 1, rotating through all folds. Stratified CV preserves class proportions in each fold. This provides more reliable performance estimates than a single train-test split and uses all data for both training and evaluation.</p>
+<pre class="code"><code>from sklearn.model_selection import (KFold, StratifiedKFold,
+    cross_val_score, cross_validate)
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_breast_cancer
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+import numpy as np
+
+X, y = load_breast_cancer(return_X_y=True)
+pipe = Pipeline([('scaler', StandardScaler()),
+                 ('rf', RandomForestClassifier(n_estimators=100, random_state=42))])
+
+# Standard K-Fold
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(pipe, X, y, cv=kf, scoring='f1_weighted')
+print(f"KFold F1: {scores.mean():.4f} +/- {scores.std():.4f}")
+
+# Stratified K-Fold (preferred for classification)
+skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(pipe, X, y, cv=skf, scoring='f1_weighted')
+print(f"Stratified F1: {scores.mean():.4f} +/- {scores.std():.4f}")
+
+# Multi-metric scoring
+result = cross_validate(pipe, X, y, cv=skf,
+    scoring=['accuracy', 'f1_weighted', 'roc_auc'],
+    return_train_score=True)
+for metric in ['accuracy', 'f1_weighted', 'roc_auc']:
+    train = result[f'train_{metric}'].mean()
+    test = result[f'test_{metric}'].mean()
+    print(f"{metric:&lt;18s}: train={train:.4f}, test={test:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Model selection, hyperparameter tuning, and performance estimation. Always use stratified CV for classification and time-series split for temporal data.</div>
+<div class="callout hood"><span>Under the hood</span>KFold splits indices into k groups via array splitting. StratifiedKFold uses np.bincount to ensure class proportions. shuffle=True randomizes before splitting. cross_val_score clones the estimator for each fold to prevent information leakage.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Ridge and Lasso: L1 and L2 Regularization</h3>
+<p><strong>What &amp; why.</strong> Regularization adds a penalty term to the loss function to prevent overfitting. Ridge (L2) shrinks coefficients toward zero but never to exactly zero. Lasso (L1) can shrink coefficients to exactly zero, performing implicit feature selection. ElasticNet combines both penalties.</p>
+<pre class="code"><code>from sklearn.linear_model import Ridge, Lasso, ElasticNet, LinearRegression
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+import numpy as np
+
+X, y = make_regression(n_samples=200, n_features=50,
+                       n_informative=10, noise=10, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+models = {
+    'OLS': LinearRegression(),
+    'Ridge (a=1.0)': Ridge(alpha=1.0),
+    'Lasso (a=1.0)': Lasso(alpha=1.0),
+    'ElasticNet': ElasticNet(alpha=1.0, l1_ratio=0.5)
+}
+
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    mse = mean_squared_error(y_test, model.predict(X_test))
+    n_zero = np.sum(np.abs(model.coef_) &lt; 1e-6)
+    print(f"{name:&lt;20s}: MSE={mse:.2f}  zero_coefs={n_zero}/{len(model.coef_)}")
+
+# Coefficient path
+alphas = np.logspace(-3, 2, 50)
+ridge_coefs = []
+for a in alphas:
+    ridge = Ridge(alpha=a).fit(X_train, y_train)
+    ridge_coefs.append(ridge.coef_.copy())
+print(f"\nRidge coefficient range: [{np.min(ridge_coefs):.2f}, {np.max(ridge_coefs):.2f}]")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any regression task where overfitting is a concern. Lasso for feature selection with correlated features. Ridge when all features are expected to contribute. ElasticNet when you want both shrinkage and selection.</div>
+<div class="callout hood"><span>Under the hood</span>Ridge loss: ||y - Xw||^2 + alpha * ||w||^2. Lasso loss: ||y - Xw||^2 + alpha * ||w||_1. Lasso uses coordinate descent; Ridge uses closed-form with (X^T X + alpha*I)^{-1}. alpha controls regularization strength.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Support Vector Machines and the Kernel Trick</h3>
+<p><strong>What &amp; why.</strong> SVMs find the maximum-margin hyperplane that separates classes. The kernel trick projects data into higher dimensions where linear separation is possible, without explicitly computing the transformation. RBF (Gaussian) kernel handles non-linear boundaries; linear kernel is fast for high-dimensional sparse data.</p>
+<pre class="code"><code>from sklearn.svm import SVC
+from sklearn.datasets import make_moons
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score
+
+X, y = make_moons(n_samples=300, noise=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+pipe = Pipeline([('scaler', StandardScaler()), ('svm', SVC())])
+
+param_grid = {
+    'svm__kernel': ['linear', 'rbf', 'poly'],
+    'svm__C': [0.1, 1, 10],
+    'svm__gamma': ['scale', 'auto', 0.1]
+}
+
+grid = GridSearchCV(pipe, param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+grid.fit(X_train, y_train)
+
+print(f"Best params: {grid.best_params_}")
+print(f"Best CV accuracy: {grid.best_score_:.4f}")
+print(f"Test accuracy: {grid.score(X_test, y_test):.4f}")
+
+# Decision function shows distance to hyperplane
+best_svm = grid.best_estimator_
+decision_vals = best_svm.decision_function(X_test)
+print(f"Decision function range: [{decision_vals.min():.3f}, {decision_vals.max():.3f}]")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Text classification (linear kernel), image classification (RBF kernel), and small-to-medium datasets where margin maximization provides strong generalization.</div>
+<div class="callout hood"><span>Under the hood</span>SVM maximizes margin = 2/||w|| subject to y_i(w*x_i + b) >= 1. The kernel trick computes K(x_i, x_j) = phi(x_i) * phi(x_j) without phi. RBF kernel: exp(-gamma * ||x_i - x_j||^2). C controls the tradeoff between margin size and misclassification.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Naive Bayes for Text Classification</h3>
+<p><strong>What &amp; why.</strong> Naive Bayes applies Bayes' theorem with the "naive" assumption that features are conditionally independent. Despite this assumption being almost always violated, it works remarkably well for text classification because the relative rankings of class probabilities are preserved. It is fast, requires little training data, and handles high-dimensional sparse features naturally.</p>
+<pre class="code"><code>from sklearn.naive_bayes import MultinomialNB, GaussianNB
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import classification_report
+import numpy as np
+
+# Text classification example
+texts = [
+    "win money now click here", "free prize offer limited time",
+    "meeting agenda quarterly review", "project deadline next friday",
+    "claim your free vacation", "discount pharmacy medications",
+    "team standup notes updated", "budget proposal for q4",
+    "urgent account verification needed", "invoice attached please review",
+    "lottery winner notification", "lunch and learn session tuesday"
+]
+labels = [1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0]  # 1=spam, 0=ham
+
+vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
+X = vectorizer.fit_transform(texts)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, labels, test_size=0.25, random_state=42, stratify=labels)
+
+nb = MultinomialNB(alpha=1.0)
+nb.fit(X_train, y_train)
+
+print("Classification report:")
+print(classification_report(y_test, nb.predict(X_test),
+                            target_names=['ham', 'spam']))
+
+# Show log probabilities
+feature_names = vectorizer.get_feature_names_out()
+for i, label in enumerate(['ham', 'spam']):
+    top_idx = np.argsort(nb.feature_log_prob_[i])[-5:]
+    print(f"Top features for {label}: {feature_names[top_idx]}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Spam filtering, sentiment analysis, document categorization, and any text classification task where speed and simplicity matter. Often used as a baseline before trying more complex models.</div>
+<div class="callout hood"><span>Under the hood</span>MultinomialNB models word counts as multinomial distributions. Laplace smoothing (alpha) adds pseudocounts to prevent zero probabilities. Log probabilities are used to avoid numerical underflow. Training is a single pass computing class priors and feature likelihoods.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Random Forest and Bagging</h3>
+<p><strong>What &amp; why.</strong> Random Forest builds many decision trees on bootstrap samples with random feature subsets, then averages their predictions. Bagging (Bootstrap Aggregating) reduces variance by averaging independent high-variance models. Random Forest adds feature randomization to decorrelate trees, further reducing variance.</p>
+<pre class="code"><code>from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score
+import numpy as np
+
+X, y = make_classification(n_samples=1000, n_features=20,
+                           n_informative=10, n_redundant=5,
+                           random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+rf = RandomForestClassifier(n_estimators=200, max_depth=10,
+                            max_features='sqrt', random_state=42, n_jobs=-1)
+rf.fit(X_train, y_train)
+
+print(f"Train accuracy: {rf.score(X_train, y_train):.4f}")
+print(f"Test accuracy:  {rf.score(X_test, y_test):.4f}")
+
+# Feature importance (MDI - Mean Decrease in Impurity)
+importances = rf.feature_importances_
+top_idx = np.argsort(importances)[::-1][:10]
+print("\nTop 10 features:")
+for i in top_idx:
+    print(f"  Feature {i:2d}: importance={importances[i]:.4f}")
+
+# OOB score (out-of-bag - no CV needed)
+rf_oob = RandomForestClassifier(n_estimators=200, oob_score=True,
+                                random_state=42)
+rf_oob.fit(X, y)
+print(f"\nOOB score: {rf_oob.oob_score_:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Baseline classifier for tabular data, feature importance analysis, and any task where robust, low-variance predictions are needed without extensive tuning.</div>
+<div class="callout hood"><span>Under the hood</span>Each tree trains on a bootstrap sample (sampling with replacement). At each split, only sqrt(n_features) candidates are considered. OOB score uses the ~37% of samples not in each tree's bootstrap for unbiased estimation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Gradient Boosting and XGBoost</h3>
+<p><strong>What &amp; why.</strong> Gradient boosting sequentially adds weak learners (typically shallow trees), each correcting the errors of the previous ensemble. XGBoost optimizes this with regularized objectives, efficient histogram-based splitting, and GPU acceleration. It dominates tabular data competitions and production ML systems.</p>
+<pre class="code"><code>from xgboost import XGBClassifier
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
+import numpy as np
+
+X, y = make_classification(n_samples=1000, n_features=20,
+                           n_informative=10, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+xgb = XGBClassifier(
+    n_estimators=200, max_depth=4, learning_rate=0.1,
+    subsample=0.8, colsample_bytree=0.8,
+    reg_alpha=0.1, reg_lambda=1.0,
+    eval_metric='logloss', random_state=42)
+
+xgb.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
+
+y_pred = xgb.predict(X_test)
+print(f"XGBoost accuracy: {accuracy_score(y_test, y_pred):.4f}")
+print(classification_report(y_test, y_pred, digits=3))
+
+# Early stopping
+xgb_es = XGBClassifier(n_estimators=1000, max_depth=4,
+                        learning_rate=0.05, early_stopping_rounds=20)
+xgb_es.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
+print(f"Best iteration: {xgb_es.best_iteration}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Tabular data competitions, production ML for fraud detection, click prediction, risk scoring, and any structured data task. XGBoost typically outperforms other algorithms on tabular data.</div>
+<div class="callout hood"><span>Under the hood</span>Gradient boosting fits residuals: each new tree predicts the negative gradient of the loss. XGBoost adds L1/L2 regularization to tree weights, uses histogram binning for speed, and supports early stopping based on eval metrics.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>K-Means Clustering and the Elbow Method</h3>
+<p><strong>What &amp; why.</strong> K-Means partitions data into k clusters by minimizing within-cluster sum of squares (WCSS). The elbow method plots WCSS vs. k to find the optimal number of clusters where adding more clusters yields diminishing returns. K-Means is fast but assumes spherical, equally-sized clusters.</p>
+<pre class="code"><code>from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
+from sklearn.metrics import silhouette_score
+import matplotlib.pyplot as plt
+import numpy as np
+
+X, y_true = make_blobs(n_samples=500, centers=4, cluster_std=1.0,
+                        random_state=42)
+
+wcss = []
+silhouette_scores = []
+K_range = range(2, 11)
+
+for k in K_range:
+    km = KMeans(n_clusters=k, n_init=10, random_state=42)
+    km.fit(X)
+    wcss.append(km.inertia_)
+    silhouette_scores.append(silhouette_score(X, km.labels_))
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+ax1.plot(K_range, wcss, 'bo-', linewidth=2)
+ax1.set_xlabel('Number of Clusters (k)')
+ax1.set_ylabel('WCSS (Inertia)')
+ax1.set_title('Elbow Method')
+
+ax2.plot(K_range, silhouette_scores, 'rs-', linewidth=2)
+ax2.set_xlabel('Number of Clusters (k)')
+ax2.set_ylabel('Silhouette Score')
+ax2.set_title('Silhouette Analysis')
+plt.savefig('kmeans_elbow.png', dpi=150, bbox_inches='tight')
+plt.close()
+
+best_k = K_range[np.argmax(silhouette_scores)]
+print(f"Best k by silhouette: {best_k}")
+print(f"Silhouette scores: {dict(zip(K_range, [f'{s:.3f}' for s in silhouette_scores]))}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Customer segmentation, data exploration, anomaly detection (points far from cluster centers), and as a preprocessing step for creating cluster-based features.</div>
+<div class="callout hood"><span>Under the hood</span>K-Means alternates: (1) assign each point to nearest centroid, (2) recompute centroids as cluster means. This converges to a local optimum (use n_init &gt; 1 for stability). Complexity: O(n * k * d * iterations).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Principal Component Analysis (PCA)</h3>
+<p><strong>What &amp; why.</strong> PCA reduces dimensionality by projecting data onto orthogonal axes (principal components) that capture maximum variance. It is unsupervised (ignores labels) and linear. Use cases: dimensionality reduction for visualization, noise filtering, feature decorrelation, and preprocessing for algorithms sensitive to high dimensionality.</p>
+<pre class="code"><code>from sklearn.decomposition import PCA
+from sklearn.datasets import load_digits
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+import numpy as np
+
+X, y = load_digits(return_X_y=True)
+X_scaled = StandardScaler().fit_transform(X)
+
+pca_full = PCA().fit(X_scaled)
+cumvar = np.cumsum(pca_full.explained_variance_ratio_)
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+ax1.plot(range(1, len(cumvar) + 1), cumvar, 'b-', linewidth=2)
+ax1.axhline(y=0.95, color='r', linestyle='--', label='95% variance')
+ax1.set_xlabel('Number of Components')
+ax1.set_ylabel('Cumulative Explained Variance')
+ax1.set_title('PCA Variance Explained')
+ax1.legend()
+
+pca_2d = PCA(n_components=2)
+X_2d = pca_2d.fit_transform(X_scaled)
+scatter = ax2.scatter(X_2d[:, 0], X_2d[:, 1], c=y, cmap='tab10',
+                      s=10, alpha=0.7)
+ax2.set_xlabel('PC1')
+ax2.set_ylabel('PC2')
+ax2.set_title(f'2D PCA Projection ({pca_2d.explained_variance_ratio_.sum():.1%} var)')
+plt.colorbar(scatter, ax=ax2)
+plt.savefig('pca_analysis.png', dpi=150, bbox_inches='tight')
+plt.close()
+
+n_95 = np.argmax(cumvar &gt;= 0.95) + 1
+print(f"Components for 95% variance: {n_95} / {X.shape[1]}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>High-dimensional data visualization, noise reduction, feature decorrelation for linear models, and preprocessing for distance-based algorithms.</div>
+<div class="callout hood"><span>Under the hood</span>PCA computes eigendecomposition of the covariance matrix: C = (1/n) X^T X. Eigenvalues = variance explained; eigenvectors = principal components. SVD (X = U * S * V^T) is numerically preferred. Components are sorted by descending eigenvalue.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>ROC Curve, AUC, and Model Thresholding</h3>
+<p><strong>What &amp; why.</strong> The ROC curve plots True Positive Rate vs. False Positive Rate at various threshold settings. AUC (Area Under the Curve) summarizes discrimination ability: 0.5 = random, 1.0 = perfect. Threshold tuning lets you trade precision for recall based on business costs. AUC is threshold-invariant.</p>
+<pre class="code"><code>from sklearn.metrics import (roc_curve, roc_auc_score,
+                              precision_recall_curve, average_precision_score)
+from sklearn.datasets import make_classification
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+import numpy as np
+
+X, y = make_classification(n_samples=1000, n_features=20,
+                           weights=[0.9, 0.1], random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+models = {
+    'Logistic Regression': LogisticRegression(max_iter=1000),
+    'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42)
+}
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_prob = model.predict_proba(X_test)[:, 1]
+
+    fpr, tpr, thresholds = roc_curve(y_test, y_prob)
+    auc = roc_auc_score(y_test, y_prob)
+    ax1.plot(fpr, tpr, linewidth=2, label=f'{name} (AUC={auc:.3f})')
+
+    prec, rec, _ = precision_recall_curve(y_test, y_prob)
+    ap = average_precision_score(y_test, y_prob)
+    ax2.plot(rec, prec, linewidth=2, label=f'{name} (AP={ap:.3f})')
+
+ax1.plot([0, 1], [0, 1], 'k--', alpha=0.5)
+ax1.set_xlabel('False Positive Rate'); ax1.set_ylabel('True Positive Rate')
+ax1.set_title('ROC Curve'); ax1.legend()
+ax2.set_xlabel('Recall'); ax2.set_ylabel('Precision')
+ax2.set_title('Precision-Recall Curve'); ax2.legend()
+plt.savefig('roc_pr_curves.png', dpi=150, bbox_inches='tight')
+plt.close()
+
+# Optimal threshold by Youden's J
+lr = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+y_prob = lr.predict_proba(X_test)[:, 1]
+fpr, tpr, thresholds = roc_curve(y_test, y_prob)
+j_scores = tpr - fpr
+best_threshold = thresholds[np.argmax(j_scores)]
+print(f"Optimal threshold (Youden's J): {best_threshold:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Binary classifier evaluation, threshold selection for imbalanced problems, and comparing models independent of decision threshold.</div>
+<div class="callout hood"><span>Under the hood</span>ROC varies the classification threshold from 0 to 1. AUC = P(score(pos) &gt; score(neg)). For imbalanced data, the Precision-Recall curve is more informative. average_precision is the area under the PR curve.</div>
+</article>
+
+</section>
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Optimization, neural nets from scratch, PyTorch, interpretability, AutoML</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Gradient Descent Variants: SGD, Momentum, RMSprop, Adam</h3>
+<p><strong>What &amp; why.</strong> Gradient descent minimizes the loss by iteratively moving parameters in the negative gradient direction. Vanilla SGD uses a fixed learning rate. Momentum accelerates convergence by accumulating velocity. RMSprop adapts per-parameter learning rates. Adam combines momentum with adaptive rates and is the default optimizer for most deep learning.</p>
+<pre class="code"><code>import numpy as np
+
+def sgd(params, grads, lr=0.01):
+    params -= lr * grads
+    return params
+
+def momentum(params, grads, velocity, lr=0.01, beta=0.9):
+    velocity = beta * velocity + (1 - beta) * grads
+    params -= lr * velocity
+    return params, velocity
+
+def rmsprop(params, grads, cache, lr=0.001, beta=0.9, eps=1e-8):
+    cache = beta * cache + (1 - beta) * grads**2
+    params -= lr * grads / (np.sqrt(cache) + eps)
+    return params, cache
+
+def adam(params, grads, m, v, t, lr=0.001, b1=0.9, b2=0.999, eps=1e-8):
+    m = b1 * m + (1 - b1) * grads
+    v = b2 * v + (1 - b2) * grads**2
+    m_hat = m / (1 - b1**t)
+    v_hat = v / (1 - b2**t)
+    params -= lr * m_hat / (np.sqrt(v_hat) + eps)
+    return params, m, v
+
+# Minimize f(x) = x^2, f'(x) = 2x
+x = 5.0; v = 0.0; m = 0.0; v_adam = 0.0; t = 0
+for step in range(100):
+    grad = 2 * x
+    x, v = momentum(x, grad, v, lr=0.1)
+    t += 1
+    if step % 20 == 0:
+        print(f"Step {step:3d}: x={x:.6f}, f(x)={x**2:.6f}")
+print(f"Final: x={x:.6f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Training neural networks, custom optimization loops in PyTorch/TensorFlow, and any scenario where the default optimizer needs customization (learning rate warmup, gradient clipping).</div>
+<div class="callout hood"><span>Under the hood</span>Adam: m_t = beta1 * m_{t-1} + (1-beta1) * g_t (first moment), v_t = beta2 * v_{t-1} + (1-beta2) * g_t^2 (second moment). Bias correction: m_hat = m_t / (1-beta1^t). Default betas (0.9, 0.999) work well across domains.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Neural Network from Scratch with Backpropagation</h3>
+<p><strong>What &amp; why.</strong> Building a neural network from scratch with numpy reveals the mechanics hidden by frameworks: forward pass computes activations layer by layer, backward pass propagates gradients via the chain rule, and weight updates apply those gradients. Understanding this demystifies all deep learning.</p>
+<pre class="code"><code>import numpy as np
+
+class NeuralNet:
+    def __init__(self, layers):
+        self.W = []
+        for i in range(len(layers) - 1):
+            w = np.random.randn(layers[i], layers[i+1]) * np.sqrt(2 / layers[i])
+            self.W.append(w)
+
+    def relu(self, z): return np.maximum(0, z)
+    def relu_deriv(self, z): return (z &gt; 0).astype(float)
+
+    def forward(self, X):
+        self.activations = [X]
+        self.zs = []
+        for i, w in enumerate(self.W):
+            z = self.activations[-1] @ w
+            self.zs.append(z)
+            a = self.relu(z) if i &lt; len(self.W) - 1 else z
+            self.activations.append(a)
+        return self.activations[-1]
+
+    def backward(self, y, lr=0.01):
+        m = y.shape[0]
+        delta = (self.activations[-1] - y.reshape(-1, 1)) / m
+
+        for i in range(len(self.W) - 1, -1, -1):
+            grad = self.activations[i].T @ delta
+            if i &gt; 0:
+                delta = (delta @ self.W[i].T) * self.relu_deriv(self.zs[i-1])
+            self.W[i] -= lr * grad
+
+    def train(self, X, y, epochs=500, lr=0.01):
+        for e in range(epochs):
+            out = self.forward(X)
+            self.backward(y, lr)
+            if e % 100 == 0:
+                loss = np.mean((out.ravel() - y)**2)
+                print(f"Epoch {e}: loss={loss:.6f}")
+
+np.random.seed(42)
+X = np.array([[0,0],[0,1],[1,0],[1,1]])
+y = np.array([0, 1, 1, 0])  # XOR
+
+nn = NeuralNet([2, 8, 1])
+nn.train(X, y, epochs=1000, lr=0.05)
+predictions = nn.forward(X)
+print(f"Predictions: {predictions.ravel().round(3)}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Educational understanding of deep learning, custom architectures not supported by frameworks, and edge deployments where framework overhead is prohibitive.</div>
+<div class="callout hood"><span>Under the hood</span>Forward: a_l = sigma(W_l * a_{l-1} + b_l). Backward: dL/dW_l = a_{l-1} * delta_l where delta_l = (W_{l+1}^T * delta_{l+1}) * sigma'(z_l). Weight initialization (He, Xavier) prevents vanishing/exploding gradients.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Activation Functions: ReLU, Tanh, Softmax, and Vanishing Gradients</h3>
+<p><strong>What &amp; why.</strong> Activation functions introduce non-linearity, enabling neural networks to learn complex patterns. ReLU is the default for hidden layers (simple, fast, avoids saturation). Tanh outputs zero-centered values. Softmax converts logits to probabilities for multi-class classification. Vanishing gradients occur when activations saturate, halting learning in deep networks.</p>
+<pre class="code"><code>import numpy as np
+
+def relu(z): return np.maximum(0, z)
+def sigmoid(z): return 1 / (1 + np.exp(-np.clip(z, -500, 500)))
+def tanh(z): return np.tanh(z)
+def softmax(z):
+    exp_z = np.exp(z - np.max(z, axis=-1, keepdims=True))
+    return exp_z / exp_z.sum(axis=-1, keepdims=True)
+
+def elu(z, alpha=1.0):
+    return np.where(z &gt; 0, z, alpha * (np.exp(np.clip(z, -500, 500)) - 1))
+
+# Compare saturation behavior
+z = np.linspace(-5, 5, 200)
+print("Function      | z=-5 value | z=0 value | z=5 value | max gradient")
+print(f"ReLU          | {relu(-5):10.4f} | {relu(0):7.4f} | {relu(5):7.4f} | {1.0}")
+print(f"Sigmoid       | {sigmoid(-5):10.4f} | {sigmoid(0):7.4f} | {sigmoid(5):7.4f} | {0.25}")
+print(f"Tanh          | {tanh(-5):10.4f} | {tanh(0):7.4f} | {tanh(5):7.4f} | {1.0}")
+print(f"ELU           | {elu(-5):10.4f} | {elu(0):7.4f} | {elu(5):7.4f} | {1.0}")
+
+# Softmax for multi-class
+logits = np.array([2.0, 1.0, 0.5, 0.1])
+probs = softmax(logits)
+print(f"\nSoftmax: {probs.round(4)}, sum={probs.sum():.6f}")
+print(f"Predicted class: {np.argmax(probs)}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choosing activations is a key architectural decision. ReLU for hidden layers, sigmoid for binary output, softmax for multi-class. Batch normalization mitigates vanishing gradients.</div>
+<div class="callout hood"><span>Under the hood</span>ReLU gradient is 0 for z&lt;0 (dying ReLU problem). Sigmoid gradient max is 0.25 at z=0, shrinking exponentially. Tanh gradient max is 1.0 at z=0 but still saturates. ELU and GELU provide smooth alternatives with non-zero gradients for negative inputs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Loss Functions: MSE, Cross-Entropy, and Huber</h3>
+<p><strong>What &amp; why.</strong> The loss function quantifies prediction error and defines the optimization objective. MSE penalizes large errors quadratically (good for regression). Cross-entropy measures probability divergence (good for classification). Huber loss combines MSE (small errors) and MAE (large errors) for robustness to outliers.</p>
+<pre class="code"><code>import numpy as np
+
+def mse_loss(y_true, y_pred):
+    return np.mean((y_true - y_pred)**2)
+
+def mae_loss(y_true, y_pred):
+    return np.mean(np.abs(y_true - y_pred))
+
+def huber_loss(y_true, y_pred, delta=1.0):
+    err = np.abs(y_true - y_pred)
+    return np.mean(np.where(err &lt; delta, 0.5 * err**2, delta * (err - 0.5 * delta)))
+
+def binary_cross_entropy(y_true, y_pred):
+    eps = 1e-15
+    y_pred = np.clip(y_pred, eps, 1 - eps)
+    return -np.mean(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
+
+def categorical_cross_entropy(y_true, y_pred):
+    eps = 1e-15
+    y_pred = np.clip(y_pred, eps, 1.0)
+    return -np.mean(np.sum(y_true * np.log(y_pred), axis=-1))
+
+y_true = np.array([3.0, 5.0, 2.5, 7.0])
+y_pred_good = np.array([2.8, 5.1, 2.7, 6.8])
+y_pred_bad = np.array([1.0, 8.0, 1.0, 10.0])
+
+print(f"MSE  (good): {mse_loss(y_true, y_pred_good):.4f}")
+print(f"MSE  (bad):  {mse_loss(y_true, y_pred_bad):.4f}")
+print(f"Huber(good): {huber_loss(y_true, y_pred_good):.4f}")
+print(f"Huber(bad):  {huber_loss(y_true, y_pred_bad):.4f}")
+
+y_true_cls = np.array([0, 1, 1, 0])
+y_pred_cls = np.array([0.1, 0.9, 0.8, 0.2])
+print(f"BCE: {binary_cross_entropy(y_true_cls, y_pred_cls):.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Loss selection depends on the task: MSE for regression, cross-entropy for classification, Huber for robust regression. Custom loss functions are common in research.</div>
+<div class="callout hood"><span>Under the hood</span>Cross-entropy is the negative log-likelihood under a Bernoulli/categorical model. MSE assumes Gaussian noise. Huber transitions from quadratic to linear at delta, combining the benefits of both. All are convex (for linear models), guaranteeing a global minimum.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Dropout and Batch Normalization</h3>
+<p><strong>What &amp; why.</strong> Dropout randomly zeros neurons during training (typically 20-50%), forcing the network to learn redundant representations and preventing co-adaptation. Batch normalization standardizes layer inputs, stabilizing training, allowing higher learning rates, and acting as a mild regularizer. Both are essential for training deep networks.</p>
+<pre class="code"><code>import torch
+import torch.nn as nn
+
+class NetWithRegularization(nn.Module):
+    def __init__(self, input_dim=784, hidden=256, output=10, dropout=0.3):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden),
+            nn.BatchNorm1d(hidden),
+            nn.ReLU(),
+            nn.Dropout(p=dropout),
+            nn.Linear(hidden, hidden),
+            nn.BatchNorm1d(hidden),
+            nn.ReLU(),
+            nn.Dropout(p=dropout),
+            nn.Linear(hidden, output)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+model = NetWithRegularization()
+print(model)
+
+# Demonstrate dropout behavior
+x = torch.randn(4, 784)
+model.train()
+out_train = model(x)
+model.eval()
+out_eval = model(x)
+
+print(f"\nTrain mode output std: {out_train.std().item():.4f}")
+print(f"Eval mode output std:  {out_eval.std().item():.4f}")
+print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+# Batch norm stats
+bn = nn.BatchNorm1d(128)
+x = torch.randn(32, 128)
+bn.train()
+y_train = bn(x)
+bn.eval()
+y_eval = bn(x)
+print(f"\nBatch norm running mean: {bn.running_mean.mean().item():.4f}")
+print(f"Batch norm running var:  {bn.running_var.mean().item():.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Dropout in fully-connected layers; batch normalization in CNNs and deep feedforward nets. Both are standard in modern architectures. Dropout is disabled during inference (model.eval()).</div>
+<div class="callout hood"><span>Under the hood</span>Dropout multiplies each activation by Bernoulli(1-p) and scales by 1/(1-p) (inverted dropout). BatchNorm: y = (x - mean) / sqrt(var + eps) * gamma + beta, using running statistics at inference. Both have subtle interactions with other regularization methods.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>PyTorch Training Loop</h3>
+<p><strong>What &amp; why.</strong> PyTorch's training loop is the standard pattern for deep learning: zero gradients, forward pass, compute loss, backward pass (autograd), optimizer step. Understanding this loop is essential for custom training procedures, GANs, reinforcement learning, and any non-standard optimization.</p>
+<pre class="code"><code>import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+
+torch.manual_seed(42)
+X = torch.randn(500, 20)
+y = (X[:, 0] * 2 + X[:, 1] * -1 + torch.randn(500) * 0.1 &gt; 0).float()
+
+dataset = TensorDataset(X, y)
+loader = DataLoader(dataset, batch_size=64, shuffle=True)
+
+model = nn.Sequential(
+    nn.Linear(20, 64), nn.ReLU(), nn.Dropout(0.2),
+    nn.Linear(64, 32), nn.ReLU(),
+    nn.Linear(32, 1), nn.Sigmoid())
+
+criterion = nn.BCELoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
+
+for epoch in range(50):
+    model.train()
+    total_loss = 0
+    for X_batch, y_batch in loader:
+        optimizer.zero_grad()
+        output = model(X_batch).squeeze()
+        loss = criterion(output, y_batch)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()
+        total_loss += loss.item() * len(X_batch)
+
+    avg_loss = total_loss / len(dataset)
+    scheduler.step(avg_loss)
+    if (epoch + 1) % 10 == 0:
+        lr = optimizer.param_groups[0]['lr']
+        print(f"Epoch {epoch+1:2d}: loss={avg_loss:.4f}, lr={lr:.6f}")
+
+model.eval()
+with torch.no_grad():
+    accuracy = ((model(X).squeeze() &gt; 0.5).float() == y).float().mean()
+    print(f"Final accuracy: {accuracy:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every PyTorch project. The training loop pattern is universal: zero_grad, forward, loss, backward, step. Custom loops enable GANs, meta-learning, and curriculum learning.</div>
+<div class="callout hood"><span>Under the hood</span>autograd builds a computation graph during forward pass. backward() traverses it in reverse, computing gradients via the chain rule. zero_grad() clears the graph. optimizer.step() applies parameter updates. clip_grad_norm_ prevents gradient explosion.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Learning Rate Schedules and Early Stopping</h3>
+<p><strong>What &amp; why.</strong> A fixed learning rate is rarely optimal. LR schedules reduce the rate during training (step decay, cosine annealing, warmup). Early stopping monitors validation loss and halts training when it begins to increase, preventing overfitting without explicit regularization tuning.</p>
+<pre class="code"><code>import torch
+import torch.nn as nn
+import torch.optim as optim
+
+model = nn.Linear(20, 1)
+optimizer = optim.SGD(model.parameters(), lr=0.1)
+
+# Cosine annealing
+cos_scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=1e-5)
+
+# Step decay
+step_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
+
+# Warmup + cosine (common in transformers)
+def warmup_cosine(epoch, warmup_epochs=10, total_epochs=50):
+    if epoch &lt; warmup_epochs:
+        return epoch / warmup_epochs
+    progress = (epoch - warmup_epochs) / (total_epochs - warmup_epochs)
+    return 0.5 * (1 + torch.cos(torch.tensor(progress * 3.14159)).item())
+
+warmup_scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup_cosine)
+
+lrs = []
+for epoch in range(50):
+    lrs.append(optimizer.param_groups[0]['lr'])
+    optimizer.step()
+    cos_scheduler.step()
+
+print(f"LR schedule (first 10): {[f'{lr:.5f}' for lr in lrs[:10]]}")
+print(f"LR schedule (last 10):  {[f'{lr:.5f}' for lr in lrs[-10:]]}")
+
+# Early stopping pattern
+class EarlyStopping:
+    def __init__(self, patience=10, min_delta=0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.best_loss = float('inf')
+        self.counter = 0
+
+    def __call__(self, val_loss):
+        if val_loss &lt; self.best_loss - self.min_delta:
+            self.best_loss = val_loss
+            self.counter = 0
+            return False  # don't stop
+        self.counter += 1
+        return self.counter &gt;= self.patience  # stop if patience exceeded
+
+es = EarlyStopping(patience=5)
+for fake_loss in [1.0, 0.8, 0.7, 0.75, 0.72, 0.73, 0.74, 0.75, 0.76]:
+    if es(fake_loss):
+        print(f"Early stopping triggered at loss={fake_loss}")
+        break</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Training any neural network. Cosine annealing is the default for transformers. Warmup is critical for large-batch training. Early stopping is the simplest regularization technique.</div>
+<div class="callout hood"><span>Under the hood</span>Cosine annealing: lr = eta_min + 0.5 * (lr_max - eta_min) * (1 + cos(pi * t / T)). Warmup linearly increases lr from 0 to target over N steps. Early stopping requires a validation set separate from training.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Feature Leakage Traps</h3>
+<p><strong>What &amp; why.</strong> Feature leakage occurs when information from the target variable leaks into features, inflating performance metrics to unrealistic levels. Common traps: including post-event features in prediction, applying preprocessing before train-test splitting, and using future data in time-series features. Leakage is the #1 cause of models that fail in production.</p>
+<pre class="code"><code>import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+rng = np.random.default_rng(42)
+n = 1000
+df = pd.DataFrame({
+    'feature_a': rng.normal(0, 1, n),
+    'feature_b': rng.normal(0, 1, n),
+})
+df['target'] = ((df['feature_a'] + df['feature_b'] * 0.5 +
+                 rng.normal(0, 0.5, n)) &gt; 0).astype(int)
+
+# TRAP: target-derived feature leaks into training
+df['leaky_feature'] = df['target'] + rng.normal(0, 0.01, n)
+
+X_leaky = df[['feature_a', 'feature_b', 'leaky_feature']]
+X_clean = df[['feature_a', 'feature_b']]
+y = df['target']
+
+X_tr, X_te, y_tr, y_te = train_test_split(X_leaky, y, test_size=0.2)
+clf_leaky = RandomForestClassifier(n_estimators=100, random_state=42)
+clf_leaky.fit(X_tr, y_tr)
+acc_leaky = accuracy_score(y_te, clf_leaky.predict(X_te))
+
+X_tr2, X_te2, _, _ = train_test_split(X_clean, y, test_size=0.2)
+clf_clean = RandomForestClassifier(n_estimators=100, random_state=42)
+clf_clean.fit(X_tr2, y_tr)
+acc_clean = accuracy_score(y_te, clf_clean.predict(X_te2))
+
+print(f"Leaky model accuracy: {acc_leaky:.4f} (unrealistic)")
+print(f"Clean model accuracy: {acc_clean:.4f} (realistic)")
+print(f"Gap = {acc_leaky - acc_clean:.4f} (leakage magnitude)")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every ML project requires leakage auditing. Checklist: (1) preprocess after splitting, (2) no target-derived features, (3) temporal features use only past data, (4) no data from same entity in train and test.</div>
+<div class="callout hood"><span>Under the hood</span>Leakage inflates cross-validation scores because the model has access to information it won't have at inference time. The gap between CV score and production performance is the leakage indicator. Sanity checks: random target shuffle should drop performance to chance.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>SHAP and Permutation Feature Importance</h3>
+<p><strong>What &amp; why.</strong> Model interpretability is required for trust, debugging, and compliance. SHAP (SHapley Additive exPlanations) provides theoretically principled feature attributions based on game theory. Permutation importance measures feature impact by shuffling values and observing performance drop. Both explain black-box models globally and locally.</p>
+<pre class="code"><code>from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+import numpy as np
+
+X, y = make_classification(n_samples=500, n_features=10,
+                           n_informative=5, random_state=42)
+feature_names = [f'feat_{i}' for i in range(10)]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+clf = RandomForestClassifier(n_estimators=100, random_state=42)
+clf.fit(X_train, y_train)
+baseline_acc = clf.score(X_test, y_test)
+
+# Permutation importance
+perm_importance = np.zeros(X_test.shape[1])
+for i in range(X_test.shape[1]):
+    X_perm = X_test.copy()
+    np.random.shuffle(X_perm[:, i])
+    perm_importance[i] = baseline_acc - clf.score(X_perm, y_test)
+
+sorted_idx = np.argsort(perm_importance)[::-1]
+print("Permutation Importance:")
+for idx in sorted_idx:
+    print(f"  {feature_names[idx]:10s}: {perm_importance[idx]:.4f}")
+
+# SHAP values (using tree-based exact computation)
+import shap
+explainer = shap.TreeExplainer(clf)
+shap_values = explainer.shap_values(X_test[:5])
+print(f"\nSHAP values shape: {np.array(shap_values).shape}")
+print(f"SHAP sum per sample (should ~ prediction): {shap_values[1][0].sum():.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Model debugging (which features drive predictions?), regulatory compliance (explain individual decisions), feature selection, and building trust with stakeholders.</div>
+<div class="callout hood"><span>Under the hood</span>SHAP computes the marginal contribution of each feature across all subsets (Shapley values from cooperative game theory). TreeSHAP is exact for tree models in O(TLD^2). Permutation importance is model-agnostic but only captures main effects, not interactions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Optuna: Automated Hyperparameter Tuning</h3>
+<p><strong>What &amp; why.</strong> Optuna uses Bayesian optimization (TPE sampler) to efficiently search hyperparameter spaces, pruning unpromising trials early. Compared to GridSearchCV (exhaustive) and RandomizedSearchCV (random), Optuna focuses compute on promising regions, finding better parameters with fewer evaluations.</p>
+<pre class="code"><code>import optuna
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import make_classification
+from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = make_classification(n_samples=500, n_features=20,
+                           n_informative=10, random_state=42)
+
+def objective(trial):
+    n_estimators = trial.suggest_int('n_estimators', 50, 300)
+    max_depth = trial.suggest_int('max_depth', 3, 20)
+    min_samples_split = trial.suggest_int('min_samples_split', 2, 20)
+    max_features = trial.suggest_categorical('max_features', ['sqrt', 'log2', None])
+
+    clf = RandomForestClassifier(
+        n_estimators=n_estimators, max_depth=max_depth,
+        min_samples_split=min_samples_split, max_features=max_features,
+        random_state=42, n_jobs=-1)
+
+    scores = cross_val_score(clf, X, y, cv=5, scoring='accuracy')
+    return scores.mean()
+
+study = optuna.create_study(direction='maximize',
+                            sampler=optuna.samplers.TPESampler(seed=42))
+study.optimize(objective, n_trials=50, show_progress_bar=False)
+
+print(f"Best trial accuracy: {study.best_value:.4f}")
+print(f"Best parameters: {study.best_params}")
+
+# Optimization history
+trials = study.trials
+print(f"\nTrial count: {len(trials)}")
+print(f"Top 5 trials:")
+sorted_trials = sorted(trials, key=lambda t: t.value, reverse=True)[:5]
+for t in sorted_trials:
+    print(f"  Acc={t.value:.4f}  params={t.params}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any hyperparameter tuning beyond manual search. Particularly valuable for deep learning, ensemble methods, and any model with 3+ hyperparameters.</div>
+<div class="callout hood"><span>Under the hood</span>TPE (Tree-structured Parzen Estimator) models P(params|good) and P(params|bad) separately, sampling from P(good|params). MedianPruner stops trials whose intermediate values are worse than the median of completed trials. Pruning saves 30-50% compute.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Stacking, Blending, and Ensemble Methods</h3>
+<p><strong>What &amp; why.</strong> Ensembles combine multiple models to achieve better performance than any single model. Stacking trains a meta-learner on the out-of-fold predictions of base learners. Blending is a simplified stacking with a holdout set. These methods win competitions because they capture diverse model perspectives.</p>
+<pre class="code"><code>from sklearn.ensemble import StackingClassifier, VotingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.svm import SVC
+from sklearn.datasets import make_classification
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.metrics import accuracy_score
+
+X, y = make_classification(n_samples=1000, n_features=20,
+                           n_informative=10, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+# Individual models
+models = {
+    'RF': RandomForestClassifier(n_estimators=100, random_state=42),
+    'GB': GradientBoostingClassifier(n_estimators=100, random_state=42),
+    'SVM': SVC(probability=True, random_state=42),
+}
+
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    print(f"{name}: {accuracy_score(y_test, model.predict(X_test)):.4f}")
+
+# Stacking ensemble
+stack = StackingClassifier(
+    estimators=[
+        ('rf', RandomForestClassifier(n_estimators=100, random_state=42)),
+        ('gb', GradientBoostingClassifier(n_estimators=100, random_state=42)),
+        ('svm', SVC(probability=True, random_state=42))
+    ],
+    final_estimator=LogisticRegression(max_iter=1000),
+    cv=5
+)
+stack.fit(X_train, y_train)
+print(f"Stacking: {accuracy_score(y_test, stack.predict(X_test)):.4f}")
+
+# Soft voting ensemble
+vote = VotingClassifier(
+    estimators=list(models.items()), voting='soft')
+vote.fit(X_train, y_train)
+print(f"Voting:   {accuracy_score(y_test, vote.predict(X_test)):.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Competition-winning solutions, production systems where marginal accuracy improvements justify complexity, and combining heterogeneous model types (tree + linear + SVM).</div>
+<div class="callout hood"><span>Under the hood</span>Stacking: base models produce out-of-fold predictions (k-fold), which become features for the meta-learner. This avoids data leakage. Blusing uses a single holdout instead of CV. The meta-learner learns which base model to trust for which inputs.</div>
+</article>
+
+</section>
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Probabilistic models, time-series, anomaly detection, production ML</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>EM Algorithm and Gaussian Mixture Models</h3>
+<p><strong>What &amp; why.</strong> The Expectation-Maximization (EM) algorithm finds maximum likelihood estimates for models with latent variables. GMMs model data as a mixture of Gaussian distributions, each with its own mean and covariance. Unlike K-Means (hard assignment), GMMs provide soft probabilistic cluster assignments, capturing elliptical clusters and overlapping groups.</p>
+<pre class="code"><code>from sklearn.mixture import GaussianMixture
+from sklearn.datasets import make_blobs
+from sklearn.metrics import silhouette_score
+import numpy as np
+
+X, y_true = make_blobs(n_samples=500, centers=3, cluster_std=[1.0, 0.5, 1.5],
+                        random_state=42)
+
+bic_scores = []
+for k in range(1, 8):
+    gmm = GaussianMixture(n_components=k, covariance_type='full',
+                          n_init=5, random_state=42)
+    gmm.fit(X)
+    bic_scores.append(gmm.bic(X))
+
+best_k = np.argmin(bic_scores) + 1
+print(f"BIC optimal k: {best_k}")
+print(f"BIC scores: {[f'{s:.0f}' for s in bic_scores]}")
+
+gmm = GaussianMixture(n_components=best_k, covariance_type='full',
+                      n_init=5, random_state=42)
+labels = gmm.fit_predict(X)
+
+# Soft assignments
+probs = gmm.predict_proba(X[:5])
+print(f"\nSoft assignments (first 5):")
+for i, p in enumerate(probs):
+    print(f"  Point {i}: {p.round(3)}")
+
+print(f"Means: {gmm.means_.round(2)}")
+print(f"Converged: {gmm.converged_}, Iterations: {gmm.n_iter_}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Customer segmentation with uncertainty, anomaly detection (low probability points), missing data imputation, and density estimation for generative models.</div>
+<div class="callout hood"><span>Under the hood</span>EM alternates: E-step computes posterior probabilities of cluster membership (responsibilities); M-step updates means, covariances, and mixing weights using responsibility-weighted statistics. Convergence is monotonic (log-likelihood increases each iteration).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>t-SNE and UMAP: Pitfalls and Best Practices</h3>
+<p><strong>What &amp; why.</strong> t-SNE and UMAP are nonlinear dimensionality reduction methods for visualization. They preserve local structure (nearby points stay nearby) but distort global structure. Perplexity (t-SNE) and n_neighbors (UMAP) control the local/global balance. Clusters in t-SNE/UMAP plots do not necessarily reflect real clusters; distance between groups is meaningless.</p>
+<pre class="code"><code>from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
+from sklearn.datasets import load_digits
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+import numpy as np
+
+X, y = load_digits(return_X_y=True)
+X_scaled = StandardScaler().fit_transform(X)
+
+pca = PCA(n_components=50)
+X_pca = pca.fit_transform(X_scaled)
+
+tsne = TSNE(n_components=2, perplexity=30, random_state=42, n_iter=1000)
+X_tsne = tsne.fit_transform(X_pca)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+scatter1 = axes[0].scatter(X_tsne[:, 0], X_tsne[:, 1], c=y, cmap='tab10',
+                           s=10, alpha=0.7)
+axes[0].set_title(f't-SNE (perplexity=30)')
+plt.colorbar(scatter1, ax=axes[0])
+
+# Different perplexity shows different structure
+tsne2 = TSNE(n_components=2, perplexity=5, random_state=42)
+X_tsne2 = tsne2.fit_transform(X_pca)
+scatter2 = axes[1].scatter(X_tsne2[:, 0], X_tsne2[:, 1], c=y, cmap='tab10',
+                           s=10, alpha=0.7)
+axes[1].set_title(f't-SNE (perplexity=5)')
+plt.colorbar(scatter2, ax=axes[1])
+plt.savefig('tsne_perplexity.png', dpi=150, bbox_inches='tight')
+plt.close()
+
+print("t-SNE pitfalls:")
+print("  1. Distances between clusters are meaningless")
+print("  2. Cluster sizes are meaningless")
+print("  3. Different perplexity gives different layouts")
+print("  4. Use PCA first to reduce to 50 dims for speed")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Exploring high-dimensional data structure, validating clustering results, and communication visualizations. Never use t-SNE/UMAP distances for downstream ML tasks.</div>
+<div class="callout hood"><span>Under the hood</td>t-SNE minimizes KL divergence between high-dimensional and low-dimensional probability distributions. UMAP uses topological data analysis (fuzzy simplicial sets) and is faster. Both are stochastic; always set random_state for reproducibility.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Time-Series Split and ARIMA-lite</h3>
+<p><strong>What &amp; why.</strong> Standard cross-validation leaks future data in time-series. TimeSeriesSplit creates expanding-window splits where training always precedes validation. ARIMA (AutoRegressive Integrated Moving Average) is a classical time-series model capturing trend, seasonality, and autocorrelation. Understanding these foundations is essential before applying deep learning to temporal data.</p>
+<pre class="code"><code>from sklearn.model_selection import TimeSeriesSplit
+from sklearn.linear_model import Ridge
+from sklearn.metrics import mean_squared_error
+import numpy as np
+import pandas as pd
+
+rng = np.random.default_rng(42)
+n = 500
+t = np.arange(n)
+y = 100 + 0.5 * t + 10 * np.sin(2 * np.pi * t / 52) + rng.normal(0, 5, n)
+X = np.column_stack([t, np.sin(2 * np.pi * t / 52), np.cos(2 * np.pi * t / 52)])
+
+tscv = TimeSeriesSplit(n_splits=5)
+for fold, (train_idx, test_idx) in enumerate(tscv.split(X)):
+    model = Ridge(alpha=1.0)
+    model.fit(X[train_idx], y[train_idx])
+    pred = model.predict(X[test_idx])
+    rmse = np.sqrt(mean_squared_error(y[test_idx], pred))
+    print(f"Fold {fold+1}: train={len(train_idx)}, test={len(test_idx)}, RMSE={rmse:.2f}")
+
+# Simple ARIMA-like: differencing + AR
+diff = np.diff(y, n=1)
+lagged = np.column_stack([diff[1:-1], diff[:-2]])
+target = diff[2:]
+model = Ridge(alpha=1.0).fit(lagged, target)
+print(f"\nAR(2) coefficient: {model.coef_.round(4)}")
+print(f"AR(2) intercept: {model.intercept_:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any forecasting task: demand prediction, stock price modeling, sensor trend analysis. Always use temporal splits for validation. Classical ARIMA is a strong baseline before neural approaches.</div>
+<div class="callout hood"><span>Under the hood</span>TimeSeriesSplit ensures no future data in training. ARIMA(p,d,q): p=AR order, d=differencing order, q=MA order. Differencing removes trends; AR captures autocorrelation; MA captures error autocorrelation. statsmodels.tsa.arima provides full implementations.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Isolation Forest and Autoencoder Anomaly Detection</h3>
+<p><strong>What &amp; why.</strong> Anomaly detection identifies rare observations that deviate significantly from the majority. Isolation Forest isolates anomalies by random recursive partitioning (anomalies need fewer splits). Autoencoders learn a compressed representation; anomalies have high reconstruction error because the model has not learned their pattern.</p>
+<pre class="code"><code>from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+import torch
+import torch.nn as nn
+
+rng = np.random.default_rng(42)
+normal = rng.normal(0, 1, (950, 10))
+anomalies = rng.uniform(-6, 6, (50, 10))
+X = np.vstack([normal, anomalies])
+y_true = np.array([0]*950 + [1]*50)
+
+# Isolation Forest
+iso = IsolationForest(contamination=0.05, random_state=42)
+y_pred_iso = iso.fit_predict(X)
+y_pred_iso = (y_pred_iso == -1).astype(int)
+recall_iso = np.sum((y_pred_iso == 1) & (y_true == 1)) / np.sum(y_true == 1)
+print(f"Isolation Forest recall: {recall_iso:.3f}")
+print(f"Anomalies detected: {y_pred_iso.sum()} / {y_true.sum()}")
+
+# Autoencoder approach
+class Autoencoder(nn.Module):
+    def __init__(self, dim=10, hidden=4):
+        super().__init__()
+        self.enc = nn.Sequential(nn.Linear(dim, hidden), nn.ReLU(),
+                                 nn.Linear(hidden, 2))
+        self.dec = nn.Sequential(nn.Linear(2, hidden), nn.ReLU(),
+                                 nn.Linear(hidden, dim))
+    def forward(self, x):
+        return self.dec(self.enc(x))
+
+X_t = torch.FloatTensor(StandardScaler().fit_transform(X))
+ae = Autoencoder()
+opt = torch.optim.Adam(ae.parameters(), lr=0.001)
+for _ in range(200):
+    recon = ae(X_t)
+    loss = nn.MSELoss()(recon, X_t)
+    opt.zero_grad(); loss.backward(); opt.step()
+
+with torch.no_grad():
+    errors = ((ae(X_t) - X_t)**2).mean(dim=1).numpy()
+
+threshold = np.percentile(errors[y_true == 0], 95)
+y_pred_ae = (errors &gt; threshold).astype(int)
+recall_ae = np.sum((y_pred_ae == 1) & (y_true == 1)) / np.sum(y_true == 1)
+print(f"\nAutoencoder recall: {recall_ae:.3f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fraud detection, network intrusion detection, manufacturing defect detection, and monitoring for data drift. Isolation Forest is the go-to for tabular data; autoencoders excel for complex patterns (images, sequences).</div>
+<div class="callout hood"><span>Under the hood</span>Isolation Forest: anomalies are isolated in fewer partitions because they are few and different. Average path length to isolation is shorter for anomalies. Autoencoder: normal patterns are well-reconstructed (low error); anomalies are poorly reconstructed (high error).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Model Calibration and Platt Scaling</h3>
+<p><strong>What &amp; why.</strong> A well-calibrated model's predicted probabilities match actual outcomes: of all points predicted with 70% probability, approximately 70% should be positive. Many models (Random Forest, SVM) produce uncalibrated probabilities. Platt scaling (logistic regression on logits) and isotonic regression recalibrate predictions for reliable probability estimates.</p>
+<pre class="code"><code>from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.calibration import CalibratedClassifierCV, calibration_curve
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+import numpy as np
+
+X, y = make_classification(n_samples=1000, n_features=20,
+                           weights=[0.8, 0.2], random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+probs_uncal = rf.predict_proba(X_test)[:, 1]
+
+rf_cal = CalibratedClassifierCV(rf, method='isotonic', cv=5)
+rf_cal.fit(X_train, y_train)
+probs_cal = rf_cal.predict_proba(X_test)[:, 1]
+
+fig, ax = plt.subplots(figsize=(8, 6))
+for name, probs in [('Uncalibrated', probs_uncal), ('Calibrated', probs_cal)]:
+    prob_true, prob_pred = calibration_curve(y_test, probs, n_bins=10)
+    ax.plot(prob_pred, prob_true, 's-', label=name, linewidth=2)
+
+ax.plot([0, 1], [0, 1], 'k--', label='Perfect calibration')
+ax.set_xlabel('Mean predicted probability')
+ax.set_ylabel('Fraction of positives')
+ax.set_title('Calibration Curve (Reliability Diagram)')
+ax.legend()
+plt.savefig('calibration.png', dpi=150, bbox_inches='tight')
+plt.close()
+
+from sklearn.metrics import brier_score_loss
+print(f"Brier score (uncal): {brier_score_loss(y_test, probs_uncal):.4f}")
+print(f"Brier score (cal):   {brier_score_loss(y_test, probs_cal):.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any system using predicted probabilities for decision-making: risk scoring, medical diagnosis, credit approval. Uncalibrated probabilities lead to incorrect decisions when thresholds matter.</div>
+<div class="callout hood"><span>Under the hood</span>Platt scaling fits a sigmoid: P(y=1) = 1/(1 + exp(A*logit + B)). Isonic regression fits a non-parametric monotonic mapping. Both use held-out data (or CV) to avoid overfitting the calibration. Brier score measures mean squared error of probability predictions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>Multi-Label Classification Strategies</h3>
+<p><strong>What &amp; why.</strong> Multi-label classification assigns multiple labels to each instance (e.g., a photo can be tagged "sunset", "beach", "vacation"). Strategies include binary relevance (independent classifiers per label), classifier chains (capture label correlations), and multi-output estimators. Label powerset treats each label combination as a separate class.</p>
+<pre class="code"><code>from sklearn.multioutput import MultiOutputClassifier, ClassifierChain
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import make_multilabel_classification
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score, hamming_loss
+import numpy as np
+
+X, y = make_multilabel_classification(n_samples=500, n_features=20,
+                                       n_classes=5, n_labels=2,
+                                       random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+# Binary Relevance (independent)
+br = MultiOutputClassifier(RandomForestClassifier(n_estimators=50,
+                                                   random_state=42))
+br.fit(X_train, y_train)
+y_pred_br = br.predict(X_test)
+
+# Classifier Chain (captures correlations)
+chain = ClassifierChain(RandomForestClassifier(n_estimators=50,
+                                                random_state=42),
+                        order='random', random_state=42)
+chain.fit(X_train, y_train)
+y_pred_chain = chain.predict(X_test)
+
+for name, y_pred in [('Binary Relevance', y_pred_br),
+                      ('Classifier Chain', y_pred_chain)]:
+    f1_micro = f1_score(y_test, y_pred, average='micro')
+    f1_macro = f1_score(y_test, y_pred, average='macro')
+    hl = hamming_loss(y_test, y_pred)
+    print(f"{name:&lt;22s}: F1-micro={f1_micro:.3f}, F1-macro={f1_macro:.3f}, Hamming={hl:.3f}")
+
+print(f"\nLabel co-occurrence:\n{np.corrcoef(y_test.T).round(2)}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Document tagging, image annotation, gene function prediction, and any task where instances can belong to multiple classes simultaneously.</div>
+<div class="callout hood"><span>Under the hood</span>Binary relevance ignores label correlations. Classifier chains fit models sequentially, each receiving previous labels as features. Label powerset converts to multi-class (exponential in labels). MLARAM and other algorithms handle label imbalance natively.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>Incremental Learning with partial_fit and Online Learning</h3>
+<p><strong>What &amp; why.</strong> Online learning updates models incrementally as new data arrives, without retraining from scratch. partial_fit() in sklearn enables batch-less learning for SGDClassifier, MiniBatchKMeans, and others. This is essential for streaming data, large datasets that don't fit in memory, and systems requiring continuous model updates.</p>
+<pre class="code"><code>from sklearn.linear_model import SGDClassifier
+from sklearn.datasets import make_classification
+from sklearn.metrics import accuracy_score
+import numpy as np
+
+X, y = make_classification(n_samples=2000, n_features=20, random_state=42)
+
+# Batch training (baseline)
+from sklearn.linear_model import LogisticRegression
+lr = LogisticRegression(max_iter=1000)
+lr.fit(X[:1000], y[:1000])
+batch_acc = accuracy_score(y[1000:], lr.predict(X[1000:]))
+print(f"Batch model test accuracy: {batch_acc:.4f}")
+
+# Online learning with partial_fit
+sgd = SGDClassifier(loss='log_loss', max_iter=1, random_state=42)
+classes = np.unique(y)
+
+# Simulate streaming in chunks
+chunk_size = 100
+for i in range(0, 1000, chunk_size):
+    X_chunk = X[i:i+chunk_size]
+    y_chunk = y[i:i+chunk_size]
+    sgd.partial_fit(X_chunk, y_chunk, classes=classes)
+
+online_acc = accuracy_score(y[1000:], sgd.predict(X[1000:]))
+print(f"Online model test accuracy: {online_acc:.4f}")
+
+# Continued learning from new data
+for i in range(1000, 2000, chunk_size):
+    X_chunk = X[i:i+chunk_size]
+    y_chunk = y[i:i+chunk_size]
+    sgd.partial_fit(X_chunk, y_chunk)
+    if i % 500 == 0:
+        acc = accuracy_score(y[i:i+chunk_size], sgd.predict(X_chunk))
+        print(f"  Online update at {i}: batch acc={acc:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Real-time fraud detection, recommendation systems, sensor data processing, and any system where data arrives continuously and the model must adapt.</div>
+<div class="callout hood"><span>Under the hood</span>partial_fit performs one gradient step on the provided mini-batch. SGDClassifier uses stochastic gradient descent on log-loss (logistic regression) or hinge loss (SVM). Learning rate schedule (constant, optimal, invscaling) controls convergence.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">41</span>Data Drift Monitoring: PSI and KS Tests</h3>
+<p><strong>What &amp; why.</strong> Models degrade over time as the data distribution shifts. Population Stability Index (PSI) measures distribution shift between training and production data. The Kolmogorov-Smirnov test detects changes in individual feature distributions. Monitoring these metrics triggers retraining before performance degrades visibly.</p>
+<pre class="code"><code>import numpy as np
+from scipy.stats import ks_2samp
+
+def calculate_psi(expected, actual, bins=10):
+    """Calculate Population Stability Index."""
+    eps = 1e-4
+    breakpoints = np.percentile(expected, np.linspace(0, 100, bins + 1))
+    breakpoints[0] = -np.inf; breakpoints[-1] = np.inf
+
+    expected_pct = np.histogram(expected, bins=breakpoints)[0] / len(expected)
+    actual_pct = np.histogram(actual, bins=breakpoints)[0] / len(actual)
+
+    expected_pct = np.clip(expected_pct, eps, None)
+    actual_pct = np.clip(actual_pct, eps, None)
+
+    psi = np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct))
+    return psi
+
+rng = np.random.default_rng(42)
+train_data = rng.normal(0, 1, 1000)
+production_normal = rng.normal(0, 1, 500)
+production_drift = rng.normal(0.5, 1.2, 500)
+
+psi_normal = calculate_psi(train_data, production_normal)
+psi_drift = calculate_psi(train_data, production_drift)
+
+print(f"PSI (normal):     {psi_normal:.4f} {'OK' if psi_normal &lt; 0.1 else 'DRIFT'}")
+print(f"PSI (drifted):    {psi_drift:.4f} {'OK' if psi_drift &lt; 0.1 else 'DRIFT'}")
+
+ks_stat, ks_p = ks_2samp(train_data, production_drift)
+print(f"\nKS test (drifted): stat={ks_stat:.4f}, p={ks_p:.4f}")
+
+print("\nPSI thresholds: &lt;0.1 stable, 0.1-0.25 moderate shift, &gt;0.25 significant drift")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production ML monitoring, automated retraining triggers, data pipeline validation, and MLOps dashboards tracking model health over time.</div>
+<div class="callout hood"><span>Under the hood</span>PSI = sum((actual% - expected%) * ln(actual%/expected%)). PSI &lt; 0.1 indicates stable distribution; &gt; 0.25 indicates significant drift. KS test computes the maximum CDF difference between two samples. Both are distribution-level metrics; feature-level monitoring catches subtler shifts.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">42</span>Reproducibility and Determinism in ML</h3>
+<p><strong>What &amp; why.</strong> Reproducibility ensures that experiments can be repeated with identical results. Sources of non-determinism include random seeds, GPU floating-point non-determinism, and multithreading. Deterministic pipelines are essential for debugging, regulatory compliance, and scientific rigor. Setting seeds is necessary but not sufficient.</p>
+<pre class="code"><code>import os
+import random
+import numpy as np
+import torch
+
+def set_seed(seed=42):
+    """Set all random seeds for reproducibility."""
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+def seed_worker(worker_id):
+    """Seed DataLoader workers."""
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+set_seed(42)
+
+# Verify reproducibility
+a = np.random.randn(5)
+set_seed(42)
+b = np.random.randn(5)
+print(f"Numpy reproducible: {np.allclose(a, b)}")
+
+# PyTorch reproducibility
+set_seed(42)
+t1 = torch.randn(5)
+set_seed(42)
+t2 = torch.randn(5)
+print(f"PyTorch reproducible: {torch.allclose(t1, t2)}")
+
+# DataLoader with worker seeding
+from torch.utils.data import DataLoader, TensorDataset
+dataset = TensorDataset(torch.randn(100, 10), torch.randint(0, 2, (100,)))
+loader = DataLoader(dataset, batch_size=32, num_workers=0,
+                    worker_init_fn=seed_worker)
+
+# Track experiment environment
+import sys
+print(f"\nPython: {sys.version}")
+print(f"NumPy: {np.__version__}")
+print(f"PyTorch: {torch.__version__}")
+print(f"Seed: 42")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every production ML pipeline. Reproducibility enables debugging, A/B testing, regulatory audits, and collaborative research. Use experiment tracking (MLflow, W&amp;B) to log seeds, code versions, and data hashes.</div>
+<div class="callout hood"><span>Under the hood</span>Random seeds initialize PRNG state identically. CUDA operations are non-deterministic by default; deterministic=True forces deterministic algorithms at ~10% speed cost. num_workers &gt; 0 in DataLoader introduces process-level non-determinism; worker_init_fn addresses this.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">43</span>Batch vs. Realtime Model Serving</h3>
+<p><strong>What &amp; why.</strong> Model serving has two paradigms: batch scoring (run predictions on scheduled batches, write to database) and real-time scoring (serve predictions via API with low latency). Batch is simpler, cheaper, and better for non-urgent predictions. Real-time requires model optimization, caching, and infrastructure for latency SLAs.</p>
+<pre class="code"><code>import joblib
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import make_classification
+import time
+
+X, y = make_classification(n_samples=5000, n_features=50, random_state=42)
+model = RandomForestClassifier(n_estimators=200, n_jobs=-1, random_state=42)
+model.fit(X, y)
+
+# Save model for batch serving
+joblib.dump(model, 'model_batch.joblib')
+loaded = joblib.load('model_batch.joblib')
+print(f"Model loaded: {type(loaded).__name__}")
+
+# Batch scoring simulation
+X_batch = X[:1000]
+start = time.time()
+batch_preds = loaded.predict(X_batch)
+batch_probs = loaded.predict_proba(X_batch)
+batch_time = time.time() - start
+print(f"Batch (1000 samples): {batch_time:.4f}s, {1000/batch_time:.0f} samples/sec")
+
+# Latency measurement for single predictions (realtime simulation)
+latencies = []
+for i in range(100):
+    start = time.time()
+    _ = loaded.predict(X[i:i+1])
+    latencies.append(time.time() - start)
+
+p50 = np.percentile(latencies, 50) * 1000
+p99 = np.percentile(latencies, 99) * 1000
+print(f"Realtime latency: p50={p50:.1f}ms, p99={p99:.1f}ms")
+
+# Realtime serving pattern (conceptual)
+class ModelServer:
+    def __init__(self, model_path):
+        self.model = joblib.load(model_path)
+
+    def predict(self, features):
+        return self.model.predict_proba(np.array(features).reshape(1, -1))[0]
+
+server = ModelServer('model_batch.joblib')
+proba = server.predict(X[0])
+print(f"Server prediction: class={np.argmax(proba)}, prob={proba.max():.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production ML systems: batch for daily reports, weekly scoring, and training data generation. Realtime for fraud detection, recommendation, and user-facing predictions. Hybrid: micro-batch for near-realtime with lower cost.</div>
+<div class="callout hood"><span>Under the hood</span>Batch: schedule via cron/Airflow, read from data store, score, write predictions back. Realtime: model loaded in memory, predictions served via Flask/FastAPI/gRPC. ONNX Runtime, TensorRT, and Triton optimize inference. Model quantization reduces latency 2-4x.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">44</span>AutoML Landscape</h3>
+<p><strong>What &amp; why.</strong> Automated ML (AutoML) automates model selection, hyperparameter tuning, feature engineering, and ensemble construction. Tools like Auto-sklearn, H2O AutoML, and FLAML democratize ML by reducing expertise requirements. Understanding AutoML helps you set baselines quickly and identify which manual optimization adds value.</p>
+<pre class="code"><code># Auto-sklearn example (conceptual - requires separate install)
+# from autosklearn.classification import AutoSklearnClassifier
+# automl = AutoSklearnClassifier(time_left_for_this_task=300)
+# automl.fit(X_train, y_train)
+# print(automl.leaderboard())
+
+# FLAML (lightweight AutoML) - works out of the box
+from flaml import AutoML
+
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+
+X, y = make_classification(n_samples=1000, n_features=20,
+                           n_informative=10, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+automl = AutoML()
+automl.fit(X_train, y_train, task='classification', time_budget=60,
+           metric='accuracy', verbose=0)
+
+print(f"Best model: {automl.best_estimator}")
+print(f"Best config: {automl.best_config}")
+print(f"Test accuracy: {automl.score(X_test, y_test):.4f}")
+
+# Compare to manual baseline
+from sklearn.ensemble import RandomForestClassifier
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+print(f"Manual RF accuracy: {rf.score(X_test, y_test):.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Baseline generation, rapid prototyping, non-ML-expert teams, and competitions. AutoML finds competitive models in minutes that would take hours to tune manually.</div>
+<div class="callout hood"><span>Under the hood</td>AutoML tools combine: (1) feature engineering (polynomial features, interaction terms), (2) model selection (RF, XGBoost, SVM, NN), (3) hyperparameter optimization (Bayesian, random search), (4) ensembling. FLAML uses a blend of random search and successive halving for efficiency.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">45</span>Cost-Sensitive Learning</h3>
+<p><strong>What &amp; why.</strong> Not all misclassifications are equal: missing a cancer diagnosis costs more than a false alarm. Cost-sensitive learning assigns different weights to different types of errors. In sklearn, class_weight='balanced' inversely weights by class frequency. Custom weight matrices can encode business-specific cost structures.</p>
+<pre class="code"><code>from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, f1_score
+import numpy as np
+
+X, y = make_classification(n_samples=1000, n_features=20,
+                           weights=[0.95, 0.05], random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Uniform weights (ignores imbalance)
+rf_uni = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_uni.fit(X_train, y_train)
+y_pred_uni = rf_uni.predict(X_test)
+
+# Balanced weights
+rf_bal = RandomForestClassifier(n_estimators=100, class_weight='balanced',
+                                 random_state=42)
+rf_bal.fit(X_train, y_train)
+y_pred_bal = rf_bal.predict(X_test)
+
+# Custom cost: FN costs 10x more than FP
+cost_matrix = np.array([[0, 1], [10, 0]])  # FN=10, FP=1
+
+for name, y_pred in [('Uniform', y_pred_uni), ('Balanced', y_pred_bal)]:
+    cm = confusion_matrix(y_test, y_pred)
+    total_cost = np.sum(cm * cost_matrix)
+    f1 = f1_score(y_test, y_pred)
+    print(f"{name:&lt;12s}: F1={f1:.4f}, Cost={total_cost}, CM={cm.ravel()}")
+
+# Manually compute sample weights
+sample_weights = np.where(y_train == 1, 19.0, 1.0)  # 95:5 ratio
+rf_manual = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_manual.fit(X_train, y_train, sample_weight=sample_weights)
+y_pred_manual = rf_manual.predict(X_test)
+print(f"Manual weights: F1={f1_score(y_test, y_pred_manual):.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Imbalanced classification, fraud detection, medical diagnosis, and any domain where the cost of different error types varies significantly.</div>
+<div class="callout hood"><span>Under the hood</td>class_weight='balanced' sets weight_k = n_samples / (n_classes * n_samples_k). This is equivalent to oversampling minority classes. sample_weight provides per-instance weights. Cost-sensitive learning modifies the loss function: L = sum(w_i * loss_i).</div>
+</article>
+
+</section>
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Churn Predictor with Streamlit Dashboard</h3>
+<p>Build an end-to-end customer churn prediction system with a live Streamlit dashboard for exploring feature importance, segment analysis, and model performance. Target user: retention team needing actionable insights about which customers are at risk of churning.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Generate a realistic telecom churn dataset (10K rows) with features: tenure, monthly charges, total charges, contract type, payment method, support tickets, and churn label.</li>
+<li>Build a preprocessing pipeline with ColumnTransformer: StandardScaler for numerics, OneHotEncoder for categoricals, and feature engineering (tenure bins, charge ratio).</li>
+<li>Train an XGBoost classifier with Optuna hyperparameter tuning (50 trials) and stratified 5-fold CV, logging the best parameters and F1 scores.</li>
+<li>Create a Streamlit app with sidebar controls for filtering by contract type, tenure range, and payment method.</li>
+<li>Add SHAP summary and dependence plots using shap.TreeExplainer for global and local interpretability.</li>
+<li>Build a confusion matrix heatmap and ROC curve display using plotly.express for interactive exploration.</li>
+<li>Implement a customer risk score table sorted by predicted churn probability with actionable recommendation labels (high/medium/low risk).</li>
+<li>Add model metrics panel showing accuracy, precision, recall, F1, and AUC with comparison to a dummy baseline.</li>
+</ol>
+<pre class="code"><code>import streamlit as st
+import pandas as pd
+import numpy as np
+import joblib
+import shap
+import plotly.express as px
+
+st.set_page_config(page_title="Churn Predictor", layout="wide")
+st.title("Customer Churn Prediction Dashboard")
+
+model = joblib.load('churn_model.joblib')
+explainer = shap.TreeExplainer(model)
+
+df = pd.read_csv('churn_data.csv')
+st.sidebar.header("Filters")
+contract = st.sidebar.multiselect("Contract Type", df['contract'].unique(),
+                                   default=df['contract'].unique())
+tenure_range = st.sidebar.slider("Tenure (months)", 1, 72, (1, 72))
+
+filtered = df[df['contract'].isin(contract) &amp;
+              (df['tenure'].between(*tenure_range))]
+
+col1, col2, col3 = st.columns(3)
+col1.metric("Customers", f"{len(filtered):,}")
+col2.metric("Churn Rate", f"{filtered['churn'].mean():.1%}")
+col3.metric("Avg Monthly", f"${filtered['monthly_charges'].mean():.0f}")
+
+features = ['tenure', 'monthly_charges', 'total_charges', 'support_tickets']
+shap_values = explainer.shap_values(filtered[features])
+st.subheader("Feature Impact (SHAP)")
+st.pyplot(shap.summary_plot(shap_values, filtered[features],
+                             show=False))</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>End-to-end ML pipeline with preprocessing and model persistence</li>
+<li>Streamlit dashboard development with interactive filters</li>
+<li>SHAP-based model interpretability in production dashboards</li>
+<li>A/B testing framework for model comparison</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>House-Price Regressor with Full CV Report</h3>
+<p>Build a house price prediction system with comprehensive cross-validation analysis, feature importance, error analysis, and a PDF report generation pipeline. Target user: real estate analysts needing reliable price estimates with transparent model evaluation.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Create a synthetic housing dataset (5K rows) with features: square footage, bedrooms, bathrooms, lot size, year built, garage, neighborhood, school rating, and sale price.</li>
+<li>Build a robust preprocessing pipeline: StandardScaler for numerics, OneHotEncoder for categoricals, polynomial features for key interactions (sqft * school_rating).</li>
+<li>Implement RepeatedKFold cross-validation (5 folds, 3 repeats) comparing LinearRegression, Ridge, Lasso, RandomForest, and XGBoost.</li>
+<li>Generate a comprehensive CV report: mean/std for RMSE, MAE, R2 across all folds and models in a formatted table.</li>
+<li>Train the best model on the full dataset and extract feature importances using both permutation importance and SHAP values.</li>
+<li>Perform residual analysis: plot predicted vs. actual, residual distribution, and identify systematic errors by neighborhood or price range.</li>
+<li>Build prediction intervals using quantile regression or conformal prediction for uncertainty estimation.</li>
+<li>Generate a matplotlib report PDF with all charts, metrics tables, and model comparison summary.</li>
+</ol>
+<pre class="code"><code>from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.model_selection import RepeatedKFold, cross_validate
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.linear_model import Ridge
+import pandas as pd
+import numpy as np
+
+# Cross-validation comparison
+models = {
+    'Ridge': Pipeline([('pre', ColumnTransformer([
+        ('num', StandardScaler(), num_cols),
+        ('cat', OneHotEncoder(handle_unknown='ignore'), cat_cols)])),
+        ('model', Ridge(alpha=1.0))]),
+    'GBM': Pipeline([('pre', ColumnTransformer([
+        ('num', StandardScaler(), num_cols),
+        ('cat', OneHotEncoder(handle_unknown='ignore'), cat_cols)])),
+        ('model', GradientBoostingRegressor(n_estimators=200))])
+}
+
+cv = RepeatedKFold(n_splits=5, n_repeats=3, random_state=42)
+results = {}
+for name, pipe in models.items():
+    scores = cross_validate(pipe, X, y, cv=cv,
+        scoring=['neg_root_mean_squared_error', 'neg_mean_absolute_error', 'r2'],
+        return_train_score=True)
+    results[name] = {
+        'RMSE': (-scores['test_neg_root_mean_squared_error'].mean(),
+                 scores['test_neg_root_mean_squared_error'].std()),
+        'MAE': (-scores['test_neg_mean_absolute_error'].mean(),
+                scores['test_neg_mean_absolute_error'].std()),
+        'R2': (scores['test_r2'].mean(), scores['test_r2'].std())}
+
+report_df = pd.DataFrame(results).T
+print(report_df.to_string())</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Rigorous cross-validation methodology with repeated folds</li>
+<li>Multi-model comparison with proper statistical reporting</li>
+<li>Residual analysis for model diagnostics</li>
+<li>Automated report generation for stakeholder communication</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Credit-Card Fraud Detector with Imbalance Handling and Threshold Tuning</h3>
+<p>Build a fraud detection system that handles severe class imbalance, optimizes the decision threshold for business costs, and provides real-time scoring with explainability. Target user: fraud operations team needing low false-positive rates while catching maximum fraud.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Generate a realistic fraud dataset (100K transactions) with 0.5% fraud rate, features: amount, time, merchant category, distance from home, transaction frequency, and velocity features.</li>
+<li>Implement multiple imbalance handling strategies: class_weight='balanced', SMOTE oversampling, random undersampling, and SMOTE + Tomek links.</li>
+<li>Train XGBoost with custom scale_pos_weight parameter tuned via Optuna, optimizing for F1 and AUC simultaneously.</li>
+<li>Perform threshold optimization: sweep thresholds from 0.01 to 0.99, compute precision, recall, F1, and monetary loss at each threshold using a cost matrix (FN cost = avg fraud amount, FP cost = investigation cost).</li>
+<li>Plot the precision-recall curve with threshold annotations and identify the optimal operating point for the business constraint.</li>
+<li>Build a real-time scoring API endpoint using FastAPI that returns prediction, probability, and SHAP explanation for each transaction.</li>
+<li>Add a monitoring dashboard tracking daily fraud rate, model accuracy, and feature drift using PSI scores.</li>
+<li>Implement model versioning with joblib and A/B testing framework comparing old vs. new model on shadow traffic.</li>
+</ol>
+<pre class="code"><code>import numpy as np
+import pandas as pd
+from sklearn.metrics import precision_recall_curve, f1_score
+from imblearn.over_sampling import SMOTE
+from imblearn.combine import SMOTETomek
+from xgboost import XGBClassifier
+
+# Cost-sensitive threshold optimization
+def optimize_threshold(y_true, y_prob, fn_cost=500, fp_cost=50):
+    thresholds = np.arange(0.01, 0.99, 0.01)
+    best_threshold, best_cost = 0.5, float('inf')
+
+    for t in thresholds:
+        y_pred = (y_prob &gt;= t).astype(int)
+        tn, fp, fn, tp = np.ravel(confusion_matrix(y_true, y_pred))
+        total_cost = fn * fn_cost + fp * fp_cost
+        if total_cost &lt; best_cost:
+            best_cost = total_cost
+            best_threshold = t
+    return best_threshold, best_cost
+
+# Imbalance strategies comparison
+strategies = {
+    'Baseline': (X_train, y_train),
+    'SMOTE': SMOTE(random_state=42).fit_resample(X_train, y_train),
+    'SMOTE+Tomek': SMOTETomek(random_state=42).fit_resample(X_train, y_train),
+}
+
+results = {}
+for name, (X_res, y_res) in strategies.items():
+    model = XGBClassifier(n_estimators=200, max_depth=6,
+                          scale_pos_weight=sum(y_res==0)/sum(y_res==1),
+                          random_state=42)
+    model.fit(X_res, y_res)
+    y_prob = model.predict_proba(X_test)[:, 1]
+    threshold, cost = optimize_threshold(y_test, y_prob)
+    y_pred = (y_prob &gt;= threshold).astype(int)
+    results[name] = {'F1': f1_score(y_test, y_pred),
+                     'Threshold': threshold, 'Cost': cost}
+    print(f"{name:&lt;18s}: F1={results[name]['F1']:.4f}, "
+          f"threshold={threshold:.2f}, cost=${cost:,.0f}")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Class imbalance handling with SMOTE and cost-sensitive learning</li>
+<li>Business-oriented threshold optimization with cost matrices</li>
+<li>Real-time scoring API development with FastAPI</li>
+<li>Production monitoring with drift detection and model versioning</li>
+</ul>
+</article>
+
+</section>
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Supervised/Unsupervised</td><td>Labeled data vs. structure discovery</td><td>clf.fit(X, y) vs. kmeans.fit(X)</td></tr>
+<tr><td>Train-test split</td><td>Hold out data for unbiased evaluation</td><td>train_test_split(X, y, test_size=0.2, stratify=y)</td></tr>
+<tr><td>Linear regression</td><td>Weighted sum minimizing MSE</td><td>LinearRegression().fit(X, y)</td></tr>
+<tr><td>Logistic regression</td><td>Sigmoid + cross-entropy for classification</td><td>LogisticRegression().predict_proba(X)</td></tr>
+<tr><td>Overfitting</td><td>Memorizing noise; high train-low test score</td><td>Learning curves, regularization</td></tr>
+<tr><td>Bias-variance</td><td>Underfitting vs. overfitting tradeoff</td><td>Ensembles balance both</td></tr>
+<tr><td>kNN</td><td>Classify by k nearest training examples</td><td>KNeighborsClassifier(n_neighbors=5)</td></tr>
+<tr><td>Decision tree</td><td>Recursive splits maximizing purity</td><td>DecisionTreeClassifier(criterion='gini')</td></tr>
+<tr><td>F1 score</td><td>Harmonic mean of precision and recall</td><td>f1_score(y_true, y_pred, average='weighted')</td></tr>
+<tr><td>Confusion matrix</td><td>Actual vs predicted class counts</td><td>confusion_matrix(y_true, y_pred)</td></tr>
+<tr><td>fit/predict</td><td>Universal sklearn model interface</td><td>model.fit(X_train, y_train); model.predict(X_test)</td></tr>
+<tr><td>StandardScaler</td><td>Zero-mean unit-variance normalization</td><td>StandardScaler().fit_transform(X)</td></tr>
+<tr><td>OneHotEncoder</td><td>Categorical to binary columns</td><td>OneHotEncoder(drop='first')</td></tr>
+<tr><td>K-Fold CV</td><td>Train on k-1 folds, validate on 1</td><td>cross_val_score(model, X, y, cv=5)</td></tr>
+<tr><td>Ridge/Lasso</td><td>L2/L1 regularized regression</td><td>Ridge(alpha=1.0); Lasso(alpha=1.0)</td></tr>
+<tr><td>SVM kernel trick</td><td>Non-linear boundaries via implicit mapping</td><td>SVC(kernel='rbf', C=1.0)</td></tr>
+<tr><td>Naive Bayes</td><td>Conditional independence classifier</td><td>MultinomialNB(alpha=1.0)</td></tr>
+<tr><td>Random Forest</td><td>Ensemble of decorrelated decision trees</td><td>RandomForestClassifier(n_estimators=200)</td></tr>
+<tr><td>XGBoost</td><td>Regularized gradient boosting</td><td>XGBClassifier(n_estimators=200, lr=0.1)</td></tr>
+<tr><td>K-Means</td><td>Partition into k spherical clusters</td><td>KMeans(n_clusters=k, n_init=10)</td></tr>
+<tr><td>PCA</td><td>Linear dimensionality reduction via variance</td><td>PCA(n_components=0.95)</td></tr>
+<tr><td>ROC AUC</td><td>Threshold-independent classifier quality</td><td>roc_auc_score(y_true, y_prob)</td></tr>
+<tr><td>GridSearchCV</td><td>Exhaustive hyperparameter search</td><td>GridSearchCV(model, param_grid, cv=5)</td></tr>
+<tr><td>SMOTE</td><td>Synthetic oversampling for imbalance</td><td>SMOTE().fit_resample(X, y)</td></tr>
+<tr><td>joblib</td><td>Persist sklearn models to disk</td><td>joblib.dump(model, 'file.joblib')</td></tr>
+<tr><td>Gradient descent</td><td>Iterative optimization: w -= lr * grad</td><td>SGD, Adam, RMSprop optimizers</td></tr>
+<tr><td>Backpropagation</td><td>Chain rule for computing gradients in NNs</td><td>loss.backward(); optimizer.step()</td></tr>
+<tr><td>ReLU / Softmax</td><td>Hidden activation / multi-class output</td><td>nn.ReLU(); nn.Softmax(dim=-1)</td></tr>
+<tr><td>Cross-entropy loss</td><td>Probability divergence for classification</td><td>nn.CrossEntropyLoss()</td></tr>
+<tr><td>Dropout</td><td>Random neuron zeroing for regularization</td><td>nn.Dropout(p=0.3)</td></tr>
+<tr><td>BatchNorm</td><td>Layer input normalization for stability</td><td>nn.BatchNorm1d(features)</td></tr>
+<tr><td>PyTorch loop</td><td>zero_grad, forward, loss, backward, step</td><td>optimizer.zero_grad(); loss.backward()</td></tr>
+<tr><td>LR schedule</td><td>Learning rate decay during training</td><td>CosineAnnealingLR(optimizer, T_max)</td></tr>
+<tr><td>Feature leakage</td><td>Target info leaking into features</td><td>Split before preprocessing; audit features</td></tr>
+<tr><td>SHAP</td><td>Game-theoretic feature attributions</td><td>shap.TreeExplainer(model).shap_values(X)</td></tr>
+<tr><td>Optuna</td><td>Bayesian hyperparameter optimization</td><td>study.optimize(objective, n_trials=50)</td></tr>
+<tr><td>Stacking</td><td>Meta-learner on base model predictions</td><td>StackingClassifier(estimators=[...])</td></tr>
+<tr><td>GMM / EM</td><td>Soft clustering with probabilistic model</td><td>GaussianMixture(n_components=k)</td></tr>
+<tr><td>t-SNE / UMAP</td><td>Nonlinear 2D visualization</td><td>TSNE(n_components=2, perplexity=30)</td></tr>
+<tr><td>TimeSeriesSplit</td><td>Expanding-window CV for temporal data</td><td>TimeSeriesSplit(n_splits=5)</td></tr>
+<tr><td>Anomaly detection</td><td>Isolation Forest or autoencoder error</td><td>IsolationForest(contamination=0.05)</td></tr>
+<tr><td>Calibration</td><td>Match predicted probs to true frequencies</td><td>CalibratedClassifierCV(model)</td></tr>
+<tr><td>partial_fit</td><td>Online/incremental model updates</td><td>SGDClassifier().partial_fit(X, y)</td></tr>
+<tr><td>PSI drift</td><td>Measure distribution shift over time</td><td>Custom PSI function on binned data</td></tr>
+<tr><td>Reproducibility</td><td>Set all seeds for deterministic results</td><td>np.random.seed(); torch.manual_seed()</td></tr>
+<tr><td>Batch vs Realtime</td><td>Scheduled scoring vs. API latency</td><td>joblib for batch; FastAPI for realtime</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="graphics-engineering.html">&larr; Graphics Engineering</a><a href="embeddings.html">Embeddings &rarr;</a></footer>
+</body></html>

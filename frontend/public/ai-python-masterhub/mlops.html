@@ -1,0 +1,2173 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLOps â€” ML Lifecycle Operations â€” AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / MLOps â€” ML Lifecycle Operations</span><span class="spacer"></span>
+<a class="navlink" href="observability.html">&larr; Observability</a> <a class="navlink" href="spring-ai.html">Spring AI &rarr;</a></nav>
+<header class="hero"><div class="mono">MO</div><div><h1>MLOps â€” ML Lifecycle Operations</h1>
+<p class="tagline">End-to-end machine learning operations â€” from data validation and experiment tracking through model serving, monitoring, and platform architecture â€” bridging the gap between prototype notebooks and reliable production systems.</p>
+<div class="chips"><span class="chip t1">Tier 1 Â· Foundations</span><span class="chip t2">Tier 2 Â· Intermediate</span><span class="chip t3">Tier 3 Â· Advanced</span><span class="chip t4">Tier 4 Â· Expert</span><span class="chip t5">Tier 5 Â· Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>MLOps is the practice of reliably and repeatably deploying, monitoring, and maintaining machine learning models in production. This chapter covers the full ML lifecycle â€” data validation, experiment tracking, model serving, drift monitoring, and platform architecture â€” with emphasis on the tools and patterns that production ML teams actually use.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>ML lifecycle, environments, DVC, MLflow, model registry, serving basics, monitoring</td><td>You can track experiments, version data, and serve a model</td></tr>
+<tr><td>Tier 2</td><td>Data validation, feature stores, pipelines, Docker, CI/CD, canary deploys, drift metrics</td><td>You can build production ML pipelines with quality gates</td></tr>
+<tr><td>Tier 3</td><td>GPU scheduling, distributed training, hyperparameter sweeps, cost FinOps, security</td><td>You can operate ML infrastructure at scale</td></tr>
+<tr><td>Tier 4</td><td>LLMOps, continuous training, edge deployment, regulatory compliance, maturity models</td><td>You can architect enterprise ML platforms</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have production-ready MLOps implementations</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I Â· Foundations<small>Tier 1 â€” Lifecycle, environments, DVC, MLflow, registry, serving, monitoring</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>The ML Lifecycle: Plan, Data, Train, Deploy, Monitor</h3>
+<p><strong>What &amp; why.</strong> The ML lifecycle is a continuous cycle: plan the problem, collect and prepare data, train and evaluate models, deploy to production, and monitor for drift and degradation. Unlike software, ML systems degrade silently â€” data distributions shift, models become stale, and accuracy drops without explicit failures. Understanding the lifecycle is prerequisite to building reliable ML systems.</p>
+<pre class="code"><code># ML lifecycle as a structured pipeline
+LIFECYCLE = {
+    "plan": {
+        "activities": ["problem_definition", "success_metrics",
+                       "data_availability_check"],
+        "outputs": ["project_spec", "metric_definitions"],
+    },
+    "data": {
+        "activities": ["collection", "labeling", "validation",
+                       "splitting"],
+        "outputs": ["training_set", "validation_set", "test_set"],
+    },
+    "train": {
+        "activities": ["baseline", "experimentation", "hyperparameter_tuning",
+                       "evaluation"],
+        "outputs": ["trained_model", "eval_metrics", "experiment_log"],
+    },
+    "deploy": {
+        "activities": ["packaging", "serving_setup", "a_b_test",
+                       "gradual_rollout"],
+        "outputs": ["production_endpoint", "deployment_log"],
+    },
+    "monitor": {
+        "activities": ["performance_tracking", "drift_detection",
+                       "retraining_trigger", "feedback_loop"],
+        "outputs": ["monitoring_reports", "retrain_signals"],
+    },
+}
+
+def lifecycle_status(project):
+    """Report current lifecycle stage and health."""
+    for stage, details in LIFECYCLE.items():
+        status = project.get_stage_status(stage)
+        print(f"  {stage.upper():10s}: {status}")
+    return project.current_stage</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every ML project follows this lifecycle, whether consciously or not. Making it explicit prevents the common failure mode of skipping monitoring and discovering drift months later.</div>
+<div class="callout hood"><span>Under the hood</span>MLOps maturity models (Google, Microsoft, MLOps Community) define levels from "manual notebook" (Level 0) to "fully automated with continuous training" (Level 3). Most teams are at Level 1-2.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Environments: Dev, Staging, Prod Parity</h3>
+<p><strong>What &amp; why.</strong> ML models behave differently across environments due to library versions, data subsets, hardware differences, and random seeds. Environment parity ensures that a model tested in staging behaves identically in production. This requires identical dependency versions, data schemas, hardware specs, and configuration management.</p>
+<pre class="code"><code># requirements.txt with pinned versions
+# pyproject.toml approach for modern projects
+from pathlib import Path
+
+requirements = """
+scikit-learn==1.5.2
+pandas==2.2.3
+numpy==1.26.4
+mlflow==2.17.0
+great-expectations==0.18.22
+""".strip()
+
+# Environment parity checklist
+PARITY_CHECKS = {
+    "dependencies": "pip freeze == requirements.txt",
+    "data_schema": "column names, types, ranges match",
+    "hardware": "CPU/GPU type, memory, disk match",
+    "python_version": "python --version matches across envs",
+    "random_seed": "set_seed(42) in all training scripts",
+    "config": "same config.yaml loaded in all environments",
+}
+
+def verify_parity(dev_env, staging_env, prod_env):
+    """Verify environment parity across dev/staging/prod."""
+    mismatches = []
+    for check, description in PARITY_CHECKS.items():
+        dev_val = getattr(dev_env, check)
+        staging_val = getattr(staging_env, check)
+        prod_val = getattr(prod_env, check)
+        if not (dev_val == staging_val == prod_val):
+            mismatches.append({
+                "check": check,
+                "description": description,
+                "dev": dev_val, "staging": staging_val, "prod": prod_val,
+            })
+    if mismatches:
+        print("PARITY VIOLATIONS:")
+        for m in mismatches:
+            print(f"  {m['check']}: dev={m['dev']}, "
+                  f"staging={m['staging']}, prod={m['prod']}")
+    return len(mismatches) == 0</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>"Works on my machine" is the most common ML deployment failure. Container-based environment parity eliminates this class of bugs entirely.</div>
+<div class="callout hood"><span>Under the hood</span>Docker provides OS-level parity. Conda lock files provide library-level parity. Together, they ensure the exact same binary runs everywhere.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Git for Code, DVC for Data</h3>
+<p><strong>What &amp; why.</strong> Git tracks code; DVC (Data Version Control) tracks data and models. Large ML datasets and model artifacts should not live in Git repos (too large, too slow). DVC stores data in remote storage (S3, GCS, Azure Blob) and maintains lightweight pointer files in Git. This gives you versioned data with the same workflow as versioned code.</p>
+<pre class="code"><code># Initialize DVC in a Git repo
+# dvc init
+
+# Track a dataset
+# dvc add data/training.parquet
+# git add data/training.parquet.dvc .gitignore
+
+# Configure remote storage
+# dvc remote add -d storage s3://my-bucket/ml-data
+
+# Pull specific version of data
+# dvc checkout
+
+# Reproduce the full pipeline
+# dvc repro
+
+# Python API for programmatic DVC operations
+import dvc.api
+
+# Get data at a specific Git revision
+data = dvc.api.read(
+    path="data/training.parquet",
+    repo="https://github.com/org/ml-project",
+    rev="v2.1",
+)
+
+# Get parameters
+params = dvc.api.params_show()
+print(f"Learning rate: {params['train']['lr']}")
+print(f"Epochs: {params['train']['epochs']}")
+
+# Tag a version
+# dvc add model.pkl
+# git add model.pkl.dvc
+# git commit -m "trained model v1.0"
+# git tag -a "v1.0" -m "Model v1.0 with lr=0.001"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>DVC solves the "which data produced this model?" problem. Without data versioning, you cannot reproduce experiments or roll back to a known-good dataset.</div>
+<div class="callout hood"><span>Under the hood</span>DVC stores actual data files in remote storage and creates small .dvc pointer files in Git. The pointer file contains the hash of the data file, enabling integrity checking and cache-based deduplication.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Experiment Tracking with MLflow Autolog</h3>
+<p><strong>What &amp; why.</strong> MLflow tracks experiments by logging parameters, metrics, artifacts, and source code for each run. Autolog automatically captures sklearn, PyTorch, and TensorFlow training metrics without manual logging. The MLflow UI provides a searchable, filterable view of all experiments with comparison charts.</p>
+<pre class="code"><code>import mlflow
+import mlflow.sklearn
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score
+
+mlflow.set_experiment("iris-classification")
+
+# Enable autolog â€” captures params, metrics, model automatically
+mlflow.sklearn.autolog()
+
+X, y = load_iris(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+with mlflow.start_run(run_name="rf-baseline"):
+    model = RandomForestClassifier(
+        n_estimators=100, max_depth=5, random_state=42
+    )
+    model.fit(X_train, y_train)
+
+    # Autolog already captured metrics, but add custom ones
+    y_pred = model.predict(X_test)
+    mlflow.log_metric("test_accuracy", accuracy_score(y_test, y_pred))
+    mlflow.log_metric("test_f1_macro", f1_score(y_test, y_pred,
+                                                  average="macro"))
+
+    # Log additional metadata
+    mlflow.set_tag("model_type", "random_forest")
+    mlflow.set_tag("dataset", "iris")
+    mlflow.set_tag("python_version", "3.11")
+
+# View results: mlflow ui (launches on port 5000)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MLflow autolog eliminates the tedious work of manually logging every parameter and metric. It captures enough detail to reproduce any experiment from the UI alone.</div>
+<div class="callout hood"><span>Under the hood</span>MLflow stores experiment data in a local SQLite database (or PostgreSQL for teams). Artifacts (models, plots) are stored in a configurable artifact store (local filesystem, S3, GCS).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Model Artifacts: Serialization with Joblib and Pickle</h3>
+<p><strong>What &amp; why.</strong> Model artifacts are the serialized trained models that get deployed to production. Joblib is preferred for scikit-learn models (optimized for large numpy arrays), while pickle works for any Python object. The serialization format matters for deployment: joblib/pickle require the same Python version and library versions at inference time.</p>
+<pre class="code"><code>import joblib
+import pickle
+from pathlib import Path
+
+# Joblib â€” preferred for scikit-learn
+model = train_model(X_train, y_train)
+
+# Save with compression
+joblib.dump(model, "model_v1.joblib", compress=3)
+loaded_model = joblib.load("model_v1.joblib")
+
+# Pickle â€” works for any Python object
+with open("model_v1.pkl", "wb") as f:
+    pickle.dump(model, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+with open("model_v1.pkl", "rb") as f:
+    loaded_model = pickle.load(f)
+
+# ONNX â€” cross-platform, cross-language
+from skl2onnx import convert_sklearn
+from skl2onnx.common.data_types import FloatTensorType
+
+initial_type = [("float_input", FloatTensorType([None, 4]))]
+onnx_model = convert_sklearn(model, initial_types=initial_type)
+
+with open("model_v1.onnx", "wb") as f:
+    f.write(onnx_model.SerializeToString())
+
+# Artifact metadata for tracking
+ARTIFACT_INFO = {
+    "format": "joblib",
+    "python_version": "3.11.5",
+    "sklearn_version": "1.5.2",
+    "size_bytes": Path("model_v1.joblib").stat().st_size,
+    "hash": hashlib.sha256(
+        Path("model_v1.joblib").read_bytes()
+    ).hexdigest(),
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Serialization format determines deployment options. Joblib/pickle work for Python-only serving. ONNX enables cross-language deployment and optimized inference runtimes.</div>
+<div class="callout hood"><span>Under the hood</span>Joblib uses pickle under the hood but adds transparent compression and memory mapping for large numpy arrays. This makes model loading 10-100x faster for large models.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Model Registry: Staging, Production, Archived Stages</h3>
+<p><strong>What &amp; why.</strong> A model registry is a central catalog of all trained models with their versions, stages, and metadata. Models progress through stages: None (experiment) -> Staging (testing) -> Production (serving) -> Archived (deprecated). The registry enforces promotion rules (e.g., "must pass validation before staging") and tracks lineage (which data, which code version, which experiment).</p>
+<pre class="code"><code>import mlflow
+
+# Register a model from an experiment run
+result = mlflow.register_model(
+    "runs:/abc123/model",
+    "iris-classifier"
+)
+
+# Transition model to staging
+client = mlflow.MlflowClient()
+client.transition_model_version_stage(
+    name="iris-classifier",
+    version=1,
+    stage="Staging",
+)
+
+# Add metadata before production promotion
+client.update_model_version(
+    name="iris-classifier",
+    version=1,
+    description="RF model trained on iris v2.1 data, "
+                "accuracy=0.96, trained 2025-01-15"
+)
+
+# Set model tags
+client.set_model_version_tag(
+    name="iris-classifier", version=1,
+    key="validation_status", value="passed"
+)
+client.set_model_version_tag(
+    name="iris-classifier", version=1,
+    key="accuracy", value="0.96"
+)
+
+# Promote to production
+client.transition_model_version_stage(
+    name="iris-classifier",
+    version=1,
+    stage="Production",
+)
+
+# Load model from registry for serving
+model = mlflow.pyfunc.load_model(
+    "models:/iris-classifier/Production"
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The model registry is the single source of truth for "which model is in production?" Without it, teams lose track of models, deploy wrong versions, and cannot roll back.</div>
+<div class="callout hood"><span>Under the hood</span>MLflow's model registry stores model artifacts in the artifact store and metadata in the tracking database. It supports model signature (input/output schema) and environment specification.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Model Serving: REST APIs with Flask and FastAPI</h3>
+<p><strong>What &amp; why.</strong> Model serving wraps trained models in HTTP APIs that accept input data and return predictions. Flask is simple and battle-tested; FastAPI adds automatic validation, async support, and OpenAPI docs. For production, the serving layer handles batching, caching, versioning, and health checks.</p>
+<pre class="code"><code># FastAPI serving with Pydantic validation
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+import joblib
+import numpy as np
+
+app = FastAPI(title="Iris Classifier")
+model = joblib.load("model_v1.joblib")
+
+class PredictionRequest(BaseModel):
+    sepal_length: float = Field(ge=0, le=20)
+    sepal_width: float = Field(ge=0, le=20)
+    petal_length: float = Field(ge=0, le=20)
+    petal_width: float = Field(ge=0, le=20)
+
+class PredictionResponse(BaseModel):
+    prediction: str
+    probabilities: dict[str, float]
+    model_version: str = "v1.0"
+
+@app.get("/health")
+def health():
+    return {"status": "healthy", "model_version": "v1.0"}
+
+@app.post("/predict", response_model=PredictionResponse)
+def predict(request: PredictionRequest):
+    features = np.array([[
+        request.sepal_length, request.sepal_width,
+        request.petal_length, request.petal_width,
+    ]])
+    prediction = model.predict(features)[0]
+    probabilities = model.predict_proba(features)[0]
+    class_names = ["setosa", "versicolor", "virginica"]
+    return PredictionResponse(
+        prediction=class_names[prediction],
+        probabilities={
+            name: float(prob)
+            for name, prob in zip(class_names, probabilities)
+        },
+    )
+
+# Run: uvicorn main:app --host 0.0.0.0 --port 8000</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>FastAPI is the standard for ML model serving in Python. Its async support handles concurrent requests efficiently, and Pydantic validation catches bad inputs before they reach the model.</div>
+<div class="callout hood"><span>Under the hood</span>For high-throughput serving, FastAPI runs behind a production ASGI server (Uvicorn with Gunicorn workers). For GPU models, consider NVIDIA Triton or TorchServe for optimized inference.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Batch vs Realtime vs Streaming Inference</h3>
+<p><strong>What &amp; why.</strong> Different use cases require different serving patterns. Batch inference processes large datasets on a schedule (daily fraud scoring). Realtime inference responds to individual requests with low latency (recommendation APIs). Streaming inference processes continuous data streams in real-time (anomaly detection on sensor data). Choosing the right pattern depends on latency requirements and data volume.</p>
+<pre class="code"><code># Batch inference: process all records on schedule
+import pandas as pd
+import joblib
+
+def batch_predict(input_path: str, output_path: str):
+    model = joblib.load("model_v1.joblib")
+    df = pd.read_parquet(input_path)
+    features = df[["sepal_length", "sepal_width",
+                   "petal_length", "petal_width"]]
+    df["prediction"] = model.predict(features)
+    df["probabilities"] = model.predict_proba(features).tolist()
+    df.to_parquet(output_path)
+    print(f"Processed {len(df)} records -> {output_path}")
+
+# Realtime inference: single request, low latency
+@app.post("/predict")
+def predict(request: PredictionRequest):
+    features = preprocess(request)
+    return model.predict(features)
+
+# Streaming inference: continuous stream processing
+import faust
+
+app = faust.App("iris-stream", broker="kafka://localhost:9092")
+input_topic = app.topic("sensor-readings", value_type=list)
+output_topic = app.topic("predictions", value_type=dict)
+
+@app.agent(input_topic)
+async def process_stream(events):
+    model = joblib.load("model_v1.joblib")
+    async for event in events:
+        prediction = model.predict([event])
+        await output_topic.send(value={
+            "input": event, "prediction": int(prediction[0])
+        })</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Batch is cheapest (compute when idle), realtime is most flexible (any input), streaming is fastest (sub-second). Most organizations use all three for different use cases.</div>
+<div class="callout hood"><span>Under the hood</span>Batch inference can be scheduled with Airflow, cron, or cloud functions. Streaming uses Kafka, Kinesis, or Pub/Sub as the message backbone.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Monitoring Basics: Accuracy, Latency, and Throughput</h3>
+<p><strong>What &amp; why.</strong> Production ML models require continuous monitoring of prediction accuracy (when ground truth is available), inference latency (P50, P95, P99), throughput (requests per second), and resource utilization (CPU, GPU, memory). Without monitoring, models degrade silently â€” a model that was 95% accurate at launch may be 70% accurate six months later due to data drift.</p>
+<pre class="code"><code>import time
+from prometheus_client import Counter, Histogram, Gauge
+
+# ML-specific metrics
+predictions_total = Counter(
+    "ml_predictions_total", "Total predictions", ["model", "status"]
+)
+prediction_latency = Histogram(
+    "ml_prediction_latency_seconds", "Prediction latency",
+    ["model"], buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]
+)
+accuracy_gauge = Gauge(
+    "ml_accuracy", "Current model accuracy", ["model", "dataset"]
+)
+drift_score = Gauge(
+    "ml_drift_score", "Data drift score", ["model", "feature"]
+)
+
+class MLPredictor:
+    def __init__(self, model, model_name="default"):
+        self.model = model
+        self.model_name = model_name
+
+    def predict(self, features):
+        start = time.perf_counter()
+        try:
+            prediction = self.model.predict(features)
+            predictions_total.labels(
+                model=self.model_name, status="success"
+            ).inc()
+            return prediction
+        except Exception as e:
+            predictions_total.labels(
+                model=self.model_name, status="error"
+            ).inc()
+            raise
+        finally:
+            latency = time.perf_counter() - start
+            prediction_latency.labels(
+                model=self.model_name
+            ).observe(latency)
+
+    def update_accuracy(self, dataset_name, accuracy):
+        accuracy_gauge.labels(
+            model=self.model_name, dataset=dataset_name
+        ).set(accuracy)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ML monitoring is the bridge between model development and model operations. Without it, you are flying blind in production.</div>
+<div class="callout hood"><span>Under the hood</span>Accuracy monitoring requires ground truth labels, which often arrive with a delay (user feedback, manual labeling). Use proxy metrics (user engagement, explicit feedback) for immediate signals.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Retraining Triggers: Schedule, Drift, and Threshold</h3>
+<p><strong>What &amp; why.</strong> Models need retraining when their performance degrades. Three trigger strategies: schedule-based (retrain weekly regardless), drift-based (retrain when data drift exceeds threshold), and performance-based (retrain when accuracy drops below threshold). Drift-based triggers are most cost-effective because they retrain only when needed.</p>
+<pre class="code"><code>from datetime import datetime, timedelta
+
+class RetrainingTrigger:
+    def __init__(self, config):
+        self.config = config
+        self.last_trained = None
+        self.last_accuracy = None
+        self.drift_history = []
+
+    def should_retrain(self, current_metrics):
+        triggers = []
+
+        # Schedule-based
+        if (self.last_trained is None or
+            datetime.utcnow() - self.last_trained &gt;
+            timedelta(days=self.config["schedule_days"])):
+            triggers.append("schedule")
+
+        # Drift-based
+        if current_metrics.get("drift_score", 0) &gt; \
+           self.config["drift_threshold"]:
+            triggers.append("drift")
+
+        # Performance-based
+        if (self.last_accuracy and
+            current_metrics.get("accuracy", 1.0) &lt;
+            self.config["accuracy_threshold"]):
+            triggers.append("performance")
+
+        # Champion-challenger comparison
+        if current_metrics.get("challenger_accuracy", 0) &gt; \
+           self.config.get("improvement_threshold", 0) + \
+           self.last_accuracy:
+            triggers.append("challenger_better")
+
+        return {
+            "retrain": len(triggers) &gt; 0,
+            "triggers": triggers,
+        }
+
+# Configuration
+TRIGGER_CONFIG = {
+    "schedule_days": 7,
+    "drift_threshold": 0.15,
+    "accuracy_threshold": 0.85,
+    "improvement_threshold": 0.02,
+}
+
+trigger = RetrainingTrigger(TRIGGER_CONFIG)
+result = trigger.should_retrain({
+    "accuracy": 0.87,
+    "drift_score": 0.12,
+})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Automated retraining triggers prevent manual intervention from being the bottleneck. When drift exceeds threshold, the pipeline retrains, evaluates, and (if better) promotes automatically.</div>
+<div class="callout hood"><span>Under the hood</span>Drift-based triggers require continuous data distribution monitoring. Statistical tests (KS test, PSI, Jensen-Shannon divergence) compare current vs. training data distributions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Reproducibility: Random Seeds and Environment Pins</h3>
+<p><strong>What &amp; why.</strong> Reproducibility means getting the same model from the same data and code, every time. This requires setting random seeds, pinning library versions, controlling GPU non-determinism, and recording the complete environment. Without reproducibility, you cannot debug model issues, compare experiments, or audit results.</p>
+<pre class="code"><code>import random
+import numpy as np
+import torch
+from datetime import datetime
+
+def set_all_seeds(seed=42):
+    """Set seeds for reproducibility across all libraries."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # For full CUDA determinism (may impact performance)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+def capture_environment():
+    """Record the complete execution environment."""
+    import platform
+    import sys
+
+    env = {
+        "python_version": sys.version,
+        "platform": platform.platform(),
+        "timestamp": datetime.utcnow().isoformat(),
+        "seed": 42,
+    }
+
+    # Capture library versions
+    try:
+        import pkg_resources
+        env["libraries"] = {
+            pkg.key: pkg.version
+            for pkg in pkg_resources.working_set
+        }
+    except Exception:
+        pass
+
+    # Capture GPU info
+    if torch.cuda.is_available():
+        env["gpu"] = {
+            "name": torch.cuda.get_device_name(0),
+            "count": torch.cuda.device_count(),
+            "cuda_version": torch.version.cuda,
+        }
+
+    return env
+
+# Log environment with every experiment
+with mlflow.start_run():
+    set_all_seeds(42)
+    env = capture_environment()
+    mlflow.log_param("environment", str(env))
+    mlflow.log_param("python_version", env["python_version"])
+    # ... train model ...</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Reproducibility is a prerequisite for trust. If stakeholders cannot reproduce your model's results, they cannot trust your model's predictions.</div>
+<div class="callout hood"><span>Under the hood</span>Fully deterministic GPU training is often impractical due to performance costs. Accept reduced determinism and use statistical validation (run 3 times, compare distributions) instead.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Hello-MLOps: End-to-End Mini Pipeline</h3>
+<p><strong>What &amp; why.</strong> A complete mini-pipeline that ties together all Tier 1 concepts: data loading with DVC, experiment tracking with MLflow, model training, artifact serialization, model registry, and a FastAPI serving endpoint. This is the template for any ML project.</p>
+<pre class="code"><code># hello_mlops.py â€” complete pipeline
+import mlflow
+import joblib
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from fastapi import FastAPI
+from pydantic import BaseModel
+import numpy as np
+
+# Step 1: Load data (DVC-tracked)
+def load_data():
+    df = pd.read_csv("data/training.parquet")
+    return train_test_split(
+        df.drop("target", axis=1), df["target"],
+        test_size=0.2, random_state=42
+    )
+
+# Step 2: Train with MLflow tracking
+mlflow.set_experiment("hello-mlops")
+mlflow.sklearn.autolog()
+
+X_train, X_test, y_train, y_test = load_data()
+
+with mlflow.start_run(run_name="hello-mlops-v1"):
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    accuracy = accuracy_score(y_test, model.predict(X_test))
+    mlflow.log_metric("accuracy", accuracy)
+
+    # Step 3: Register model
+    mlflow.sklearn.log_model(model, "model")
+    model_uri = f"runs:/{mlflow.active_run().info.run_id}/model"
+    mlflow.register_model(model_uri, "hello-mlops-model")
+
+# Step 4: Serve with FastAPI
+app = FastAPI()
+serving_model = joblib.load("model.joblib")
+
+class Input(BaseModel):
+    features: list[float]
+
+@app.post("/predict")
+def predict(input: Input):
+    return {"prediction": serving_model.predict(
+        np.array(input.features).reshape(1, -1)
+    ).tolist()}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This 40-line pipeline demonstrates the complete MLOps loop. Scale it by adding data validation, CI/CD, containerization, and monitoring â€” all covered in Tier 2.</div>
+<div class="callout hood"><span>Under the hood</span>MLflow autolog captures the sklearn model, parameters, metrics, and environment in one call. The logged model artifact can be loaded directly for serving without separate serialization.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II Â· Intermediate<small>Tier 2 â€” Data validation, feature stores, pipelines, Docker, CI/CD, drift</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Data Validation with Great Expectations</h3>
+<p><strong>What &amp; why.</strong> Great Expectations (GX) defines "expectations" about your data â€” column types, value ranges, uniqueness, completeness â€” and validates datasets against them before training or serving. Invalid data silently degrades model quality; GX catches it at the pipeline gate.</p>
+<pre class="code"><code>import great_expectations as gx
+
+context = gx.get_context()
+
+# Define expectations for a dataset
+validator = context.sources.pandas_default.read_csv(
+    "data/training.csv"
+)
+
+validator.expect_column_values_to_not_be_null("age")
+validator.expect_column_values_to_be_between(
+    "age", min_value=0, max_value=120
+)
+validator.expect_column_values_to_be_unique("user_id")
+validator.expect_column_values_to_match_regex(
+    "email", r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+)
+validator.expect_table_row_count_to_be_between(
+    min_value=1000, max_value=1000000
+)
+
+results = validator.validate()
+
+if not results.success:
+    print("DATA VALIDATION FAILED:")
+    for result in results.results:
+        if not result.success:
+            print(f"  {result.expectation_config.expectation_type}: "
+                  f"{result.result}")
+    raise ValueError("Data quality check failed")
+
+print(f"Validation passed: {results.statistics['evaluated_expectations']}"
+      f" expectations, "
+      f"{results.statistics['successful_expectations']} successful")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Data validation is the first pipeline gate. Catching a null column before training saves hours of wasted compute and prevents deploying a model trained on corrupt data.</div>
+<div class="callout hood"><span>Under the hood</span>GX expectations are composable and versionable. They run as part of the pipeline and produce JSON validation reports that can trigger alerts or block deployments.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Feature Stores: Feast for Offline and Online</h3>
+<p><strong>What &amp; why.</strong> A feature store centralizes feature computation, storage, and serving. It ensures training and serving use identical feature logic (eliminating training-serving skew), provides a reusable feature catalog, and supports both offline (batch) and online (low-latency) serving.</p>
+<pre class="code"><code># feast feature store configuration
+# feature_store.yaml
+project: my_ml_project
+provider: local
+online_store:
+  type: sqlite
+  path: online_store.db
+
+# Define features
+# features.py
+from feast import Entity, Feature, FileSource, ValueType
+from datetime import timedelta
+
+user = Entity(
+    name="user_id",
+    value_type=ValueType.INT64,
+    description="User identifier",
+)
+
+user_features = Feature(
+    name="user_lifetime_value",
+    value_type=ValueType.FLOAT,
+    description="User LTV in USD",
+)
+
+user_stats_source = FileSource(
+    path="data/user_stats.parquet",
+    timestamp_field="event_timestamp",
+)
+
+from feast import FeatureView
+
+user_feature_view = FeatureView(
+    name="user_stats",
+    entities=[user],
+    ttl=timedelta(days=1),
+    features=[
+        Feature(name="lifetime_value", dtype=ValueType.FLOAT),
+        Feature(name="purchase_count", dtype=ValueType.INT64),
+        Feature(name="avg_session_minutes", dtype=ValueType.FLOAT),
+    ],
+    online=True,
+    source=user_stats_source,
+)
+
+# Get features for training
+from feast import FeatureStore
+store = FeatureStore(repo_path=".")
+training_df = store.get_historical_features(
+    entity_df=entity_df,
+    features=[
+        "user_stats:lifetime_value",
+        "user_stats:purchase_count",
+    ],
+).to_df()
+
+# Get features for serving (low-latency)
+online_features = store.get_online_features(
+    features=[
+        "user_stats:lifetime_value",
+        "user_stats:purchase_count",
+    ],
+    entity_rows=[{"user_id": 123}],
+).to_dict()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Feature stores are essential when multiple models share features or when training-serving skew is a known problem. They are the "single source of truth" for feature logic.</div>
+<div class="callout hood"><span>Under the hood</span>Feast stores offline features in Parquet files (for training) and online features in SQLite/Redis (for serving). The same feature definition powers both, eliminating skew.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Pipelines: Airflow DAG Example</h3>
+<p><strong>What &amp; why.</strong> Apache Airflow orchestrates ML pipelines as directed acyclic graphs (DAGs). Each task (data extraction, validation, training, evaluation, deployment) is a node, and dependencies ensure correct execution order. Airflow handles scheduling, retries, alerting, and backfilling.</p>
+<pre class="code"><code># dags/ml_pipeline.py
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from airflow.operators.bash import BashOperator
+from datetime import datetime
+
+default_args = {
+    "owner": "ml-team",
+    "retries": 2,
+    "retry_delay": 300,
+}
+
+def extract_data(**context):
+    import pandas as pd
+    df = pd.read_csv("s3://data-lake/raw/training_data.csv")
+    df.to_parquet("/tmp/extracted.parquet")
+    context["ti"].xcom_push(key="row_count", value=len(df))
+
+def validate_data(**context):
+    import great_expectations as gx
+    # ... validation logic ...
+
+def train_model(**context):
+    import mlflow
+    # ... training logic with mlflow tracking ...
+
+def evaluate_model(**context):
+    # ... evaluation logic ...
+
+with DAG(
+    "ml_training_pipeline",
+    default_args=default_args,
+    schedule_interval="@weekly",
+    start_date=datetime(2025, 1, 1),
+    catchup=False,
+) as dag:
+    extract = PythonOperator(
+        task_id="extract_data", python_callable=extract_data
+    )
+    validate = PythonOperator(
+        task_id="validate_data", python_callable=validate_data
+    )
+    train = PythonOperator(
+        task_id="train_model", python_callable=train_model
+    )
+    evaluate = PythonOperator(
+        task_id="evaluate_model", python_callable=evaluate_model
+    )
+    deploy = BashOperator(
+        task_id="deploy_model",
+        command="python scripts/deploy.py",
+    )
+
+    extract &gt;&gt; validate &gt;&gt; train &gt;&gt; evaluate &gt;&gt; deploy</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Airflow is the standard for scheduled ML pipelines. Weekly retraining, daily batch scoring, and monthly model refreshes are all Airflow DAGs.</div>
+<div class="callout hood"><span>Under the hood</span>Airflow runs on a scheduler (Celery or Kubernetes) with a web UI for monitoring. Task retries and alerting prevent silent failures from going unnoticed.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Container Packaging: Dockerfiles for Train and Serve</h3>
+<p><strong>What &amp; why.</strong> Containerization packages the model, its dependencies, and serving code into a portable Docker image. This ensures the model runs identically everywhere â€” developer laptop, staging, production Kubernetes. A well-built Dockerfile includes multi-stage builds, non-root users, health checks, and minimal base images.</p>
+<pre class="code"><code># Dockerfile for model serving
+FROM python:3.11-slim AS base
+
+# System dependencies
+RUN apt-get update &amp;&amp; apt-get install -y --no-install-recommends \
+    gcc &amp;&amp; rm -rf /var/lib/apt/lists/*
+
+# Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Non-root user for security
+RUN useradd --create-home appuser
+USER appuser
+
+# Copy model and serving code
+WORKDIR /app
+COPY model.joblib .
+COPY serve.py .
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+EXPOSE 8000
+CMD ["uvicorn", "serve:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Multi-stage build for training
+FROM base AS training
+COPY train.py .
+CMD ["python", "train.py"]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every ML model in production should run in a container. It is the only reliable way to ensure environment parity across dev, staging, and production.</div>
+<div class="callout hood"><span>Under the hood</span>Multi-stage builds separate the training environment (large, with GPU drivers) from the serving environment (small, CPU-only). This reduces the production image size by 60-80%.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>CI/CD for ML: GitHub Actions Test, Build, Register</h3>
+<p><strong>What &amp; why.</strong> ML CI/CD extends traditional CI/CD with model-specific stages: data validation, training validation, model quality gates, and model registry promotion. GitHub Actions provides the orchestration platform with built-in secrets management and matrix testing.</p>
+<pre class="code"><code># .github/workflows/ml-pipeline.yml
+name: ML Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ['data/**', 'src/**', 'configs/**']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install -r requirements.txt
+      - run: pytest tests/ -v
+
+  validate-data:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - run: python scripts/validate_data.py
+      - run: python scripts/check_schema.py
+
+  train:
+    needs: validate-data
+    runs-on: ubuntu-latest
+    steps:
+      - run: python scripts/train.py
+      - run: python scripts/evaluate.py --min-accuracy 0.85
+      - uses: actions/upload-artifact@v4
+        with: { name: model, path: model.joblib }
+
+  register:
+    needs: train
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: python scripts/register_model.py
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_URI }}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ML CI/CD prevents manual training from being the deployment bottleneck. Push code, validate data, train, evaluate, register â€” all automatically on every PR.</div>
+<div class="callout hood"><span>Under the hood</span>The "evaluate.py --min-accuracy 0.85" step is the quality gate. If the model does not meet the threshold, the pipeline fails and the model is not registered.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Canary Deployments: Percentage-Based Traffic</h3>
+<p><strong>What &amp; why.</strong> Canary deployments route a small percentage of traffic to the new model version while the majority stays on the old version. This limits blast radius: if the new model fails, only a fraction of users are affected. Traffic percentage is gradually increased as confidence grows.</p>
+<pre class="code"><code>import random
+from dataclasses import dataclass
+
+@dataclass
+class ModelVersion:
+    name: str
+    version: str
+    weight: float  # percentage of traffic (0.0 to 1.0)
+    endpoint: str
+
+class CanaryRouter:
+    def __init__(self, versions: list[ModelVersion]):
+        self.versions = versions
+
+    def route(self, request_id: str) -&gt; ModelVersion:
+        # Deterministic routing based on request hash
+        hash_val = hash(request_id) % 100
+        cumulative = 0
+        for version in self.versions:
+            cumulative += version.weight * 100
+            if hash_val &lt; cumulative:
+                return version
+        return self.versions[-1]
+
+    def shift_traffic(self, canary_version: str, new_weight: float):
+        for v in self.versions:
+            if v.version == canary_version:
+                old_weight = v.weight
+                v.weight = new_weight
+            else:
+                v.weight = 1.0 - new_weight
+
+# Configuration
+versions = [
+    ModelVersion("classifier", "v1.0", 0.95, "/predict/v1"),
+    ModelVersion("classifier", "v1.1", 0.05, "/predict/v1.1"),
+]
+router = CanaryRouter(versions)
+
+# Initial canary: 5% of traffic
+router.shift_traffic("v1.1", 0.05)
+
+# After 1 hour of good metrics: increase to 25%
+router.shift_traffic("v1.1", 0.25)
+
+# After 4 hours: full rollout
+router.shift_traffic("v1.1", 1.0)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Canary deployments are the standard for model rollout in production. They provide a safety net that batch deployments (100% at once) do not.</div>
+<div class="callout hood"><span>Under the hood</span>Deterministic routing (hash-based) ensures the same user always sees the same model version during the canary period, providing consistent user experience.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Shadow Mode: Mirror Without Acting</h3>
+<p><strong>What &amp; why.</strong> Shadow mode runs the new model on production traffic but discards its predictions â€” only the old model's predictions are served to users. This lets you evaluate the new model's real-world performance (latency, accuracy) without any user impact. Compare shadow results against production results before promoting.</p>
+<pre class="code"><code>import asyncio
+import time
+
+class ShadowDeployment:
+    def __init__(self, production_model, shadow_model):
+        self.production = production_model
+        self.shadow = shadow_model
+        self.shadow_results = []
+
+    async def predict_with_shadow(self, features):
+        # Production prediction (served to user)
+        prod_start = time.perf_counter()
+        prod_result = self.production.predict(features)
+        prod_latency = time.perf_counter() - prod_start
+
+        # Shadow prediction (logged, not served)
+        shadow_start = time.perf_counter()
+        shadow_result = self.shadow.predict(features)
+        shadow_latency = time.perf_counter() - shadow_start
+
+        # Log comparison
+        self.shadow_results.append({
+            "production": prod_result,
+            "shadow": shadow_result,
+            "match": prod_result == shadow_result,
+            "prod_latency_ms": prod_latency * 1000,
+            "shadow_latency_ms": shadow_latency * 1000,
+        })
+
+        return prod_result  # only production result served
+
+    def shadow_report(self):
+        total = len(self.shadow_results)
+        matches = sum(1 for r in self.shadow_results if r["match"])
+        avg_prod_lat = sum(r["prod_latency_ms"] for r in self.shadow_results) / total
+        avg_shadow_lat = sum(r["shadow_latency_ms"] for r in self.shadow_results) / total
+        return {
+            "agreement_rate": matches / total,
+            "avg_prod_latency_ms": avg_prod_lat,
+            "avg_shadow_latency_ms": avg_shadow_lat,
+            "total_requests": total,
+        }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Shadow mode is the safest way to evaluate a new model. Zero user impact, full production traffic, real-world latency and accuracy data.</div>
+<div class="callout hood"><span>Under the hood</span>Shadow mode doubles compute costs (running two models simultaneously). Limit to a percentage of traffic or time window to control costs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Rollback: Instant Artifact Swap</h3>
+<p><strong>What &amp; why.</strong> When a model deployment causes issues, rollback must be instant â€” reverting to the previous model version in seconds. The model registry enables this: the old model artifact is still available, and serving code just needs to load from the previous version. No code changes, no rebuilds, just a registry pointer update.</p>
+<pre class="code"><code>import mlflow
+
+class ModelRollback:
+    def __init__(self, model_name):
+        self.model_name = model_name
+        self.client = mlflow.MlflowClient()
+
+    def get_current_version(self):
+        versions = self.client.search_model_versions(
+            f"name='{self.model_name}'"
+        )
+        for v in versions:
+            if v.current_stage == "Production":
+                return v.version
+        return None
+
+    def rollback(self):
+        current = self.get_current_version()
+        if current is None or int(current) &lt;= 1:
+            raise ValueError("No previous version to rollback to")
+
+        previous = str(int(current) - 1)
+
+        # Move current to Archived
+        self.client.transition_model_version_stage(
+            self.model_name, current, "Archived"
+        )
+
+        # Move previous back to Production
+        self.client.transition_model_version_stage(
+            self.model_name, previous, "Production"
+        )
+
+        # Load previous model
+        model = mlflow.pyfunc.load_model(
+            f"models:/{self.model_name}/{previous}"
+        )
+
+        print(f"Rolled back: {current} -> {previous}")
+        return model
+
+    def instant_swap(self, old_version, new_version):
+        """Swap versions without downtime using blue-green."""
+        # Load new model while old is still serving
+        new_model = mlflow.pyfunc.load_model(
+            f"models:/{self.model_name}/{new_version}"
+        )
+        # Atomic swap (implementation depends on serving framework)
+        self._atomic_model_swap(new_model)
+        print(f"Swapped: v{old_version} -> v{new_version}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Instant rollback is the safety net for model deployments. If a new model causes errors or quality drops, you revert in seconds, not hours.</div>
+<div class="callout hood"><span>Under the hood</span>Instant swap uses blue-green deployment: load the new model in a "green" slot while "blue" serves production. Atomic swap switches traffic with zero downtime.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Drift Metrics: PSI and KS Implementation</h3>
+<p><strong>What &amp; why.</strong> Population Stability Index (PSI) measures distribution shift between training and serving data. Kolmogorov-Smirnov (KS) test measures whether two samples come from the same distribution. Both are threshold-based: PSI &gt; 0.25 indicates significant drift; KS p-value &lt; 0.05 indicates statistically significant difference.</p>
+<pre class="code"><code>import numpy as np
+from scipy import stats
+
+def population_stability_index(
+    training_dist: np.ndarray,
+    serving_dist: np.ndarray,
+    bins: int = 10,
+) -&gt; float:
+    """PSI: measures distribution shift between train and serve."""
+    # Create bins from training distribution
+    breakpoints = np.percentile(
+        training_dist, np.linspace(0, 100, bins + 1)
+    )
+    breakpoints[0] = -np.inf
+    breakpoints[-1] = np.inf
+
+    # Compute proportions in each bin
+    train_hist, _ = np.histogram(training_dist, bins=breakpoints)
+    serve_hist, _ = np.histogram(serving_dist, bins=breakpoints)
+
+    # Avoid division by zero
+    train_pct = (train_hist / len(training_dist)) + 1e-6
+    serve_pct = (serve_hist / len(serving_dist)) + 1e-6
+
+    # PSI formula
+    psi = np.sum((serve_pct - train_pct) * np.log(serve_pct / train_pct))
+    return float(psi)
+
+def ks_test(training_dist, serving_dist):
+    """KS test: are these distributions the same?"""
+    statistic, p_value = stats.ks_2samp(training_dist, serving_dist)
+    return {
+        "statistic": float(statistic),
+        "p_value": float(p_value),
+        "significant": p_value &lt; 0.05,
+    }
+
+def drift_report(training_data, serving_data, threshold_psi=0.25):
+    """Complete drift report for all features."""
+    report = {}
+    for column in training_data.columns:
+        psi = population_stability_index(
+            training_data[column].values,
+            serving_data[column].values,
+        )
+        ks = ks_test(
+            training_data[column].values,
+            serving_data[column].values,
+        )
+        report[column] = {
+            "psi": psi,
+            "ks_statistic": ks["statistic"],
+            "ks_p_value": ks["p_value"],
+            "drifted": psi &gt; threshold_psi,
+        }
+    drifted = [k for k, v in report.items() if v["drifted"]]
+    print(f"Drifted features: {drifted}")
+    return report</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Drift metrics quantify "has my data changed?" â€” the core question of ML monitoring. PSI is simple and interpretable; KS is statistically rigorous. Use both.</div>
+<div class="callout hood"><span>Under the hood</span>PSI measures distribution shift in percentage terms. A PSI of 0.1 means 10% of the population has shifted. KS is a non-parametric test that makes no distribution assumptions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Alert Routing and Ownership with Oncall</h3>
+<p><strong>What &amp; why.</strong> ML alerts must route to the right team with the right context. A drift alert goes to the data team; a latency alert goes to the platform team; an accuracy alert goes to the model team. Oncall integration (PagerDuty, Opsgenie) ensures alerts reach the right person with escalation policies.</p>
+<pre class="code"><code>from dataclasses import dataclass
+
+@dataclass
+class AlertRule:
+    name: str
+    metric: str
+    threshold: float
+    severity: str
+    owner_team: str
+    escalation_minutes: int
+    runbook_url: str
+
+ALERT_RULES = [
+    AlertRule(
+        name="data_drift",
+        metric="psi_score",
+        threshold=0.25,
+        severity="warning",
+        owner_team="data-engineering",
+        escalation_minutes=60,
+        runbook_url="https://wiki/runbooks/data-drift",
+    ),
+    AlertRule(
+        name="model_accuracy_drop",
+        metric="accuracy",
+        threshold=0.85,
+        severity="critical",
+        owner_team="ml-engineering",
+        escalation_minutes=15,
+        runbook_url="https://wiki/runbooks/accuracy-drop",
+    ),
+    AlertRule(
+        name="serving_latency",
+        metric="p95_latency_ms",
+        threshold=500,
+        severity="warning",
+        owner_team="platform",
+        escalation_minutes=30,
+        runbook_url="https://wiki/runbooks/latency",
+    ),
+]
+
+TEAM_CONTACTS = {
+    "data-engineering": {"pagerduty": "PD_KEY_DATA", "slack": "#ml-data"},
+    "ml-engineering": {"pagerduty": "PD_KEY_ML", "slack": "#ml-models"},
+    "platform": {"pagerduty": "PD_KEY_PLAT", "slack": "#ml-platform"},
+}
+
+def route_alert(alert: dict, rules: list[AlertRule]):
+    for rule in rules:
+        if alert["metric"] == rule.metric:
+            team = TEAM_CONTACTS[rule.owner_team]
+            return {
+                "route_to": team,
+                "severity": rule.severity,
+                "escalation_minutes": rule.escalation_minutes,
+                "runbook": rule.runbook_url,
+            }
+    return {"route_to": TEAM_CONTACTS["ml-engineering"]}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Without alert routing, every ML alert goes to the general ML channel and nobody takes ownership. Routing ensures the right team handles the right alert.</div>
+<div class="callout hood"><span>Under the hood</span>Alert routing should be config-driven (YAML/JSON) so non-engineers can update ownership without code changes. Escalation policies ensure alerts are not silently dropped.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III Â· Advanced<small>Tier 3 â€” GPU scheduling, distributed training, sweeps, cost, security</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>GPU Scheduling: Queues, Sharing, and Utilization</h3>
+<p><strong>What &amp; why.</strong> GPUs are expensive and often underutilized. GPU scheduling optimizes utilization by sharing GPUs across multiple workloads (time-sharing), prioritizing critical training jobs, and bin-packing workloads onto available GPUs. Tools like NVIDIA MPS, Kubernetes device plugins, and Slurm enable efficient GPU sharing.</p>
+<pre class="code"><code># Kubernetes GPU scheduling with device plugin
+# deployment.yaml
+"""
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-trainer
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: trainer
+        image: ml-trainer:latest
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+            nvidia.com/gpu-memory: 8Gi
+          requests:
+            nvidia.com/gpu: 1
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+"""
+
+# GPU utilization monitoring
+import subprocess, json
+
+def get_gpu_utilization():
+    result = subprocess.run(
+        ["nvidia-smi", "--query-gpu=index,utilization.gpu,"
+         "memory.used,memory.total,temperature.gpu",
+         "--format=csv,nounits,noheader"],
+        capture_output=True, text=True
+    )
+    gpus = []
+    for line in result.stdout.strip().split("\n"):
+        parts = line.split(", ")
+        gpus.append({
+            "index": int(parts[0]),
+            "utilization_pct": float(parts[1]),
+            "memory_used_mb": float(parts[2]),
+            "memory_total_mb": float(parts[3]),
+            "temperature_c": float(parts[4]),
+        })
+    return gpus
+
+def gpu_utilization_report(gpus):
+    avg_util = sum(g["utilization_pct"] for g in gpus) / len(gpus)
+    total_mem = sum(g["memory_total_mb"] for g in gpus)
+    used_mem = sum(g["memory_used_mb"] for g in gpus)
+    print(f"Average GPU utilization: {avg_util:.1f}%")
+    print(f"Memory: {used_mem:.0f}/{total_mem:.0f} MB "
+          f"({used_mem/total_mem*100:.1f}%)")
+    for g in gpus:
+        print(f"  GPU {g['index']}: {g['utilization_pct']:.0f}% "
+              f"util, {g['temperature_c']:.0f}C")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>GPU scheduling is critical for cost efficiency. A GPU at 30% utilization wastes 70% of its $1-3/hour cost. Proper scheduling pushes utilization to 70-80%.</div>
+<div class="callout hood"><span>Under the hood</span>NVIDIA MPS (Multi-Process Service) enables concurrent GPU kernels from different processes, allowing multiple training jobs to share a GPU with hardware-level isolation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Distributed Training: torchrun and DeepSpeed</h3>
+<p><strong>What &amp; why.</strong> Distributed training parallelizes model training across multiple GPUs or machines. torchrun is PyTorch's built-in launcher for multi-GPU/multi-node training. DeepSpeed adds ZeRO optimizer stages for memory-efficient training of large models, reducing GPU memory by 4-8x through parameter and gradient sharding.</p>
+<pre class="code"><code># Distributed training with torchrun
+# train_distributed.py
+import torch
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, DistributedSampler
+
+def setup(rank, world_size):
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
+
+def train(rank, world_size):
+    setup(rank, world_size)
+
+    model = MyModel().to(rank)
+    model = DDP(model, device_ids=[rank])
+
+    sampler = DistributedSampler(
+        dataset, num_replicas=world_size, rank=rank
+    )
+    dataloader = DataLoader(
+        dataset, batch_size=32, sampler=sampler
+    )
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+    for epoch in range(10):
+        sampler.set_epoch(epoch)
+        for batch in dataloader:
+            batch = {k: v.to(rank) for k, v in batch.items()}
+            loss = model(batch)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+
+    dist.destroy_process_group()
+
+# Launch: torchrun --nproc_per_node=4 train_distributed.py
+
+# DeepSpeed config for large models
+deepspeed_config = {
+    "train_batch_size": 128,
+    "gradient_accumulation_steps": 4,
+    "fp16": {"enabled": True},
+    "zero_optimization": {
+        "stage": 2,
+        "offload_optimizer": {"device": "cpu"},
+    },
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Distributed training is required when models are too large for a single GPU or when training time must be reduced. 4 GPUs typically achieve 3.5x speedup (not 4x due to communication overhead).</div>
+<div class="callout hood"><span>Under the hood</span>DDP synchronizes gradients across GPUs using all-reduce. DeepSpeed ZeRO Stage 2 shards optimizer states across GPUs, reducing memory by ~2x with minimal communication overhead.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Hyperparameter Sweeps: W&amp;B Sweeps and Ray Tune</h3>
+<p><strong>What &amp; why.</strong> Hyperparameter sweeps systematically explore the parameter space to find optimal configurations. W&amp;B Sweeps provides cloud-managed sweep orchestration with Bayesian, grid, and random search. Ray Tune scales sweeps across clusters with early stopping (ASHA) to terminate unpromising trials early.</p>
+<pre class="code"><code># W&amp;B Sweeps configuration
+sweep_config = {
+    "method": "bayes",
+    "metric": {"name": "val_accuracy", "goal": "maximize"},
+    "parameters": {
+        "n_estimators": {"values": [50, 100, 200, 500]},
+        "max_depth": {"values": [3, 5, 10, 15, None]},
+        "min_samples_split": {"min": 2, "max": 20},
+        "min_samples_leaf": {"min": 1, "max": 10},
+        "max_features": {"values": ["sqrt", "log2", None]},
+    },
+}
+
+import wandb
+
+def train_sweep():
+    wandb.init()
+    config = wandb.config
+
+    model = RandomForestClassifier(
+        n_estimators=config.n_estimators,
+        max_depth=config.max_depth,
+        min_samples_split=config.min_samples_split,
+        min_samples_leaf=config.min_samples_leaf,
+        max_features=config.max_features,
+        random_state=42,
+    )
+    model.fit(X_train, y_train)
+    val_acc = model.score(X_val, y_val)
+    wandb.log({"val_accuracy": val_acc})
+
+# sweep_id = wandb.sweep(sweep_config, project="ml-sweeps")
+# wandb.agent(sweep_id, function=train_sweep, count=50)
+
+# Ray Tune with ASHA early stopping
+from ray import tune
+from ray.tune.schedulers import ASHAScheduler
+
+def ray_train(config):
+    model = RandomForestClassifier(**config)
+    model.fit(X_train, y_train)
+    tune.report(accuracy=model.score(X_val, y_val))
+
+analysis = tune.run(
+    ray_train,
+    config={
+        "n_estimators": tune.choice([50, 100, 200]),
+        "max_depth": tune.choice([3, 5, 10]),
+    },
+    scheduler=ASHAScheduler(metric="accuracy", mode="max"),
+    num_samples=30,
+    resources_per_trial={"cpu": 2},
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Sweeps find better hyperparameters than manual tuning. Bayesian search is 3-5x more sample-efficient than grid search for the same compute budget.</div>
+<div class="callout hood"><span>Under the hood</span>ASHA (Asynchronous Successive Halving) terminates the bottom 25% of trials at each checkpoint, concentrating resources on the most promising configurations.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Feature Parity: Training-Serving Skew Hunts</h3>
+<p><strong>What &amp; why.</strong> Training-serving skew occurs when the feature computation logic differs between training and serving. A feature computed as a rolling 7-day average during training might be computed as a rolling 30-day average in serving due to a code change. This silently degrades model accuracy.</p>
+<pre class="code"><code>import hashlib
+
+class FeatureParityChecker:
+    def __init__(self):
+        self.training_signatures = {}
+        self.serving_signatures = {}
+
+    def register_training_feature(self, name, version, code_hash):
+        self.training_signatures[name] = {
+            "version": version,
+            "code_hash": code_hash,
+        }
+
+    def register_serving_feature(self, name, version, code_hash):
+        self.serving_signatures[name] = {
+            "version": version,
+            "code_hash": code_hash,
+        }
+
+    def check_parity(self):
+        mismatches = []
+        all_features = set(self.training_signatures) | set(
+            self.serving_signatures
+        )
+        for feature in all_features:
+            train_sig = self.training_signatures.get(feature)
+            serve_sig = self.serving_signatures.get(feature)
+
+            if train_sig is None:
+                mismatches.append({
+                    "feature": feature,
+                    "issue": "missing_in_training",
+                })
+            elif serve_sig is None:
+                mismatches.append({
+                    "feature": feature,
+                    "issue": "missing_in_serving",
+                })
+            elif train_sig["code_hash"] != serve_sig["code_hash"]:
+                mismatches.append({
+                    "feature": feature,
+                    "issue": "code_mismatch",
+                    "training_hash": train_sig["code_hash"],
+                    "serving_hash": serve_sig["code_hash"],
+                })
+        return mismatches
+
+def feature_hash(compute_fn):
+    """Hash a feature computation function's source code."""
+    import inspect
+    source = inspect.getsource(compute_fn)
+    return hashlib.sha256(source.encode()).hexdigest()[:16]
+
+# Usage
+checker = FeatureParityChecker()
+checker.register_training_feature(
+    "avg_purchase_value", "1.0", feature_hash(compute_avg_purchase)
+)
+checker.register_serving_feature(
+    "avg_purchase_value", "1.0", feature_hash(compute_avg_purchase)
+)
+mismatches = checker.check_parity()
+if mismatches:
+    print(f"TRAINING-SERVING SKEW DETECTED: {mismatches}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Training-serving skew is one of the most common and hardest-to-detect ML failures. Automated parity checking catches it before deployment.</div>
+<div class="callout hood"><span>Under the hood</span>Feature hashing is a simple but effective check. For more rigorous parity, use a shared feature computation library used by both training and serving code.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>A/B Infrastructure: Assignment and Analysis Loop</h3>
+<p><strong>What &amp; why.</strong> ML A/B testing requires infrastructure for user assignment (deterministic hashing), metric collection (per-variant tracking), and statistical analysis (significance testing, confidence intervals). Unlike web A/B tests, ML A/B tests measure model quality, not just engagement.</p>
+<pre class="code"><code>import hashlib
+import numpy as np
+
+class MLABTest:
+    def __init__(self, variants, traffic_split, experiment_id):
+        self.variants = variants
+        self.traffic_split = traffic_split
+        self.experiment_id = experiment_id
+        self.results = {v: [] for v in variants}
+
+    def assign_variant(self, user_id: str) -&gt; str:
+        hash_val = int(hashlib.sha256(
+            f"{self.experiment_id}:{user_id}".encode()
+        ).hexdigest(), 16) % 100
+        cumulative = 0
+        for variant, weight in self.traffic_split.items():
+            cumulative += weight * 100
+            if hash_val &lt; cumulative:
+                return variant
+        return list(self.variants)[-1]
+
+    def record_outcome(self, variant, score):
+        self.results[variant].append(score)
+
+    def analyze(self, min_samples=30):
+        report = {}
+        for variant, scores in self.results.items():
+            if len(scores) &lt; min_samples:
+                report[variant] = {"status": "insufficient_data"}
+                continue
+            arr = np.array(scores)
+            report[variant] = {
+                "mean": float(np.mean(arr)),
+                "std": float(np.std(arr)),
+                "n": len(arr),
+                "ci_95": (
+                    float(np.mean(arr) - 1.96 * np.std(arr) / np.sqrt(len(arr))),
+                    float(np.mean(arr) + 1.96 * np.std(arr) / np.sqrt(len(arr))),
+                ),
+            }
+        return report
+
+# Usage
+ab_test = MLABTest(
+    variants=["v1_baseline", "v2_new_model"],
+    traffic_split={"v1_baseline": 0.5, "v2_new_model": 0.5},
+    experiment_id="model-v2-test",
+)
+for user_id in user_ids:
+    variant = ab_test.assign_variant(user_id)
+    prediction = models[variant].predict(user_data[user_id])
+    score = evaluate_quality(prediction, ground_truth[user_id])
+    ab_test.record_outcome(variant, score)
+print(ab_test.analyze())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ML A/B testing is the gold standard for validating model improvements. It answers: "does the new model actually improve outcomes for real users?"</div>
+<div class="callout hood"><span>Under the hood</span>Deterministic assignment (hash-based) ensures the same user always sees the same variant. This prevents interference between variants and simplifies analysis.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Multi-Model Portfolio Routing</h3>
+<p><strong>What &amp; why.</strong> Instead of a single model, route different request types to specialized models. Simple queries go to a fast, cheap model; complex queries go to a powerful, expensive model. Portfolio routing optimizes the cost-quality tradeoff by matching model capability to request complexity.</p>
+<pre class="code"><code>class ModelRouter:
+    def __init__(self, models: dict):
+        self.models = models
+
+    def classify_complexity(self, request: str) -&gt; str:
+        """Classify request complexity for routing."""
+        word_count = len(request.split())
+        has_technical_terms = any(
+            term in request.lower()
+            for term in ["api", "regex", "algorithm", "distributed"]
+        )
+        has_numbers = any(c.isdigit() for c in request)
+
+        if word_count &lt; 10 and not has_technical_terms:
+            return "simple"
+        elif word_count &gt; 50 or (has_technical_terms and has_numbers):
+            return "complex"
+        return "medium"
+
+    def route(self, request: str) -&gt; dict:
+        complexity = self.classify_complexity(request)
+        model_map = {
+            "simple": "gpt-4o-mini",
+            "medium": "gpt-4o",
+            "complex": "gpt-4o",
+        }
+        model_name = model_map[complexity]
+        model = self.models[model_name]
+        result = model.generate(request)
+        return {
+            "model_used": model_name,
+            "complexity": complexity,
+            "result": result,
+        }
+
+# Portfolio with cost tracking
+def portfolio_cost_report(router, requests):
+    costs = {"gpt-4o-mini": 0, "gpt-4o": 0}
+    counts = {"simple": 0, "medium": 0, "complex": 0}
+    for req in requests:
+        result = router.route(req)
+        costs[result["model_used"]] += result.get("cost", 0)
+        counts[result["complexity"]] += 1
+    print(f"Routing distribution: {counts}")
+    print(f"Cost by model: {costs}")
+    print(f"Total cost: ${sum(costs.values()):.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Portfolio routing typically reduces costs by 40-60% while maintaining quality. Simple requests (which are 60-70% of traffic) use the cheap model.</div>
+<div class="callout hood"><span>Under the hood</span>Complexity classification can be rule-based (as above) or learned (a small classifier trained on historical request complexity labels).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Model Lineage: OpenLineage Events</h3>
+<p><strong>What &amp; why.</strong> Model lineage tracks the complete chain of inputs and outputs that produced a model: which data version, which code version, which features, which hyperparameters, which training run. OpenLineage provides an open standard for capturing lineage events across tools (Airflow, MLflow, Spark, dbt).</p>
+<pre class="code"><code>from datetime import datetime
+import json
+
+def emit_lineage_event(
+    job_name, run_id, inputs, outputs, event_type="COMPLETE"
+):
+    """Emit an OpenLineage-compatible lineage event."""
+    event = {
+        "eventType": event_type,
+        "eventTime": datetime.utcnow().isoformat() + "Z",
+        "run": {"runId": run_id},
+        "job": {"namespace": "ml-pipeline", "name": job_name},
+        "inputs": [
+            {
+                "namespace": inp["namespace"],
+                "name": inp["name"],
+                "facets": {
+                    "schema": {"fields": inp.get("columns", [])},
+                    "versioning": {"version": inp.get("version")},
+                },
+            }
+            for inp in inputs
+        ],
+        "outputs": [
+            {
+                "namespace": out["namespace"],
+                "name": out["name"],
+                "facets": {
+                    "versioning": {"version": out.get("version")},
+                },
+            }
+            for out in outputs
+        ],
+    }
+    return event
+
+# Lineage for a training run
+training_event = emit_lineage_event(
+    job_name="train-iris-classifier",
+    run_id="run-abc-123",
+    inputs=[
+        {
+            "namespace": "s3://data-lake",
+            "name": "training.parquet",
+            "version": "v2.1",
+            "columns": ["sepal_length", "sepal_width",
+                       "petal_length", "petal_width", "species"],
+        },
+    ],
+    outputs=[
+        {
+            "namespace": "mlflow://registry",
+            "name": "iris-classifier:v3",
+            "version": "v3",
+        },
+    ],
+)
+
+# Query lineage: what data produced this model?
+# SELECT * FROM lineage_events
+# WHERE outputs CONTAINS 'iris-classifier:v3'
+# ORDER BY event_time DESC</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Lineage is essential for debugging ("which data version produced this bad model?"), compliance ("prove training data was approved"), and reproducibility ("reproduce this exact model").</div>
+<div class="callout hood"><span>Under the hood</span>OpenLineage is the open standard (incubating at the Linux Foundation). Marquez is the reference implementation for lineage storage and querying.</div>
+</article>
+<article class="topic-card">
+<h3><span class="tnum">30</span>Cost FinOps: Per-Model Unit Economics</h3>
+<p><strong>What &amp; why.</strong> ML FinOps tracks the total cost of ownership for each model: training compute, inference compute, storage, data labeling, and engineering time. Unit economics (cost per prediction, cost per customer) enable ROI calculations and budget optimization. Without FinOps, teams cannot answer "is this model worth its cost?"</p>
+<pre class="code"><code>from dataclasses import dataclass
+
+@dataclass
+class ModelCostBreakdown:
+    model_name: str
+    training_compute_usd: float
+    inference_compute_monthly: float
+    storage_monthly: float
+    data_labeling: float
+    engineering_hours: float
+    hourly_rate: float = 150.0
+
+    @property
+    def total_monthly(self):
+        return (self.inference_compute_monthly +
+                self.storage_monthly +
+                self.engineering_hours * self.hourly_rate / 30)
+
+    @property
+    def cost_per_prediction(self):
+        monthly_predictions = 100000
+        return self.total_monthly / monthly_predictions
+
+    def roi(self, revenue_per_month):
+        return (revenue_per_month - self.total_monthly) / self.total_monthly
+
+costs = ModelCostBreakdown(
+    model_name="fraud-detector",
+    training_compute_usd=50.0,
+    inference_compute_monthly=200.0,
+    storage_monthly=15.0,
+    data_labeling=500.0,
+    engineering_hours=40,
+)
+print(f"Monthly cost: ")
+print(f"Cost per prediction: ")
+print(f"ROI at /mo revenue: {costs.roi(1000)*100:.1f}%")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>FinOps is the bridge between ML engineering and business. A model that costs /month must generate more than /month in value to justify its existence.</div>
+<div class="callout hood"><span>Under the hood</span>Unit economics require accurate prediction volume estimates. Underestimating volume by 10x makes cost-per-prediction 10x too optimistic.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Incident Response: ML-Specific Runbooks</h3>
+<p><strong>What &amp; why.</strong> ML incidents differ from software incidents: a model can serve predictions while silently degrading. ML runbooks include specific diagnostic steps (check drift, compare accuracy, review recent data changes), rollback procedures (registry version swap), and communication templates for stakeholders who need to know about prediction quality.</p>
+<pre class="code"><code>ML_RUNBOOK = {
+    "accuracy_drop": {
+        "symptoms": ["accuracy below threshold", "user complaints"],
+        "diagnostics": [
+            "1. Check data drift scores in monitoring dashboard",
+            "2. Compare recent predictions vs ground truth",
+            "3. Review data pipeline for schema changes",
+            "4. Check for new data sources or label quality issues",
+        ],
+        "remediation": [
+            "1. If drift: trigger retraining pipeline",
+            "2. If data issue: fix pipeline and reprocess",
+            "3. If model: rollback to previous version in registry",
+        ],
+        "communication": "Model accuracy degraded. Investigating. ETA: 2h.",
+    },
+    "serving_latency_spike": {
+        "symptoms": ["P95 latency above threshold", "timeout errors"],
+        "diagnostics": [
+            "1. Check GPU utilization and memory",
+            "2. Review recent deployment changes",
+            "3. Check for traffic spike or data volume change",
+            "4. Verify model file integrity",
+        ],
+        "remediation": [
+            "1. Scale up serving instances",
+            "2. Rollback if recent deployment caused issue",
+            "3. Enable request queuing for traffic spikes",
+        ],
+    },
+}
+
+def diagnose_incident(incident_type, symptoms):
+    runbook = ML_RUNBOOK.get(incident_type)
+    if not runbook:
+        return "Unknown incident type - escalate to ML lead"
+    print(f"Runbook: {incident_type}")
+    print("Diagnostics:")
+    for step in runbook["diagnostics"]:
+        print(f"  {step}")
+    return runbook</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ML runbooks ensure consistent incident response. Without them, each incident is handled ad-hoc, leading to longer resolution times and inconsistent communication.</div>
+<div class="callout hood"><span>Under the hood</span>ML runbooks should be reviewed quarterly as models and infrastructure evolve. Add new incident types as they are discovered in production.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV Â· Expert<small>Tier 4 â€” LLMOps, continuous training, edge, compliance, maturity</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>LLMOps: Prompts, Eval Registries, and Fine-Tune Registries</h3>
+<p><strong>What &amp; why.</strong> LLMOps extends MLOps with LLM-specific concerns: prompt versioning, evaluation result tracking, and fine-tuned model management. Unlike traditional ML where the model is the primary artifact, LLM systems have three interacting artifacts: the prompt (instructions), the foundation model (base), and the fine-tuned adapter (specialization).</p>
+<pre class="code"><code>class LLMOpsRegistry:
+    def __init__(self):
+        self.prompts = {}
+        self.evaluations = {}
+        self.finetunes = {}
+
+    def register_prompt(self, name, version, prompt_text, metadata=None):
+        key = f"{name}:v{version}"
+        self.prompts[key] = {
+            "text": prompt_text,
+            "hash": hashlib.sha256(prompt_text.encode()).hexdigest()[:16],
+            "registered_at": datetime.utcnow().isoformat(),
+            "metadata": metadata or {},
+        }
+        return key
+
+    def register_finetune(self, name, version, base_model,
+                          adapter_path, metrics):
+        key = f"{name}:v{version}"
+        self.finetunes[key] = {
+            "base_model": base_model,
+            "adapter_path": adapter_path,
+            "metrics": metrics,
+            "registered_at": datetime.utcnow().isoformat(),
+        }
+        return key
+
+    def log_evaluation(self, prompt_key, finetune_key, eval_results):
+        eval_id = f"{prompt_key}+{finetune_key}"
+        self.evaluations[eval_id] = {
+            "prompt": prompt_key,
+            "finetune": finetune_key,
+            "results": eval_results,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+# Usage
+registry = LLMOpsRegistry()
+p_key = registry.register_prompt("qa", 3, "Answer concisely: {context}")
+f_key = registry.register_finetune(
+    "qa-model", 2, "gpt-4o-mini", "./adapters/qa-v2",
+    {"accuracy": 0.92, "f1": 0.89}
+)
+registry.log_evaluation(p_key, f_key, {"accuracy": 0.94, "latency_ms": 450})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LLMOps registries answer: "which prompt + model combination produced this quality level?" Without it, prompt tuning becomes guesswork.</div>
+<div class="callout hood"><span>Under the hood</span>LLMOps treats prompts as first-class artifacts with version control, just like code. The prompt hash ensures that evaluation results are always tied to the exact prompt text that produced them.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Foundation-Model Ops: Adapter Versioning and Base-Model Upgrades</h3>
+<p><strong>What &amp; why.</strong> Foundation-model ops manages the relationship between base models (GPT-4o, Claude) and fine-tuned adapters (LoRA, QLoRA). When the base model upgrades, adapters must be re-evaluated for compatibility. Version tracking ensures you know which adapter works with which base model version.</p>
+<pre class="code"><code>class AdapterRegistry:
+    def __init__(self):
+        self.adapters = {}
+        self.compatibility = {}
+
+    def register_adapter(self, name, version, base_model,
+                         base_version, adapter_path):
+        key = f"{name}:v{version}"
+        self.adapters[key] = {
+            "base_model": base_model,
+            "base_version": base_version,
+            "adapter_path": adapter_path,
+        }
+        compat_key = f"{base_model}:{base_version}"
+        if compat_key not in self.compatibility:
+            self.compatibility[compat_key] = []
+        self.compatibility[compat_key].append(key)
+
+    def check_compatibility(self, base_model, base_version):
+        compat_key = f"{base_model}:{base_version}"
+        compatible = self.compatibility.get(compat_key, [])
+        all_adapters = list(self.adapters.keys())
+        incompatible = [a for a in all_adapters if a not in compatible]
+        return {
+            "base": compat_key,
+            "compatible_adapters": compatible,
+            "incompatible_adapters": incompatible,
+            "action_needed": len(incompatible) &gt; 0,
+        }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Foundation-model ops prevents adapter breakage when base models upgrade. Compatibility matrices ensure adapters are tested against every base model version.</div>
+<div class="callout hood"><span>Under the hood</span>Adapter compatibility is not guaranteed across base model versions. Even minor version changes can alter internal representations, breaking LoRA adapters.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Continuous Training Triggers: Design Patterns</h3>
+<p><strong>What &amp; why.</strong> Continuous training (CT) automatically retrains models when triggers fire. Design patterns include: schedule-triggered (nightly retraining), drift-triggered (data distribution shift), performance-triggered (accuracy below threshold), and event-triggered (new labeled data available). The CT pipeline must handle failures gracefully and roll back to the previous model if the new one is worse.</p>
+<pre class="code"><code>from enum import Enum
+
+class TriggerType(Enum):
+    SCHEDULE = "schedule"
+    DRIFT = "drift"
+    PERFORMANCE = "performance"
+    EVENT = "event"
+
+class ContinuousTrainingPipeline:
+    def __init__(self, model_name, triggers):
+        self.model_name = model_name
+        self.triggers = triggers
+        self.last_accuracy = None
+
+    def evaluate_triggers(self, current_metrics):
+        triggered = []
+        for trigger in self.triggers:
+            if trigger["type"] == TriggerType.DRIFT:
+                if current_metrics.get("drift_score", 0) &gt; trigger["threshold"]:
+                    triggered.append(trigger)
+            elif trigger["type"] == TriggerType.PERFORMANCE:
+                if current_metrics.get("accuracy", 1) &lt; trigger["threshold"]:
+                    triggered.append(trigger)
+        return triggered
+
+    def run_retraining(self, trigger):
+        try:
+            new_accuracy = self.train_and_evaluate()
+            if self.last_accuracy and new_accuracy &lt; self.last_accuracy:
+                print("New model worse - keeping old")
+                return None
+            self.promote()
+            self.last_accuracy = new_accuracy
+            return True
+        except Exception as e:
+            print(f"Training failed: {e} - keeping current model")
+            return None</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Continuous training eliminates model staleness. Without CT, models degrade silently for months. With CT, drift triggers automatic retraining within hours.</div>
+<div class="callout hood"><span>Under the hood</span>The "new model worse than current" check is critical. Without it, a bad training run can replace a good model in production.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Edge Deployment: Quantized TFLite and ONNX</h3>
+<p><strong>What &amp; why.</strong> Edge deployment runs ML models on devices (phones, IoT, embedded) instead of servers. Quantization reduces model size and increases inference speed by using lower-precision numbers (INT8 instead of FP32). TFLite (TensorFlow) and ONNX Runtime are the primary runtimes for edge inference.</p>
+<pre class="code"><code>import onnxruntime as ort
+from skl2onnx import convert_sklearn
+from skl2onnx.common.data_types import FloatTensorType
+
+model = train_model()
+initial_type = [("float_input", FloatTensorType([None, 4]))]
+onnx_model = convert_sklearn(model, initial_types=initial_type)
+with open("model.onnx", "wb") as f:
+    f.write(onnx_model.SerializeToString())
+
+session = ort.InferenceSession("model.onnx")
+input_name = session.get_inputs()[0].name
+result = session.run(None, {input_name: features.astype("float32")})
+
+# TFLite quantized export
+import tensorflow as tf
+converter = tf.lite.TFLiteConverter.from_saved_model("model_saved")
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+converter.target_spec.supported_types = [tf.int8]
+tflite_model = converter.convert()
+with open("model_quantized.tflite", "wb") as f:
+    f.write(tflite_model)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Edge deployment is required for privacy-sensitive applications where data cannot leave the device, and for latency-critical applications.</div>
+<div class="callout hood"><span>Under the hood</span>INT8 quantization reduces model size by 4x and increases inference speed by 2-3x with minimal accuracy loss.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Regulatory Validation: GxP-Style Evidence Packs</h3>
+<p><strong>What &amp; why.</strong> Regulated industries require evidence that ML models are validated, monitored, and controlled. GxP validation involves documentation of model design, training data provenance, validation results, change control logs, and ongoing monitoring evidence.</p>
+<pre class="code"><code>import hashlib
+from datetime import datetime
+
+class ValidationEvidencePack:
+    def __init__(self, model_name, version):
+        self.model_name = model_name
+        self.version = version
+        self.artifacts = {}
+
+    def add_artifact(self, category, name, content):
+        content_hash = hashlib.sha256(str(content).encode()).hexdigest()[:16]
+        self.artifacts[f"{category}/{name}"] = {
+            "content_hash": content_hash,
+            "added_at": datetime.utcnow().isoformat(),
+        }
+
+    def generate_evidence_pack(self):
+        pack = {
+            "model": self.model_name,
+            "version": self.version,
+            "validation_date": datetime.utcnow().isoformat(),
+            "artifacts": self.artifacts,
+            "checksum": self._compute_checksum(),
+        }
+        return pack
+
+    def _compute_checksum(self):
+        all_hashes = [a["content_hash"] for a in self.artifacts.values()]
+        combined = "|".join(sorted(all_hashes))
+        return hashlib.sha256(combined.encode()).hexdigest()[:32]
+
+pack = ValidationEvidencePack("drug-response-model", "v2.1")
+pack.add_artifact("design", "model_spec", "RF classifier")
+pack.add_artifact("data", "training_data", "Clinical dataset v3")
+pack.add_artifact("validation", "test_results", "Accuracy=0.94")
+evidence = pack.generate_evidence_pack()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Regulatory validation is mandatory for ML in healthcare (FDA), finance (SEC), and pharmaceuticals (EMA). Evidence packs prove to auditors that the model is controlled.</div>
+<div class="callout hood"><span>Under the hood</span>GxP validation follows the V-model: requirements, design, implementation, verification, validation, monitoring.</div>
+</article>
+<article class="topic-card">
+<h3><span class="tnum">37</span>Platform Team Topologies: Enabling Teams</h3>
+<p><strong>What &amp; why.</strong> ML platform teams are "enabling teams" that provide self-service infrastructure to product ML teams. The topology defines boundaries: platform teams build and maintain the ML platform (feature stores, experiment tracking, model serving), while product teams own models and experiments. This separation scales ML across the organization.</p>
+<pre class="code"><code>PLATFORM_TOPOLOGY = {
+    "platform_team": {
+        "responsibilities": [
+            "ML infrastructure (serving, feature stores, registries)",
+            "CI/CD pipelines and deployment automation",
+            "Monitoring and observability infrastructure",
+            "Security and compliance tooling",
+            "Cost management and optimization",
+        ],
+        "team_size": "4-8 engineers",
+        "golden_path": "Standardized templates and CLIs",
+    },
+    "product_ml_teams": {
+        "responsibilities": [
+            "Model development and experimentation",
+            "Feature engineering",
+            "Data quality and validation",
+            "Model performance optimization",
+            "Business metric ownership",
+        ],
+        "team_size": "3-5 ML engineers + 1-2 data engineers",
+        "interface": "Platform API and golden path templates",
+    },
+}
+
+class PlatformService:
+    def __init__(self):
+        self.services = {
+            "training": TrainingService(),
+            "serving": ServingService(),
+            "features": FeatureStoreService(),
+            "experiments": ExperimentService(),
+            "monitoring": MonitoringService(),
+        }
+
+    def onboard_team(self, team_name, use_case):
+        """Provide self-service onboarding for a new ML team."""
+        return {
+            "project_template": self.create_project(team_name),
+            "mlflow_experiment": self.create_experiment(team_name),
+            "feature_store_namespace": self.create_namespace(team_name),
+            "serving_endpoint": self.create_endpoint(team_name),
+            "monitoring_dashboard": self.create_dashboard(team_name),
+        }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Platform team topology is the organizational pattern for scaling ML. Without it, each team rebuilds infrastructure independently, creating duplication and inconsistency.</div>
+<div class="callout hood"><span>Under the hood</span>The "enabling team" pattern (from Team Topologies by Skelton &amp; Pais) ensures platform teams serve product teams without becoming bottlenecks. Self-service is the key principle.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Maturity Assessment: Level 0 to Level 5 Rubric</h3>
+<p><strong>What &amp; why.</strong> An MLOps maturity model assesses where your organization stands and provides a roadmap for improvement. Levels range from Level 0 (manual notebooks, no versioning) to Level 5 (fully autonomous with continuous training and self-healing). The rubric provides concrete criteria for each level across five dimensions: process, technology, governance, people, and measurement.</p>
+<pre class="code"><code>MATURITY_LEVELS = {
+    0: {
+        "name": "Manual",
+        "process": "Notebook-based, manual training",
+        "technology": "Local laptop, no tracking",
+        "governance": "None",
+        "people": "Data scientists work in isolation",
+        "measurement": "No automated metrics",
+    },
+    1: {
+        "name": "Pipeline",
+        "process": "Automated training pipeline",
+        "technology": "MLflow, DVC, basic CI",
+        "governance": "Model registry with stages",
+        "people": "Shared experiment tracking",
+        "measurement": "Basic accuracy metrics",
+    },
+    2: {
+        "name": "Monitoring",
+        "process": "CI/CD with quality gates",
+        "technology": "Feature store, canary deploys, drift detection",
+        "governance": "Model cards, approval workflows",
+        "people": "Dedicated ML platform team",
+        "measurement": "Drift monitoring, A/B testing",
+    },
+    3: {
+        "name": "Automation",
+        "process": "Continuous training triggers",
+        "technology": "Kubernetes, distributed training, auto-scaling",
+        "governance": "Automated compliance, audit trails",
+        "people": "ML engineers own full lifecycle",
+        "measurement": "Business metric optimization",
+    },
+    4: {
+        "name": "Self-Healing",
+        "process": "Auto-rollback, auto-retrain, auto-optimize",
+        "technology": "GPU scheduling, multi-model routing",
+        "governance": "Policy-as-code, automated evidence",
+        "people": "Platform team enables self-service",
+        "measurement": "ROI tracking, cost optimization",
+    },
+    5: {
+        "name": "Autonomous",
+        "process": "ML designs and optimizes itself",
+        "technology": "Neural architecture search, AutoML at scale",
+        "governance": "Full regulatory compliance automation",
+        "people": "ML as a product, not a project",
+        "measurement": "Autonomous quality and cost optimization",
+    },
+}
+
+def assess_maturity(organization):
+    scores = {}
+    for dimension, criteria in MATURITY_LEVELS.items():
+        # Simplified: count which level the org meets
+        scores[dimension] = 0
+    return scores</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The maturity model provides a shared vocabulary for ML teams and leadership to discuss progress and priorities. It turns "we need to do better" into specific, measurable goals.</div>
+<div class="callout hood"><span>Under the hood</span>Most organizations are at Level 1-2. Level 3 is the target for production ML systems. Levels 4-5 are aspirational and require significant investment.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Real-Time Projects &amp; Use Cases<small>Tier 5 &mdash; build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Iris-to-Prod Pipeline with Registry and Canary</h3>
+<p>Build a complete ML pipeline that trains an iris classifier, registers it in MLflow, validates it against a test set, and deploys it with canary traffic routing. Includes data validation, experiment tracking, model versioning, and automated rollback.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Build a data validation step using Great Expectations to check the iris dataset schema</li><li>Implement training with MLflow autolog, capturing parameters, metrics, and model artifact</li><li>Register the trained model in MLflow Model Registry with staging metadata</li><li>Build a FastAPI serving endpoint that loads the model and handles prediction requests</li><li>Implement canary routing: 10% of traffic to the new model, 90% to the current model</li><li>Add accuracy monitoring on canary traffic with automatic rollback if accuracy drops</li><li>Create a model card documenting the model intended use, limitations, and performance</li><li>Write a CI/CD pipeline that trains, validates, registers, and deploys on every data change</li></ol>
+<pre class="code"><code>import mlflow
+from fastapi import FastAPI
+import numpy as np
+
+app = FastAPI()
+model = mlflow.pyfunc.load_model("models:/iris-classifier/Production")
+
+@app.post("/predict")
+def predict(features: list[float]):
+    prediction = model.predict(np.array(features).reshape(1, -1))
+    return {"prediction": prediction.tolist()[0]}
+
+@app.get("/health")
+def health():
+    return {"status": "healthy", "model": "iris-classifier"}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>End-to-end ML pipeline from data to serving</li><li>MLflow experiment tracking and model registry</li><li>FastAPI model serving with validation</li><li>Canary deployment with accuracy-based rollback</li><li>Model card documentation for compliance</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Fraud Model Monitoring with Drift Alarms</h3>
+<p>Build a monitoring system for a fraud detection model that continuously tracks data drift (PSI and KS tests), model accuracy (when ground truth arrives), and operational metrics (latency, throughput). When drift exceeds thresholds, the system triggers alerts and can initiate retraining.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Implement a data ingestion pipeline that logs all prediction requests and responses to Parquet</li><li>Build a drift detection module that computes PSI and KS statistics for each feature daily</li><li>Create accuracy tracking by joining predictions with delayed ground truth labels</li><li>Set up Prometheus metrics for latency, throughput, and error rates with alert rules</li><li>Implement alert routing: drift to data team, accuracy to model team, latency to platform</li><li>Build a Grafana dashboard showing drift scores, accuracy trends, and operational metrics</li><li>Implement automatic retraining trigger when drift exceeds 0.25 for 3 consecutive days</li><li>Create a weekly monitoring report summarizing all metrics and drift trends</li></ol>
+<pre class="code"><code>import numpy as np
+from scipy import stats
+
+class FraudModelMonitor:
+    def __init__(self, reference_data, psi_threshold=0.25):
+        self.reference = reference_data
+        self.psi_threshold = psi_threshold
+
+    def compute_psi(self, current, feature, bins=10):
+        ref = self.reference[feature].values
+        cur = current[feature].values
+        breakpoints = np.percentile(ref, np.linspace(0, 100, bins + 1))
+        breakpoints[0] = -np.inf
+        breakpoints[-1] = np.inf
+        ref_hist, _ = np.histogram(ref, bins=breakpoints)
+        cur_hist, _ = np.histogram(cur, bins=breakpoints)
+        ref_pct = (ref_hist / len(ref)) + 1e-6
+        cur_pct = (cur_hist / len(cur)) + 1e-6
+        return float(np.sum((cur_pct - ref_pct) * np.log(cur_pct / ref_pct)))
+
+    def daily_drift_report(self, current_data):
+        report = {}
+        for col in self.reference.columns:
+            psi = self.compute_psi(current_data, col)
+            ks_stat, p_val = stats.ks_2samp(
+                self.reference[col].values, current_data[col].values)
+            report[col] = {"psi": psi, "drifted": psi &gt; self.psi_threshold}
+        drifted = [k for k, v in report.items() if v["drifted"]]
+        if drifted:
+            print(f"DRIFT ALERT: {drifted}")
+        return report</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Data drift detection with PSI and KS statistics</li><li>Delayed ground truth accuracy tracking</li><li>Prometheus metrics and alerting for ML systems</li><li>Alert routing with oncall integration</li><li>Automated retraining triggers based on drift</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Internal ML Platform Skeleton with Templates</h3>
+<p>Build a reusable internal ML platform that provides project templates, shared infrastructure, and golden paths for ML teams. Includes a cookiecutter template, shared feature store, centralized experiment tracking, and a model deployment service.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Create a cookiecutter template with standardized project structure (data/, src/, tests/, configs/)</li><li>Build a shared MLflow tracking server with centralized artifact storage</li><li>Implement a feature store service with offline (Parquet) and online (Redis) serving</li><li>Create a model deployment service wrapping MLflow registry, FastAPI, and Docker builds</li><li>Build a monitoring service template with Prometheus metrics, drift detection, and alerting</li><li>Implement a CLI tool (click-based) for common operations: init-project, train, deploy</li><li>Create shared GitHub Actions workflows for ML CI/CD</li><li>Build a platform dashboard showing all models, their status, and operational health</li></ol>
+<pre class="code"><code>import click
+
+@click.group()
+def mlplatform():
+    pass
+
+@mlplatform.command()
+@click.option("--name", prompt="Project name")
+@click.option("--template", default="classification")
+def init_project(name, template):
+    """Initialize a new ML project from template."""
+    from cookiecutter.main import cookiecutter
+    cookiecutter(f"templates/{template}", output_dir=".",
+                 extra_context={"project_name": name})
+    click.echo(f"Created project: {name}")
+
+@mlplatform.command()
+@click.option("--model-name", required=True)
+@click.option("--min-accuracy", default=0.85)
+def deploy(model_name, min_accuracy):
+    """Deploy a model from the registry."""
+    import mlflow
+    client = mlflow.MlflowClient()
+    versions = client.search_model_versions(f"name='{model_name}'")
+    latest = max(versions, key=lambda v: int(v.version))
+    if float(latest.tags.get("accuracy", 0)) &lt; min_accuracy:
+        click.echo(f"Accuracy below threshold {min_accuracy}")
+        return
+    client.transition_model_version_stage(
+        model_name, latest.version, "Production")
+    click.echo(f"Deployed {model_name} v{latest.version}")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>ML platform architecture with golden paths</li><li>Cookiecutter templates for standardized project structure</li><li>Shared MLflow tracking and model registry</li><li>CLI tooling for developer experience</li><li>Reusable CI/CD workflows for ML teams</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>ML Lifecycle</td><td>Plan, data, train, deploy, monitor cycle</td><td>LIFECYCLE dict with stages</td></tr>
+<tr><td>Environment Parity</td><td>Identical deps, data, hardware across envs</td><td>Docker + pip freeze + set_seed(42)</td></tr>
+<tr><td>DVC</td><td>Git for data version control</td><td>dvc add, dvc checkout</td></tr>
+<tr><td>MLflow Autolog</td><td>Auto-capture params, metrics, models</td><td>mlflow.sklearn.autolog()</td></tr>
+<tr><td>Joblib/Pickle</td><td>Model serialization for serving</td><td>joblib.dump(model, "model.joblib")</td></tr>
+<tr><td>Model Registry</td><td>Versioned model catalog with stages</td><td>transition_model_version_stage()</td></tr>
+<tr><td>FastAPI Serving</td><td>REST API for model inference</td><td>@app.post("/predict"), Pydantic</td></tr>
+<tr><td>Batch/Realtime/Streaming</td><td>Three serving patterns for latency needs</td><td>batch: DataFrame, realtime: API</td></tr>
+<tr><td>ML Monitoring</td><td>Track accuracy, latency, throughput</td><td>Counter, Histogram, Gauge</td></tr>
+<tr><td>Retraining Triggers</td><td>Schedule, drift, or performance-based</td><td>RetrainingTrigger thresholds</td></tr>
+<tr><td>Reproducibility</td><td>Seeds, pins, environment capture</td><td>set_all_seeds(42)</td></tr>
+<tr><td>Hello-MLOps</td><td>End-to-end: data, train, registry, serve</td><td>mlflow.start_run() + FastAPI</td></tr>
+<tr><td>Great Expectations</td><td>Data validation with expectations</td><td>expect_column_values_to_not_be_null()</td></tr>
+<tr><td>Feast</td><td>Feature store offline/online serving</td><td>FeatureStore.get_online_features()</td></tr>
+<tr><td>Airflow DAGs</td><td>Pipeline orchestration scheduling</td><td>DAG("name", schedule="@weekly")</td></tr>
+<tr><td>Docker</td><td>Container packaging for train/serve</td><td>FROM python:3.11-slim</td></tr>
+<tr><td>CI/CD</td><td>GitHub Actions for ML test-build-deploy</td><td>workflow YAML with dependencies</td></tr>
+<tr><td>Canary Deploy</td><td>Percentage-based traffic routing</td><td>CanaryRouter weight routing</td></tr>
+<tr><td>Shadow Mode</td><td>Run new model without serving output</td><td>ShadowDeployment class</td></tr>
+<tr><td>Rollback</td><td>Instant revert to previous model</td><td>transition_model_version_stage()</td></tr>
+<tr><td>PSI/KS Drift</td><td>Distribution shift detection</td><td>population_stability_index()</td></tr>
+<tr><td>Alert Routing</td><td>Route alerts to owning teams</td><td>AlertRule owner_team</td></tr>
+<tr><td>Model Cards</td><td>Auto-generated model documentation</td><td>ModelCard.generate_markdown()</td></tr>
+<tr><td>GPU Scheduling</td><td>Optimize GPU utilization</td><td>nvidia.com/gpu, nvidia-smi</td></tr>
+<tr><td>Distributed Training</td><td>Multi-GPU with DDP and DeepSpeed</td><td>torchrun --nproc_per_node=4</td></tr>
+<tr><td>HP Sweeps</td><td>Bayesian search with early stopping</td><td>wandb.sweep(), ASHAScheduler</td></tr>
+<tr><td>Feature Parity</td><td>Training-serving skew detection</td><td>FeatureParityChecker</td></tr>
+<tr><td>ML A/B Testing</td><td>Model comparison with assignment</td><td>MLABTest hash-based routing</td></tr>
+<tr><td>Portfolio Routing</td><td>Route requests by complexity</td><td>ModelRouter.classify_complexity()</td></tr>
+<tr><td>OpenLineage</td><td>Open standard for lineage tracking</td><td>emit_lineage_event()</td></tr>
+<tr><td>LLMOps</td><td>Prompt + adapter + eval registry</td><td>LLMOpsRegistry.register_prompt()</td></tr>
+<tr><td>Adapter Versioning</td><td>Base model compatibility tracking</td><td>AdapterRegistry.check_compatibility()</td></tr>
+<tr><td>Continuous Training</td><td>Auto-retrain on triggers</td><td>ContinuousTrainingPipeline</td></tr>
+<tr><td>Edge Deployment</td><td>Quantized models for devices</td><td>TFLite, ONNX Runtime</td></tr>
+<tr><td>GxP Validation</td><td>Regulatory evidence packs</td><td>ValidationEvidencePack</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="observability.html">&larr; Observability</a><a href="spring-ai.html">Spring AI &rarr;</a></footer>
+</body></html>

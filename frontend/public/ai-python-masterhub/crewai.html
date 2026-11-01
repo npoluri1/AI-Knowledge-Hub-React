@@ -1,0 +1,1979 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrewAI — Role-Based Agent Crews — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / CrewAI — Role-Based Agent Crews</span><span class="spacer"></span>
+<a class="navlink" href="multi-agents.html">&larr; Multi-Agents</a> <a class="navlink" href="autogen.html">AutoGen &rarr;</a></nav>
+<header class="hero"><div class="mono">CW</div><div><h1>CrewAI — Role-Based Agent Crews</h1>
+<p class="tagline">Assemble role-playing AI agents into collaborative crews with defined tasks, tools, and processes to tackle complex multi-step workflows.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>CrewAI models agent collaboration as a team of specialists working together toward a shared objective. Each agent has a role, goal, and backstory; tasks are assigned with expected outputs; and a process governs execution order. This chapter covers setup, anatomy, processes, advanced delegation, Flows, and production patterns.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Agent creation, task definition, crew assembly, kickoff, basic sequential flow</td><td>You can build and run a simple multi-agent crew</td></tr>
+<tr><td>Tier 2</td><td>Hierarchical process, Pydantic outputs, memory, planning, callbacks, guardrails</td><td>You can configure advanced crew behaviors and observability</td></tr>
+<tr><td>Tier 3</td><td>Flows, custom tools, async execution, inter-crew contracts, cost tracking</td><td>You can build event-driven hybrid architectures with CrewAI</td></tr>
+<tr><td>Tier 4</td><td>Enterprise patterns, security, eval, versioning, A/B testing, migration guidance</td><td>You can operate CrewAI in production with governance</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready CrewAI applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Agents, tasks, crews, and basic execution</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>CrewAI Philosophy: Role-Based Teamwork</h3>
+<p><strong>What &amp; why.</strong> CrewAI treats AI agents as team members with specific roles rather than generic tool-calling loops. Each agent is defined by a role (what it does), a goal (what it optimizes for), and a backstory (the context that shapes its reasoning). This design produces more coherent and domain-appropriate outputs because the LLM receives a persona frame that constrains and focuses its generation. The philosophy mirrors human teams: assign the right specialist to each task rather than expecting one generalist to do everything.</p>
+<pre class="code"><code># CrewAI models collaboration as specialized roles
+# Role + Goal + Backstory = focused agent persona
+# This is fundamentally different from a single prompt with all instructions
+
+from crewai import Agent, Task, Crew, Process
+
+researcher = Agent(
+    role="Senior Research Analyst",
+    goal="Uncover the latest trends in AI agent frameworks",
+    backstory="You are an experienced analyst who has tracked the AI landscape for over a decade.",
+    verbose=True,
+    allow_delegation=False,
+)
+
+planner = Agent(
+    role="Content Strategist",
+    goal="Structure raw research into a compelling narrative",
+    backstory="You are a seasoned editor who turns dense analysis into readable articles.",
+    verbose=True,
+    allow_delegation=False,
+)
+
+print(f"Researcher: {researcher.role}")
+print(f"Planner: {planner.role}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>CrewAI fits any scenario where multiple specialized perspectives must collaborate: content pipelines (researcher + writer + editor), data workflows (extractor + transformer + validator), and customer support (triage agent + domain specialist + escalation handler).</div>
+<div class="callout hood"><span>Under the hood</span>Each Agent wraps a LangChain ChatModel and constructs a system prompt by combining role, goal, backstory, and tool descriptions. CrewAI uses its own orchestration layer on top of LangChain to manage multi-turn delegation between agents.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Installation and LLM Configuration</h3>
+<p><strong>What &amp; why.</strong> CrewAI is installed via pip and requires a language model backend. The simplest setup uses an OpenAI API key, but CrewAI supports any LangChain-compatible ChatModel including local models via Ollama, Anthropic, and Azure OpenAI. Environment variables keep credentials out of source code. Install crewai with extras for tools: pip install crewai crewai-tools.</p>
+<pre class="code"><code># Install CrewAI and its tools package
+# pip install crewai crewai-tools
+
+import os
+from crewai import Agent, Task, Crew, Process
+
+# Set API key via environment (never hardcode)
+os.environ["OPENAI_API_KEY"] = "sk-..."
+
+# CrewAI defaults to OpenAI gpt-4o
+# Override with any ChatModel-compatible provider
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(
+    model="gpt-4o",
+    temperature=0.1,
+)
+
+# Pass custom LLM to any agent
+agent = Agent(
+    role="Analyst",
+    goal="Produce accurate data analysis",
+    backstory="You are a meticulous data analyst.",
+    llm=llm,
+    verbose=True,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every CrewAI project starts here. Pin your LLM provider and model in configuration, not in agent definitions, so you can swap providers or adjust temperature without touching agent logic.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI delegates LLM calls to LangChain ChatModel instances. When you specify a model string like "gpt-4o", CrewAI auto-creates a ChatOpenAI instance. Custom LLMs bypass this auto-detection and give you full control over parameters.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Agent Anatomy: Role, Goal, and Backstory</h3>
+<p><strong>What &amp; why.</strong> Every Agent requires three string fields. The role names the function (e.g., "Senior Data Engineer"). The goal defines the success criteria that the agent optimizes toward. The backstory provides domain context and behavioral instructions that persist across all of the agent's task executions. Together these three fields form a persona that shapes every LLM call the agent makes. You can also set optional fields like llm, tools, allow_delegation, and max_iter.</p>
+<pre class="code"><code>from crewai import Agent
+
+# Minimal agent with required fields
+writer = Agent(
+    role="Technical Writer",
+    goal="Write clear, concise documentation for developer APIs",
+    backstory=(
+        "You are a documentation specialist with 15 years of experience "
+        "writing for companies like Stripe and Twilio. You value precision, "
+        "real code examples, and avoiding unnecessary jargon."
+    ),
+    verbose=True,
+    allow_delegation=False,
+    max_iter=15,
+)
+
+# The backstory is injected into the system prompt
+# The goal is used by the crew process to evaluate task completion
+print(writer.role)
+print(writer.goal)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Well-crafted backstories dramatically improve output quality. A "data analyst" with a backstory about healthcare compliance produces very different results than one with a backstory about marketing analytics. Invest time in backstory design for critical roles.</div>
+<div class="callout hood"><span>Under the hood</span>At kickoff, CrewAI concatenates role, goal, backstory, and tool descriptions into a system message. The agent's LLM receives this system message plus the task description and any inter-agent delegation messages throughout the crew run.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Task Description and Expected Output</h3>
+<p><strong>What &amp; why.</strong> Tasks are the work units assigned to agents. Each task has a description (what to do), an expected_output (format and content expectations), and an agent (who executes it). The expected_output field acts as a quality contract: it tells the LLM exactly what structure to produce. Vague expected_output leads to inconsistent results; precise expected_output with format examples yields reliable outputs.</p>
+<pre class="code"><code>from crewai import Agent, Task
+
+analyst = Agent(
+    role="Market Analyst",
+    goal="Analyze competitor positioning",
+    backstory="You are an expert in SaaS market analysis.",
+)
+
+# Task with precise expected output specification
+analysis_task = Task(
+    description=(
+        "Analyze the top 3 competitors in the AI agent framework space. "
+        "For each competitor, cover: pricing model, key differentiators, "
+        "target audience, and strengths/weaknesses."
+    ),
+    expected_output=(
+        "A structured markdown table with columns: Competitor, Pricing, "
+        "Differentiator, Target Audience, Strengths, Weaknesses. "
+        "Followed by a 2-paragraph synthesis paragraph."
+    ),
+    agent=analyst,
+)
+
+# The agent receives both description and expected_output
+# CrewAI uses expected_output to evaluate task completion
+print(analysis_task.expected_output)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Expected output specifications are the single most impactful quality lever in CrewAI. Writing them like acceptance criteria (specific format, required fields, length constraints) dramatically reduces the need for retry or manual post-processing.</div>
+<div class="callout hood"><span>Under the hood</strong>When an agent completes its LLM generation, CrewAI compares the output against the expected_output string. In sequential mode, this comparison determines whether the task is marked as complete. The comparison is heuristic, not strict validation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Crew Assembly and Kickoff</h3>
+<p><strong>What &amp; why.</strong> A Crew groups agents, tasks, and a process into a single executable unit. After defining agents and tasks, you instantiate Crew with agents (list), tasks (list), process (sequential or hierarchical), and verbose (logging level). Calling kickoff() executes the crew, returning a CrewOutput object. kickoff() accepts a inputs dictionary for dynamic task descriptions using curly-brace placeholders.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+researcher = Agent(
+    role="Researcher",
+    goal="Find comprehensive information",
+    backstory="You are a thorough research specialist.",
+)
+
+writer = Agent(
+    role="Writer",
+    goal="Transform research into engaging content",
+    backstory="You are a skilled content writer.",
+)
+
+task1 = Task(
+    description="Research the benefits of containerization in cloud deployment",
+    expected_output="A bullet-point summary of 5 key benefits with supporting evidence",
+    agent=researcher,
+)
+
+task2 = Task(
+    description="Write a 500-word blog post based on the research",
+    expected_output="A well-structured blog post with introduction, body, and conclusion",
+    agent=writer,
+)
+
+crew = Crew(
+    agents=[researcher, writer],
+    tasks=[task1, task2],
+    process=Process.sequential,
+    verbose=True,
+)
+
+result = crew.kickoff()
+print(result)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Crew instantiation is the wiring phase. Place agents in execution order in the agents list and tasks in execution order in the tasks list. Sequential process runs tasks top-to-bottom; hierarchical uses a manager to delegate dynamically.</div>
+<div class="callout hood"><span>Under the hood</span>kickoff() initializes each agent's LLM, builds the task execution queue, and runs the selected process. In sequential mode, each task's output is passed as context to the next task. The CrewOutput aggregates all task outputs and token usage metrics.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Process.sequential Execution Flow</h3>
+<p><strong>What &amp; why.</strong> The sequential process runs tasks in the order they appear in the tasks list. Each agent completes its task before the next agent receives its task. Task outputs flow as context to subsequent tasks, creating a pipeline effect. This is the simplest and most predictable process. It works well when the workflow is linear and dependencies are clear: research then write then review.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+extractor = Agent(
+    role="Data Extractor",
+    goal="Extract key facts from raw text",
+    backstory="You are precise at identifying factual claims.",
+)
+
+summarizer = Agent(
+    role="Summarizer",
+    goal="Condense facts into a concise brief",
+    backstory="You excel at distilling complex information.",
+)
+
+reviewer = Agent(
+    role="Reviewer",
+    goal="Verify accuracy and flag issues",
+    backstory="You are a careful fact-checker.",
+)
+
+t1 = Task(
+    description="Extract all factual claims from: {input_text}",
+    expected_output="Numbered list of factual claims",
+    agent=extractor,
+)
+
+t2 = Task(
+    description="Summarize the extracted facts into a 100-word brief",
+    expected_output="A 100-word summary paragraph",
+    agent=summarizer,
+)
+
+t3 = Task(
+    description="Review the summary for accuracy and completeness",
+    expected_output="Approval with notes or specific corrections needed",
+    agent=reviewer,
+)
+
+crew = Crew(
+    agents=[extractor, summarizer, reviewer],
+    tasks=[t1, t2, t3],
+    process=Process.sequential,
+    verbose=True,
+)
+
+result = crew.kickoff(inputs={"input_text": "Sample text with facts..."})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Sequential process is the default choice for linear pipelines. Use it for ETL-style workflows, content production lines, and any scenario where step N's output feeds step N+1's input.</div>
+<div class="callout hood"><span>Under the hood</span>In sequential mode, CrewAI maintains an ordered task queue. After each task completes, its output string is appended to a shared context list. The next agent's LLM prompt includes all prior task outputs, giving it full pipeline context.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Verbose Logging and Reading Output</h3>
+<p><strong>What &amp; why.</strong> Setting verbose=True on agents and the crew produces detailed execution logs showing each agent's reasoning, tool calls, and task outputs. During development, verbose output is essential for debugging: you can see exactly what each agent received and produced. In production, verbose logs are piped to structured logging systems. The CrewOutput object from kickoff() contains the final output, token usage, and individual task outputs.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+agent = Agent(
+    role="Analyst",
+    goal="Provide analysis",
+    backstory="You are a data analyst.",
+    verbose=True,  # Logs agent reasoning steps
+)
+
+task = Task(
+    description="Analyze the top trend in AI for 2025",
+    expected_output="One paragraph analysis with supporting data",
+    agent=agent,
+)
+
+crew = Crew(
+    agents=[agent],
+    tasks=[task],
+    verbose=True,  # Logs crew-level orchestration
+    process=Process.sequential,
+)
+
+result = crew.kickoff()
+
+# CrewOutput contains structured results
+print(f"Final Output: {result.raw}")          # Raw string output
+print(f"Token Usage: {result.token_usage}")    # Token consumption dict
+print(f"Tasks Output: {len(result.tasks_output)}")  # Individual task results
+
+# Access individual task outputs
+for task_output in result.tasks_output:
+    print(f"Task: {task_output.description[:50]}...")
+    print(f"Output: {task_output.raw[:100]}...")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Always run with verbose=True during development. For production, set verbose=False on agents but configure CrewAI's callback handlers to capture structured logs via LangChain callbacks.</div>
+<div class="callout hood"><span>Under the hood</span>Verbose output is printed via Python's logging module at the INFO level. CrewAI formats each log entry with the agent role, task description prefix, and truncated output. Token usage is aggregated across all LLM calls in the crew run.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Output Formats: Raw String Basics</h3>
+<p><strong>What &amp; why.</strong> By default, CrewAI returns task outputs as raw strings. The result.raw attribute on CrewOutput contains the final text. Each TaskOutput in result.tasks_output also has a .raw field. For simple use cases, raw strings are sufficient. When you need structured data, you either parse the string yourself or use Pydantic-based expected outputs (covered in Tier 2). The raw format is always available regardless of output configuration.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+agent = Agent(
+    role="Researcher",
+    goal="Produce structured findings",
+    backstory="You are a research analyst.",
+)
+
+task = Task(
+    description="List 3 advantages of microservices vs monoliths",
+    expected_output=(
+        "1. Advantage one with explanation\n"
+        "2. Advantage two with explanation\n"
+        "3. Advantage three with explanation"
+    ),
+    agent=agent,
+)
+
+crew = Crew(
+    agents=[agent],
+    tasks=[task],
+    process=Process.sequential,
+)
+
+result = crew.kickoff()
+
+# Access raw string output
+print(result.raw)
+
+# The output is a plain string
+# You can parse it manually
+lines = result.raw.strip().split("\n")
+for line in lines:
+    if line.strip():
+        print(f"Found: {line.strip()}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Raw string output is the baseline for all CrewAI runs. Use it when downstream consumers accept text, when you write to files, or when you pipe output to other systems. For structured extraction, see Pydantic output models in Tier 2.</div>
+<div class="callout hood"><span>Under the hood</span>The raw field contains the last LLM response from the agent assigned to that task. CrewAI does not transform or validate this string unless you configure Pydantic output models. The raw string is exactly what the LLM generated.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Simple Two-Agent Blog Outline Crew</h3>
+<p><strong>What &amp; why.</strong> A minimal end-to-end example demonstrates the full CrewAI workflow: define two agents, create sequential tasks, assemble a crew, and kick it off. The researcher agent gathers information, and the writer agent uses that information to produce an outline. This pattern scales to larger teams by adding agents and tasks in sequence.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+researcher = Agent(
+    role="Content Researcher",
+    goal="Gather comprehensive information on the given topic",
+    backstory=(
+        "You are a meticulous researcher who finds credible sources "
+        "and organizes findings by theme and importance."
+    ),
+    verbose=True,
+    allow_delegation=False,
+)
+
+writer = Agent(
+    role="Blog Outline Writer",
+    goal="Create a structured, engaging blog post outline",
+    backstory=(
+        "You are a content strategist who creates outlines that "
+        "balance SEO requirements with reader engagement."
+    ),
+    verbose=True,
+    allow_delegation=False,
+)
+
+research_task = Task(
+    description=(
+        "Research the topic: {topic}. Find 3-5 key subtopics, "
+        "supporting points for each, and 2-3 credible sources."
+    ),
+    expected_output=(
+        "Organized research notes with: subtopic headings, "
+        "bullet points under each, and source references."
+    ),
+    agent=researcher,
+)
+
+outline_task = Task(
+    description=(
+        "Using the research provided, create a blog post outline "
+        "with: title, introduction hook, 4-5 main sections with "
+        "sub-points, and a conclusion with CTA."
+    ),
+    expected_output=(
+        "A numbered blog outline with title, intro, sections, "
+        "and conclusion. Each section has 2-3 sub-points."
+    ),
+    agent=writer,
+)
+
+crew = Crew(
+    agents=[researcher, writer],
+    tasks=[research_task, outline_task],
+    process=Process.sequential,
+    verbose=True,
+)
+
+result = crew.kickoff(inputs={"topic": "Building AI Agents with CrewAI"})
+print(result.raw)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This two-agent pattern is the foundation for content pipelines. Extend it by adding an editor agent after the writer, a fact-checker before publication, or a social media agent that repurposes the outline into post drafts.</div>
+<div class="callout hood"><span>Under the hood</span>The researcher's task output becomes context for the writer's task. CrewAI automatically passes previous task outputs to subsequent agents. The writer LLM receives both the system prompt (role/goal/backstory) and the researcher's output as user context.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Tools Assignment and SerperDevTool</h3>
+<p><strong>What &amp; why.</strong> Agents can be equipped with tools that extend their capabilities beyond text generation. Tools are Python functions or LangChain tools that agents can invoke during task execution. The crewai-tools package provides pre-built tools like SerperDevTool for web search. When an agent has tools, the LLM decides when to call them based on the task requirements. Tools give agents real-world access to search, APIs, file systems, and databases.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+from crewai_tools import SerperDevTool
+
+# Create a search tool (requires SERPER_API_KEY env var)
+search_tool = SerperDevTool()
+
+researcher = Agent(
+    role="Web Researcher",
+    goal="Find the most current information using web search",
+    backstory="You are an expert researcher who uses web search effectively.",
+    tools=[search_tool],  # Agent can now search the web
+    verbose=True,
+    allow_delegation=False,
+)
+
+task = Task(
+    description=(
+        "Search for the latest developments in CrewAI as of 2025. "
+        "Summarize the top 3 announcements or releases."
+    ),
+    expected_output="Three bullet points summarizing latest CrewAI developments",
+    agent=researcher,
+)
+
+crew = Crew(
+    agents=[researcher],
+    tasks=[task],
+    process=Process.sequential,
+    verbose=True,
+)
+
+result = crew.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Tools transform agents from text generators into active participants. Common tool assignments: search tools for researchers, file I/O for data processors, API clients for integration agents, and code executors for analytical agents.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI injects tool descriptions into the agent's system prompt as available functions. The LLM generates structured tool call responses, CrewAI executes them, and feeds the results back into the conversation. This follows the standard LangChain tool-calling protocol.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Delegation Between Agents</h3>
+<p><strong>What &amp; why.</strong> When allow_delegation=True (the default), an agent can hand off subtasks to other agents in the crew. During execution, the agent's LLM may decide that another agent is better suited for a portion of its work and delegate. Delegation creates dynamic, non-linear workflows where agents collaborate in real time rather than following a fixed sequence. This is powerful but requires careful design to avoid loops.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+analyst = Agent(
+    role="Data Analyst",
+    goal="Analyze data and produce insights",
+    backstory="You are a data analyst.",
+    allow_delegation=True,  # Can delegate subtasks
+    verbose=True,
+)
+
+writer = Agent(
+    role="Report Writer",
+    goal="Write polished reports from analysis",
+    backstory="You are a report writer.",
+    allow_delegation=False,  # Cannot delegate further
+    verbose=True,
+)
+
+manager = Agent(
+    role="Project Manager",
+    goal="Coordinate the team and ensure quality",
+    backstory="You are an experienced project manager.",
+    allow_delegation=True,
+    verbose=True,
+)
+
+analysis_task = Task(
+    description="Analyze customer churn data and identify top 3 drivers",
+    expected_output="Top 3 churn drivers with supporting metrics",
+    agent=analyst,
+)
+
+report_task = Task(
+    description="Write an executive summary based on the analysis",
+    expected_output="A 200-word executive summary with key findings",
+    agent=writer,
+)
+
+crew = Crew(
+    agents=[analyst, writer, manager],
+    tasks=[analysis_task, report_task],
+    process=Process.sequential,
+    verbose=True,
+)
+
+# Delegation allows agents to ask other agents for help
+result = crew.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Delegation is most useful in hierarchical processes where a manager agent coordinates specialists. In sequential processes, delegation is less relevant because task flow is predetermined. Set allow_delegation=False on agents that should not spawn sub-conversations.</div>
+<div class="callout hood"><span>Under the hood</span>When delegation is enabled, CrewAI adds instructions to the agent's prompt describing how to delegate. If the LLM generates a delegation request, CrewAI pauses the current agent, spawns a sub-task with the target agent, and feeds the result back. Each delegation consumes additional LLM tokens.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>When CrewAI Fits and When It Does Not</h3>
+<p><strong>What &amp; why.</strong> CrewAI excels at role-based multi-agent workflows with clear task decomposition, sequential or manager-coordinated execution, and natural language interfaces. It fits content production pipelines, research workflows, analysis chains, and any scenario where distinct roles collaborate toward a shared output. It is less suitable for highly dynamic graph-based flows with complex conditional routing (use LangGraph), real-time event-driven systems (use Flows or custom orchestration), or applications requiring fine-grained control over LLM prompts per turn.</p>
+<pre class="code"><code># CrewAI fits when: roles are stable and tasks are clear
+# CrewAI struggles when: routing depends on runtime state at every step
+
+from crewai import Agent, Task, Crew, Process
+
+# GOOD FIT: Content pipeline with fixed roles
+researcher = Agent(
+    role="Researcher", goal="Gather facts", backstory="You research."
+)
+editor = Agent(
+    role="Editor", goal="Polish content", backstory="You edit."
+)
+t1 = Task(
+    description="Research topic: {topic}",
+    expected_output="Fact list", agent=researcher
+)
+t2 = Task(
+    description="Edit the research into article form",
+    expected_output="Polished article", agent=editor
+)
+crew = Crew(
+    agents=[researcher, editor],
+    tasks=[t1, t2],
+    process=Process.sequential,
+)
+result = crew.kickoff(inputs={"topic": "AI Trends"})
+
+# CrewAI is less ideal for:
+# - Complex conditional routing (use LangGraph)
+# - Real-time streaming with fine-grained control
+# - State machines with many possible transitions</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choose CrewAI for team-style collaboration with clear roles. Choose LangGraph for state-heavy graphs with complex routing. Choose AutoGen for conversational multi-agent debugging. The frameworks are complementary, not competing.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI's process abstraction (sequential or hierarchical) is simpler than LangGraph's full graph model. This simplicity is a feature for most use cases but a limitation when you need arbitrary conditional edges, loops with complex state, or human-in-the-loop at every step.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Hierarchical process, Pydantic outputs, memory, and guardrails</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Process.hierarchical: Manager-Led Delegation</h3>
+<p><strong>What &amp; why.</strong> The hierarchical process introduces a manager agent that dynamically assigns tasks to team agents. Instead of fixed sequential order, the manager evaluates each task and selects the best agent to execute it. This enables more flexible workflows where task assignment depends on content rather than position. The manager uses an LLM to make delegation decisions, adding intelligence to the orchestration layer.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+researcher = Agent(
+    role="Researcher",
+    goal="Gather accurate information",
+    backstory="You are an expert researcher.",
+)
+
+writer = Agent(
+    role="Writer",
+    goal="Create engaging content",
+    backstory="You are a skilled writer.",
+)
+
+analyst = Agent(
+    role="Analyst",
+    goal="Provide data-driven insights",
+    backstory="You are a data analyst.",
+)
+
+# Hierarchical process: manager assigns tasks dynamically
+t1 = Task(
+    description="Research the competitive landscape",
+    expected_output="Competitor analysis with data",
+    agent=researcher,
+)
+
+t2 = Task(
+    description="Analyze market trends from the research",
+    expected_output="Trend analysis with metrics",
+    agent=analyst,
+)
+
+t3 = Task(
+    description="Write an executive brief based on all findings",
+    expected_output="Polished executive brief",
+    agent=writer,
+)
+
+crew = Crew(
+    agents=[researcher, writer, analyst],
+    tasks=[t1, t2, t3],
+    process=Process.hierarchical,
+    manager_llm="gpt-4o",  # LLM for the manager agent
+    verbose=True,
+)
+
+result = crew.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hierarchical process is ideal when task assignment should be dynamic: the manager can re-route if an agent struggles, assign follow-up tasks based on intermediate results, or parallelize independent work across agents.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI creates an internal manager agent that receives all pending tasks and available agents. The manager LLM evaluates each task's requirements against each agent's role description and selects the best match. This adds one extra LLM call per task assignment decision.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Pydantic Expected Output Models</h3>
+<p><strong>What &amp; why.</strong> Instead of free-form text expected_output, you can pass a Pydantic model class as the expected_output parameter. CrewAI will instruct the agent to produce JSON matching that schema and will parse the output into a validated Pydantic object. This eliminates string parsing and ensures type-safe, structured results. Use Pydantic v2 models for schema validation and automatic field coercion.</p>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from crewai import Agent, Task, Crew, Process
+
+class CompetitorAnalysis(BaseModel):
+    competitor: str = Field(description="Competitor name")
+    pricing: str = Field(description="Pricing model summary")
+    strengths: list[str] = Field(description="Top 3 strengths")
+    weaknesses: list[str] = Field(description="Top 3 weaknesses")
+    threat_level: str = Field(description="Low, Medium, or High")
+
+analyst = Agent(
+    role="Competitive Analyst",
+    goal="Produce structured competitor analysis",
+    backstory="You are a market analyst.",
+)
+
+task = Task(
+    description="Analyze competitor: {competitor_name}",
+    expected_output=CompetitorAnalysis,  # Pydantic model, not string
+    agent=analyst,
+)
+
+crew = Crew(
+    agents=[analyst],
+    tasks=[task],
+    process=Process.sequential,
+)
+
+result = crew.kickoff()
+
+# Output is a validated Pydantic object
+analysis = result.tasks_output[0].pydantic
+print(f"Competitor: {analysis.competitor}")
+print(f"Threat: {analysis.threat_level}")
+print(f"Strengths: {analysis.strengths}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pydantic outputs are essential for downstream automation: when the output feeds into databases, APIs, or other code that requires typed data. Use them for any task where the output has a predictable structure.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI adds the Pydantic model's JSON schema to the agent's system prompt. After the LLM generates a response, CrewAI parses the JSON and validates it against the model. Validation failures trigger a retry with an error message appended to the prompt.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Callbacks on Task Completion</h3>
+<p><strong>What &amp; why.</strong> CrewAI supports callback functions that fire when a task completes or when the crew finishes. Callbacks enable side effects without modifying agent logic: logging results, sending notifications, storing outputs in databases, or triggering downstream processes. You can set callbacks at the task level (per-task) or crew level (on crew completion).</p>
+<pre class="code"><code>import json
+from crewai import Agent, Task, Crew, Process
+
+def on_task_complete(task_output):
+    """Fires after each task completes."""
+    print(f"Task completed: {task_output.description[:50]}")
+    print(f"Output length: {len(task_output.raw)} chars")
+    # Write to log file, send notification, etc.
+    with open("task_log.jsonl", "a") as f:
+        f.write(json.dumps({
+            "task": task_output.description[:100],
+            "output_preview": task_output.raw[:200],
+        }) + "\n")
+
+def on_crew_complete(crew_output):
+    """Fires after the entire crew finishes."""
+    print(f"Crew finished. Total tokens: {crew_output.token_usage}")
+
+agent = Agent(
+    role="Writer", goal="Write content", backstory="You write."
+)
+
+task = Task(
+    description="Write a 100-word summary of AI agents",
+    expected_output="100-word summary",
+    agent=agent,
+    callback=on_task_complete,  # Per-task callback
+)
+
+crew = Crew(
+    agents=[agent],
+    tasks=[task],
+    process=Process.sequential,
+)
+
+result = crew.kickoff()
+on_crew_complete(result)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Callbacks are the primary mechanism for integrating CrewAI into larger systems: write results to a database, update a dashboard, trigger a deployment, or send a Slack notification when the crew completes.</div>
+<div class="callout hood"><span>Under the hood</span>Callbacks are simple Python callables that receive the TaskOutput or CrewOutput object. CrewAI calls them synchronously after the respective completion event. Callbacks run in the main thread and can raise exceptions to halt execution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Crew Memory: Short-Term, Long-Term, and Entity</h3>
+<p><strong>What &amp; why.</strong> CrewAI provides three memory layers that persist across crew runs. Short-term memory stores conversation context within a single run. Long-term memory persists learnings across multiple runs, enabling the crew to improve over time. Entity memory tracks key entities (people, companies, concepts) mentioned across tasks. Memory is backed by SQLite by default and can be reset between runs or maintained for cumulative improvement.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+agent = Agent(
+    role="Analyst",
+    goal="Produce consistent analysis",
+    backstory="You are an analyst.",
+)
+
+task = Task(
+    description="Analyze the provided data and summarize trends",
+    expected_output="Trend summary with key findings",
+    agent=agent,
+)
+
+# Memory enabled by default in CrewAI
+crew = Crew(
+    agents=[agent],
+    tasks=[task],
+    process=Process.sequential,
+    memory=True,            # Enable all memory types
+    short_term_memory=True, # Within-run context
+    long_term_memory=True,  # Cross-run learnings
+    entity_memory=True,     # Track entities across tasks
+    verbose=True,
+)
+
+# First run: establishes baseline
+result1 = crew.kickoff(inputs={"data": "Revenue grew 15% YoY"})
+
+# Second run: long-term memory provides context from first run
+result2 = crew.kickoff(inputs={"data": "Q2 revenue flat vs Q1"})
+# Agent may reference Q1 findings from long-term memory</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Long-term memory is valuable for iterative workflows: each crew run improves on previous results. Entity memory helps in multi-run research where the same companies or people are discussed. Reset memory between unrelated runs.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI uses ChromaDB or a custom SQLite-backed store for persistence. Short-term memory is an in-memory list of messages. Long-term memory stores task outputs and agent learnings as embeddings. Entity memory extracts and tracks named entities using the LLM.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Knowledge Sources: Files and Text</h3>
+<p><strong>What &amp; why.</strong> Knowledge sources allow you to inject external context into a crew's execution without modifying agent prompts. Sources can be files (PDF, text, CSV) or raw text strings. CrewAI reads the content and makes it available to agents during task execution. This is useful for providing reference documents, company policies, or data files that agents should consult.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+from crewai.knowledge.source.text_knowledge_source import TextKnowledgeSource
+
+# Create a knowledge source from text
+policy_text = """
+Company travel policy: Economy class for flights under 4 hours.
+Business class requires VP approval. Max hotel rate: $250/night.
+All receipts must be submitted within 30 days.
+"""
+policy_source = TextKnowledgeSource(content=policy_text)
+
+agent = Agent(
+    role="Travel Coordinator",
+    goal="Answer questions about travel policy",
+    backstory="You are the company travel coordinator.",
+    knowledge_sources=[policy_source],  # Attach knowledge
+)
+
+task = Task(
+    description="Can I book business class for a 3-hour flight?",
+    expected_output="Policy-compliant answer with justification",
+    agent=agent,
+)
+
+crew = Crew(
+    agents=[agent],
+    tasks=[task],
+    process=Process.sequential,
+)
+
+result = crew.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Knowledge sources are the CrewAI equivalent of RAG without setting up a vector store. Use them for small reference documents, policy files, or configuration data that agents need to consult during execution.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI reads knowledge source content and injects it into the agent's system prompt or retrieval context. For file sources, the content is chunked and stored in a vector index that agents can query during execution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Planning Flag: Plan-Before-Execute</h3>
+<p><strong>What &amp; why.</strong> Setting planning=True on a Crew enables a planning step before task execution begins. A planner agent analyzes all tasks, creates a step-by-step execution plan, and shares that plan with each agent before they start working. This pre-planning phase helps agents understand their role in the larger workflow and produce more coherent, coordinated outputs.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+researcher = Agent(
+    role="Researcher", goal="Gather facts", backstory="You research."
+)
+writer = Agent(
+    role="Writer", goal="Write content", backstory="You write."
+)
+reviewer = Agent(
+    role="Reviewer", goal="Review quality", backstory="You review."
+)
+
+t1 = Task(
+    description="Research AI agent architectures",
+    expected_output="Structured research notes",
+    agent=researcher,
+)
+t2 = Task(
+    description="Write an article based on research",
+    expected_output="1000-word article draft",
+    agent=writer,
+)
+t3 = Task(
+    description="Review and provide feedback on the article",
+    expected_output="Feedback with specific improvement suggestions",
+    agent=reviewer,
+)
+
+# Planning phase creates a coordination strategy
+crew = Crew(
+    agents=[researcher, writer, reviewer],
+    tasks=[t1, t2, t3],
+    process=Process.sequential,
+    planning=True,  # Planner agent creates strategy first
+    verbose=True,
+)
+
+# The planner generates a plan before any task executes
+result = crew.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Planning is most valuable for complex multi-agent workflows where agent outputs must be coordinated. It adds one extra LLM call but can significantly improve output coherence in teams of 3+ agents.</div>
+<div class="callout hood"><span>Under the hood</span>When planning=True, CrewAI spawns a planner agent that receives all task descriptions and agent roles. The planner generates a step-by-step strategy document that is injected as context into each agent's prompt before their task begins.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Human Input Mode and Step Approvals</h3>
+<p><strong>What &amp; why.</strong> CrewAI supports human-in-the-loop via the human_input flag on tasks. When enabled, the agent pauses before executing and prompts for human input via the terminal. This allows approval gates, additional context injection, or manual override at specific workflow steps. For production systems, human input can be wired to webhooks or message queues instead of terminal input.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+agent = Agent(
+    role="Financial Analyst",
+    goal="Produce accurate financial analysis",
+    backstory="You are a CFA-level financial analyst.",
+)
+
+t1 = Task(
+    description="Draft the quarterly earnings analysis",
+    expected_output="Draft analysis document",
+    agent=agent,
+)
+
+t2 = Task(
+    description="Finalize the report with any human corrections",
+    expected_output="Final polished report",
+    agent=agent,
+    human_input=True,  # Agent pauses for human approval
+)
+
+crew = Crew(
+    agents=[agent],
+    tasks=[t1, t2],
+    process=Process.sequential,
+    verbose=True,
+)
+
+# During execution, t2 will pause and wait for human input
+# The human can approve, modify, or reject the output
+result = crew.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Human input gates are critical for high-stakes workflows: financial reports, legal documents, medical summaries, and any output that requires human review before proceeding. In production, replace terminal input with API endpoints.</div>
+<div class="callout hood"><span>Under the hood</span>When human_input=True, the agent completes its LLM generation but then pauses. CrewAI displays the output and waits for stdin input. The human response is appended to the conversation context, and the agent may revise its output based on the feedback.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Step Callbacks and Streaming Progress</h3>
+<p><strong>What &amp; why.</strong> Beyond task-level callbacks, CrewAI supports step_callback which fires after each agent reasoning step within a task. This provides granular visibility into agent behavior: each LLM call, tool invocation, and delegation attempt can be monitored. Step callbacks are essential for debugging complex crews and building real-time progress dashboards.</p>
+<pre class="code"><code>import time
+from crewai import Agent, Task, Crew, Process
+
+step_log = []
+
+def track_step(step_output):
+    """Called after each agent reasoning step."""
+    step_info = {
+        "agent": step_output.agent,
+        "task": step_output.task[:50] if step_output.task else "",
+        "timestamp": time.time(),
+    }
+    step_log.append(step_info)
+    print(f"Step: {step_info['agent']} - {step_info['task']}")
+
+agent = Agent(
+    role="Researcher",
+    goal="Research thoroughly",
+    backstory="You are a researcher.",
+    step_callback=track_step,  # Fires after each reasoning step
+)
+
+task = Task(
+    description="Research 3 emerging AI frameworks",
+    expected_output="Summary of 3 frameworks with pros and cons",
+    agent=agent,
+)
+
+crew = Crew(
+    agents=[agent],
+    tasks=[task],
+    process=Process.sequential,
+)
+
+result = crew.kickoff()
+print(f"Total steps tracked: {len(step_log)}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Step callbacks power monitoring dashboards, debugging tools, and cost tracking systems. They fire frequently (once per LLM call), so keep callback logic lightweight to avoid performance degradation.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI wraps each LLM call with a callback handler that fires before and after the call. The step_output object contains the agent role, task description, input prompt, output text, and token usage for that specific step.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>max_iter and max_rpm Guards</h3>
+<p><strong>What &amp; why.</strong> max_iter limits the number of reasoning iterations an agent can perform per task. max_rpm caps the maximum requests per minute to the LLM API. Both are essential safety guards: max_iter prevents infinite delegation loops, and max_rpm prevents cost runaway during aggressive crew runs. Set these conservatively during development and adjust for production workloads.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+# Conservative settings for development
+agent = Agent(
+    role="Analyst",
+    goal="Produce analysis",
+    backstory="You are an analyst.",
+    max_iter=10,   # Max reasoning steps per task
+    max_rpm=10,    # Max API calls per minute
+    verbose=True,
+)
+
+task = Task(
+    description="Analyze the provided dataset",
+    expected_output="Analysis summary",
+    agent=agent,
+)
+
+crew = Crew(
+    agents=[agent],
+    tasks=[task],
+    max_rpm=30,  # Crew-level RPM cap
+    process=Process.sequential,
+)
+
+# If the agent exceeds max_iter, it stops and returns partial output
+# If max_rpm is hit, CrewAI waits before making the next API call
+result = crew.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Always set max_iter and max_rpm in production. Without them, a delegation loop or tool-error retry storm can rack up thousands of dollars in API costs in minutes. Start with max_iter=10 and max_rpm=10, then tune based on actual usage.</div>
+<div class="callout hood"><span>Under the hood</span>max_iter counts LLM calls within a single task. When exceeded, CrewAI stops the agent and returns partial output with a warning. max_rpm uses a token bucket algorithm to enforce rate limiting across all agents in the crew.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Retry on Fail Per Task</h3>
+<p><strong>What &amp; why.</strong> Tasks can be configured with retry_on_fail=True to automatically retry when an agent's output fails validation or the LLM returns an error. Combined with max_iter on the retry count, this provides resilience against transient failures: API timeouts, rate limits, malformed outputs, and Pydantic validation errors. Each retry appends the error context to the prompt so the agent can self-correct.</p>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from crewai import Agent, Task, Crew, Process
+
+class Report(BaseModel):
+    title: str = Field(description="Report title")
+    summary: str = Field(description="Executive summary")
+    metrics: dict = Field(description="Key metrics as key-value pairs")
+
+agent = Agent(
+    role="Analyst",
+    goal="Produce structured reports",
+    backstory="You are a data analyst.",
+)
+
+task = Task(
+    description="Generate a quarterly report with title, summary, and metrics",
+    expected_output=Report,  # Pydantic model for validation
+    agent=agent,
+    retry_on_fail=True,      # Auto-retry on validation failure
+    max_retry_count=3,       # Max retry attempts
+)
+
+crew = Crew(
+    agents=[agent],
+    tasks=[task],
+    process=Process.sequential,
+)
+
+# If the LLM output doesn't match Report schema,
+# CrewAI retries up to 3 times with error feedback
+result = crew.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Retry on fail is essential when using Pydantic expected outputs. LLMs occasionally produce malformed JSON, and retries with error context typically resolve the issue within 2-3 attempts. Always set max_retry_count to cap retry costs.</div>
+<div class="callout hood"><span>Under the hood</span>When Pydantic validation fails, CrewAI constructs an error message containing the validation error details and the original output. This error is appended to the conversation, and the agent is asked to fix the specific issues. The retry count is tracked per task.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Flows, custom tools, async, observability, and cost tracking</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>CrewAI Flows: @start and @listen Event Graphs</h3>
+<p><strong>What &amp; why.</strong> Flows are CrewAI's event-driven orchestration layer. A Flow is a class where methods decorated with @start run on kickoff, and methods decorated with @listen fire when their specified upstream method completes. This creates a directed event graph where data flows between methods via return values. Flows wrap Crews, giving you event-driven control over when and how crews execute.</p>
+<pre class="code"><code>from crewai import Flow, listen, start, Crew, Agent, Task, Process
+
+class ResearchFlow(Flow):
+    @start()
+    def gather_topic(self):
+        return {"topic": "AI Agent Frameworks", "scope": "2025 landscape"}
+
+    @listen(gather_topic)
+    def run_research_crew(self, topic_data):
+        researcher = Agent(
+            role="Researcher", goal="Research thoroughly",
+            backstory="You research AI trends.",
+        )
+        task = Task(
+            description=f"Research: {topic_data['topic']}",
+            expected_output="Structured research notes",
+            agent=researcher,
+        )
+        crew = Crew(
+            agents=[researcher], tasks=[task],
+            process=Process.sequential,
+        )
+        result = crew.kickoff()
+        return {"research": result.raw}
+
+    @listen(run_research_crew)
+    def publish(self, research_data):
+        print(f"Publishing: {research_data['research'][:100]}...")
+        return "Published"
+
+flow = ResearchFlow()
+result = flow.kickoff()
+print(f"Flow result: {result}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Flows are ideal when you need branching logic, conditional crew execution, or event-driven architectures. Use them to build research pipelines that branch based on topic, approval workflows that pause for human input, or multi-stage processes where crew execution depends on upstream results.</div>
+<div class="callout hood"><span>Under the hood</span>Flows execute methods in topological order based on @listen dependencies. Return values from upstream methods are passed as arguments to downstream methods. The Flow class maintains internal state that persists across method calls within a single flow run.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Flow State: Typed Persistence</h3>
+<p><strong>What &amp; why.</strong> Flows maintain typed state that persists across method executions within a single run. State is defined as a Pydantic BaseModel, and methods read and write to self.state. This eliminates the need to pass data through return values for shared state and makes the flow's data model explicit and inspectable.</p>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from crewai import Flow, listen, start
+
+class ResearchState(BaseModel):
+    topic: str = ""
+    sources: list[str] = Field(default_factory=list)
+    findings: str = ""
+    approved: bool = False
+    final_output: str = ""
+
+class EditorialFlow(Flow[ResearchState]):  # Typed state
+    @start()
+    def set_topic(self):
+        self.state.topic = "Quantum Computing Advances"
+        return self.state.topic
+
+    @listen(set_topic)
+    def research(self, topic):
+        # Read and write state
+        self.state.sources = ["arxiv.org", "nature.com"]
+        self.state.findings = f"Research findings on {topic}"
+        return self.state.findings
+
+    @listen(research)
+    def draft(self, findings):
+        self.state.final_output = f"Article based on: {findings}"
+        return self.state.final_output
+
+flow = EditorialFlow()
+result = flow.kickoff()
+print(f"State topic: {flow.state.topic}")
+print(f"Sources: {flow.state.sources}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Typed state is essential for complex flows where multiple methods need to read and update shared data. It replaces ad-hoc dictionaries with validated, typed data structures that catch errors at development time.</div>
+<div class="callout hood"><span>Under the hood</span>Flow state is a Pydantic model instance stored on the Flow object. Methods access it via self.state. The state persists across all method calls in a single flow execution and can be serialized for persistence or inspection.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Router Conditions: Branching Flows</h3>
+<p><strong>What &amp; why.</strong> The @router decorator in Flows enables conditional branching based on method return values. A router method returns a string that maps to different downstream methods, allowing the flow to take different paths based on data analysis, classification results, or approval decisions. This turns linear flows into dynamic decision trees.</p>
+<pre class="code"><code>from crewai import Flow, listen, router, start, Crew, Agent, Task, Process
+
+class TriageFlow(Flow):
+    @start()
+    def classify_request(self):
+        return {"type": "technical", "urgency": "high"}
+
+    @router(classify_request)
+    def route_by_type(self, classification):
+        if classification["type"] == "technical":
+            return "handle_technical"
+        return "handle_general"
+
+    @listen("handle_technical")
+    def handle_technical(self, data):
+        return f"Technical resolution for: {data}"
+
+    @listen("handle_general")
+    def handle_general(self, data):
+        return f"General handling for: {data}"
+
+flow = TriageFlow()
+result = flow.kickoff()
+print(result)  # "Technical resolution for: {...}"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Routers enable dynamic workflow routing: triage incoming requests, branch based on LLM classification results, or create approval workflows where different paths are taken based on human decisions.</div>
+<div class="callout hood"><span>Under the hood</span>The router decorator inspects the return value of the decorated method and uses it to select which downstream @listen methods to execute. The return value must be a string that matches a downstream method name or a listen target.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Crews-Inside-Flows: Hybrid Architecture</h3>
+<p><strong>What &amp; why.</strong> The hybrid pattern embeds Crew execution within Flow methods. A Flow method can instantiate agents, create tasks, assemble a crew, and call kickoff() to execute it. The crew's output then feeds back into the flow's state or return value. This combines Flow's event-driven orchestration with Crew's role-based agent collaboration, giving you both宏观 workflow control and微观 agent coordination.</p>
+<pre class="code"><code>from pydantic import BaseModel
+from crewai import Flow, listen, start, Crew, Agent, Task, Process
+
+class ContentState(BaseModel):
+    topic: str = ""
+    research: str = ""
+    draft: str = ""
+    review: str = ""
+
+class ContentFlow(Flow[ContentState]):
+    @start()
+    def init_topic(self):
+        self.state.topic = "Serverless AI Inference"
+        return self.state.topic
+
+    @listen(init_topic)
+    def research_crew(self, topic):
+        researcher = Agent(
+            role="Researcher", goal="Find facts",
+            backstory="You research serverless computing.",
+        )
+        task = Task(
+            description=f"Research: {topic}",
+            expected_output="Bullet-point research notes",
+            agent=researcher,
+        )
+        crew = Crew(
+            agents=[researcher], tasks=[task],
+            process=Process.sequential,
+        )
+        result = crew.kickoff()
+        self.state.research = result.raw
+        return result.raw
+
+    @listen(research_crew)
+    def writing_crew(self, research):
+        writer = Agent(
+            role="Writer", goal="Write engaging content",
+            backstory="You write technical articles.",
+        )
+        task = Task(
+            description=f"Write article based on: {research[:200]}",
+            expected_output="Article draft in markdown",
+            agent=writer,
+        )
+        crew = Crew(
+            agents=[writer], tasks=[task],
+            process=Process.sequential,
+        )
+        result = crew.kickoff()
+        self.state.draft = result.raw
+        return result.raw
+
+flow = ContentFlow()
+result = flow.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This pattern is the recommended architecture for complex multi-stage pipelines. Each stage is a separate crew within a flow method, giving you stage-level observability, error handling, and the ability to skip or retry individual stages.</div>
+<div class="callout hood"><span>Under the hood</span>Each crew kickoff() is a self-contained execution within the flow method. The flow waits for the crew to complete before proceeding. If the crew fails, the flow method can catch the exception and handle it (retry, skip, or abort the flow).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Custom Tools: BaseTool and Function Tools</h3>
+<p><strong>What &amp; why.</strong> CrewAI supports two approaches to custom tools: function tools (decorating a Python function with @tool) and class-based tools (subclassing BaseTool). Function tools are simpler for straightforward operations; class-based tools provide more control over the tool's schema, validation, and execution logic. Both approaches produce LangChain-compatible tools that agents can use during task execution.</p>
+<pre class="code"><code>from crewai.tools import tool, BaseTool
+from pydantic import BaseModel, Field
+
+# Function-based tool (simpler)
+@tool("calculate")
+def calculate(expression: str) -> str:
+    """Evaluate a mathematical expression safely."""
+    allowed = set("0123456789+-*/.() ")
+    if not all(c in allowed for c in expression):
+        return "Error: invalid characters in expression"
+    try:
+        result = eval(expression)  # Safe due to character filter
+        return f"Result: {result}"
+    except Exception as e:
+        return f"Error: {e}"
+
+# Class-based tool (more control)
+class DatabaseQuery(BaseTool):
+    name: str = "database_query"
+    description: str = "Query the company database for customer information"
+
+    def _run(self, query: str) -> str:
+        # Custom logic with validation, logging, etc.
+        return f"Query results for: {query}"
+
+# Use tools in agents
+from crewai import Agent, Task, Crew, Process
+
+analyst = Agent(
+    role="Analyst",
+    goal="Perform calculations and queries",
+    backstory="You are a data analyst.",
+    tools=[calculate, DatabaseQuery()],
+)
+
+task = Task(
+    description="Calculate the YoY growth rate from 150 to 210",
+    expected_output="Growth rate with calculation steps",
+    agent=analyst,
+)
+
+crew = Crew(agents=[analyst], tasks=[task], process=Process.sequential)
+result = crew.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Custom tools are essential for integrating CrewAI with your specific systems: databases, APIs, file systems, and internal services. The @tool decorator is fastest for simple wrappers; BaseTool provides full control for complex operations.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI wraps custom tools into LangChain StructuredTool instances. The tool's docstring becomes the description injected into the agent's prompt. Parameters are extracted from the function signature or Pydantic fields for type-safe invocation.</div>
+</article>
+
+
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Async Kickoff and Await</h3>
+<p><strong>What &amp; why.</strong> CrewAI supports asynchronous execution via kickoff_async(), which returns a coroutine that can be awaited. This is essential for integrating CrewAI into async applications: FastAPI endpoints, async web scrapers, or concurrent crew runs. Multiple crews can execute concurrently when kicked off asynchronously, reducing total execution time for independent workflows.</p>
+<pre class="code"><code>import asyncio
+from crewai import Agent, Task, Crew, Process
+
+def build_crew(topic):
+    agent = Agent(
+        role="Researcher", goal=f"Research {topic}",
+        backstory=f"You research {topic}.",
+    )
+    task = Task(
+        description=f"Research: {topic}",
+        expected_output="Research summary",
+        agent=agent,
+    )
+    return Crew(
+        agents=[agent], tasks=[task],
+        process=Process.sequential,
+    )
+
+async def main():
+    crew1 = build_crew("AI Agents")
+    crew2 = build_crew("Vector Databases")
+
+    # Kick off both crews concurrently
+    result1 = await crew1.kickoff_async()
+    result2 = await crew2.kickoff_async()
+
+    print(f"Crew 1: {result1.raw[:50]}")
+    print(f"Crew 2: {result2.raw[:50]}")
+
+# Run both crews in parallel
+asyncio.run(main())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Async kickoff is essential for production applications that serve multiple users or process multiple topics concurrently. It enables non-blocking crew execution in web servers and event loops.</div>
+<div class="callout hood"><span>Under the hood</span>kickoff_async() wraps the synchronous kickoff() in an asyncio executor. The crew execution still runs synchronously within its thread, but the async wrapper allows other coroutines to run concurrently. True parallel execution requires thread pooling.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Structured Inter-Crew Contracts</h3>
+<p><strong>What &amp; why.</strong> When multiple crews collaborate, define Pydantic models as contracts between them. The first crew's output schema becomes the second crew's input schema. This ensures type safety across crew boundaries and eliminates string parsing between stages. CrewAI's Flow state can carry these typed objects between crew executions.</p>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from crewai import Agent, Task, Crew, Process, Flow, listen, start
+
+class ResearchOutput(BaseModel):
+    topic: str
+    key_findings: list[str] = Field(min_length=3, max_length=10)
+    sources: list[str]
+    confidence: float = Field(ge=0.0, le=1.0)
+
+class ArticleInput(BaseModel):
+    topic: str
+    findings: list[str]
+    sources: list[str]
+
+class ResearchToArticleFlow(Flow):
+    @start()
+    def research(self):
+        agent = Agent(
+            role="Researcher", goal="Deep research",
+            backstory="You are a thorough researcher.",
+        )
+        task = Task(
+            description="Research AI agent frameworks",
+            expected_output=ResearchOutput,  # Pydantic contract
+            agent=agent,
+        )
+        crew = Crew(
+            agents=[agent], tasks=[task],
+            process=Process.sequential,
+        )
+        result = crew.kickoff()
+        return result.tasks_output[0].pydantic
+
+    @listen(research)
+    def write_article(self, research_output):
+        # Type-safe: research_output is a ResearchOutput instance
+        article_input = ArticleInput(
+            topic=research_output.topic,
+            findings=research_output.key_findings,
+            sources=research_output.sources,
+        )
+        writer = Agent(
+            role="Writer", goal="Write article",
+            backstory="You write technical articles.",
+        )
+        task = Task(
+            description=f"Write about {article_input.topic}",
+            expected_output="Article draft",
+            agent=writer,
+        )
+        crew = Crew(
+            agents=[writer], tasks=[task],
+            process=Process.sequential,
+        )
+        return crew.kickoff()
+
+flow = ResearchToArticleFlow()
+result = flow.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Inter-crew contracts are essential for production pipelines where stages are developed by different teams. Pydantic models serve as the API contract: changes to the schema are caught at development time, not at runtime.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI's Pydantic output parsing validates each crew's output against the specified model. If validation fails, the retry mechanism kicks in. Flow methods receive the validated Pydantic object, not a raw string, enabling type-safe downstream processing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Observability Integrations and Tracing</h3>
+<p><strong>What &amp; why.</strong> CrewAI integrates with observability platforms via LangChain callbacks and its own event system. You can trace agent reasoning steps, tool calls, token usage, and crew execution timing. Integration with LangSmith provides distributed tracing across crew runs. Custom callbacks capture metrics for dashboards and alerting systems.</p>
+<pre class="code"><code>import os
+from crewai import Agent, Task, Crew, Process
+
+# Enable LangSmith tracing
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_API_KEY"] = "ls-..."
+os.environ["LANGCHAIN_PROJECT"] = "crewai-production"
+
+agent = Agent(
+    role="Analyst",
+    goal="Produce analysis",
+    backstory="You are a data analyst.",
+    verbose=True,
+)
+
+task = Task(
+    description="Analyze market data",
+    expected_output="Analysis summary",
+    agent=agent,
+)
+
+# Custom callback for metrics
+from langchain_core.callbacks import BaseCallbackHandler
+
+class MetricsCallback(BaseCallbackHandler):
+    def __init__(self):
+        self.steps = []
+        self.total_tokens = 0
+
+    def on_llm_end(self, response, **kwargs):
+        if hasattr(response, "llm_output") and response.llm_output:
+            tokens = response.llm_output.get("token_usage", {})
+            self.total_tokens += tokens.get("total_tokens", 0)
+
+metrics = MetricsCallback()
+
+crew = Crew(
+    agents=[agent],
+    tasks=[task],
+    callbacks=[metrics],  # Crew-level callbacks
+    process=Process.sequential,
+)
+
+result = crew.kickoff()
+print(f"Total tokens used: {metrics.total_tokens}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Observability is critical for production CrewAI deployments: track costs per crew run, monitor agent behavior, identify bottlenecks, and debug failures. LangSmith integration provides the most comprehensive tracing out of the box.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI passes LangChain callback handlers to all LLM calls and tool executions within a crew. Each step (LLM call, tool invocation, delegation) fires corresponding callback events. LangSmith captures these events and creates a trace tree for the entire crew execution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Cost Tracking Per Crew Run</h3>
+<p><strong>What &amp; why.</strong> CrewAI's CrewOutput object includes token_usage data that tracks input and output tokens across all LLM calls in a crew run. By combining token counts with model pricing, you can calculate exact costs per crew execution. This is essential for budgeting, cost optimization, and billing in production systems.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+
+# Pricing per 1M tokens (as of 2025)
+PRICING = {
+    "gpt-4o": {"input": 2.50, "output": 10.00},
+    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+}
+
+def calculate_cost(token_usage, model="gpt-4o"):
+    """Calculate crew run cost from token usage."""
+    if not token_usage:
+        return 0.0
+    input_cost = (token_usage.get("prompt_tokens", 0) / 1_000_000) * PRICING[model]["input"]
+    output_cost = (token_usage.get("completion_tokens", 0) / 1_000_000) * PRICING[model]["output"]
+    return input_cost + output_cost
+
+agent = Agent(
+    role="Analyst", goal="Analyze", backstory="You analyze.",
+    llm="gpt-4o",
+)
+
+task = Task(
+    description="Provide a detailed market analysis",
+    expected_output="Analysis report",
+    agent=agent,
+)
+
+crew = Crew(
+    agents=[agent], tasks=[task],
+    process=Process.sequential,
+)
+
+result = crew.kickoff()
+cost = calculate_cost(result.token_usage)
+print(f"Tokens: {result.token_usage}")
+print(f"Estimated cost: ${cost:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost tracking is non-negotiable for production CrewAI. Track costs per crew, per task, and per agent. Set budget alerts and implement cost-based routing (use cheaper models for simple tasks, expensive models for complex reasoning).</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI aggregates token counts from all LLM responses within a crew run. The token_usage dict contains prompt_tokens, completion_tokens, and total_tokens. These counts include all agent reasoning steps, tool call contexts, and delegation messages.</div>
+</article>
+
+
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Enterprise patterns, security, evaluation, and production deployment</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Enterprise Patterns: Queue-Triggered Crews</h3>
+<p><strong>What &amp; why.</strong> In production, crews are triggered by events: messages on a queue, webhooks, scheduled intervals, or user actions. The queue-triggered pattern decouples crew execution from request handling. A message queue (Redis, RabbitMQ, SQS) receives job requests, a worker process picks them up and executes the appropriate crew, and results are published back to a response queue or database. This provides scalability, retry-on-failure, and separation of concerns.</p>
+<pre class="code"><code>import json
+import redis
+from crewai import Agent, Task, Crew, Process
+
+r = redis.Redis(host="localhost", port=6379, db=0)
+
+def process_job(job_data):
+    """Execute crew based on job specification."""
+    topic = job_data["topic"]
+    agent = Agent(
+        role="Researcher",
+        goal=f"Research {topic}",
+        backstory="You are a research specialist.",
+    )
+    task = Task(
+        description=f"Research: {topic}",
+        expected_output="Research summary",
+        agent=agent,
+    )
+    crew = Crew(
+        agents=[agent], tasks=[task],
+        process=Process.sequential,
+    )
+    result = crew.kickoff()
+    return {"status": "complete", "result": result.raw}
+
+# Worker loop: poll queue and execute crews
+while True:
+    _, job_raw = r.brpop("crew_jobs")
+    job = json.loads(job_raw)
+    try:
+        output = process_job(job)
+        r.hset(f"job:{job['id']}", mapping=output)
+    except Exception as e:
+        r.hset(f"job:{job['id']}", "error", str(e))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Queue-triggered crews are the standard production pattern. They enable horizontal scaling (multiple workers), job prioritization, retry logic, and monitoring. Use this for any CrewAI deployment that handles concurrent requests.</div>
+<div class="callout hood"><span>Under the hood</span>The queue acts as a buffer between request producers and crew execution workers. Workers can run on separate machines, enabling horizontal scaling. Job results are stored in a database (Redis, PostgreSQL) for retrieval by the requesting system.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Idempotent Reruns and Checkpoint Store</h3>
+<p><strong>What &amp; why.</strong> Crew execution can fail mid-run due to API timeouts, process crashes, or rate limits. Idempotent reruns ensure that re-executing a failed crew produces the same result without duplicating work. CrewAI's memory system provides basic checkpointing; for production, implement explicit checkpoint storage that records completed tasks and their outputs. On rerun, skip completed tasks and resume from the last checkpoint.</p>
+<pre class="code"><code>import json
+import hashlib
+from crewai import Agent, Task, Crew, Process
+
+class CheckpointStore:
+    def __init__(self, path="checkpoints.json"):
+        self.path = path
+        self.store = self._load()
+
+    def _load(self):
+        try:
+            with open(self.path) as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {}
+
+    def _save(self):
+        with open(self.path, "w") as f:
+            json.dump(self.store, f)
+
+    def get_completed(self, crew_id, task_desc):
+        key = f"{crew_id}:{hashlib.md5(task_desc.encode()).hexdigest()}"
+        return self.store.get(key)
+
+    def mark_completed(self, crew_id, task_desc, output):
+        key = f"{crew_id}:{hashlib.md5(task_desc.encode()).hexdigest()}"
+        self.store[key] = output
+        self._save()
+
+store = CheckpointStore()
+crew_id = "research-001"
+
+agent = Agent(
+    role="Researcher", goal="Research", backstory="You research.",
+)
+
+task_desc = "Research AI trends 2025"
+task = Task(
+    description=task_desc,
+    expected_output="Research notes",
+    agent=agent,
+)
+
+# Check if already completed
+existing = store.get_completed(crew_id, task_desc)
+if existing:
+    print(f"Using cached result: {existing[:50]}")
+else:
+    crew = Crew(
+        agents=[agent], tasks=[task],
+        process=Process.sequential,
+    )
+    result = crew.kickoff()
+    store.mark_completed(crew_id, task_desc, result.raw)
+    print(f"New result stored: {result.raw[:50]}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Idempotent reruns are critical for reliability. In production, crews will fail and need to be restarted. Without checkpointing, you restart from scratch and waste tokens. With checkpoints, you resume from the last successful task.</div>
+<div class="callout hood"><span>Under the hood</span>A checkpoint store maps (crew_id, task_hash) to completed task outputs. Before executing each task, the crew checks the store. If the task is already completed, its output is used directly. This eliminates redundant LLM calls and ensures deterministic reruns.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Security: Tool Credential Vaulting</h3>
+<p><strong>What &amp; why.</strong> Agents with tools need API keys, tokens, and credentials. Hardcoding these in agent definitions is a security risk. Credential vaulting stores secrets in a dedicated vault (AWS Secrets Manager, HashiCorp Vault, environment variables) and injects them at runtime. CrewAI tools should accept credentials as constructor parameters rather than reading from environment variables directly, enabling per-deployment credential management.</p>
+<pre class="code"><code>import os
+from crewai import Agent, Task, Crew, Process
+from crewai_tools import SerperDevTool
+
+class CredentialVault:
+    """Simple vault backed by environment variables.
+    In production, use AWS Secrets Manager or Vault."""
+    
+    @staticmethod
+    def get(secret_name):
+        value = os.environ.get(secret_name)
+        if not value:
+            raise ValueError(f"Secret {secret_name} not found in vault")
+        return value
+
+vault = CredentialVault()
+
+# Inject credentials at runtime, not at import time
+search_tool = SerperDevTool(
+    api_key=vault.get("SERPER_API_KEY"),
+)
+
+agent = Agent(
+    role="Researcher",
+    goal="Search the web",
+    backstory="You are a web researcher.",
+    tools=[search_tool],
+)
+
+task = Task(
+    description="Find latest AI research",
+    expected_output="Top 5 findings",
+    agent=agent,
+)
+
+crew = Crew(
+    agents=[agent], tasks=[task],
+    process=Process.sequential,
+)
+
+result = crew.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Credential vaulting is mandatory for any production CrewAI deployment. Never commit API keys to source code. Use vaulting to inject secrets at runtime and rotate them without code changes.</div>
+<div class="callout hood"><span>Under the hood</span>The vault pattern separates secret storage from application code. In production, secrets are fetched from a vault service at startup or per-request. Environment variables are a simple vault; cloud-managed vaults add encryption, access control, and audit logging.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Evaluation Harness: Scoring Crew Outputs</h3>
+<p><strong>What &amp; why.</strong> Production CrewAI requires systematic evaluation of crew outputs. An eval harness runs crews against test inputs and scores outputs against rubrics. Rubrics can be LLM-judged (using a separate LLM to rate output quality) or rule-based (checking for required fields, length, format). Track eval scores over time to detect quality regressions after prompt or model changes.</p>
+<pre class="code"><code>from crewai import Agent, Task, Crew, Process
+from pydantic import BaseModel, Field
+
+class EvalRubric(BaseModel):
+    accuracy: int = Field(ge=1, le=5, description="Factual accuracy 1-5")
+    completeness: int = Field(ge=1, le=5, description="Coverage of topic 1-5")
+    clarity: int = Field(ge=1, le=5, description="Writing quality 1-5")
+    overall: float = Field(description="Weighted average")
+
+def build_crew():
+    agent = Agent(
+        role="Writer", goal="Write content", backstory="You write."
+    )
+    task = Task(
+        description="Write a 200-word overview of machine learning",
+        expected_output="200-word overview",
+        agent=agent,
+    )
+    return Crew(
+        agents=[agent], tasks=[task],
+        process=Process.sequential,
+    )
+
+def judge_output(output_text):
+    """Use LLM to score output against rubric."""
+    judge = Agent(
+        role="Quality Judge",
+        goal="Score content quality",
+        backstory="You are a content quality assessor.",
+    )
+    task = Task(
+        description=f"Score this output:\n{output_text}",
+        expected_output=EvalRubric,
+        agent=judge,
+    )
+    crew = Crew(
+        agents=[judge], tasks=[task],
+        process=Process.sequential,
+    )
+    result = crew.kickoff()
+    return result.tasks_output[0].pydantic
+
+# Run evaluation
+crew = build_crew()
+result = crew.kickoff()
+scores = judge_output(result.raw)
+print(f"Accuracy: {scores.accuracy}/5")
+print(f"Overall: {scores.overall:.2f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Eval harnesses are essential for maintaining quality in production. Run them in CI/CD pipelines to catch regressions, and track scores over time to measure the impact of prompt changes, model upgrades, or agent configuration updates.</div>
+<div class="callout hood"><span>Under the hood</span>LLM-judged evals use a separate agent to rate output quality. The judge agent receives the output and a rubric, then produces structured scores. Rule-based evals check objective properties: word count, required sections, format compliance, and keyword presence.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Scaling: Concurrency and Worker Pools</h3>
+<p><strong>What &amp; why.</strong> CrewAI crews are CPU and API-bound. Scaling requires running multiple crews concurrently via worker pools. Each worker process handles one crew execution, and a pool of workers processes the job queue. For API-bound workloads (most CrewAI use cases), the bottleneck is LLM API rate limits, not CPU. Scale by increasing max_rpm and adding workers, or by using multiple API keys for load distribution.</p>
+<pre class="code"><code>import asyncio
+from concurrent.futures import ProcessPoolExecutor
+from crewai import Agent, Task, Crew, Process
+
+def run_crew(topic):
+    """Run a crew for a single topic (must be top-level for pickling)."""
+    agent = Agent(
+        role="Researcher",
+        goal=f"Research {topic}",
+        backstory="You are a researcher.",
+    )
+    task = Task(
+        description=f"Research: {topic}",
+        expected_output="Research summary",
+        agent=agent,
+    )
+    crew = Crew(
+        agents=[agent], tasks=[task],
+        process=Process.sequential,
+        max_rpm=20,
+    )
+    result = crew.kickoff()
+    return {"topic": topic, "result": result.raw}
+
+topics = ["AI Agents", "RAG Systems", "Fine-Tuning", "Embeddings", "Guardrails"]
+
+# Process 3 crews concurrently
+with ProcessPoolExecutor(max_workers=3) as executor:
+    futures = {executor.submit(run_crew, t): t for t in topics}
+    for future in futures:
+        result = future.result()
+        print(f"Completed: {result['topic']}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Worker pools enable horizontal scaling of CrewAI executions. For production, use a task queue (Celery, RQ, or cloud-native) with auto-scaling workers. Match worker count to your LLM API rate limit budget.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI crews are stateless between runs, making them safe for concurrent execution. Each worker creates its own agent instances, LLM connections, and memory stores. The only shared resource is the LLM API rate limit.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Versioning: Crews and Prompts as Code</h3>
+<p><strong>What &amp; why.</strong> Treat crew configurations, agent definitions, and prompt templates as versioned code artifacts. Store them in Git alongside application code. Tag versions with semantic versioning (v1.0.0 for major prompt changes, v1.1.0 for minor tweaks). This enables reproducibility: any crew run can be traced to the exact configuration that produced it. Version pinning ensures that changing one crew does not affect others.</p>
+<pre class="code"><code># crew_configs/v1.2.0/research_crew.py
+from crewai import Agent, Task, Crew, Process
+from pydantic import BaseModel, Field
+
+class ResearchOutput(BaseModel):
+    topic: str
+    findings: list[str]
+    confidence: float
+
+CREW_VERSION = "1.2.0"
+
+def build_research_crew(topic, llm_model="gpt-4o"):
+    """Build a versioned research crew."""
+    agent = Agent(
+        role="Senior Researcher",
+        goal=f"Produce comprehensive research on: {topic}",
+        backstory=(
+            "You are a research analyst with expertise in technology "
+            "trends. You cite sources and rate confidence levels."
+        ),
+        llm=llm_model,
+        max_iter=10,
+    )
+
+    task = Task(
+        description=f"Research topic: {topic}",
+        expected_output=ResearchOutput,
+        agent=agent,
+        max_retry_count=2,
+    )
+
+    return Crew(
+        agents=[agent],
+        tasks=[task],
+        process=Process.sequential,
+        verbose=False,
+    )
+
+# Pin crew version for reproducibility
+crew = build_research_crew("AI Agents", llm_model="gpt-4o")
+result = crew.kickoff()
+print(f"Crew version: {CREW_VERSION}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Version control for crews is essential in production. When an output quality regression occurs, you can diff the crew configuration between versions to identify the cause. Rollback to a previous version if a change causes issues.</div>
+<div class="callout hood"><span>Under the hood</span>CrewAI does not provide built-in versioning. Implement it via Git tags, configuration files, and build-time version injection. Store crew configurations as Python modules or YAML files that are loaded at runtime.</div>
+</article>
+
+
+
+
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Migration: Crews to Flows Guidance</h3>
+<p><strong>What &amp; why.</strong> As CrewAI applications grow, migrating from pure Crew execution to Flow-based orchestration becomes necessary. Flows provide event-driven control, typed state, conditional routing, and better observability. The migration path: extract each crew into a Flow method, replace return-value passing with typed state, add routers for conditional logic, and implement callbacks for side effects. Crews remain the execution unit; Flows become the coordination layer.</p>
+<pre class="code"><code># BEFORE: Pure crew approach
+from crewai import Agent, Task, Crew, Process
+
+agent = Agent(
+    role="Researcher", goal="Research", backstory="You research."
+)
+task = Task(
+    description="Research {topic}",
+    expected_output="Research notes",
+    agent=agent,
+)
+crew = Crew(
+    agents=[agent], tasks=[task],
+    process=Process.sequential,
+)
+result = crew.kickoff(inputs={"topic": "AI Agents"})
+
+# AFTER: Flow-based approach with typed state
+from pydantic import BaseModel
+from crewai import Flow, listen, start
+
+class ResearchState(BaseModel):
+    topic: str = ""
+    findings: str = ""
+    published: bool = False
+
+class ResearchFlow(Flow[ResearchState]):
+    @start()
+    def set_topic(self):
+        self.state.topic = "AI Agents"
+        return self.state.topic
+
+    @listen(set_topic)
+    def run_research(self, topic):
+        agent = Agent(
+            role="Researcher", goal="Research",
+            backstory="You research.",
+        )
+        task = Task(
+            description=f"Research: {topic}",
+            expected_output="Research notes",
+            agent=agent,
+        )
+        crew = Crew(
+            agents=[agent], tasks=[task],
+            process=Process.sequential,
+        )
+        result = crew.kickoff()
+        self.state.findings = result.raw
+        return result.raw
+
+flow = ResearchFlow()
+result = flow.kickoff()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Migrate to Flows when you need: conditional routing between crews, typed state that persists across stages, event-driven triggers, or better observability. Keep individual crew logic unchanged; add the Flow as a coordination wrapper.</div>
+<div class="callout hood"><span>Under the hood</span>The migration is additive, not destructive. Flows wrap existing Crew logic in methods. The Crew's internal execution remains unchanged. What changes is the orchestration layer: Flows add state management, routing, and event handling on top of Crew execution.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Research and Newsletter Crew: Weekly Automated</h3>
+<p>Build an automated weekly research pipeline that discovers trending topics, researches them in depth, and produces a newsletter-ready document. The system runs on a schedule, tracks topics over time, and maintains consistent formatting across issues.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define ResearchState with typed fields for topic list, research findings, newsletter draft, and publication status</li><li>Create a TopicDiscovery agent with SerperDevTool that searches for trending topics in the target domain</li><li>Create a Researcher agent that produces structured findings using Pydantic output models</li><li>Create a Writer agent that transforms research into newsletter format with consistent sections</li><li>Build a Reviewer agent that checks for factual accuracy, formatting compliance, and tone consistency</li><li>Implement a Flow with @start for topic discovery, @listen for research, and @listen for writing</li><li>Add a @router to branch between approve (publish) and revise (rewrite) based on reviewer feedback</li><li>Set up weekly scheduling via cron or a task queue with checkpoint storage for resumability</li></ol>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from crewai import Flow, listen, start, router, Crew, Agent, Task, Process
+
+class NewsletterState(BaseModel):
+    topics: list[str] = Field(default_factory=list)
+    research: dict = Field(default_factory=dict)
+    draft: str = ""
+    review_notes: str = ""
+    published: bool = False
+
+class NewsletterFlow(Flow[NewsletterState]):
+    @start()
+    def discover_topics(self):
+        agent = Agent(
+            role="Topic Scout",
+            goal="Find trending topics in AI",
+            backstory="You track AI trends weekly.",
+        )
+        task = Task(
+            description="Find 3 trending AI topics this week",
+            expected_output="Numbered list of 3 topics",
+            agent=agent,
+        )
+        crew = Crew(agents=[agent], tasks=[task], process=Process.sequential)
+        result = crew.kickoff()
+        self.state.topics = [line.strip() for line in result.raw.split("\n") if line.strip()]
+        return self.state.topics
+
+    @listen(discover_topics)
+    def research_topics(self, topics):
+        agent = Agent(
+            role="Researcher", goal="Deep research",
+            backstory="You are an AI research specialist.",
+        )
+        for topic in topics[:3]:
+            task = Task(
+                description=f"Research: {topic}",
+                expected_output="Structured findings with sources",
+                agent=agent,
+            )
+            crew = Crew(agents=[agent], tasks=[task], process=Process.sequential)
+            result = crew.kickoff()
+            self.state.research[topic] = result.raw
+        return self.state.research
+
+    @listen(research_topics)
+    def write_newsletter(self, research):
+        agent = Agent(
+            role="Writer", goal="Write newsletter",
+            backstory="You write engaging tech newsletters.",
+        )
+        combined = "\n".join(f"## {k}\n{v}" for k, v in research.items())
+        task = Task(
+            description=f"Write newsletter from:\n{combined}",
+            expected_output="Newsletter in markdown format",
+            agent=agent,
+        )
+        crew = Crew(agents=[agent], tasks=[task], process=Process.sequential)
+        result = crew.kickoff()
+        self.state.draft = result.raw
+        return result.raw</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Flow-based event-driven orchestration with typed state</li><li>Multi-topic parallel research within a single flow</li><li>Pydantic output validation for structured research</li><li>Scheduling and checkpoint storage for automation</li><li>Conditional routing for approval workflows</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Trip Planner Flow with Booking Approvals</h3>
+<p>Build a travel planning system where a research crew gathers destination information, a planning crew creates an itinerary, and a human approval gate validates budget constraints before finalizing. The system uses Flow state to track the planning pipeline and human_input for approval steps.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define TripState with fields for destination preferences, research results, itinerary, budget, approval status, and booking confirmations</li><li>Create a DestinationResearch agent that searches for attractions, weather, and local events using SerperDevTool</li><li>Create an ItineraryPlanner agent that builds a day-by-day plan within the budget constraint</li><li>Create a BudgetAnalyzer agent that validates costs against the budget and flags overages</li><li>Implement Flow with @start for preference gathering, @listen for research, @listen for planning</li><li>Add @router to branch between approve (finalize) and revise (replan) based on budget analysis</li><li>Wire human_input=True on the final approval task for manual budget sign-off</li><li>Add callback to save the approved itinerary to a database or file system</li></ol>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from crewai import Flow, listen, start, router, Crew, Agent, Task, Process
+
+class TripState(BaseModel):
+    destination: str = ""
+    budget: float = 0.0
+    research: str = ""
+    itinerary: str = ""
+    budget_check: str = ""
+    approved: bool = False
+
+class TripPlannerFlow(Flow[TripState]):
+    @start()
+    def gather_preferences(self):
+        self.state.destination = "Kyoto, Japan"
+        self.state.budget = 3000.0
+        return self.state.destination
+
+    @listen(gather_preferences)
+    def research_destination(self, dest):
+        agent = Agent(
+            role="Travel Researcher",
+            goal="Research destination thoroughly",
+            backstory="You are an experienced travel researcher.",
+        )
+        task = Task(
+            description=f"Research {dest}: attractions, hotels, restaurants, transport",
+            expected_output="Structured destination guide",
+            agent=agent,
+        )
+        crew = Crew(agents=[agent], tasks=[task], process=Process.sequential)
+        result = crew.kickoff()
+        self.state.research = result.raw
+        return result.raw
+
+    @listen(research_destination)
+    def plan_itinerary(self, research):
+        agent = Agent(
+            role="Itinerary Planner",
+            goal=f"Plan within ${self.state.budget} budget",
+            backstory="You plan efficient, enjoyable trips.",
+        )
+        task = Task(
+            description=f"Plan 5-day itinerary for {self.state.destination}",
+            expected_output="Day-by-day itinerary with costs",
+            agent=agent,
+        )
+        crew = Crew(agents=[agent], tasks=[task], process=Process.sequential)
+        result = crew.kickoff()
+        self.state.itinerary = result.raw
+        return result.raw
+
+flow = TripPlannerFlow()
+result = flow.kickoff()</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Flow-based multi-stage pipeline with typed state</li><li>Tool integration for real-world data gathering</li><li>Budget-constrained planning with validation routing</li><li>Human-in-the-loop approval gates</li><li>Callback-based persistence for approved outputs</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Competitive Intelligence Crew: Scored Battlecards</h3>
+<p>Build a competitive intelligence system that researches competitors, produces structured battlecards with strengths/weaknesses, and scores them against your product. The system uses Pydantic output models for consistent battlecard format and LLM-judged scoring for quality assessment.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define Battlecard Pydantic model with fields for competitor name, pricing, strengths, weaknesses, differentiators, and threat score</li><li>Create a CompetitorResearch agent with SerperDevTool that gathers pricing, features, and market positioning</li><li>Create a BattlecardWriter agent that produces structured battlecards using Pydantic expected_output</li><li>Create a ScoringAgent that evaluates each battlecard against your product positioning and assigns threat scores</li><li>Implement Flow with @start for competitor discovery, @listen for research, @listen for battlecard writing</li><li>Add batch processing to handle 5+ competitors concurrently via async kickoff</li><li>Store battlecards in a JSON database with version history for tracking changes over time</li><li>Add a weekly refresh trigger that re-runs the flow for all tracked competitors</li></ol>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from crewai import Agent, Task, Crew, Process
+
+class Battlecard(BaseModel):
+    competitor: str
+    pricing_model: str
+    strengths: list[str] = Field(min_length=2, max_length=5)
+    weaknesses: list[str] = Field(min_length=2, max_length=5)
+    differentiators: list[str]
+    threat_score: float = Field(ge=0.0, le=10.0)
+    recommended_response: str
+
+class BattlecardCrew:
+    def build(self):
+        researcher = Agent(
+            role="Competitive Researcher",
+            goal="Gather comprehensive competitor intelligence",
+            backstory="You are a market intelligence analyst.",
+        )
+        writer = Agent(
+            role="Battlecard Writer",
+            goal="Produce structured competitive battlecards",
+            backstory="You write actionable competitive analysis.",
+        )
+        scorer = Agent(
+            role="Threat Scorer",
+            goal="Score competitor threat level objectively",
+            backstory="You are an impartial threat assessor.",
+        )
+
+        research_task = Task(
+            description="Research competitor: {competitor_name}",
+            expected_output="Feature comparison, pricing, market position",
+            agent=researcher,
+        )
+        write_task = Task(
+            description="Write battlecard from research",
+            expected_output=Battlecard,
+            agent=writer,
+        )
+        score_task = Task(
+            description="Review battlecard and assign threat score",
+            expected_output="Threat score with justification",
+            agent=scorer,
+        )
+
+        return Crew(
+            agents=[researcher, writer, scorer],
+            tasks=[research_task, write_task, score_task],
+            process=Process.sequential,
+            verbose=True,
+        )
+
+crew_builder = BattlecardCrew()
+crew = crew_builder.build()
+result = crew.kickoff(inputs={"competitor_name": "LangGraph"})
+battlecard = result.tasks_output[1].pydantic
+print(f"{battlecard.competitor}: Threat {battlecard.threat_score}/10")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Pydantic output models for consistent structured data</li><li>Multi-agent pipeline with research, writing, and scoring stages</li><li>Tool integration for real-time competitor data gathering</li><li>LLM-judged quality scoring with threat assessment</li><li>Versioned output storage for longitudinal tracking</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Agent</td><td>Role-based LLM worker with persona</td><td>Agent(role=, goal=, backstory=)</td></tr>
+<tr><td>Task</td><td>Work unit assigned to an agent</td><td>Task(description=, expected_output=, agent=)</td></tr>
+<tr><td>Crew</td><td>Group of agents and tasks with process</td><td>Crew(agents=[], tasks=[], process=)</td></tr>
+<tr><td>Process.sequential</td><td>Tasks run in list order, output flows forward</td><td>Process.sequential</td></tr>
+<tr><td>Process.hierarchical</td><td>Manager agent assigns tasks dynamically</td><td>Process.hierarchical, manager_llm=</td></tr>
+<tr><td>kickoff()</td><td>Execute the crew and return results</td><td>crew.kickoff(inputs={})</td></tr>
+<tr><td>CrewOutput</td><td>Result container with raw output and metadata</td><td>result.raw, result.token_usage</td></tr>
+<tr><td>verbose</td><td>Detailed execution logging</td><td>verbose=True on Agent and Crew</td></tr>
+<tr><td>allow_delegation</td><td>Agent can hand off subtasks to other agents</td><td>allow_delegation=True/False</td></tr>
+<tr><td>max_iter</td><td>Cap reasoning steps per agent per task</td><td>max_iter=10</td></tr>
+<tr><td>max_rpm</td><td>Rate-limit LLM API calls per minute</td><td>max_rpm=10</td></tr>
+<tr><td>Tools</td><td>Functions agents can call during execution</td><td>tools=[SerperDevTool()]</td></tr>
+<tr><td>@tool decorator</td><td>Wrap a function as a CrewAI tool</td><td>@tool("name") def func():</td></tr>
+<tr><td>BaseTool</td><td>Class-based custom tool with full control</td><td>class MyTool(BaseTool):</td></tr>
+<tr><td>Pydantic output</td><td>Structured output validated against schema</td><td>expected_output=MyModel</td></tr>
+<tr><td>callback</td><td>Fire function on task/crew completion</td><td>callback=my_func</td></tr>
+<tr><td>step_callback</td><td>Fire function after each reasoning step</td><td>step_callback=track_step</td></tr>
+<tr><td>Memory</td><td>Persist context across crew runs</td><td>memory=True, long_term_memory=True</td></tr>
+<tr><td>Knowledge sources</td><td>Inject external documents into crew context</td><td>knowledge_sources=[src]</td></tr>
+<tr><td>Planning</td><td>Pre-plan execution strategy before tasks</td><td>planning=True</td></tr>
+<tr><td>human_input</td><td>Pause for human approval during execution</td><td>human_input=True on Task</td></tr>
+<tr><td>retry_on_fail</td><td>Auto-retry on validation or API errors</td><td>retry_on_fail=True</td></tr>
+<tr><td>Flow</td><td>Event-driven orchestration wrapping crews</td><td>class MyFlow(Flow):</td></tr>
+<tr><td>@start</td><td>Entry point method in a Flow</td><td>@start() def method():</td></tr>
+<tr><td>@listen</td><td>Fire method when upstream completes</td><td>@listen(upstream_method)</td></tr>
+<tr><td>@router</td><td>Conditional branching based on return value</td><td>@router(method) def route():</td></tr>
+<tr><td>Flow state</td><td>Typed Pydantic state persisting across methods</td><td>Flow[MyState], self.state</td></tr>
+<tr><td>kickoff_async</td><td>Asynchronous crew execution</td><td>await crew.kickoff_async()</td></tr>
+<tr><td>LangSmith tracing</td><td>Distributed tracing for crew runs</td><td>LANGCHAIN_TRACING_V2=true</td></tr>
+<tr><td>Token usage</td><td>Track LLM token consumption per crew</td><td>result.token_usage</td></tr>
+<tr><td>Crew versioning</td><td>Tag crew configs with semantic versions</td><td>CREW_VERSION = "1.2.0"</td></tr>
+<tr><td>Queue-triggered</td><td>Execute crews from message queue jobs</td><td>redis.brpop("crew_jobs")</td></tr>
+<tr><td>Checkpoint store</td><td>Persist completed tasks for idempotent reruns</td><td>store.mark_completed()</td></tr>
+<tr><td>Credential vault</td><td>Inject secrets at runtime, not in code</td><td>vault.get("API_KEY")</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="multi-agents.html">&larr; Multi-Agents</a><a href="autogen.html">AutoGen &rarr;</a></footer>
+</body></html>

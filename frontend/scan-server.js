@@ -10,7 +10,48 @@ import WordExtractor from 'word-extractor'
 import mammoth from 'mammoth'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const PORT = 9000
+
+// Load local environment files because `scan-server.js` runs as a separate
+// concurrent process and cannot inherit mutations made by the manifest script.
+function loadDotEnv() {
+  const candidates = [path.resolve(__dirname, '.env'), path.resolve(__dirname, '..', '.env')]
+  for (const filePath of candidates) {
+    if (!fs.existsSync(filePath)) continue
+    try {
+      const text = fs.readFileSync(filePath, 'utf8')
+      for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trim()
+        if (!line || line.startsWith('#')) continue
+        const separator = line.indexOf('=')
+        if (separator < 0) continue
+        const key = line.slice(0, separator).trim()
+        let value = line.slice(separator + 1).trim()
+        if (value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))) {
+          value = value.slice(1, -1)
+        }
+        if (key && process.env[key] === undefined) process.env[key] = value
+      }
+    } catch (_error) {
+      // Environment loading is best effort; the local fallback still works.
+    }
+    break
+  }
+}
+loadDotEnv()
+
+// Scan server owns the chat / file-scan / github endpoints. The Python
+// FastAPI backend (backend/main.py) serves the rest of /api on port 9000,
+// so this node server uses a separate port to avoid an EADDRINUSE conflict.
+const PORT = 9001
+
+// Source site for the "Study by Doing" course reader. It sends
+// `frame-ancestors 'self'` so lesson pages can never be iframed cross-origin;
+// the /api/sbd-proxy endpoint below fetches a page server-side and serves the
+// HTML same-origin instead, with relative links preserved via an injected
+// <base> tag.
+const SBD_ORIGIN = 'https://ai.studybydoing.in'
+const SBD_PROXY_TIMEOUT = 20000
+
 const MANIFEST_PATH = path.resolve(__dirname, 'src', 'fileManifest.json')
 const GENERATOR_SCRIPT = path.resolve(__dirname, 'scripts', 'generateManifest.js')
 const GITHUB_PERSISTED_PATH = path.resolve(__dirname, 'public', 'github-persisted.json')
@@ -73,6 +114,85 @@ function sendJson(res, status, payload) {
   if (res.writableEnded) return
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
   res.end(JSON.stringify(payload))
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))
+}
+
+// Fetch a URL server-side following redirects, so proxied pages are not subject
+// to the upstream site's framing / CSP response headers.
+function fetchWithRedirect(url, redirectsLeft = 5) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith('https:') ? https : http
+    const req = client.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36 AI-Knowledge-Hub/1.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    }, upstreamRes => {
+      if (upstreamRes.statusCode >= 300 && upstreamRes.statusCode < 400 && upstreamRes.headers.location) {
+        upstreamRes.resume()
+        if (redirectsLeft <= 0) { reject(new Error('Too many redirects')); return }
+        fetchWithRedirect(new URL(upstreamRes.headers.location, url).toString(), redirectsLeft - 1).then(resolve, reject)
+        return
+      }
+      if (upstreamRes.statusCode !== 200) {
+        upstreamRes.resume()
+        reject(new Error(`Upstream returned HTTP ${upstreamRes.statusCode}`))
+        return
+      }
+      resolve({ upstreamRes, finalUrl: url })
+    })
+    req.setTimeout(SBD_PROXY_TIMEOUT, () => req.destroy(new Error('Upstream request timed out')))
+    req.on('error', reject)
+  })
+}
+
+// Drop any on-page CSP (e.g. frame-ancestors) that could block framing, and make
+// the relative hrefs/srcs on the course site resolve against the source host.
+function sanitizeProxiedHtml(html) {
+  const withoutCsp = html
+    .replace(/<meta[^>]*http-equiv=["'][^"']*content-security-policy[^"']*["'][^>]*>/gi, '')
+  if (/<base\s/i.test(withoutCsp)) return withoutCsp
+  return withoutCsp.replace(/<head([^>]*)>/i, `<head$1>\n<base href="${SBD_ORIGIN}/">`)
+}
+
+function handleSbdProxy(remotePath, res) {
+  const pathParts = remotePath.split('/').filter(Boolean)
+  if (pathParts.includes('..') || pathParts.length === 0) {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' })
+    res.end('Bad path')
+    return
+  }
+  const target = `${SBD_ORIGIN}/${pathParts.join('/')}`
+  fetchWithRedirect(target).then(({ upstreamRes }) => {
+    const chunks = []
+    upstreamRes.on('data', chunk => chunks.push(chunk))
+    upstreamRes.on('error', error => {
+      res.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8' })
+      res.end(`<meta charset="utf-8"><title>Proxy error</title><body style="font-family:sans-serif;color:#333;padding:1.5rem;background:#fafafa;text-align:center"><h2>Could not load the Study by Doing page</h2><p>${escapeHtml(error.message)}</p></body>`)
+    })
+    upstreamRes.on('end', () => {
+      const raw = Buffer.concat(chunks)
+      const contentType = upstreamRes.headers['content-type'] || 'application/octet-stream'
+      const headers = { 'Content-Type': contentType, 'Cache-Control': 'no-store' }
+      if (contentType.includes('text/html')) {
+        const html = sanitizeProxiedHtml(raw.toString('utf8'))
+        headers['Content-Length'] = Buffer.byteLength(html)
+        res.writeHead(200, headers)
+        res.end(html)
+        return
+      }
+      headers['Content-Length'] = raw.length
+      res.writeHead(200, headers)
+      res.end(raw)
+    })
+  }).catch(error => {
+    res.writeHead(502, { 'Content-Type': 'text/html; charset=utf-8' })
+    res.end(`<meta charset="utf-8"><title>Proxy error</title><body style="font-family:sans-serif;color:#333;padding:1.5rem;background:#fafafa;text-align:center"><h2>Could not load the Study by Doing page</h2><p>${escapeHtml(error.message)}</p></body>`)
+  })
 }
 
 const MIME_TYPES = {
@@ -224,6 +344,13 @@ async function serve(req, res) {
     return
   }
 
+  // Study By Doing embed proxy — serves lesson pages same-origin so the
+  // source site's `frame-ancestors 'self'` CSP can't block the framed reader.
+  if (pathname.startsWith('/api/sbd-proxy/') && req.method === 'GET') {
+    handleSbdProxy(pathname.slice('/api/sbd-proxy/'.length), res)
+    return
+  }
+
   // Chat endpoint — streams LLM responses from OpenRouter (free tier)
   if (pathname === '/api/chat' && req.method === 'POST') {
     let body = ''
@@ -309,8 +436,21 @@ async function serve(req, res) {
 }
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'qwen/qwen-2.5-72b-instruct'
-const OPENROUTER_VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || 'qwen/qwen-2.5-vl-72b-instruct'
+
+// `openrouter/free` is OpenRouter's official free-model router. The explicit
+// free IDs are a fallback in case the router has no eligible endpoint or is
+// temporarily rate-limited. Override the list with OPENROUTER_FREE_MODELS when
+// OpenRouter changes availability.
+const OPENROUTER_FREE_MODELS = (process.env.OPENROUTER_FREE_MODELS || [
+  // Verified free on OpenRouter 2026-11 (the previous qwen3-4b / gemma-3 /
+  // llama-3.3 :free slugs were withdrawn, so every fallback failed).
+  'openrouter/free',
+  'google/gemma-4-31b-it:free',
+  'nvidia/nemotron-3.5-lightning:free',
+  'google/gemma-4-26b-a4b-it:free'
+].join(',')).split(',').map(model => model.trim()).filter(Boolean)
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || OPENROUTER_FREE_MODELS[0] || 'openrouter/free'
+const OPENROUTER_VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || 'openrouter/free'
 
 // File-attachment chat limits
 const MAX_UPLOAD_FILES = 6
@@ -360,101 +500,161 @@ function sendSSEHeaders(res) {
 // `chatMessages` is the full payload (system + history + current turn), `model`
 // is the OpenRouter model id, `fallbackMessages` are the raw user turns used to
 // produce a local keyword answer if the network call fails.
-function streamOpenRouter(chatMessages, model, res, fallbackMessages) {
-  const requestBody = JSON.stringify({
-    model,
-    messages: chatMessages,
-    stream: true,
-    max_tokens: 2048,
-    temperature: 0.7
-  })
-
-  const options = {
-    hostname: 'openrouter.ai',
-    path: '/api/v1/chat/completions',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'HTTP-Referer': 'http://localhost:5273',
-      'X-Title': 'AI Knowledge Hub'
-    }
-  }
-
+function streamOpenRouter(chatMessages, models, res, fallbackMessages) {
+  const modelList = [...new Set((Array.isArray(models) ? models : [models]).filter(Boolean))]
   sendSSEHeaders(res)
 
-  const apiReq = https.request(options, apiRes => {
-    let buffer = ''
-    apiRes.on('data', chunk => {
-      buffer += chunk.toString()
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed || trimmed === 'data: [DONE]') continue
-        if (trimmed.startsWith('data: ')) {
+  let modelIndex = 0
+  let lastError = ''
+
+  const sendFallback = () => {
+    fallbackResponse(fallbackMessages, res, lastError || 'All configured free models were unavailable.')
+  }
+
+  const tryNextModel = () => {
+    if (modelIndex >= modelList.length) {
+      sendFallback()
+      return
+    }
+
+    const model = modelList[modelIndex++]
+    const requestBody = JSON.stringify({
+      model,
+      messages: chatMessages,
+      stream: true,
+      max_tokens: 2048,
+      temperature: 0.7
+    })
+    const options = {
+      hostname: 'openrouter.ai',
+      path: '/api/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'http://localhost:5273',
+        'X-OpenRouter-Title': 'AI Knowledge Hub'
+      }
+    }
+
+    let emittedContent = false
+    let responseBuffer = ''
+    const apiReq = https.request(options, apiRes => {
+      if (apiRes.statusCode < 200 || apiRes.statusCode >= 300) {
+        let errorBody = ''
+        apiRes.on('data', chunk => { errorBody += chunk.toString() })
+        apiRes.on('end', () => {
+          let detail = `OpenRouter model ${model} returned HTTP ${apiRes.statusCode}`
+          try {
+            const payload = JSON.parse(errorBody)
+            detail = payload.error?.message || payload.message || detail
+          } catch { /* keep HTTP detail */ }
+          lastError = detail
+          console.warn(`[chat] ${detail}; trying the next free model`)
+          tryNextModel()
+        })
+        apiRes.on('error', error => {
+          lastError = error.message
+          tryNextModel()
+        })
+        return
+      }
+
+      apiRes.on('data', chunk => {
+        responseBuffer += chunk.toString()
+        const lines = responseBuffer.split('\n')
+        responseBuffer = lines.pop() || ''
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || trimmed.startsWith(':') || trimmed === 'data: [DONE]') continue
+          if (!trimmed.startsWith('data: ')) continue
           try {
             const parsed = JSON.parse(trimmed.slice(6))
             const content = parsed.choices?.[0]?.delta?.content || ''
-            if (content) {
+            if (typeof content === 'string' && content) {
+              emittedContent = true
               res.write(`data: ${JSON.stringify({ type: 'token', content })}\n\n`)
             }
-          } catch { /* skip malformed */ }
+          } catch { /* skip malformed upstream event */ }
         }
+      })
+      apiRes.on('end', () => {
+        if (!emittedContent) {
+          lastError = `OpenRouter model ${model} returned no content`
+          tryNextModel()
+          return
+        }
+        res.write(`data: ${JSON.stringify({ type: 'done', model })}\n\n`)
+        res.end()
+      })
+      apiRes.on('error', error => {
+        console.error('OpenRouter stream error:', error.message)
+        if (emittedContent) {
+          res.write(`data: ${JSON.stringify({ type: 'done', model })}\n\n`)
+          res.end()
+        } else {
+          lastError = error.message
+          tryNextModel()
+        }
+      })
+    })
+
+    apiReq.setTimeout(45000, () => apiReq.destroy(new Error('OpenRouter request timed out')))
+    apiReq.on('error', error => {
+      console.error('OpenRouter connection error:', error.message)
+      if (emittedContent) {
+        res.write(`data: ${JSON.stringify({ type: 'done', model })}\n\n`)
+        res.end()
+      } else {
+        lastError = error.message
+        tryNextModel()
       }
     })
-    apiRes.on('end', () => {
-      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
-      res.end()
-    })
-    apiRes.on('error', err => {
-      console.error('OpenRouter stream error:', err.message)
-      fallbackResponse(fallbackMessages, res)
-    })
-  })
+    apiReq.write(requestBody)
+    apiReq.end()
+  }
 
-  apiReq.on('error', err => {
-    console.error('OpenRouter connection error:', err.message)
-    fallbackResponse(fallbackMessages, res)
-  })
-
-  apiReq.write(requestBody)
-  apiReq.end()
+  tryNextModel()
 }
 
 function streamChat(messages, res) {
+  const safeMessages = Array.isArray(messages) ? messages : []
   const hasKey = OPENROUTER_API_KEY && OPENROUTER_API_KEY.length > 20
 
   if (!hasKey) {
-    // No API key — use local keyword-based response (non-streaming)
-    const lastMsg = messages.filter(m => m.role === 'user').pop()
+    // No API key: return a useful local answer instead of leaving the widget in
+    // a loading state. Real free-model inference still requires an OpenRouter key.
+    const lastMsg = safeMessages.filter(m => m.role === 'user').pop()
     const q = (lastMsg?.content || '').toLowerCase()
     const answer = localAnswer(q)
     sendSSEHeaders(res)
     res.write(`data: ${JSON.stringify({ type: 'token', content: answer })}\n\n`)
-    res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+    res.write(`data: ${JSON.stringify({ type: 'done', mode: 'local-fallback' })}\n\n`)
     res.end()
     return
   }
 
-  // Streaming via OpenRouter
   const chatMessages = [
     { role: 'system', content: SYSTEM_PROMPT },
-    ...messages.slice(-20)
+    ...safeMessages.slice(-20)
   ]
-  streamOpenRouter(chatMessages, OPENROUTER_MODEL, res, messages)
+  streamOpenRouter(chatMessages, [OPENROUTER_MODEL, ...OPENROUTER_FREE_MODELS], res, safeMessages)
 }
 
-function fallbackResponse(messages, res) {
-  const lastMsg = messages.filter(m => m.role === 'user').pop()
+function fallbackResponse(messages, res, reason = '') {
+  const safeMessages = Array.isArray(messages) ? messages : []
+  const lastMsg = safeMessages.filter(m => m.role === 'user').pop()
   const q = (lastMsg?.content || '').toLowerCase()
   const answer = localAnswer(q)
-  res.write(`data: ${JSON.stringify({ type: 'token', content: answer })}\n\n`)
-  res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
+  const notice = reason ? `\n\n[OpenRouter free models unavailable: ${reason}. Showing the local knowledge fallback.]` : ''
+  res.write(`data: ${JSON.stringify({ type: 'token', content: `${answer}${notice}` })}\n\n`)
+  res.write(`data: ${JSON.stringify({ type: 'done', mode: 'local-fallback' })}\n\n`)
   res.end()
 }
 
 function localAnswer(q) {
+  if (q.includes('react') && (q.includes('agent') || q.includes('pattern') || q.includes('reason')))
+    return 'ReAct (Reason + Act) is the foundational agent loop. Each iteration has 3 steps:\n1) **Thought** — the LLM reasons about the current state and decides the next action ("I need to search the docs for vector DB benchmarks").\n2) **Act** — the model calls a tool (search, calculator, API, code) via function calling.\n3) **Observe** — the tool result is fed back into the prompt, and the loop repeats until the goal is reached.\n\nPractical details: implement it with a `while` loop that appends `Thought/Action/Observation` turns to the message history, cap iterations (e.g. max 8 steps) to bound token cost, and catch tool errors so the model can recover. LangGraph gives this loop structured control flow (nodes + edges + checkpoints), while frameworks like LangChain\'s `create_react_agent` and LlamaIndex\'s `ReActAgent` wrap it with a built-in tool router and stopping criteria.'
   if (q.includes('rag') || q.includes('retrieval'))
     return 'RAG (Retrieval Augmented Generation) is a pattern where relevant documents are retrieved from a knowledge base and injected into the LLM prompt to generate grounded, factual answers. The production pipeline has 9 steps: Query Capture → Query Processing → Embedding → Hybrid Search → Vector DB → Reranker → Context Assembly → Generation → Grounding Check.'
   if (q.includes('agent') || q.includes('multi-agent'))
@@ -633,18 +833,20 @@ async function handleChatUpload(req, res) {
     ...(JSON.parse(fields.history || '[]').slice(-20)),
     { role: 'user', content: contentPart },
   ]
-  const model = imageFiles.length > 0 ? OPENROUTER_VISION_MODEL : OPENROUTER_MODEL
-  streamOpenRouter(chatMessages, model, res, [{ role: 'user', content: message || `Analyse the attached file(s).` }])
+  const models = imageFiles.length > 0
+    ? [OPENROUTER_VISION_MODEL, ...OPENROUTER_FREE_MODELS]
+    : [OPENROUTER_MODEL, ...OPENROUTER_FREE_MODELS]
+  streamOpenRouter(chatMessages, models, res, [{ role: 'user', content: message || `Analyse the attached file(s).` }])
 }
 
 const server = http.createServer(serve)
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`Scan server running at http://127.0.0.1:${PORT}`)
   if (OPENROUTER_API_KEY) {
-    console.log(`Chat: OpenRouter enabled (model: ${OPENROUTER_MODEL})`)
+    console.log(`Chat: OpenRouter free routing enabled (models: ${[OPENROUTER_MODEL, ...OPENROUTER_FREE_MODELS].join(', ')})`)
   } else {
     console.log('Chat: OpenRouter key not set — using local fallback responses')
-    console.log('  Set OPENROUTER_API_KEY env var for real LLM responses')
+    console.log('  Set OPENROUTER_API_KEY in frontend/.env for real free-model responses')
     console.log('  Get a free key at https://openrouter.ai/keys')
   }
 })

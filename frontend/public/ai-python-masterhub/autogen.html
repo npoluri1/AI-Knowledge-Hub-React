@@ -1,0 +1,2019 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoGen — Conversational Agents — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / AutoGen — Conversational Agents</span><span class="spacer"></span>
+<a class="navlink" href="crewai.html">&larr; CrewAI</a> <a class="navlink" href="react-patterns.html">ReAct Patterns &rarr;</a></nav>
+<header class="hero"><div class="mono">AU</div><div><h1>AutoGen — Conversational Agents</h1>
+<p class="tagline">Build multi-agent systems where agents collaborate through structured conversations, executing code, critiquing outputs, and solving problems through dialogue.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>AutoGen models agent collaboration as conversations. Agents talk to each other, execute code, critique results, and iteratively refine solutions through multi-turn dialogue. This chapter covers the conversation-as-computation paradigm, code execution, group chat, and the new autogen-agentchat v0.4 architecture.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>ConversableAgent, assistant/user_proxy pairs, initiate_chat, code execution, human input</td><td>You can build and run two-agent conversations</td></tr>
+<tr><td>Tier 2</td><td>GroupChat, registered functions, nested chats, Docker sandboxing, reflection patterns</td><td>You can orchestrate multi-agent group conversations</td></tr>
+<tr><td>Tier 3</td><td>v0.4 architecture, SelectorGroupChat, Swarm handoffs, GraphFlow, Magentic-One</td><td>You can build modern AutoGen agent teams</td></tr>
+<tr><td>Tier 4</td><td>Teachability, cost governance, testing, benchmarking, migration guidance</td><td>You can operate AutoGen in production with governance</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready AutoGen applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — ConversableAgent, chat initiation, code execution, human input</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Conversation-as-Computation</h3>
+<p><strong>What &amp; why.</strong> AutoGen's core insight is that multi-turn conversations between agents are a form of computation. Instead of a single LLM call producing a final answer, agents exchange messages iteratively: one generates a draft, another critiques it, the first revises, and the cycle continues until a termination condition is met. This conversational approach produces higher-quality outputs for complex tasks because errors are caught and corrected through dialogue rather than requiring perfect single-shot generation.</p>
+<pre class="code"><code># The conversation-as-computation model:
+# Agent A generates -> Agent B critiques -> Agent A revises -> done
+# Each message is a computation step; the conversation is the program
+
+from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message="You are a helpful assistant.",
+)
+
+user_proxy = UserProxyAgent(
+    name="user_proxy",
+    human_input_mode="NEVER",
+    code_execution_config={"work_dir": "workspace"},
+)
+
+# This conversation is a computation:
+# 1. UserProxy sends initial request
+# 2. Assistant generates response
+# 3. UserProxy executes any code in the response
+# 4. Assistant processes execution results
+# 5. Loop until termination message is detected
+user_proxy.initiate_chat(
+    assistant,
+    message="Write Python code to calculate the first 10 Fibonacci numbers.",
+    max_turns=3,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Conversation-as-computation is ideal for tasks requiring iteration: code generation with debugging, document drafting with review, data analysis with validation, and research with fact-checking. The multi-turn approach catches errors that single-shot generation misses.</div>
+<div class="callout hood"><span>Under the hood</span>AutoGen manages a message queue between agents. Each agent processes incoming messages and produces responses. The runtime checks termination conditions after each message. When a termination condition is met, the conversation stops and the final state is returned.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>ConversableAgent: Assistant and User Proxy Pair</h3>
+<p><strong>What &amp; why.</strong> ConversableAgent is the base class for all AutoGen agents. AssistantAgent is a conversable agent with LLM capabilities that generates responses. UserProxyAgent is a conversable agent that represents a human user and can execute code. The pair pattern (assistant + user_proxy) is AutoGen's fundamental building block: the assistant generates code and text, and the user proxy executes the code and returns results.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+# AssistantAgent: LLM-powered agent that generates code and text
+assistant = AssistantAgent(
+    name="coder",
+    llm_config={
+        "model": "gpt-4o",
+        "temperature": 0.1,
+    },
+    system_message=(
+        "You are a Python expert. Write code to solve problems. "
+        "Always include the full code in your response. "
+        "When you receive execution results, fix any errors."
+    ),
+)
+
+# UserProxyAgent: Executes code and returns results
+user_proxy = UserProxyAgent(
+    name="executor",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=5,
+    is_termination_msg=lambda x: x.get("content", "").rstrip().endswith("TERMINATE"),
+    code_execution_config={
+        "work_dir": "coding_output",
+        "use_docker": False,
+    },
+)
+
+# The assistant generates code, the proxy executes it
+user_proxy.initiate_chat(
+    assistant,
+    message="Calculate the factorial of 20 using a recursive function.",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The assistant-proxy pair is the foundation for code generation, debugging, and analysis tasks. The assistant focuses on reasoning and code writing; the proxy handles execution and environment interaction. This separation of concerns makes the system reliable and testable.</div>
+<div class="callout hood"><span>Under the hood</span>AssistantAgent wraps a ChatModel and constructs prompts from the conversation history. UserProxyAgent includes a code executor that extracts code blocks from messages, runs them in a subprocess, and returns stdout/stderr as the next message.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>initiate_chat Basics</h3>
+<p><strong>What &amp; why.</strong> initiate_chat starts a conversation between two or more agents. The first agent (sender) sends a message to the second agent (recipient). The recipient processes the message and responds. If the response does not trigger a termination condition, the sender processes the response and may reply. This back-and-forth continues until a termination condition is met or max_turns is reached. The method returns a ChatResult object with the full conversation history.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent(
+    name="planner",
+    llm_config={"model": "gpt-4o"},
+    system_message="You create plans. Be specific and actionable.",
+)
+
+user_proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="TERMINATE",
+    max_consecutive_auto_reply=3,
+    is_termination_msg=lambda x: "TERMINATE" in x.get("content", ""),
+)
+
+result = user_proxy.initiate_chat(
+    assistant,
+    message="Create a 3-step plan to learn AutoGen.",
+    max_turns=5,
+)
+
+# Inspect the conversation
+print(f"Summary: {result.summary}")
+print(f"Total messages: {len(result.chat_history)}")
+print(f"Cost: {result.cost}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>initiate_chat is the entry point for all AutoGen conversations. Control the conversation length with max_turns, the termination with is_termination_msg, and the human interaction level with human_input_mode.</div>
+<div class="callout hood"><span>Under the hood</span>initiate_chat creates a GroupChat with two participants (even for two-agent conversations). It sends the initial message, then alternates between agents until a termination condition is met. The ChatResult aggregates all messages, costs, and summary data.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>llm_config Model Setup</h3>
+<p><strong>What &amp; why.</strong> The llm_config parameter on AssistantAgent configures which LLM to use and its parameters. It accepts a dictionary with model, api_key, temperature, and other ChatModel parameters. You can also pass a list of config dicts for model fallback: if the primary model fails, AutoGen tries the next one. Environment variables like OPENAI_API_KEY are read automatically if not specified.</p>
+<pre class="code"><code>from autogen import AssistantAgent
+
+# Basic configuration
+agent = AssistantAgent(
+    name="assistant",
+    llm_config={
+        "model": "gpt-4o",
+        "api_key": "sk-...",  # Or use OPENAI_API_KEY env var
+        "temperature": 0.2,
+        "max_tokens": 4096,
+    },
+)
+
+# Model fallback: try gpt-4o, fall back to gpt-4o-mini
+agent_with_fallback = AssistantAgent(
+    name="assistant",
+    llm_config=[
+        {
+            "model": "gpt-4o",
+            "api_key": "sk-...",
+            "temperature": 0.1,
+        },
+        {
+            "model": "gpt-4o-mini",
+            "api_key": "sk-...",
+            "temperature": 0.1,
+        },
+    ],
+)
+
+# Ollama local model configuration
+local_agent = AssistantAgent(
+    name="local_assistant",
+    llm_config={
+        "model": "llama3.1",
+        "base_url": "http://localhost:11434/v1",
+        "api_key": "ollama",
+        "temperature": 0.3,
+    },
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Configure llm_config at the application level, not per-conversation. Use model fallbacks for production reliability. For local development, use Ollama to avoid API costs. Set temperature low (0-0.2) for code generation, higher (0.5-0.7) for creative tasks.</div>
+<div class="callout hood"><span>Under the hood</span>AutoGen passes llm_config to LangChain ChatModel under the hood. The config dict keys map directly to ChatOpenAI constructor parameters. Model fallback is implemented as a retry chain that tries each config in order.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Code Execution: Local and Dangerous</h3>
+<p><strong>What &amp; why.</strong> AutoGen's UserProxyAgent can execute Python code blocks from assistant responses. This is powerful but inherently dangerous: the LLM can generate code that deletes files, makes network requests, or accesses sensitive data. Local execution (use_docker=False) runs code in the host environment. Docker execution (use_docker=True) sandboxes code in a container. Always use Docker in production and review code before execution in high-risk scenarios.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent(
+    name="coder",
+    llm_config={"model": "gpt-4o"},
+    system_message="Write Python code to solve problems.",
+)
+
+# DANGEROUS: Local execution with no sandbox
+unsafe_proxy = UserProxyAgent(
+    name="unsafe",
+    human_input_mode="NEVER",
+    code_execution_config={
+        "work_dir": "output",
+        "use_docker": False,  # Runs on host machine
+    },
+)
+
+# SAFER: Docker sandboxed execution
+safe_proxy = UserProxyAgent(
+    name="safe",
+    human_input_mode="NEVER",
+    code_execution_config={
+        "work_dir": "output",
+        "use_docker": True,  # Runs in Docker container
+        "docker_image": "python:3.11-slim",
+    },
+)
+
+# For production, always use Docker
+safe_proxy.initiate_chat(
+    assistant,
+    message="Analyze this dataset and create a visualization.",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Code execution is AutoGen's most powerful feature and its biggest risk. Use Docker sandboxing in production. For development, local execution is convenient but review generated code. Never run AutoGen code execution on systems with access to production databases or credentials.</div>
+<div class="callout hood"><span>Under the hood</span>When code execution is enabled, UserProxyAgent extracts Python code blocks (between ```python and ``` markers) from the assistant's response. It writes them to files in the work_dir, executes them via subprocess (or Docker API), and returns stdout/stderr as the next message.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>human_input_mode: ALWAYS, NEVER, TERMINATE</h3>
+<p><strong>What &amp; why.</strong> The human_input_mode parameter controls when the UserProxyAgent prompts for human input. "ALWAYS" asks for input before every reply. "TERMINATE" asks only when a termination message is detected, giving the human a chance to override. "NEVER" runs fully automated with no human input. The mode determines the balance between automation and human oversight.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message="You are a helpful coding assistant.",
+)
+
+# Mode 1: ALWAYS - human approves every response
+interactive_proxy = UserProxyAgent(
+    name="interactive",
+    human_input_mode="ALWAYS",  # Prompt human before every reply
+)
+
+# Mode 2: TERMINATE - human only intervenes at termination
+semi_auto_proxy = UserProxyAgent(
+    name="semi_auto",
+    human_input_mode="TERMINATE",
+    is_termination_msg=lambda x: "TERMINATE" in x.get("content", ""),
+)
+
+# Mode 3: NEVER - fully automated
+fully_auto_proxy = UserProxyAgent(
+    name="fully_auto",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=10,
+)
+
+# Use TERMINATE for most production workflows
+# It allows automation but gives humans a final say</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Use TERMINATE for most workflows: it automates the conversation but pauses at termination for human approval. Use NEVER for fully automated pipelines (with max_consecutive_auto_reply as safety). Use ALWAYS for interactive development and debugging.</div>
+<div class="callout hood"><span>Under the hood</span>When human_input_mode is "TERMINATE" or "ALWAYS", the UserProxyAgent calls input() to read from stdin. In production, replace this with a webhook or message queue integration. The human response is sent as the next message in the conversation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Auto-Reply Mechanism</h3>
+<p><strong>What &amp; why.</strong> AutoGen agents can automatically reply to messages without human intervention. The auto-reply mechanism is controlled by max_consecutive_auto_reply: after this many automatic replies, the agent stops and waits for human input (or terminates). This prevents infinite loops in fully automated mode. You can also register custom reply functions that trigger on specific message patterns.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message="You are a helpful assistant.",
+)
+
+# Auto-reply limited to 5 consecutive responses
+proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=5,
+    is_termination_msg=lambda x: x.get("content", "").rstrip().endswith("TERMINATE"),
+)
+
+# Register a custom reply function
+def custom_reply(recipient, messages, sender, config):
+    """Reply to messages containing 'help' with a specific response."""
+    last_message = messages[-1].get("content", "")
+    if "help" in last_message.lower():
+        return True, "I can help you with coding, analysis, and research."
+    return False, None  # Fall through to default behavior
+
+assistant.register_reply(
+    trigger="user",
+    reply_func=custom_reply,
+)
+
+proxy.initiate_chat(
+    assistant,
+    message="I need help writing a Python script.",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Auto-reply limits prevent cost runaway in fully automated mode. Custom reply functions enable message routing, filtering, and special handling without modifying agent internals. Use them to implement domain-specific behaviors.</div>
+<div class="callout hood"><span>Under the hood</span>AutoGen processes messages through a reply function chain. Each agent has a chain of registered reply functions. The first function that returns (True, response) handles the message. If no custom function handles it, the default LLM-based reply is used.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Termination Messages and Conditions</h3>
+<p><strong>What &amp; why.</strong> Termination conditions determine when a conversation stops. The is_termination_msg parameter accepts a callable that checks each incoming message. When it returns True, the conversation ends. Common patterns: checking for "TERMINATE" in the message, checking message count, or checking for specific content patterns. Proper termination prevents infinite conversations and controls cost.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You are a helpful assistant. "
+        "When you are done, end your message with TERMINATE."
+    ),
+)
+
+# Pattern 1: Check for TERMINATE keyword
+proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    is_termination_msg=lambda x: x.get("content", "").rstrip().endswith("TERMINATE"),
+)
+
+# Pattern 2: Check message count
+turn_count = {"n": 0}
+def check_turns(msg):
+    turn_count["n"] += 1
+    return turn_count["n"] >= 10
+
+proxy_turns = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    is_termination_msg=check_turns,
+)
+
+# Pattern 3: Check for specific content
+def check_completion(msg):
+    content = msg.get("content", "")
+    return "DONE" in content or "COMPLETE" in content
+
+proxy_done = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    is_termination_msg=check_completion,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Always set a termination condition. Without one, conversations can run indefinitely, consuming API tokens. The TERMINATE keyword pattern is the standard approach: instruct the LLM to end with TERMINATE and check for it in the termination function.</div>
+<div class="callout hood"><span>Under the hood</span>After each message is processed, AutoGen calls the is_termination_msg function with the message dict. If it returns True, the conversation stops and the ChatResult is returned. The termination check happens before the next agent processes the message.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Two-Agent Code Generation Demo</h3>
+<p><strong>What &amp; why.</strong> The canonical AutoGen pattern is a code generation conversation: a UserProxyAgent requests code, an AssistantAgent writes it, the proxy executes it, and if there are errors the assistant fixes them. This iterative loop continues until the code runs successfully. The conversation history provides full traceability of the development process.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+# Configure the coding assistant
+coder = AssistantAgent(
+    name="coder",
+    llm_config={
+        "model": "gpt-4o",
+        "temperature": 0.1,
+    },
+    system_message=(
+        "You are an expert Python developer. "
+        "Write clean, well-documented code. "
+        "When you receive execution results or errors, "
+        "fix the code and try again."
+    ),
+)
+
+# Configure the code executor
+executor = UserProxyAgent(
+    name="executor",
+    human_input_mode="TERMINATE",
+    max_consecutive_auto_reply=8,
+    is_termination_msg=lambda x: x.get("content", "").rstrip().endswith("TERMINATE"),
+    code_execution_config={
+        "work_dir": "code_output",
+        "use_docker": False,
+    },
+)
+
+# Start the code generation conversation
+result = executor.initiate_chat(
+    coder,
+    message=(
+        "Write a Python script that:\n"
+        "1. Creates a list of 100 random numbers\n"
+        "2. Calculates mean, median, and std deviation\n"
+        "3. Plots a histogram\n"
+        "4. Saves the plot as stats.png"
+    ),
+)
+
+# Review the conversation
+print(f"Messages: {len(result.chat_history)}")
+print(f"Cost: ${result.cost.get('usage_included_in_price', 0):.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This two-agent code generation pattern is the most common AutoGen use case. It works for data analysis, scripting, testing, and any task where code needs to be written, executed, and debugged iteratively.</div>
+<div class="callout hood"><span>Under the hood</span>The conversation alternates: coder writes code, executor runs it, coder sees output/errors and revises. The max_consecutive_auto_reply limit on the executor prevents infinite loops. The TERMINATE keyword signals successful completion.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>system_message Shaping Persona</h3>
+<p><strong>What &amp; why.</strong> The system_message parameter on AssistantAgent defines the agent's persona, expertise, and behavioral instructions. It is the most powerful lever for controlling agent behavior. A well-crafted system_message constrains the LLM's output to the desired domain, format, and quality level. It persists across all messages in the conversation, providing consistent behavioral framing.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+# Domain expert with specific behavioral instructions
+data_analyst = AssistantAgent(
+    name="data_analyst",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You are a senior data analyst with expertise in pandas and matplotlib.\n"
+        "Rules:\n"
+        "1. Always write complete, runnable Python code\n"
+        "2. Use type hints and docstrings\n"
+        "3. Handle edge cases (empty data, NaN values)\n"
+        "4. Print results in a formatted table\n"
+        "5. Save plots as high-resolution PNG files\n"
+        "6. End with TERMINATE when the analysis is complete"
+    ),
+)
+
+# Code reviewer with quality focus
+reviewer = AssistantAgent(
+    name="reviewer",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You are a meticulous code reviewer. Review code for:\n"
+        "- Correctness and edge cases\n"
+        "- Performance implications\n"
+        "- Security vulnerabilities\n"
+        "- Code style and readability\n"
+        "Provide specific, actionable feedback."
+    ),
+)
+
+executor = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=5,
+)
+
+executor.initiate_chat(
+    data_analyst,
+    message="Analyze the relationship between GDP and life expectancy.",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The system_message is the primary mechanism for controlling agent behavior. Invest time in crafting it: include role definition, behavioral rules, output format requirements, and termination instructions. Test different system_messages to find optimal prompts.</div>
+<div class="callout hood"><span>Under the hood</span>The system_message is prepended to the conversation as the first system-level message. The LLM uses it as persistent context for all subsequent responses. AutoGen does not modify the system_message after construction.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>max_consecutive_auto_reply Guard</h3>
+<p><strong>What &amp; why.</strong> The max_consecutive_auto_reply parameter limits how many times an agent can automatically reply before stopping. This is a critical safety guard: without it, two agents in NEVER mode can loop indefinitely, consuming API tokens. Set this parameter on every agent in fully automated mode. The count resets when a human provides input.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message="You are a helpful assistant. End with TERMINATE when done.",
+)
+
+# Without max_consecutive_auto_reply, this could loop forever
+unsafe_proxy = UserProxyAgent(
+    name="unsafe",
+    human_input_mode="NEVER",
+    # No max_consecutive_auto_reply = unlimited replies!
+)
+
+# With max_consecutive_auto_reply, the conversation stops after 10 turns
+safe_proxy = UserProxyAgent(
+    name="safe",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=10,  # Safety guard
+    is_termination_msg=lambda x: x.get("content", "").rstrip().endswith("TERMINATE"),
+)
+
+# The count tracks consecutive auto-replies
+# Human input resets the counter
+result = safe_proxy.initiate_chat(
+    assistant,
+    message="Write a comprehensive analysis of Python web frameworks.",
+    max_turns=10,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Always set max_consecutive_auto_reply on agents with human_input_mode="NEVER". A value of 5-10 is typical for most workflows. Increase only for tasks that genuinely require many iterations, like complex debugging sessions.</div>
+<div class="callout hood"><span>Under the hood</span>AutoGen counts consecutive auto-replies per agent. When the limit is reached, the agent stops replying and the conversation either terminates (if no other agent can continue) or waits for human input. The counter resets when human_input_mode prompts the user.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>When AutoGen Fits and When It Does Not</h3>
+<p><strong>What &amp; why.</strong> AutoGen excels at conversational code generation, debugging, and iterative refinement. It fits scenarios where agents need to exchange multiple messages to converge on a solution: code generation with execution feedback, document drafting with review cycles, and analysis with validation. It is less suitable for role-based team workflows (use CrewAI), graph-based orchestration (use LangGraph), or simple single-turn tasks.</p>
+<pre class="code"><code># AutoGen fits when: iterative refinement through conversation
+# AutoGen struggles when: fixed team roles and sequential tasks
+
+from autogen import AssistantAgent, UserProxyAgent
+
+# GOOD FIT: Code debugging conversation
+coder = AssistantAgent(
+    name="coder",
+    llm_config={"model": "gpt-4o"},
+    system_message="Write and fix Python code. End with TERMINATE when working.",
+)
+executor = UserProxyAgent(
+    name="executor",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=8,
+    code_execution_config={"work_dir": "debug", "use_docker": False},
+)
+
+# This works well: iterative code-debug-fix cycle
+executor.initiate_chat(
+    coder,
+    message="Write code to parse CSV, handle errors, and output JSON.",
+)
+
+# AutoGen is less ideal for:
+# - Fixed team roles with clear task assignments (use CrewAI)
+# - Complex conditional routing between agents (use LangGraph)
+# - Simple single-turn tasks (use direct LLM calls)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choose AutoGen when you need conversational iteration with code execution. It is the best framework for code generation and debugging tasks. For role-based team workflows, consider CrewAI. For complex orchestration, consider LangGraph.</div>
+<div class="callout hood"><span>Under the hood</span>AutoGen's strength is its code execution integration: the user proxy runs code and returns results, enabling true iterative development. This tight feedback loop between generation and execution is unique to AutoGen among multi-agent frameworks.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — GroupChat, registered functions, nested chats, sandboxing</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>GroupChat and GroupChatManager</h3>
+<p><strong>What &amp; why.</strong> GroupChat enables conversations with 3+ agents. A GroupChatManager orchestrates the conversation, deciding which agent speaks next based on speaker selection rules. All agents see all messages, enabling collaborative problem-solving. GroupChatManager wraps a GroupChat and provides the LLM-based speaker selection when automatic mode is used.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
+
+coder = AssistantAgent(
+    name="coder",
+    llm_config={"model": "gpt-4o"},
+    system_message="You write Python code.",
+)
+
+reviewer = AssistantAgent(
+    name="reviewer",
+    llm_config={"model": "gpt-4o"},
+    system_message="You review code for bugs and improvements.",
+)
+
+planner = AssistantAgent(
+    name="planner",
+    llm_config={"model": "gpt-4o"},
+    system_message="You create implementation plans.",
+)
+
+user_proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=1,
+    code_execution_config={"work_dir": "output", "use_docker": False},
+)
+
+# Create group chat with all participants
+group_chat = GroupChat(
+    agents=[user_proxy, coder, reviewer, planner],
+    messages=[],
+    max_round=12,
+    speaker_selection_method="auto",  # LLM decides who speaks
+)
+
+# Manager orchestrates the conversation
+manager = GroupChatManager(
+    groupchat=group_chat,
+    llm_config={"model": "gpt-4o"},
+)
+
+# Start the group conversation
+user_proxy.initiate_chat(
+    manager,
+    message="Build a REST API for a todo application.",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>GroupChat is ideal for collaborative tasks where multiple perspectives improve quality: code review with multiple reviewers, brainstorming with diverse expertise, and planning with cross-functional input.</div>
+<div class="callout hood"><span>Under the hood</span>GroupChatManager uses the LLM to select the next speaker based on the conversation history and each agent's role description. The selection prompt includes all agent names and system messages, allowing the LLM to choose the most appropriate next speaker.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Speaker Selection Methods</h3>
+<p><strong>What &amp; why.</strong> GroupChat supports multiple speaker selection methods. "auto" uses the LLM to choose the next speaker dynamically. "round_robin" cycles through agents in order. "manual" requires the human to select the next speaker. Custom functions can implement domain-specific selection logic: route to the specialist based on message content, or enforce turn-taking patterns.</p>
+<pre class="code"><code>from autogen import AssistantAgent, GroupChat, GroupChatManager
+
+coder = AssistantAgent(
+    name="coder", llm_config={"model": "gpt-4o"},
+    system_message="You write code.",
+)
+reviewer = AssistantAgent(
+    name="reviewer", llm_config={"model": "gpt-4o"},
+    system_message="You review code.",
+)
+tester = AssistantAgent(
+    name="tester", llm_config={"model": "gpt-4o"},
+    system_message="You write tests.",
+)
+
+# Round-robin: deterministic turn order
+round_robin_chat = GroupChat(
+    agents=[coder, reviewer, tester],
+    messages=[],
+    max_round=9,
+    speaker_selection_method="round_robin",
+)
+
+# LLM-based: dynamic speaker selection
+auto_chat = GroupChat(
+    agents=[coder, reviewer, tester],
+    messages=[],
+    max_round=12,
+    speaker_selection_method="auto",
+)
+
+# Custom function: route based on content
+def select_speaker(recipient, messages, sender, config):
+    last_msg = messages[-1].get("content", "").lower()
+    if "test" in last_msg:
+        return "tester"
+    if "review" in last_msg or "bug" in last_msg:
+        return "reviewer"
+    return "coder"
+
+custom_chat = GroupChat(
+    agents=[coder, reviewer, tester],
+    messages=[],
+    max_round=9,
+    speaker_selection_method=select_speaker,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>"auto" is the default and works well for most cases. "round_robin" is useful when you want deterministic turn-taking. Custom functions enable domain-specific routing based on message content or conversation state.</div>
+<div class="callout hood"><span>Under the hood</span>For "auto" selection, GroupChatManager sends a prompt to the LLM listing all agents and asking which should speak next based on the conversation. The LLM returns the agent name, and GroupChatManager routes the next message to that agent.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Registered Functions: register_for_llm and executor</h3>
+<p><strong>What &amp; why.</strong> AutoGen allows you to register custom functions that agents can call during conversations. register_for_llm adds the function to the agent's tool list (visible to the LLM), while the executor function handles the actual execution. This is AutoGen's equivalent of tool calling: the LLM decides when to call a function, and the executor runs it.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+def calculate(expression: str) -> str:
+    """Evaluate a mathematical expression safely."""
+    allowed = set("0123456789+-*/.() ")
+    if not all(c in allowed for c in expression):
+        return "Error: invalid characters"
+    try:
+        return str(eval(expression))
+    except Exception as e:
+        return f"Error: {e}"
+
+def search_database(query: str) -> str:
+    """Search the product database."""
+    return f"Results for '{query}': Product A, Product B, Product C"
+
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message="You are a helpful assistant with access to tools.",
+)
+
+user_proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=5,
+)
+
+# Register functions for LLM awareness and execution
+assistant.register_for_llm(
+    name="calculate",
+    description="Evaluate a mathematical expression",
+)(calculate)
+
+assistant.register_for_execution(
+    name="calculate",
+)(calculate)
+
+assistant.register_for_llm(
+    name="search_database",
+    description="Search the product database",
+)(search_database)
+
+assistant.register_for_execution(
+    name="search_database",
+)(search_database)
+
+user_proxy.initiate_chat(
+    assistant,
+    message="Calculate 15 * 37 and search for 'laptop' in the database.",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Registered functions give agents access to external systems: databases, APIs, file systems, and calculators. Register functions on both the LLM (for awareness) and the executor (for execution) to enable the full tool-calling cycle.</div>
+<div class="callout hood"><span>Under the hood</span>When the LLM generates a function call, AutoGen routes it to the registered executor function. The executor runs the function and returns the result as a message. The LLM then processes the result and continues the conversation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Nested Chats: Sub-Conversations</h3>
+<p><strong>What &amp; why.</strong> Nested chats allow an agent to start a sub-conversation with another agent before responding to the main conversation. This enables specialized processing pipelines: an agent can consult a domain expert, run a code execution cycle, or perform a focused analysis before returning to the main discussion. Nested chats are configured via register_nested_chats on the agent.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+main_assistant = AssistantAgent(
+    name="main",
+    llm_config={"model": "gpt-4o"},
+    system_message="You are a general assistant.",
+)
+
+code_specialist = AssistantAgent(
+    name="coder",
+    llm_config={"model": "gpt-4o"},
+    system_message="You are a Python code specialist.",
+)
+
+reviewer = AssistantAgent(
+    name="reviewer",
+    llm_config={"model": "gpt-4o"},
+    system_message="You review code quality.",
+)
+
+# Main assistant consults coder and reviewer via nested chat
+main_assistant.register_nested_chats(
+    [
+        {
+            "recipient": code_specialist,
+            "message": "Review and improve this code: {content}",
+            "summary_method": "last_msg",
+        },
+        {
+            "recipient": reviewer,
+            "message": "Review this code for quality: {content}",
+            "summary_method": "last_msg",
+        },
+    ],
+    trigger=lambda sender: True,  # Always trigger nested chat
+)
+
+executor = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=3,
+)
+
+executor.initiate_chat(
+    main_assistant,
+    message="Write a function to sort a list of dictionaries by key.",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Nested chats enable modular agent compositions: a coordinator agent can delegate specialized tasks to expert agents via sub-conversations. The summary_method controls what part of the sub-conversation is returned to the main chat.</div>
+<div class="callout hood"><span>Under the hood</span>When a nested chat is triggered, AutoGen creates a temporary GroupChat with the specified participants. The sub-conversation runs to completion (based on termination conditions), and the summary is injected into the main conversation as the agent's response.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Teachability and Memory Agent</h3>
+<p><strong>What &amp; why.</strong> Teachability enables AutoGen agents to learn from conversations and remember facts across sessions. The teachable agent uses a memory database to store and retrieve information. Users can teach the agent new facts ("Remember that X means Y"), and the agent will recall them in future conversations. This creates persistent knowledge that accumulates over time.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+from autogen.contrib.teachability import Teachability
+
+# Create a teachable agent with memory
+teachable_assistant = AssistantAgent(
+    name="teachable_assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You are a helpful assistant that learns from conversations. "
+        "When users teach you facts, remember them for future use."
+    ),
+)
+
+# Add teachability with persistent memory
+teachability = Teachability(
+    reset_db=False,  # Keep memory across sessions
+    path_to_db_dir="memory_db",
+    recall_threshold=0.5,  # Similarity threshold for memory retrieval
+)
+teachable_assistant.teachability = teachability
+
+user_proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="ALWAYS",
+)
+
+# First conversation: teach facts
+user_proxy.initiate_chat(
+    teachable_assistant,
+    message="Remember that our company uses PostgreSQL for production databases.",
+)
+
+# Later conversation: the agent recalls the fact
+user_proxy.initiate_chat(
+    teachable_assistant,
+    message="What database should we use for the new feature?",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Teachability is valuable for customer support agents that accumulate product knowledge, personal assistants that learn user preferences, and domain-specific agents that build expertise over time.</div>
+<div class="callout hood"><span>Under the hood</span>Teachability uses a vector database to store conversation facts as embeddings. When a new conversation starts, the agent retrieves relevant memories based on semantic similarity and injects them into the system prompt. Facts are extracted from conversations using the LLM.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Cache Seeding for Reproducibility</h3>
+<p><strong>What &amp; why.</strong> AutoGen supports LLM response caching to ensure reproducible results and reduce API costs. Cache seeding pre-populates the cache with known good responses, so identical inputs always produce identical outputs. This is essential for testing, evaluation, and debugging: you can replay conversations deterministically without making API calls.</p>
+<pre class="code"><code>import json
+from autogen import AssistantAgent, UserProxyAgent
+
+# Cache configuration
+llm_config = {
+    "model": "gpt-4o",
+    "cache_seed": 42,  # Fixed seed for reproducibility
+}
+
+# With cache_seed, identical inputs produce identical outputs
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config=llm_config,
+    system_message="You are a helpful assistant.",
+)
+
+user_proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=3,
+    is_termination_msg=lambda x: "TERMINATE" in x.get("content", ""),
+)
+
+# First run: populates cache
+result1 = user_proxy.initiate_chat(
+    assistant,
+    message="Explain what a linked list is.",
+)
+
+# Second run: uses cached response (no API call)
+result2 = user_proxy.initiate_chat(
+    assistant,
+    message="Explain what a linked list is.",
+)
+
+# Both conversations produce identical responses
+# Cache is stored in .cache/ directory</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cache seeding is essential for testing and evaluation. It eliminates non-determinism from LLM responses, enabling deterministic test runs. In production, disable caching or use a TTL-based cache to serve fresh responses.</div>
+<div class="callout hood"><span>Under the hood</span>AutoGen hashes the conversation context (system message + messages) to create a cache key. When a matching key is found, the cached response is returned without an API call. The cache is stored locally in JSON files organized by model name.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>DockerCommandLineCodeExecutor Sandboxing</h3>
+<p><strong>What &amp; why.</strong> DockerCommandLineCodeExecutor runs generated code inside a Docker container, isolating it from the host system. This is the recommended approach for production AutoGen deployments: it prevents code from accessing host files, network resources, or installed packages. The container is created from a specified Docker image and destroyed after execution.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+from autogen.coding import DockerCommandLineCodeExecutor
+
+# Create Docker executor
+docker_executor = DockerCommandLineCodeExecutor(
+    image="python:3.11-slim",
+    work_dir="coding_output",
+    timeout=120,  # Seconds before killing execution
+)
+
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message="Write Python code to solve problems.",
+)
+
+# UserProxyAgent with Docker sandbox
+proxy = UserProxyAgent(
+    name="executor",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=5,
+    code_execution_config={
+        "executor": docker_executor,
+    },
+)
+
+# Code runs safely inside Docker container
+proxy.initiate_chat(
+    assistant,
+    message="Create a simple Flask app with one endpoint.",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Docker sandboxing is mandatory for any production AutoGen deployment with code execution. It prevents malicious or buggy code from damaging the host system. Use minimal Docker images (python:3.11-slim) to reduce attack surface.</div>
+<div class="callout hood"><span>Under the hood</span>DockerCommandLineCodeExecutor creates a Docker container from the specified image, copies the code file into it, executes it via docker exec, captures stdout/stderr, and removes the container. The timeout parameter prevents runaway code from consuming resources indefinitely.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Reflection and Critique Pattern</h3>
+<p><strong>What &amp; why.</strong> The reflection pattern pairs a generator agent with a critic agent. The generator produces output, the critic evaluates it against criteria, and the generator revises based on feedback. This loop continues until the critic approves. AutoGen implements this naturally through multi-turn conversations where the critic's feedback drives iterative improvement.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+writer = AssistantAgent(
+    name="writer",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You write technical content. "
+        "When you receive feedback, revise your work accordingly. "
+        "When the reviewer approves, end with TERMINATE."
+    ),
+)
+
+critic = AssistantAgent(
+    name="critic",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You are a strict content reviewer. Evaluate the content for:\n"
+        "- Technical accuracy\n"
+        "- Clarity and readability\n"
+        "- Completeness\n"
+        "If the content meets quality standards, respond with APPROVED. "
+        "Otherwise, provide specific, actionable feedback."
+    ),
+)
+
+user_proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=6,
+    is_termination_msg=lambda x: "APPROVED" in x.get("content", ""),
+)
+
+# Reflection loop: write -> critique -> revise -> repeat
+user_proxy.initiate_chat(
+    writer,
+    message="Write a 200-word explanation of how transformers work.",
+)
+
+# The conversation naturally forms a reflection loop:
+# 1. Writer produces draft
+# 2. Critic provides feedback
+# 3. Writer revises
+# 4. Critic approves or gives more feedback
+# 5. Loop until APPROVED</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The reflection pattern improves output quality through iterative refinement. Use it for document drafting, code review, and analysis validation. The critic agent should have clear approval criteria to prevent infinite revision loops.</div>
+<div class="callout hood"><span>Under the hood</span>AutoGen's conversation model naturally supports reflection: each message is processed by the next agent in the group chat. The writer sees the critic's feedback as input and revises accordingly. The termination condition (APPROVED keyword) stops the loop.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — New v0.4 architecture, Swarm, GraphFlow, Magentic-One</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>autogen-agentchat v0.4: AssistantAgent and Team</h3>
+<p><strong>What &amp; why.</strong> AutoGen v0.4 (autogen-agentchat) introduces a new architecture based on Teams and Agents with async-native execution. AssistantAgent is now a lightweight agent that wraps a model client and tools. Teams orchestrate agent interactions with defined workflows. The new API is fully asynchronous, uses dependency injection for model clients, and separates agent logic from orchestration logic.</p>
+<pre class="code"><code># AutoGen v0.4 architecture (autogen-agentchat)
+# pip install autogen-agentchat
+
+from autogen_agentchat.agents import AssistantAgent
+from autogen_agentchat.teams import RoundRobinGroupChat
+from autogen_agentchat.conditions import TextMentionTermination
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+
+# Model client is injected, not configured via dict
+model_client = OpenAIChatCompletionClient(
+    model="gpt-4o",
+    api_key="sk-...",
+)
+
+# AssistantAgent in v0.4
+researcher = AssistantAgent(
+    name="researcher",
+    model_client=model_client,
+    system_message="You research AI topics thoroughly.",
+)
+
+writer = AssistantAgent(
+    name="writer",
+    model_client=model_client,
+    system_message="You write engaging content.",
+)
+
+# Termination condition
+termination = TextMentionTermination("APPROVED")
+
+# Team orchestrates agent interactions
+team = RoundRobinGroupChat(
+    participants=[researcher, writer],
+    termination_condition=termination,
+    max_turns=6,
+)
+
+# Run the team (async)
+import asyncio
+
+async def main():
+    result = await team.run(
+        task="Write a brief overview of AI agent frameworks."
+    )
+    print(result)
+
+asyncio.run(main())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The v0.4 architecture is the recommended approach for new AutoGen projects. It provides cleaner separation of concerns, async-native execution, and better testability. Migrate existing projects when stability requirements allow.</div>
+<div class="callout hood"><span>Under the hood</span>v0.4 replaces ConversableAgent with lighter-weight AssistantAgent instances. Teams handle orchestration instead of GroupChatManager. Model clients are injected as dependencies, enabling testing with mock clients. The entire API is async-first.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>SelectorGroupChat: Model-Chosen Speakers</h3>
+<p><strong>What &amp; why.</strong> SelectorGroupChat is a v0.4 team type where an LLM selects the next speaker based on conversation context. Unlike round-robin, the model dynamically chooses who should speak next based on the current topic, each agent's expertise, and the conversation flow. This produces more natural and efficient multi-agent conversations.</p>
+<pre class="code"><code>from autogen_agentchat.agents import AssistantAgent
+from autogen_agentchat.teams import SelectorGroupChat
+from autogen_agentchat.conditions import TextMentionTermination, MaxMessageTermination
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+
+model_client = OpenAIChatCompletionClient(model="gpt-4o")
+
+coder = AssistantAgent(
+    name="coder",
+    model_client=model_client,
+    system_message="You write Python code. Focus on implementation.",
+)
+
+reviewer = AssistantAgent(
+    name="reviewer",
+    model_client=model_client,
+    system_message="You review code for bugs and improvements.",
+)
+
+architect = AssistantAgent(
+    name="architect",
+    model_client=model_client,
+    system_message="You design system architecture and make high-level decisions.",
+)
+
+# SelectorGroupChat: LLM picks the next speaker
+termination = TextMentionTermination("DONE") | MaxMessageTermination(10)
+
+team = SelectorGroupChat(
+    participants=[coder, reviewer, architect],
+    model_client=model_client,  # Used for speaker selection
+    termination_condition=termination,
+)
+
+import asyncio
+
+async def main():
+    result = await team.run(
+        task="Design and implement a caching layer for our API."
+    )
+    print(result)
+
+asyncio.run(main())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SelectorGroupChat is ideal for expert panel discussions where the most appropriate expert should respond to each message. It reduces wasted turns compared to round-robin and produces more focused conversations.</div>
+<div class="callout hood"><span>Under the hood</span>Before each turn, SelectorGroupChat sends a prompt to the model client listing all agents and their roles. The model selects the next speaker based on the conversation history. This adds one extra LLM call per turn but significantly improves conversation quality.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Swarm Handoffs: OnCondition</h3>
+<p><strong>What &amp; why.</strong> Swarm is a v0.4 team pattern where agents hand off control to each other based on conditions. Unlike GroupChat where all agents see all messages, Swarm is a linear handoff chain: Agent A works until its condition is met, then hands off to Agent B. This models triage workflows, escalation chains, and specialist routing.</p>
+<pre class="code"><code>from autogen_agentchat.agents import AssistantAgent
+from autogen_agentchat.teams import Swarm
+from autogen_agentchat.conditions import HandoffTermination, TextMentionTermination
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+
+model_client = OpenAIChatCompletionClient(model="gpt-4o")
+
+triage_agent = AssistantAgent(
+    name="triage",
+    model_client=model_client,
+    system_message=(
+        "You triage user requests. "
+        "Hand off to 'billing' for billing questions. "
+        "Hand off to 'technical' for technical issues. "
+        "Hand off to 'general' for everything else."
+    ),
+    handoffs=["billing", "technical", "general"],
+)
+
+billing_agent = AssistantAgent(
+    name="billing",
+    model_client=model_client,
+    system_message="You handle billing questions. When done, say TRANSFER.",
+)
+
+technical_agent = AssistantAgent(
+    name="technical",
+    model_client=model_client,
+    system_message="You handle technical issues. When done, say TRANSFER.",
+)
+
+general_agent = AssistantAgent(
+    name="general",
+    model_client=model_client,
+    system_message="You handle general questions. End with TERMINATE.",
+)
+
+termination = HandoffTermination(target="triage") | TextMentionTermination("TERMINATE")
+
+team = Swarm(
+    participants=[triage_agent, billing_agent, technical_agent, general_agent],
+    termination_condition=termination,
+)
+
+import asyncio
+
+async def main():
+    result = await team.run(task="Why was I charged twice last month?")
+    print(result)
+
+asyncio.run(main())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Swarm is ideal for customer support routing, escalation chains, and specialist workflows. The triage agent classifies the request and hands off to the appropriate specialist. Each specialist handles its domain independently.</div>
+<div class="callout hood"><span>Under the hood</span>Swarm agents have a handoffs list that defines possible transfer targets. When an agent generates a handoff message (matching the target agent name), the runtime pauses the current agent and activates the target agent. The conversation history is shared with the new agent.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>GraphFlow: DiGraphBuilder Workflows</h3>
+<p><strong>What &amp; why.</strong> GraphFlow is a v0.4 team type that models agent interactions as a directed graph. You define nodes (agents) and edges (message flow) explicitly, enabling complex workflows with branching, merging, and conditional routing. DiGraphBuilder provides a fluent API for constructing these graphs. This is the v0.4 equivalent of LangGraph's graph-based orchestration within AutoGen.</p>
+<pre class="code"><code>from autogen_agentchat.agents import AssistantAgent
+from autogen_agentchat.teams import GraphFlow
+from autogen_agentchat.conditions import TextMentionTermination
+from autogen_agentchat.graphs import DiGraphBuilder
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+
+model_client = OpenAIChatCompletionClient(model="gpt-4o")
+
+researcher = AssistantAgent(
+    name="researcher", model_client=model_client,
+    system_message="Research the given topic.",
+)
+writer = AssistantAgent(
+    name="writer", model_client=model_client,
+    system_message="Write content based on research.",
+)
+reviewer = AssistantAgent(
+    name="reviewer", model_client=model_client,
+    system_message="Review content. Say APPROVED or provide feedback.",
+)
+
+# Build the graph explicitly
+builder = DiGraphBuilder()
+builder.add_node(researcher).add_node(writer).add_node(reviewer)
+builder.add_edge(researcher, writer)
+builder.add_edge(writer, reviewer)
+builder.add_edge(reviewer, writer)  # Feedback loop
+graph = builder.build()
+
+termination = TextMentionTermination("APPROVED")
+
+team = GraphFlow(
+    participants=[researcher, writer, reviewer],
+    graph=graph,
+    termination_condition=termination,
+    max_turns=8,
+)
+
+import asyncio
+
+async def main():
+    result = await team.run(task="Write about AI agent architectures.")
+    print(result)
+
+asyncio.run(main())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>GraphFlow is for complex multi-agent workflows that need explicit control over message routing. Use it when you need branching (different paths based on conditions), merging (multiple agents feeding into one), or feedback loops (review and revise cycles).</div>
+<div class="callout hood"><span>Under the hood</span>DiGraphBuilder constructs a directed graph where nodes are agents and edges define message flow. GraphFlow follows the graph edges to route messages between agents. Conditional edges enable branching based on agent output content.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Magentic-One: Orchestrator Overview</h3>
+<p><strong>What &amp; why.</strong> Magentic-One is Microsoft's multi-agent orchestration system built on AutoGen. It uses an Orchestrator agent that dynamically plans and coordinates specialist agents. The Orchestrator maintains a task ledger, assigns work to specialists, and tracks progress. It represents the most sophisticated agent orchestration pattern in the AutoGen ecosystem, handling complex multi-step tasks with adaptive planning.</p>
+<pre class="code"><code># Magentic-One overview (conceptual)
+# pip install autogen-ext[magentic-one]
+
+# Magentic-One uses an Orchestrator that:
+# 1. Receives a complex task
+# 2. Creates a plan with subtasks
+# 3. Assigns subtasks to specialist agents
+# 4. Tracks progress in a ledger
+# 5. Adapts the plan based on results
+# 6. Reports final results
+
+from autogen_ext.agents.magentic_one import MagenticOneOrchestrator
+from autogen_agentchat.agents import AssistantAgent
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+
+model_client = OpenAIChatCompletionClient(model="gpt-4o")
+
+# Specialist agents
+web_surfer = AssistantAgent(
+    name="WebSurfer",
+    model_client=model_client,
+    system_message="You browse the web and extract information.",
+)
+
+file_surfer = AssistantAgent(
+    name="FileSurfer",
+    model_client=model_client,
+    system_message="You read and process local files.",
+)
+
+coder = AssistantAgent(
+    name="Coder",
+    model_client=model_client,
+    system_message="You write code to solve problems.",
+)
+
+# Orchestrator coordinates all specialists
+orchestrator = MagenticOneOrchestrator(
+    model_client=model_client,
+    participants=[web_surfer, file_surfer, coder],
+)
+
+import asyncio
+
+async def main():
+    result = await orchestrator.run(
+        task="Research competitor pricing and create a comparison spreadsheet."
+    )
+    print(result)
+
+asyncio.run(main())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Magentic-One handles complex multi-step tasks that require adaptive planning and multiple specialist agents. It is the most automated orchestration pattern: you describe the goal and the Orchestrator figures out the execution plan.</div>
+<div class="callout hood"><span>Under the hood</span>The Orchestrator maintains a task ledger (a structured plan) and a progress tracker. It uses the LLM to decompose tasks, assign them to specialists, and evaluate results. If a specialist fails, the Orchestrator adapts the plan and retries with alternative approaches.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Local Models via Ollama Configuration</h3>
+<p><strong>What &amp; why.</strong> AutoGen supports local models via Ollama, enabling development and testing without API costs. Configure the model client to point to Ollama's OpenAI-compatible API endpoint. This is essential for offline development, cost-sensitive testing, and data privacy scenarios where code and prompts must not leave the local machine.</p>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+# Ollama local model configuration
+local_config = {
+    "model": "llama3.1",
+    "base_url": "http://localhost:11434/v1",
+    "api_key": "ollama",  # Required but unused
+}
+
+assistant = AssistantAgent(
+    name="local_assistant",
+    llm_config=local_config,
+    system_message="You are a helpful assistant running locally.",
+)
+
+proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=3,
+    is_termination_msg=lambda x: "TERMINATE" in x.get("content", ""),
+)
+
+proxy.initiate_chat(
+    assistant,
+    message="Explain the difference between lists and tuples in Python.",
+)
+
+# For v0.4 with Ollama
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+
+local_client = OpenAIChatCompletionClient(
+    model="llama3.1",
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Local models via Ollama enable cost-free development and testing. Use them for unit tests, development, and scenarios where data privacy is critical. Switch to cloud models for production quality and capability.</div>
+<div class="callout hood"><span>Under the hood</strong>Ollama provides an OpenAI-compatible API at localhost:11434/v1. AutoGen's ChatOpenAI client can connect to it by setting base_url. The model must be pulled into Ollama first (ollama pull llama3.1). Response quality depends on the local model's capabilities.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>LangGraph Interop Adapter</h3>
+<p><strong>What &amp; why.</strong> AutoGen and LangGraph can interoperate via adapter patterns. You can wrap an AutoGen agent as a LangGraph node, or call LangGraph graphs from within AutoGen conversations. This enables combining AutoGen's conversational strengths with LangGraph's graph-based orchestration. The interop is achieved through message format conversion and function wrapping.</p>
+<pre class="code"><code># Interop pattern: AutoGen agent as a LangGraph node
+from autogen import AssistantAgent
+from langgraph.graph import StateGraph, START, END
+from typing import TypedDict
+
+class PipelineState(TypedDict):
+    query: str
+    autogen_response: str
+    final_output: str
+
+# AutoGen agent
+autogen_agent = AssistantAgent(
+    name="researcher",
+    llm_config={"model": "gpt-4o"},
+    system_message="You research topics thoroughly.",
+)
+
+def run_autogen_agent(state: PipelineState) -> dict:
+    """Wrap AutoGen execution in a LangGraph node."""
+    from autogen import UserProxyAgent
+    proxy = UserProxyAgent(
+        name="proxy", human_input_mode="NEVER",
+        max_consecutive_auto_reply=1,
+    )
+    result = proxy.initiate_chat(
+        autogen_agent,
+        message=state["query"],
+        max_turns=2,
+    )
+    return {"autogen_response": result.summary}
+
+def post_process(state: PipelineState) -> dict:
+    return {"final_output": f"Processed: {state['autogen_response']}"}
+
+# Build LangGraph with AutoGen node
+graph = StateGraph(PipelineState)
+graph.add_node("research", run_autogen_agent)
+graph.add_node("process", post_process)
+graph.add_edge(START, "research")
+graph.add_edge("research", "process")
+graph.add_edge("process", END)
+
+app = graph.compile()
+result = app.invoke({"query": "What are AI agents?", "autogen_response": "", "final_output": ""})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Interop is valuable when you need LangGraph's graph orchestration around AutoGen's conversational agents. Use LangGraph for the outer workflow and AutoGen for inner iterative refinement loops.</div>
+<div class="callout hood"><span>Under the hood</span>The interop wrapper creates a UserProxyAgent for each execution, runs the AutoGen conversation synchronously, and returns the summary to the LangGraph node. This is a simple but effective pattern; more sophisticated adapters may share conversation state.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Evaluation: Conversation Win Criteria</h3>
+<p><strong>What &amp; why.</strong> Evaluating AutoGen conversations requires defining win criteria: what constitutes a successful conversation outcome. Criteria include: task completion (did the code run?), output quality (is the response accurate?), efficiency (how many turns?), and cost (total tokens). Build evaluation harnesses that run conversations against test cases and score them against these criteria.</p>
+<pre class="code"><code>import json
+from autogen import AssistantAgent, UserProxyAgent
+
+class ConversationEvaluator:
+    def __init__(self):
+        self.results = []
+
+    def evaluate(self, task, expected, config):
+        assistant = AssistantAgent(
+            name="assistant",
+            llm_config=config,
+            system_message="You are a helpful assistant. End with TERMINATE.",
+        )
+        proxy = UserProxyAgent(
+            name="evaluator",
+            human_input_mode="NEVER",
+            max_consecutive_auto_reply=5,
+            is_termination_msg=lambda x: "TERMINATE" in x.get("content", ""),
+        )
+        result = proxy.initiate_chat(assistant, message=task, max_turns=6)
+
+        score = {
+            "task": task,
+            "turns": len(result.chat_history),
+            "cost": result.cost,
+            "completed": "TERMINATE" in str(result.chat_history[-1]),
+            "summary": result.summary[:200],
+        }
+        self.results.append(score)
+        return score
+
+evaluator = ConversationEvaluator()
+config = {"model": "gpt-4o", "temperature": 0}
+
+tasks = [
+    ("Write a function to check if a string is a palindrome", "def is_palindrome"),
+    ("Calculate the sum of numbers 1 to 100", "5050"),
+    ("Create a list of prime numbers under 50", "[2, 3, 5, 7, 11]"),
+]
+
+for task, expected in tasks:
+    score = evaluator.evaluate(task, expected, config)
+    print(f"Turns: {score['turns']}, Completed: {score['completed']}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Conversation evaluation is essential for maintaining quality across AutoGen updates. Run evaluation suites before deploying prompt changes or model upgrades. Track metrics over time to detect quality regressions.</div>
+<div class="callout hood"><span>Under the hood</span>AutoGen's ChatResult provides all data needed for evaluation: full message history, token usage, cost, and summary. Combine these with custom scoring logic to build comprehensive evaluation harnesses.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Long-Running Sessions: Persistence</h3>
+<p><strong>What &amp; why.</strong> AutoGen conversations can be long-running: code generation sessions may last hours, and iterative refinement may require many turns. Persisting conversation state enables resuming interrupted sessions, debugging failed runs, and auditing completed work. AutoGen stores chat history in ChatResult objects that can be serialized to disk.</p>
+<pre class="code"><code>import json
+from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message="You are a helpful coding assistant.",
+)
+
+proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=5,
+)
+
+# Run conversation
+result = proxy.initiate_chat(
+    assistant,
+    message="Write a web scraper for product prices.",
+)
+
+# Persist conversation state
+conversation_data = {
+    "messages": result.chat_history,
+    "summary": result.summary,
+    "cost": result.cost,
+    "speaker_order": result.speaker_order if hasattr(result, "speaker_order") else [],
+}
+
+with open("session_state.json", "w") as f:
+    json.dump(conversation_data, f, indent=2)
+
+# Resume later by loading state
+with open("session_state.json") as f:
+    saved = json.load(f)
+
+print(f"Session had {len(saved['messages'])} messages")
+print(f"Total cost: {saved['cost']}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Persist conversation state for any session that may be interrupted: long code generation tasks, iterative refinement loops, and multi-day research sessions. Store state to disk or database for recovery and audit.</div>
+<div class="callout hood"><span>Under the hood</span>ChatResult contains the full conversation history as a list of message dicts. Each message has role, content, and optional metadata. Serialize to JSON for disk persistence. For database storage, extract relevant fields and store them in structured tables.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Teachability research, cost governance, testing, production deployment</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Research Extensions: Teachability and RLAHF</h3>
+<p><strong>What &amp; why.</strong> AutoGen's research extensions explore advanced agent capabilities. Teachability enables persistent learning across conversations. RLAHF (Reinforcement Learning from Human Feedback) experiments fine-tune agent behavior based on human preferences. These extensions push beyond basic conversation into adaptive, learning agent systems that improve over time.</p>
+<pre class="code"><code># Research extension concepts (conceptual overview)
+# These features are experimental and evolving
+
+# Teachability: Agent learns facts from conversations
+# The agent stores facts in a vector DB and recalls them
+# in future conversations based on semantic similarity
+
+# RLAHF: Agent behavior refined by human feedback
+# Human ranks conversation outcomes, agent policy is updated
+# to favor behaviors that produce higher-ranked outcomes
+
+# Practical implementation with teachability
+from autogen.contrib.teachability import Teachability
+
+teachability = Teachability(
+    reset_db=False,
+    path_to_db_dir="agent_memory",
+    recall_threshold=0.5,
+    max_archive_entries=100,
+)
+
+# Attach to any AssistantAgent
+from autogen import AssistantAgent
+
+agent = AssistantAgent(
+    name="learner",
+    llm_config={"model": "gpt-4o"},
+    system_message="You learn from conversations and remember facts.",
+)
+agent.teachability = teachability
+
+# The agent now remembers:
+# - User preferences
+# - Domain facts
+# - Previous decisions
+# - Custom terminology</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Research extensions are for building adaptive agents that improve over time. Teachability is production-ready for customer support and personal assistant use cases. RLAHF is primarily for research settings where human feedback loops are feasible.</div>
+<div class="callout hood"><span>Under the hood</span>Teachability uses ChromaDB for vector storage and the LLM for fact extraction. When a conversation starts, relevant memories are retrieved and injected into the system prompt. RLAHF uses reward modeling to update agent behavior policies.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Large-Team Coordination Limits</h3>
+<p><strong>What &amp; why.</strong> AutoGen's GroupChat degrades with large teams (10+ agents). Speaker selection becomes slow and expensive because the LLM must evaluate all agent profiles. Message volume grows quadratically with participants. For large teams, use hierarchical patterns: a coordinator agent delegates to specialist sub-teams, each with their own smaller GroupChat. This limits the blast radius of coordination overhead.</p>
+<pre class="code"><code># Large team: use hierarchical sub-groups
+from autogen import AssistantAgent, GroupChat, GroupChatManager, UserProxyAgent
+
+# Instead of 10 agents in one GroupChat:
+# Create 3 sub-teams of 3-4 agents each
+
+# Sub-team 1: Research
+research_lead = AssistantAgent(
+    name="research_lead", llm_config={"model": "gpt-4o"},
+    system_message="You coordinate research agents.",
+)
+researcher1 = AssistantAgent(
+    name="researcher1", llm_config={"model": "gpt-4o"},
+    system_message="You research market data.",
+)
+researcher2 = AssistantAgent(
+    name="researcher2", llm_config={"model": "gpt-4o"},
+    system_message="You research technical trends.",
+)
+
+research_team = GroupChat(
+    agents=[research_lead, researcher1, researcher2],
+    messages=[], max_round=6,
+    speaker_selection_method="auto",
+)
+research_manager = GroupChatManager(
+    groupchat=research_team, llm_config={"model": "gpt-4o"},
+)
+
+# Sub-team 2: Analysis (similar structure)
+# Sub-team 3: Writing (similar structure)
+
+# Top-level coordinator delegates to sub-teams
+coordinator = AssistantAgent(
+    name="coordinator", llm_config={"model": "gpt-4o"},
+    system_message="You coordinate research, analysis, and writing sub-teams.",
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>For teams larger than 5-6 agents, use hierarchical sub-groups. A coordinator delegates to specialist teams, each with 3-4 agents. This keeps speaker selection fast and message volume manageable.</div>
+<div class="callout hood"><span>Under the hood</span>Speaker selection in GroupChat sends all agent profiles to the LLM. With 10 agents, this prompt is large and the selection is slow. Sub-groups reduce the selection pool to 3-4 agents, making selection faster and more accurate.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Formal Conversation Policies: Statecharts</h3>
+<p><strong>What &amp; why.</strong> AutoGen conversations can be modeled as statecharts: formal state machines that define valid message sequences. States represent conversation phases (drafting, reviewing, revising), and transitions define valid next states. This formalization prevents invalid conversation flows, enables verification, and makes complex multi-agent workflows predictable and debuggable.</p>
+<pre class="code"><code># Statechart-inspired conversation policy
+# Model conversation as explicit states and transitions
+
+conversation_states = {
+    "init": {"next": ["drafting"]},
+    "drafting": {"next": ["reviewing", "complete"]},
+    "reviewing": {"next": ["revising", "approved"]},
+    "revising": {"next": ["reviewing"]},
+    "approved": {"next": ["complete"]},
+    "complete": {"next": []},
+}
+
+# Implement as a custom reply function
+class StatefulConversation:
+    def __init__(self):
+        self.state = "init"
+        self.transitions = conversation_states
+
+    def check_transition(self, new_state):
+        valid = self.transitions.get(self.state, {}).get("next", [])
+        if new_state in valid:
+            self.state = new_state
+            return True
+        return False
+
+policy = StatefulConversation()
+
+# Agent 1: drafts content
+draft_agent = AssistantAgent(
+    name="drafter",
+    llm_config={"model": "gpt-4o"},
+    system_message="Draft content. When done, say REVIEW.",
+)
+
+# Agent 2: reviews content
+review_agent = AssistantAgent(
+    name="reviewer",
+    llm_config={"model": "gpt-4o"},
+    system_message="Review content. Say APPROVED or REVISE.",
+)
+
+# The state machine ensures valid conversation flow:
+# init -> drafting -> reviewing -> (revising -> reviewing)* -> approved -> complete</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Statecharts are valuable for regulated workflows where conversation flow must be auditable: medical triage, legal review, financial approval. They prevent agents from skipping required steps or entering invalid states.</div>
+<div class="callout hood"><span>Under the hood</span>Statechart enforcement is implemented as custom reply functions that check transition validity before processing messages. Invalid transitions trigger error handling or fallback behavior. This adds overhead but guarantees valid conversation flow.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Cost Governance: Transcripts Ledger</h3>
+<p><strong>What &amp; why.</strong> AutoGen tracks token usage and cost in ChatResult.cost. For production, build a cost governance system that logs all conversation costs, enforces budgets, and alerts on overspend. A transcripts ledger records every conversation's token usage, enabling cost allocation to teams, projects, or customers. Set per-conversation and per-agent cost limits to prevent runaway spending.</p>
+<pre class="code"><code>import json
+import time
+from autogen import AssistantAgent, UserProxyAgent
+
+class CostGovernor:
+    def __init__(self, budget_per_conversation=0.50):
+        self.budget = budget_per_conversation
+        self.ledger = []
+        self.total_spend = 0.0
+
+    def check_budget(self, cost):
+        self.total_spend += cost
+        self.ledger.append({
+            "timestamp": time.time(),
+            "cost": cost,
+            "running_total": self.total_spend,
+        })
+        if cost > self.budget:
+            raise BudgetExceeded(f"Cost ${cost:.4f} exceeds budget ${self.budget}")
+
+    def get_report(self):
+        return {
+            "total_cost": self.total_spend,
+            "conversations": len(self.ledger),
+            "avg_cost": self.total_spend / max(len(self.ledger), 1),
+        }
+
+class BudgetExceeded(Exception):
+    pass
+
+governor = CostGovernor(budget_per_conversation=0.25)
+
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message="You are a helpful assistant. End with TERMINATE.",
+)
+
+proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=3,
+    is_termination_msg=lambda x: "TERMINATE" in x.get("content", ""),
+)
+
+result = proxy.initiate_chat(assistant, message="Explain quantum computing.")
+governor.check_budget(result.cost.get("usage_included_in_price", 0))
+print(governor.get_report())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost governance is mandatory for production AutoGen. Set budgets per conversation, per agent, and per time period. Log all costs for auditing and allocation. Alert when approaching budget limits.</div>
+<div class="callout hood"><span>Under the hood</span>AutoGen's cost tracking aggregates token usage across all messages in a conversation. The cost dict includes prompt_tokens, completion_tokens, and total_tokens. Multiply by model pricing to calculate actual costs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Enterprise Deploy: Containers and Queues</h3>
+<p><strong>What &amp; why.</strong> Production AutoGen deployments use containerized agents, message queues for job dispatch, and databases for state persistence. Each conversation runs in an isolated container with resource limits. A queue receives conversation requests and dispatches them to available containers. Conversation state is stored in a database for recovery and audit. This architecture scales horizontally and provides fault isolation.</p>
+<pre class="code"><code># Enterprise deployment architecture (conceptual)
+# Each component runs as a separate container/service
+
+# 1. API Gateway receives conversation requests
+# 2. Queue (Redis/RabbitMQ) buffers jobs
+# 3. Worker containers pull jobs and run AutoGen conversations
+# 4. Database stores conversation state and results
+# 5. Monitoring tracks costs, latency, and errors
+
+import json
+import redis
+
+r = redis.Redis(host="localhost", port=6379, db=0)
+
+def enqueue_conversation(task, user_id):
+    """Add a conversation request to the queue."""
+    job = {
+        "task": task,
+        "user_id": user_id,
+        "timestamp": time.time(),
+        "status": "pending",
+    }
+    r.lpush("autogen_jobs", json.dumps(job))
+    return job
+
+def process_conversation(job):
+    """Process a conversation from the queue."""
+    from autogen import AssistantAgent, UserProxyAgent
+    assistant = AssistantAgent(
+        name="assistant",
+        llm_config={"model": "gpt-4o"},
+        system_message="You are a helpful assistant.",
+    )
+    proxy = UserProxyAgent(
+        name="user",
+        human_input_mode="NEVER",
+        max_consecutive_auto_reply=5,
+    )
+    result = proxy.initiate_chat(assistant, message=job["task"])
+    return {
+        "result": result.summary,
+        "cost": result.cost,
+        "turns": len(result.chat_history),
+    }
+
+# Worker loop
+while True:
+    _, job_raw = r.brpop("autogen_jobs")
+    job = json.loads(job_raw)
+    try:
+        output = process_conversation(job)
+        r.hset(f"job:{job['user_id']}", mapping=output)
+    except Exception as e:
+        r.hset(f"job:{job['user_id']}", "error", str(e))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Enterprise deployment requires containerization, queue-based job dispatch, and database persistence. This architecture enables horizontal scaling, fault isolation, and resource management. Use Docker Compose or Kubernetes for orchestration.</div>
+<div class="callout hood"><span>Under the hood</span>Each worker container creates its own AutoGen agent instances and runs conversations independently. The queue ensures jobs are distributed across available workers. Database persistence enables recovery from worker crashes without losing conversation state.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Testing: Deterministic Fake Model Clients</h3>
+<p><strong>What &amp; why.</strong> Testing AutoGen conversations requires deterministic behavior. Fake model clients return predefined responses instead of calling LLM APIs, enabling fast, deterministic tests. AutoGen provides built-in fake clients for testing, or you can create custom ones that return specific responses based on input patterns. This eliminates API costs and non-determinism in tests.</p>
+<pre class="code"><code># Testing AutoGen with fake model clients
+from autogen import AssistantAgent, UserProxyAgent
+
+# Custom fake model client
+class FakeModelClient:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.call_count = 0
+
+    def __call__(self, messages):
+        response = self.responses[min(self.call_count, len(self.responses) - 1)]
+        self.call_count += 1
+        return {
+            "choices": [{
+                "message": {"role": "assistant", "content": response},
+                "finish_reason": "stop",
+            }],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+        }
+
+# Test with predictable responses
+fake_client = FakeModelClient([
+    "Here is the code:\n```python\nprint('hello')\n```\nTERMINATE",
+    "The code executed successfully.",
+])
+
+# For v0.4 testing
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+from unittest.mock import AsyncMock
+
+mock_client = AsyncMock(spec=OpenAIChatCompletionClient)
+mock_response = MagicMock()
+mock_response.choices = [MagicMock(message=MagicMock(content="Test response"))]
+mock_client.create.return_value = mock_response</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fake model clients enable fast, deterministic unit tests for AutoGen conversations. Test agent behavior, message routing, and termination conditions without API calls. Use fake clients in CI/CD and real models only for integration tests.</div>
+<div class="callout hood"><span>Under the hood</strong>Fake model clients implement the same interface as real model clients. AutoGen calls them exactly as it would call real clients, making the tests realistic. The fake client returns predetermined responses based on a sequence or pattern matching.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Benchmarking vs Single-Agent Baselines</h3>
+<p><strong>What &amp; why.</strong> Multi-agent conversations are not always better than single-agent calls. Benchmark AutoGen conversations against single-agent baselines to measure the actual value of multi-turn interaction. For simple tasks, a single LLM call may produce equivalent quality at lower cost and latency. Multi-agent conversations add value only when iteration and critique genuinely improve outcomes.</p>
+<pre class="code"><code>import time
+from autogen import AssistantAgent, UserProxyAgent
+
+def benchmark_single_agent(task, config):
+    """Single LLM call baseline."""
+    assistant = AssistantAgent(
+        name="assistant", llm_config=config,
+        system_message="Solve the task directly.",
+    )
+    proxy = UserProxyAgent(
+        name="user", human_input_mode="NEVER",
+        max_consecutive_auto_reply=0,
+        is_termination_msg=lambda x: True,
+    )
+    start = time.time()
+    result = proxy.initiate_chat(assistant, message=task, max_turns=1)
+    latency = time.time() - start
+    return {"response": result.summary, "latency": latency, "turns": 1}
+
+def benchmark_multi_agent(task, config):
+    """Multi-agent conversation baseline."""
+    assistant = AssistantAgent(
+        name="assistant", llm_config=config,
+        system_message="Solve the task. End with TERMINATE.",
+    )
+    proxy = UserProxyAgent(
+        name="user", human_input_mode="NEVER",
+        max_consecutive_auto_reply=5,
+        is_termination_msg=lambda x: "TERMINATE" in x.get("content", ""),
+    )
+    start = time.time()
+    result = proxy.initiate_chat(assistant, message=task, max_turns=6)
+    latency = time.time() - start
+    return {"response": result.summary, "latency": latency, "turns": len(result.chat_history)}
+
+config = {"model": "gpt-4o", "temperature": 0}
+tasks = [
+    "What is 2 + 2?",
+    "Write a function to check primality",
+    "Debug this code: def f(x): return x/0",
+]
+
+for task in tasks:
+    single = benchmark_single_agent(task, config)
+    multi = benchmark_multi_agent(task, config)
+    print(f"Task: {task[:30]}...")
+    print(f"  Single: {single['latency']:.2f}s, {single['turns']} turns")
+    print(f"  Multi:  {multi['latency']:.2f}s, {multi['turns']} turns")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Always benchmark multi-agent vs single-agent for your specific tasks. Multi-agent adds value for code generation with debugging, document review, and complex analysis. For simple Q&A, single-agent is faster and cheaper.</div>
+<div class="callout hood"><span>Under the hood</span>Single-agent benchmarks use max_consecutive_auto_reply=0 to get exactly one response. Multi-agent benchmarks allow multiple turns. Compare response quality, latency, and cost to determine the optimal approach for each task type.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Failure Postmortems: Runaway Loops and Bills</h3>
+<p><strong>What &amp; why.</strong> AutoGen failure modes include runaway conversations (infinite loops), cost explosion (excessive token usage), and code execution failures (sandbox escapes, resource exhaustion). Postmortem analysis of these failures reveals prevention strategies: max_consecutive_auto_reply limits, cost caps, Docker sandboxing, and termination condition hardening. Every production deployment needs these safeguards.</p>
+<pre class="code"><code># Common AutoGen failure modes and prevention
+
+# FAILURE 1: Runaway conversation loop
+# Two agents in NEVER mode loop indefinitely
+# PREVENTION: Always set max_consecutive_auto_reply
+
+# FAILURE 2: Cost explosion
+# Complex task generates hundreds of LLM calls
+# PREVENTION: Set max_turns and cost caps
+
+# FAILURE 3: Code execution resource exhaustion
+# Generated code allocates unbounded memory
+# PREVENTION: Docker with resource limits
+
+# FAILURE 4: Termination condition not triggered
+# LLM never outputs TERMINATE
+# PREVENTION: Multiple termination conditions
+
+from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent(
+    name="assistant",
+    llm_config={"model": "gpt-4o"},
+    system_message="Solve the problem. End with TERMINATE.",
+)
+
+# Production-hardened proxy with multiple safeguards
+proxy = UserProxyAgent(
+    name="user",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=8,        # Max auto-replies
+    is_termination_msg=lambda x: (
+        "TERMINATE" in x.get("content", "")
+        or len(str(x.get("content", ""))) > 5000  # Content length guard
+    ),
+    code_execution_config={
+        "work_dir": "sandbox",
+        "use_docker": True,  # Always Docker in production
+    },
+)
+
+result = proxy.initiate_chat(
+    assistant,
+    message="Analyze this dataset and create visualizations.",
+    max_turns=10,  # Hard limit on total turns
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production AutoGen requires multiple safety layers: max_consecutive_auto_reply, max_turns, cost caps, Docker sandboxing, and robust termination conditions. Failure to implement these safeguards has resulted in thousands of dollars in unexpected API costs.</div>
+<div class="callout hood"><span>Under the hood</span>AutoGen's safety mechanisms are configurable per-agent and per-conversation. The interaction between max_consecutive_auto_reply, max_turns, and is_termination_msg determines when a conversation stops. Always set all three for defense in depth.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Data Analysis Duo: Coder and Reviewer with Charts</h3>
+<p>Build a two-agent data analysis system where a coder agent writes analysis code, executes it, and a reviewer agent evaluates the output. The system processes CSV data, generates statistical summaries, and produces publication-quality charts.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Configure the coder AssistantAgent with pandas, matplotlib, and seaborn expertise in the system_message</li><li>Configure the reviewer AssistantAgent to evaluate code quality, statistical accuracy, and visualization aesthetics</li><li>Set up UserProxyAgent with Docker sandboxing and local work directory for code execution</li><li>Create a sample CSV dataset with numerical columns for analysis</li><li>Start the conversation with a multi-part analysis request: summary stats, correlation matrix, and scatter plots</li><li>Allow 6-8 auto-reply turns for the code-debug-review cycle to complete</li><li>Configure termination on "TERMINATE" keyword from the coder after reviewer approval</li><li>Extract and save generated charts and analysis summary from the conversation output</li></ol>
+<pre class="code"><code>import csv
+import os
+from autogen import AssistantAgent, UserProxyAgent
+
+# Create sample dataset
+data = [
+    {"month": "Jan", "revenue": 45000, "costs": 32000, "users": 1200},
+    {"month": "Feb", "revenue": 52000, "costs": 35000, "users": 1450},
+    {"month": "Mar", "revenue": 48000, "costs": 31000, "users": 1380},
+    {"month": "Apr", "revenue": 61000, "costs": 38000, "users": 1700},
+    {"month": "May", "revenue": 55000, "costs": 36000, "users": 1550},
+]
+os.makedirs("analysis_output", exist_ok=True)
+with open("analysis_output/data.csv", "w", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=["month", "revenue", "costs", "users"])
+    writer.writeheader()
+    writer.writerows(data)
+
+coder = AssistantAgent(
+    name="coder",
+    llm_config={"model": "gpt-4o", "temperature": 0.1},
+    system_message=(
+        "You are a Python data analyst. Write pandas code to analyze data. "
+        "Generate matplotlib/seaborn charts saved as PNG files. "
+        "Handle errors and edge cases. End with TERMINATE when analysis is complete."
+    ),
+)
+
+reviewer = AssistantAgent(
+    name="reviewer",
+    llm_config={"model": "gpt-4o", "temperature": 0.1},
+    system_message=(
+        "You review data analysis code. Check for:\n"
+        "- Statistical correctness\n"
+        "- Code efficiency\n"
+        "- Chart readability and labels\n"
+        "Say APPROVED when the analysis meets quality standards."
+    ),
+)
+
+executor = UserProxyAgent(
+    name="executor",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=8,
+    is_termination_msg=lambda x: "TERMINATE" in x.get("content", ""),
+    code_execution_config={
+        "work_dir": "analysis_output",
+        "use_docker": False,
+    },
+)
+
+result = executor.initiate_chat(
+    coder,
+    message=(
+        "Analyze analysis_output/data.csv. Produce:\n"
+        "1. Summary statistics table\n"
+        "2. Revenue vs costs bar chart\n"
+        "3. Users growth line chart\n"
+        "4. Correlation heatmap"
+    ),
+)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Two-agent code generation with execution feedback</li><li>Iterative code debugging through conversation</li><li>Multi-chart data visualization pipeline</li><li>Code review via conversational critique</li><li>Sandboxed code execution with output capture</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Product Brainstorm Room: Rotating Personas</h3>
+<p>Build a multi-agent brainstorming system where different persona agents contribute product ideas, critique concepts, and refine proposals through structured dialogue. The system uses GroupChat with rotating speaker selection to simulate a diverse product team.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Create persona agents: Product Manager (requirements), Designer (UX), Engineer (feasibility), Marketer (positioning), and Customer Advocate (user needs)</li><li>Configure each agent with distinct system_messages that reflect their professional perspective and vocabulary</li><li>Set up GroupChat with auto speaker selection so the LLM chooses the most relevant contributor for each turn</li><li>Add a UserProxyAgent as the meeting facilitator that initiates the brainstorm with a product brief</li><li>Set max_round to 12-15 to allow full discussion across all personas</li><li>Configure termination on "DECISION" keyword when the group converges on a product concept</li><li>Use a cost governor to cap the brainstorm session at a fixed budget</li><li>Extract the final product concept summary from the conversation history</li></ol>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
+
+pm = AssistantAgent(
+    name="product_manager",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You are a product manager. Focus on user needs, market fit, "
+        "and feature prioritization. Ask 'will this solve a real problem?'"
+    ),
+)
+
+designer = AssistantAgent(
+    name="designer",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You are a UX designer. Focus on user experience, accessibility, "
+        "and visual design. Ask 'is this intuitive for the user?'"
+    ),
+)
+
+engineer = AssistantAgent(
+    name="engineer",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You are a software engineer. Focus on technical feasibility, "
+        "scalability, and implementation complexity. Ask 'can we build this?'"
+    ),
+)
+
+marketer = AssistantAgent(
+    name="marketer",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You are a marketing lead. Focus on positioning, differentiation, "
+        "and go-to-market. Ask 'why would users choose this?'"
+    ),
+)
+
+customer = AssistantAgent(
+    name="customer_advocate",
+    llm_config={"model": "gpt-4o"},
+    system_message=(
+        "You represent the customer. Focus on pain points, willingness to pay, "
+        "and adoption barriers. Ask 'would I actually use this?'"
+    ),
+)
+
+facilitator = UserProxyAgent(
+    name="facilitator",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=1,
+)
+
+group = GroupChat(
+    agents=[facilitator, pm, designer, engineer, marketer, customer],
+    messages=[],
+    max_round=15,
+    speaker_selection_method="auto",
+)
+manager = GroupChatManager(groupchat=group, llm_config={"model": "gpt-4o"})
+
+result = facilitator.initiate_chat(
+    manager,
+    message=(
+        "Brainstorm: An AI-powered personal finance app for millennials. "
+        "Generate 3 product concepts and vote on the best one."
+    ),
+)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Multi-persona GroupChat with diverse expertise</li><li>LLM-driven speaker selection for natural dialogue</li><li>Structured brainstorming with convergence criteria</li><li>Cost-capped multi-agent sessions</li><li>Meeting summary extraction from conversation history</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Sandboxed Coding Tutor: Executing Student Code Safely</h3>
+<p>Build an interactive coding tutor that teaches programming concepts by having students write code, executing it safely in a Docker sandbox, and providing conversational feedback. The system demonstrates AutoGen's code execution capabilities in an educational context.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Create a tutor AssistantAgent with pedagogical system_message that encourages exploration and provides hints rather than answers</li><li>Configure UserProxyAgent with Docker sandboxing for safe student code execution</li><li>Set human_input_mode="TERMINATE" to allow students to provide input between tutor responses</li><li>Implement a lesson progression system: variables, loops, functions, classes, with difficulty levels</li><li>Add a code execution timeout of 30 seconds to prevent infinite loops in student code</li><li>Track student progress through conversation history and extract completed exercises</li><li>Implement a hint system: the tutor provides progressively more specific hints before showing solutions</li><li>Add a quiz mode where the tutor poses coding challenges and evaluates student solutions</li></ol>
+<pre class="code"><code>from autogen import AssistantAgent, UserProxyAgent
+
+tutor = AssistantAgent(
+    name="tutor",
+    llm_config={"model": "gpt-4o", "temperature": 0.3},
+    system_message=(
+        "You are a Python programming tutor. Your teaching style:\n"
+        "1. Start with a concept explanation\n"
+        "2. Give a simple example\n"
+        "3. Ask the student to modify or extend the code\n"
+        "4. Provide feedback on their solution\n"
+        "5. If they struggle, give hints before showing the answer\n"
+        "6. Always encourage learning and exploration\n"
+        "End each lesson with TERMINATE."
+    ),
+)
+
+student_proxy = UserProxyAgent(
+    name="student",
+    human_input_mode="TERMINATE",  # Student provides input
+    max_consecutive_auto_reply=6,
+    is_termination_msg=lambda x: "TERMINATE" in x.get("content", ""),
+    code_execution_config={
+        "work_dir": "tutor_workspace",
+        "use_docker": True,
+        "timeout": 30,  # Kill code after 30 seconds
+    },
+)
+
+# Start a lesson on list comprehensions
+result = student_proxy.initiate_chat(
+    tutor,
+    message="I want to learn about list comprehensions in Python. I know basic loops.",
+)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Docker-sandboxed code execution for safety</li><li>Conversational tutoring with progressive hint system</li><li>Student code execution with timeout protection</li><li>Pedagogical agent design with educational system_message</li><li>Interactive learning through multi-turn dialogue</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>ConversableAgent</td><td>Base class for all AutoGen agents</td><td>ConversableAgent(name=, llm_config=)</td></tr>
+<tr><td>AssistantAgent</td><td>LLM-powered agent that generates responses</td><td>AssistantAgent(name=, llm_config=, system_message=)</td></tr>
+<tr><td>UserProxyAgent</td><td>Agent that executes code and proxies human input</td><td>UserProxyAgent(human_input_mode=)</td></tr>
+<tr><td>initiate_chat</td><td>Start a conversation between agents</td><td>sender.initiate_chat(recipient, message=)</td></tr>
+<tr><td>ChatResult</td><td>Conversation output with history and cost</td><td>result.chat_history, result.cost, result.summary</td></tr>
+<tr><td>llm_config</td><td>LLM model configuration dictionary</td><td>{"model": "gpt-4o", "temperature": 0.1}</td></tr>
+<tr><td>human_input_mode</td><td>When to prompt for human input</td><td>"ALWAYS" / "NEVER" / "TERMINATE"</td></tr>
+<tr><td>is_termination_msg</td><td>Callable that checks for termination</td><td>lambda x: "TERMINATE" in x.get("content", "")</td></tr>
+<tr><td>max_consecutive_auto_reply</td><td>Limit auto-reply turns per agent</td><td>max_consecutive_auto_reply=10</td></tr>
+<tr><td>max_turns</td><td>Limit total conversation turns</td><td>initiate_chat(..., max_turns=10)</td></tr>
+<tr><td>code_execution_config</td><td>Configure code execution sandbox</td><td>{"work_dir": "out", "use_docker": True}</td></tr>
+<tr><td>register_for_llm</td><td>Register a function for LLM awareness</td><td>agent.register_for_llm(name=, description=)(func)</td></tr>
+<tr><td>register_for_execution</td><td>Register a function for execution</td><td>agent.register_for_execution(name=)(func)</td></tr>
+<tr><td>GroupChat</td><td>Multi-agent conversation with speaker selection</td><td>GroupChat(agents=[], max_round=)</td></tr>
+<tr><td>GroupChatManager</td><td>Orchestrates GroupChat speaker selection</td><td>GroupChatManager(groupchat=, llm_config=)</td></tr>
+<tr><td>speaker_selection_method</td><td>How next speaker is chosen</td><td>"auto" / "round_robin" / custom func</td></tr>
+<tr><td>register_nested_chats</td><td>Sub-conversations within main chat</td><td>agent.register_nested_chats([{recipient:}])</td></tr>
+<tr><td>Teachability</td><td>Persistent memory across conversations</td><td>from autogen.contrib.teachability import Teachability</td></tr>
+<tr><td>cache_seed</td><td>Reproducible LLM responses via caching</td><td>llm_config={"cache_seed": 42}</td></tr>
+<tr><td>Docker executor</td><td>Sandbox code execution in Docker</td><td>DockerCommandLineCodeExecutor(image=)</td></tr>
+<tr><td>v0.4 AssistantAgent</td><td>Lightweight agent with injected model client</td><td>AssistantAgent(name=, model_client=)</td></tr>
+<tr><td>v0.4 Teams</td><td>Orchestration layers for agent interactions</td><td>RoundRobinGroupChat / SelectorGroupChat / Swarm</td></tr>
+<tr><td>SelectorGroupChat</td><td>LLM-driven speaker selection</td><td>SelectorGroupChat(model_client=)</td></tr>
+<tr><td>Swarm</td><td>Handoff-based agent routing</td><td>Swarm(participants=[], handoffs=[])</td></tr>
+<tr><td>GraphFlow</td><td>Directed graph agent orchestration</td><td>GraphFlow(graph=DiGraphBuilder())</td></tr>
+<tr><td>Magentic-One</td><td>Orchestrator-led multi-agent system</td><td>MagenticOneOrchestrator(participants=[])</td></tr>
+<tr><td>TextMentionTermination</td><td>Terminate on text match</td><td>TextMentionTermination("DONE")</td></tr>
+<tr><td>MaxMessageTermination</td><td>Terminate after N messages</td><td>MaxMessageTermination(10)</td></tr>
+<tr><td>HandoffTermination</td><td>Terminate on agent handoff</td><td>HandoffTermination(target="agent")</td></tr>
+<tr><td>Ollama local model</td><td>Run local models via Ollama</td><td>base_url="http://localhost:11434/v1"</td></tr>
+<tr><td>Fake model client</td><td>Deterministic responses for testing</td><td>class FakeClient: def __call__(self, messages)</td></tr>
+<tr><td>Cost tracking</td><td>Monitor token usage per conversation</td><td>result.cost</td></tr>
+<tr><td>Conversation persistence</td><td>Save and resume conversation state</td><td>json.dump(result.chat_history)</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="crewai.html">&larr; CrewAI</a><a href="react-patterns.html">ReAct Patterns &rarr;</a></footer>
+</body></html>

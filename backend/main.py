@@ -1,7 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from chapters_data import chapters, deep_dive_chapters
+from market_api import router as market_router
+from financial_advisor_api import router as advisor_router
+from trading_api import router as trading_router
+from catalog_api import router as catalog_router
 import os
 import glob
 import subprocess
@@ -53,6 +57,11 @@ _load_dot_env()
 
 app = FastAPI(title="AI Knowledge Hub API", version="1.0.0")
 
+app.include_router(market_router)
+app.include_router(advisor_router)
+app.include_router(trading_router)
+app.include_router(catalog_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -60,6 +69,150 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --------------------------------------------------------------------------- #
+# /api/jobs — latest merged job listings
+# --------------------------------------------------------------------------- #
+_PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+_JOB_CANDIDATES = ("merged_ai_jobs.json", "topgenai_listings.json")
+
+
+def _load_job_catalog():
+    """Return (jobs, generated_at) preferring the newest merged catalog file."""
+    best = None
+    for name in _JOB_CANDIDATES:
+        path = os.path.join(_PROJECT_ROOT, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            continue
+        if best is None or mtime > best["mtime"]:
+            best = {"path": path, "mtime": mtime}
+    if best is None:
+        return [], None
+    import json as _json
+    try:
+        with open(best["path"], "r", encoding="utf-8", errors="replace") as fh:
+            data = _json.load(fh)
+    except Exception:
+        return [], None
+    jobs = data if isinstance(data, list) else (data.get("jobs") if isinstance(data, dict) else None)
+    return (jobs or []), time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(best["mtime"]))
+
+
+@app.get("/api/jobs")
+def jobs_api(source: str = "", limit: int = 6000):
+    """Return the latest merged AI job listings.
+
+    Reads the freshest of merged_ai_jobs.json / topgenai_listings.json in the
+    project root so the "Fetch Latest" button always gets the newest snapshot.
+    """
+    jobs, generated_at = _load_job_catalog()
+    if source:
+        filtered = [j for j in jobs if (j.get("source") or "").lower() == source.lower()]
+        if filtered:
+            jobs = filtered
+    total = len(jobs)
+    if limit and limit > 0:
+        jobs = jobs[:limit]
+    return {"total": total, "generatedAt": generated_at, "jobs": jobs}
+
+
+@app.get("/api/linkedin-posts/daily")
+def linkedin_posts_daily_api(date: str = None, topic: str = "", profile: str = "", per_day: int = 4):
+    """Fetch the deterministic 'daily' AI tech-stack posts for a given date."""
+    try:
+        data = _generate_daily_posts(date_str=date, topic=topic, profile=profile or None, limit=per_day)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=500, content={"error": f"Daily posts generation failed: {exc}"})
+    return data
+
+
+@app.get("/api/linkedin-posts/range")
+def linkedin_posts_range_api(start: str = None, end: str = None, topic: str = "", profile: str = "", per_day: int = 4):
+    """Fetch the daily posts for every day in a date range (calendar view)."""
+    try:
+        data = _generate_range_posts(
+            start_date=start, end_date=end, topic=topic or None,
+            profile=profile or None, per_day=per_day,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=500, content={"error": f"Daily range generation failed: {exc}"})
+    return data
+
+
+@app.get("/api/linkedin-posts/profiles")
+def linkedin_posts_profiles_api():
+    """Profiles whose posts sections the daily fetch deep-links to."""
+    return {"count": len(_daily_profiles()), "profiles": _daily_profiles()}
+
+
+@app.get("/api/linkedin-posts/live")
+def linkedin_posts_live_api(
+    topic: str = "",
+    max_results: int = 6,
+    refresh: bool = False,
+    all: bool = False,
+    time_range: str = "month",
+    date: str = "",
+):
+    """Fetch LIVE LinkedIn posts (via Tavily) for a tech-stack topic or a mixed set.
+    time_range: month (default) | week | latest | any — recency bias for fresh searches.
+    date: YYYY-MM-DD — keep only posts published that day (closest-date fallback + note).
+    """
+    try:
+        if all:
+            data = _fetch_live_posts(topic="__all__", max_results=max_results, refresh=False)
+        elif date:
+            data = _fetch_live_posts(
+                topic=topic or None, max_results=max_results, refresh=refresh,
+                time_range="any", date=date,
+            )
+        else:
+            data = _fetch_live_posts(
+                topic=topic or None, max_results=max_results, refresh=refresh,
+                time_range=time_range,
+            )
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+    return data
+
+
+@app.get("/api/linkedin-posts/img")
+def linkedin_posts_img_proxy(url: str = ""):
+    """Stream a LinkedIn CDN image so the browser can display it (media.licdn.com
+    blocks cross-site hotlinking with 403 — proxy adds a browser UA + no referer)."""
+    import requests as _rq
+    if not url.startswith("http") or "licdn.com" not in url:
+        return JSONResponse(status_code=400, content={"error": "only licdn.com image URLs are proxied"})
+    try:
+        upstream = _rq.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0", "Accept": "image/*"},
+            timeout=15,
+        )
+        return Response(
+            content=upstream.content,
+            media_type=upstream.headers.get("content-type", "image/jpeg"),
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/linkedin-posts/live-topics")
+def linkedin_posts_live_topics_api():
+    """Topic keys available for the live feed."""
+    return {"count": len(_live_topic_keys()), "topics": _live_topic_keys()}
+
+
+@app.get("/api/linkedin-posts/topics")
+def linkedin_posts_topics_api():
+    """Return the full daily topic catalog the fetch endpoint composes from."""
+    return {"count": len(_daily_topics()), "topics": _daily_topics()}
 
 
 # --------------------------------------------------------------------------- #
@@ -757,6 +910,205 @@ from news_scraper import (
     fetch_url_content,
 )
 
+# Deterministic daily LinkedIn-style AI posts (curated topic catalog)
+from linkedin_daily import (
+    generate_daily_posts as _generate_daily_posts,
+    generate_range_posts as _generate_range_posts,
+    all_topics as _daily_topics,
+    all_profiles as _daily_profiles,
+)
+from linkedin_live import fetch_live_posts as _fetch_live_posts, live_topic_keys as _live_topic_keys
+
+# Multi-platform video hub (YouTube discovery + IG/TikTok/FB embeds + yt-dlp)
+import video_hub_api as _vh
+
+
+@app.get("/api/videos/topics")
+def videos_topics_api():
+    """Tech-stack topic catalog for the Video Hub (same 44 as LinkedIn)."""
+    return _vh.video_topics()
+
+
+@app.get("/api/videos/countries")
+def videos_countries_api():
+    """Countries available for market-biased video discovery (all networks)."""
+    return {"countries": _vh.COUNTRIES, "default": "global"}
+
+
+@app.get("/api/videos/languages")
+def videos_languages_api():
+    """Language catalog for the app-level language selector (90+ languages)."""
+    return _vh.video_languages()
+
+
+@app.get("/api/videos/discover")
+def videos_discover_api(
+    topic: str = "",
+    start: str = "",
+    end: str = "",
+    max_results: int = 24,
+    page_token: str = "",
+    kind: str = "all",
+    country: str = "global",
+    lang: str = "auto",
+):
+    """Date-wise YouTube discovery (official Data API v3) for a tech-stack topic.
+    kind: all | shorts | long. Up to 5 years back via start/end (YYYY-MM-DD).
+    country biases results to that market, lang to that language."""
+    try:
+        return _vh.discover_youtube(
+            topic=topic or None, start=start or None, end=end or None,
+            max_results=max_results, page_token=page_token or "", kind=kind or "all",
+            country=country, lang=lang,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/discover-all")
+def videos_discover_all_api(
+    start: str = "",
+    end: str = "",
+    max_results: int = 240,
+    kind: str = "all",
+    per_topic: int = 6,
+    country: str = "global",
+    lang: str = "auto",
+):
+    """Load videos for ALL 44 tech-stack topics in one parallel fan-out."""
+    try:
+        return _vh.discover_all_youtube(start=start or None, end=end or None,
+                                        max_results=max_results, kind=kind or "all",
+                                        per_topic=per_topic, country=country, lang=lang)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/discover-tiktok")
+def videos_discover_tiktok_api(tag: str = "ai", max_results: int = 18, start: str = "", end: str = "", country: str = "global", lang: str = "auto"):
+    """Real TikTok videos via public tag feeds (keyless, official embed), date-filtered."""
+    try:
+        return _vh.discover_tiktok(tag=tag, max_results=max_results, start=start or None, end=end or None, country=country, lang=lang)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/discover-facebook")
+def videos_discover_facebook_api(tag: str = "ai", max_results: int = 18, start: str = "", end: str = "", country: str = "global", lang: str = "auto"):
+    """Real public Facebook videos (keyless, official oEmbed), date-filtered."""
+    try:
+        return _vh.discover_facebook(tag=tag, max_results=max_results, start=start or None, end=end or None, country=country, lang=lang)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/discover-all-tiktok")
+def videos_discover_all_tiktok_api(max_results: int = 120, per_topic: int = 6, start: str = "", end: str = "", country: str = "global", lang: str = "auto"):
+    """TikTok fan-out across ALL tech-stack topics in one parallel call."""
+    try:
+        return _vh.discover_all_tiktok(max_results=max_results, per_topic=per_topic, start=start or None, end=end or None, country=country, lang=lang)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/discover-all-facebook")
+def videos_discover_all_facebook_api(max_results: int = 120, per_topic: int = 6, start: str = "", end: str = "", country: str = "global", lang: str = "auto"):
+    """Facebook fan-out across ALL tech-stack topics in one parallel call."""
+    try:
+        return _vh.discover_all_facebook(max_results=max_results, per_topic=per_topic, start=start or None, end=end or None, country=country, lang=lang)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/discover-instagram")
+def videos_discover_instagram_api(tag: str = "ai", max_results: int = 18, start: str = "", end: str = "", country: str = "global", lang: str = "auto"):
+    """Real public Instagram reels (keyless, official embed), date-filtered."""
+    try:
+        return _vh.discover_instagram(tag=tag, max_results=max_results, start=start or None, end=end or None, country=country, lang=lang)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/discover-all-instagram")
+def videos_discover_all_instagram_api(max_results: int = 120, per_topic: int = 6, start: str = "", end: str = "", country: str = "global", lang: str = "auto"):
+    """Instagram fan-out across ALL tech-stack topics in one parallel call."""
+    try:
+        return _vh.discover_all_instagram(max_results=max_results, per_topic=per_topic, start=start or None, end=end or None, country=country, lang=lang)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/discover-all-networks")
+def videos_discover_all_networks_api(max_per_network: int = 120, per_topic: int = 6, start: str = "", end: str = "", country: str = "global", lang: str = "auto"):
+    """YouTube + X + TikTok + Instagram + Facebook, ALL topics, one merged feed, date-filtered."""
+    try:
+        return _vh.discover_all_networks(max_per_network=max_per_network, per_topic=per_topic, start=start or None, end=end or None, country=country, lang=lang)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/discover-x")
+def videos_discover_x_api(tag: str = "ai", max_results: int = 18, start: str = "", end: str = "", country: str = "global", lang: str = "auto"):
+    """Real X/Twitter video posts (keyless, official oEmbed), date-filtered."""
+    try:
+        return _vh.discover_x(tag=tag, max_results=max_results, start=start or None, end=end or None, country=country, lang=lang)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/discover-all-x")
+def videos_discover_all_x_api(max_results: int = 120, per_topic: int = 6, start: str = "", end: str = "", country: str = "global", lang: str = "auto"):
+    """X fan-out across ALL tech-stack topics in one parallel call."""
+    try:
+        return _vh.discover_all_x(max_results=max_results, per_topic=per_topic, start=start or None, end=end or None, country=country, lang=lang)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=502, content={"error": str(exc)})
+
+
+@app.get("/api/videos/metadata")
+def videos_metadata_api(url: str = ""):
+    """Metadata + official embed for any pasted YouTube/IG/TikTok/FB URL."""
+    if not url:
+        return JSONResponse(status_code=400, content={"error": "url required"})
+    return _vh.fetch_url_metadata(url)
+
+
+@app.post("/api/videos/download")
+def videos_download_api(url: str = "", quality: str = "720p"):
+    """Start a local yt-dlp download (background job)."""
+    if not url:
+        return JSONResponse(status_code=400, content={"error": "url required"})
+    job = _vh.start_download(url, quality)
+    if job.get("error"):
+        return JSONResponse(status_code=400, content=job)
+    return job
+
+
+@app.get("/api/videos/download-status")
+def videos_download_status_api(job_id: str = ""):
+    return _vh.download_status(job_id)
+
+
+@app.get("/api/videos/downloads")
+def videos_downloads_api():
+    """List the local downloads library (exports/videos)."""
+    return _vh.list_downloads()
+
+
+@app.get("/api/videos/file")
+def videos_file_api(name: str = ""):
+    """Stream a downloaded video/audio file for in-app playback or saving."""
+    from fastapi.responses import FileResponse
+    path = _vh.serve_video_file(name)
+    if not path:
+        return JSONResponse(status_code=404, content={"error": "file not found"})
+    media = "video/mp4"
+    if path.endswith((".m4a", ".mp3")):
+        media = "audio/mp4" if path.endswith(".m4a") else "audio/mpeg"
+    elif path.endswith(".webm"):
+        media = "video/webm"
+    return FileResponse(path, media_type=media, filename=os.path.basename(path))
+
 # `socket.setdefaulttimeout(10)` was removed because it leaked a process-wide
 # 10s default to the ASGI/Uvicorn worker sockets. When the RSS fetch loop held
 # an HTTP connection idle for >10s while pulling feeds, Uvicorn would silently
@@ -777,6 +1129,17 @@ _RSS_DISCOVERY_CACHE: dict[str, tuple] = {}     # key -> (resolved_url, probed_a
 CIRCUIT_FAIL_THRESHOLD = 3
 CIRCUIT_COOLDOWN_SECONDS = 60 * 60              # skip for an hour after 3 network-level fails
 RSS_DISCOVERY_TIMEOUT = 6
+
+# Alternate user-agents tried when a feed answers 429/403/5xx. Reddit only
+# serves its .rss endpoints to feed crawlers (the generic browser UA gets a
+# blanket 429), and several corporate blogs whitelist feed fetchers while
+# throttling everything else.
+_FETCH_USER_AGENTS = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36",
+    "FeedFetcher-Google; (+http://www.google.com/feedfetcher.html)",
+    "Googlebot/2.1 (+http://www.google.com/bot.html)",
+)
 
 _PROBE_IN_FLIGHT: set[str] = set()
 
@@ -997,7 +1360,7 @@ AI_NEWS_SOURCES = {
     # =========================================================================
     # 1. AI & ML News
     # =========================================================================
-    "openai": {"name": "OpenAI", "url": "https://openai.com/blog", "rss": "https://openai.com/blog/rss.xml", "category": "AI & ML News", "country": "USA"},
+    "openai": {"name": "OpenAI", "url": "https://openai.com/news", "rss": "https://openai.com/news/rss.xml", "category": "AI & ML News", "country": "USA"},
     "google_ai": {"name": "Google AI Blog", "url": "https://ai.googleblog.com", "rss": "https://blog.google/technology/ai/rss/", "category": "AI & ML News", "country": "USA"},
     "deepmind": {"name": "Google DeepMind", "url": "https://deepmind.google/blog", "rss": "https://deepmind.google/blog/rss.xml", "category": "AI & ML News", "country": "UK"},
     "meta_ai": {"name": "Meta AI Blog", "url": "https://ai.meta.com/blog/", "rss": "https://raw.githubusercontent.com/oborchers/rss-feeds/main/feeds/feed_meta_ai.xml", "category": "AI & ML News", "country": "USA"},
@@ -1005,19 +1368,19 @@ AI_NEWS_SOURCES = {
     "microsoft_ai": {"name": "Microsoft AI Blog", "url": "https://blogs.microsoft.com/ai/", "rss": "https://news.microsoft.com/source/topics/ai/rss/", "category": "AI & ML News", "country": "USA"},
     "nvidia_ai": {"name": "NVIDIA AI Blog", "url": "https://blogs.nvidia.com/blog/category/deep-learning/", "rss": "https://blogs.nvidia.com/feed/", "category": "AI & ML News", "country": "USA"},
     "apple_ml": {"name": "Apple Machine Learning", "url": "https://machinelearning.apple.com", "rss": "https://machinelearning.apple.com/rss.xml", "category": "AI & ML News", "country": "USA"},
-    "ibm_ai": {"name": "IBM AI Research", "url": "https://research.ibm.com/blog/category/artificial-intelligence", "rss": "https://research.ibm.com/blog/rss/", "category": "AI & ML News", "country": "USA"},
+    "ibm_ai": {"name": "IBM AI Research", "url": "https://research.ibm.com/blog/category/artificial-intelligence", "rss": "", "category": "AI & ML News", "country": "USA"},
     "amazon_science": {"name": "Amazon Science", "url": "https://www.amazon.science", "rss": "https://www.amazon.science/index.rss", "category": "AI & ML News", "country": "USA"},
     "mit_tech_review": {"name": "MIT Technology Review", "url": "https://www.technologyreview.com/topic/artificial-intelligence", "rss": "https://www.technologyreview.com/feed/", "category": "AI & ML News", "country": "USA"},
     "techcrunch_ai": {"name": "TechCrunch AI", "url": "https://techcrunch.com/category/artificial-intelligence/", "rss": "https://techcrunch.com/category/artificial-intelligence/feed/", "category": "AI & ML News", "country": "USA"},
-    "wired_ai": {"name": "Wired AI", "url": "https://www.wired.com/tag/artificial-intelligence/", "rss": "https://www.wired.com/tag/artificial-intelligence/rss", "category": "AI & ML News", "country": "USA"},
+    "wired_ai": {"name": "Wired AI", "url": "https://www.wired.com/tag/artificial-intelligence/", "rss": "", "category": "AI & ML News", "country": "USA"},
     "verge_ai": {"name": "The Verge AI", "url": "https://www.theverge.com/ai-artificial-intelligence", "rss": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", "category": "AI & ML News", "country": "USA"},
     "venturebeat_ai": {"name": "VentureBeat AI", "url": "https://venturebeat.com/category/ai/", "rss": "https://venturebeat.com/category/ai/feed/", "category": "AI & ML News", "country": "USA"},
     "ars_technica_ai": {"name": "Ars Technica AI", "url": "https://arstechnica.com/ai/", "rss": "https://arstechnica.com/feed/", "category": "AI & ML News", "country": "USA"},
     "zdnet_ai": {"name": "ZDNet AI", "url": "https://www.zdnet.com/topic/artificial-intelligence/", "rss": "https://www.zdnet.com/topic/artificial-intelligence/rss.xml", "category": "AI & ML News", "country": "USA"},
     "analytics_vidhya": {"name": "Analytics Vidhya", "url": "https://www.analyticsvidhya.com", "rss": "https://www.analyticsvidhya.com/feed/", "category": "AI & ML News", "country": "India"},
-    "kdnuggets": {"name": "KDnuggets", "url": "https://www.kdnuggets.com", "rss": "https://www.kdnuggets.com/feed", "category": "AI & ML News", "country": "USA"},
+    "kdnuggets": {"name": "KDnuggets", "url": "https://www.kdnuggets.com", "rss": "", "category": "AI & ML News", "country": "USA"},
     "marktechpost": {"name": "MarkTechPost", "url": "https://marktechpost.com", "rss": "https://marktechpost.com/feed/", "category": "AI & ML News", "country": "Global"},
-    "ai_magazine": {"name": "AI Magazine", "url": "https://www.aimagazine.com", "rss": "https://www.aimagazine.com/rss", "category": "AI & ML News", "country": "Global"},
+    "ai_magazine": {"name": "AI Magazine", "url": "https://www.aimagazine.com", "rss": "", "category": "AI & ML News", "country": "Global"},
     "analytics_india": {"name": "Analytics India Magazine", "url": "https://analyticsindiamag.com", "rss": "https://analyticsindiamag.com/feed/", "category": "AI & ML News", "country": "India"},
     "aithority": {"name": "AiThority", "url": "https://aithority.com", "rss": "https://aithority.com/feed/", "category": "AI & ML News", "country": "USA"},
     "sciencedaily_ai": {"name": "ScienceDaily AI", "url": "https://www.sciencedaily.com/news/computers_math/artificial_intelligence/", "rss": "https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml", "category": "AI & ML News", "country": "USA"},
@@ -1029,8 +1392,8 @@ AI_NEWS_SOURCES = {
     "import_ai_blog": {"name": "Import AI", "url": "https://importai.substack.com", "rss": "https://importai.substack.com/feed", "category": "AI & ML News", "country": "Global"},
     "ai_news_site": {"name": "AI News", "url": "https://www.artificialintelligence-news.com", "rss": "https://www.technologyreview.com/topics/artificial-intelligence/feed/", "category": "AI & ML News", "country": "Global"},
     "ai_trends": {"name": "AI Trends", "url": "https://aitrends.com", "rss": "https://aitrends.com/feed/", "category": "AI & ML News", "country": "USA"},
-    "reuters_ai": {"name": "Reuters AI", "url": "https://www.reuters.com/technology/artificial-intelligence/", "rss": "https://www.reutersagency.feednews.com/reutersagency/technology/feed", "category": "AI & ML News", "country": "USA"},
-    "bloomberg_ai": {"name": "Bloomberg AI", "url": "https://www.bloomberg.com/technology", "rss": "https://feeds.bloomberg.com/technology.rss", "category": "AI & ML News", "country": "USA"},
+    "reuters_ai": {"name": "Reuters AI", "url": "https://www.reuters.com/technology/artificial-intelligence/", "rss": "", "category": "AI & ML News", "country": "USA"},
+    "bloomberg_ai": {"name": "Bloomberg AI", "url": "https://www.bloomberg.com/technology", "rss": "", "category": "AI & ML News", "country": "USA"},
     "karpathy": {"name": "Andrej Karpathy Blog", "url": "https://karpathy.github.io", "rss": "https://karpathy.github.io/feed.xml", "category": "AI & ML News", "country": "USA"},
     "lilian_weng": {"name": "Lilian Weng Blog", "url": "https://lilianweng.github.io", "rss": "https://lilianweng.github.io/index.xml", "category": "AI & ML News", "country": "USA"},
     "chip_huyen": {"name": "Chip Huyen Blog", "url": "https://huyenchip.com/blog", "rss": "https://huyenchip.com/feed.xml", "category": "AI & ML News", "country": "USA"},
@@ -1038,7 +1401,7 @@ AI_NEWS_SOURCES = {
     "qdrant_blog": {"name": "Qdrant Blog", "url": "https://qdrant.tech/articles", "rss": "https://qdrant.tech/articles/index.xml", "category": "AI & ML News", "country": "Global"},
     "weaviate_blog": {"name": "Weaviate Blog", "url": "https://weaviate.io/blog", "rss": "https://weaviate.io/blog/rss.xml", "category": "AI & ML News", "country": "Global"},
     "llamaindex_blog": {"name": "LlamaIndex Blog", "url": "https://medium.com/llamaindex-blog", "rss": "https://medium.com/feed/llamaindex-blog", "category": "AI & ML News", "country": "USA"},
-    "huggingface_papers": {"name": "Hugging Face Daily Papers", "url": "https://huggingface.co/papers", "rss": "https://huggingface.co/papers.rss", "category": "AI & ML News", "country": "Global"},
+    "huggingface_papers": {"name": "Hugging Face Daily Papers", "url": "https://huggingface.co/papers", "rss": "", "category": "AI & ML News", "country": "Global"},
     "arxiv_ai": {"name": "arXiv CS.AI", "url": "https://arxiv.org/list/cs.AI/recent", "rss": "https://export.arxiv.org/rss/cs.AI", "category": "AI & ML News", "country": "Global"},
     "arxiv_cl": {"name": "arXiv CS.CL (NLP)", "url": "https://arxiv.org/list/cs.CL/recent", "rss": "https://export.arxiv.org/rss/cs.CL", "category": "AI & ML News", "country": "Global"},
     "arxiv_lg": {"name": "arXiv CS.LG (ML)", "url": "https://arxiv.org/list/cs.LG/recent", "rss": "https://export.arxiv.org/rss/cs.LG", "category": "AI & ML News", "country": "Global"},
@@ -1047,7 +1410,7 @@ AI_NEWS_SOURCES = {
     "interconnects": {"name": "Interconnects (Nathan Lambert)", "url": "https://interconnects.ai", "rss": "https://interconnects.ai/feed.xml", "category": "AI & ML News", "country": "USA"},
     "the_sequence": {"name": "The Sequence", "url": "https://thesequence.substack.com", "rss": "https://thesequence.substack.com/feed", "category": "AI & ML News", "country": "USA"},
     "the_decoder": {"name": "The Decoder", "url": "https://the-decoder.com", "rss": "https://the-decoder.com/feed/", "category": "AI & ML News", "country": "EU"},
-    "unite_ai": {"name": "Unite.AI", "url": "https://www.unite.ai", "rss": "https://www.unite.ai/feed/", "category": "AI & ML News", "country": "Canada"},
+    "unite_ai": {"name": "Unite.AI", "url": "https://www.unite.ai", "rss": "", "category": "AI & ML News", "country": "Canada"},
 
     # =========================================================================
     # 2. AI Agents
@@ -1056,11 +1419,11 @@ AI_NEWS_SOURCES = {
     "huggingface": {"name": "Hugging Face Blog", "url": "https://huggingface.co/blog", "rss": "https://huggingface.co/blog/feed.xml", "category": "AI Agents", "country": "Global"},
     "crewai": {"name": "CrewAI Blog", "url": "https://blog.crewai.com", "rss": "https://blog.crewai.com/rss/", "category": "AI Agents", "country": "USA"},
     "autogpt": {"name": "AutoGPT", "url": "https://agpt.co", "rss": "https://github.com/Significant-Gravitas/AutoGPT/releases.atom", "category": "AI Agents", "country": "Global"},
-    "agentops": {"name": "AgentOps", "url": "https://www.agentops.ai", "rss": "https://www.agentops.ai/feed.xml", "category": "AI Agents", "country": "USA"},
+    "agentops": {"name": "AgentOps", "url": "https://www.agentops.ai", "rss": "", "category": "AI Agents", "country": "USA"},
     "langgraph": {"name": "LangGraph Docs (Tweets)", "url": "https://langchain-ai.github.io/langgraph", "rss": "https://blog.langchain.dev/rss.xml", "category": "AI Agents", "country": "USA"},
     "google_agents": {"name": "Google DeepMind Agents (DeepMind Blog)", "url": "https://deepmind.google/technologies/agent/", "rss": "https://deepmind.google/blog/rss.xml", "category": "AI Agents", "country": "USA"},
     "autogen": {"name": "Microsoft AutoGen", "url": "https://microsoft.github.io/autogen/", "rss": "https://microsoft.github.io/autogen/0.2/blog/rss.xml", "category": "AI Agents", "country": "USA"},
-    "openai_agents": {"name": "OpenAI Agents", "url": "https://openai.com/index/new-tools-for-building-agents/", "rss": "https://openai.com/blog/rss.xml", "category": "AI Agents", "country": "USA"},
+    "openai_agents": {"name": "OpenAI Agents", "url": "https://openai.com/index/new-tools-for-building-agents/", "rss": "https://openai.com/news/rss.xml", "category": "AI Agents", "country": "USA"},
 
     # =========================================================================
     # 3. Cybersecurity
@@ -1068,32 +1431,32 @@ AI_NEWS_SOURCES = {
     "thehackernews": {"name": "The Hacker News", "url": "https://thehackernews.com", "rss": "https://feeds.feedburner.com/TheHackersNews", "category": "Cybersecurity", "country": "Global"},
     "krebs": {"name": "Krebs on Security", "url": "https://krebsonsecurity.com", "rss": "https://krebsonsecurity.com/feed/", "category": "Cybersecurity", "country": "USA"},
     "darkreading": {"name": "Dark Reading", "url": "https://www.darkreading.com", "rss": "https://www.darkreading.com/rss.xml", "category": "Cybersecurity", "country": "USA"},
-    "bleepingcomputer": {"name": "BleepingComputer", "url": "https://www.bleepingcomputer.com", "rss": "https://www.bleepingcomputer.com/feed/", "category": "Cybersecurity", "country": "USA"},
+    "bleepingcomputer": {"name": "BleepingComputer", "url": "https://www.bleepingcomputer.com", "rss": "", "category": "Cybersecurity", "country": "USA"},
     "securityweek": {"name": "SecurityWeek", "url": "https://www.securityweek.com", "rss": "https://feeds.feedburner.com/securityweek", "category": "Cybersecurity", "country": "USA"},
-    "sc_media": {"name": "SC Media", "url": "https://www.scworld.com", "rss": "https://www.scmworld.com/feed", "category": "Cybersecurity", "country": "USA"},
+    "sc_media": {"name": "SC Media", "url": "https://www.scworld.com", "rss": "", "category": "Cybersecurity", "country": "USA"},
     "cso_online": {"name": "CSO Online", "url": "https://www.csoonline.com", "rss": "https://www.csoonline.com/feed/", "category": "Cybersecurity", "country": "USA"},
     "infosec_mag": {"name": "Infosecurity Magazine", "url": "https://www.infosecurity-magazine.com", "rss": "https://www.infosecurity-magazine.com/rss/news", "category": "Cybersecurity", "country": "Global"},
     "cyberscoop": {"name": "CyberScoop", "url": "https://cyberscoop.com", "rss": "https://cyberscoop.com/feed/", "category": "Cybersecurity", "country": "USA"},
     "recorded_future": {"name": "Recorded Future", "url": "https://www.recordedfuture.com/blog", "rss": "https://www.recordedfuture.com/feed", "category": "Cybersecurity", "country": "USA"},
     "mandiant": {"name": "Mandiant Blog", "url": "https://www.mandiant.com/resources/blog", "rss": "https://www.mandiant.com/resources/blog/rss.xml", "category": "Cybersecurity", "country": "USA"},
     "cisa": {"name": "CISA", "url": "https://www.cisa.gov/news-events", "rss": "https://www.cisa.gov/cybersecurity-advisories/all.xml", "category": "Cybersecurity", "country": "USA"},
-    "mitre": {"name": "MITRE ATT&CK", "url": "https://attack.mitre.org", "rss": "https://attack.mitre.org/updates.xml", "category": "Cybersecurity", "country": "USA"},
-    "sans_blog": {"name": "SANS Blog", "url": "https://www.sans.org/blog/", "rss": "https://www.sans.org/blog/feed/", "category": "Cybersecurity", "country": "USA"},
+    "mitre": {"name": "MITRE ATT&CK", "url": "https://attack.mitre.org", "rss": "", "category": "Cybersecurity", "country": "USA"},
+    "sans_blog": {"name": "SANS Blog", "url": "https://www.sans.org/blog/", "rss": "", "category": "Cybersecurity", "country": "USA"},
     "daniel_miessler": {"name": "Daniel Miessler", "url": "https://danielmiessler.com", "rss": "https://danielmiessler.com/feed/", "category": "Cybersecurity", "country": "USA"},
     "portswigger": {"name": "PortSwigger Research", "url": "https://portswigger.net/research", "rss": "https://portswigger.net/research/rss", "category": "Cybersecurity", "country": "Global"},
     "unit42": {"name": "Unit 42 (Palo Alto)", "url": "https://unit42.paloaltonetworks.com", "rss": "https://unit42.paloaltonetworks.com/feed/", "category": "Cybersecurity", "country": "USA"},
     "talos": {"name": "Cisco Talos Intelligence", "url": "https://blog.talosintelligence.com", "rss": "https://blog.talosintelligence.com/rss/", "category": "Cybersecurity", "country": "USA"},
-    "cyber_defense": {"name": "Cyber Defense Magazine", "url": "https://www.cyberdefensemagazine.com", "rss": "https://www.cyberdefensemagazine.com/feed/", "category": "Cybersecurity", "country": "USA"},
-    "help_net_security": {"name": "Help Net Security", "url": "https://www.helpnetsecurity.com", "rss": "https://www.helpnetsecurity.com/feed/", "category": "Cybersecurity", "country": "Global"},
-    "security_mag": {"name": "Security Magazine", "url": "https://www.securitymagazine.com", "rss": "https://www.securitymagazine.com/rss/all", "category": "Cybersecurity", "country": "USA"},
+    "cyber_defense": {"name": "Cyber Defense Magazine", "url": "https://www.cyberdefensemagazine.com", "rss": "", "category": "Cybersecurity", "country": "USA"},
+    "help_net_security": {"name": "Help Net Security", "url": "https://www.helpnetsecurity.com", "rss": "", "category": "Cybersecurity", "country": "Global"},
+    "security_mag": {"name": "Security Magazine", "url": "https://www.securitymagazine.com", "rss": "", "category": "Cybersecurity", "country": "USA"},
     "it_security_guru": {"name": "IT Security Guru", "url": "https://www.itsecurityguru.org", "rss": "https://www.itsecurityguru.org/feed/", "category": "Cybersecurity", "country": "Global"},
     "cybersecurity_insiders": {"name": "Cybersecurity Insiders", "url": "https://www.cybersecurity-insiders.com", "rss": "https://www.cybersecurity-insiders.com/feed/atom.xml", "category": "Cybersecurity", "country": "USA"},
-    "thecyberwire": {"name": "The CyberWire", "url": "https://thecyberwire.com", "rss": "https://thecyberwire.com/rss.xml", "category": "Cybersecurity", "country": "USA"},
+    "thecyberwire": {"name": "The CyberWire", "url": "https://thecyberwire.com", "rss": "", "category": "Cybersecurity", "country": "USA"},
     "upguard": {"name": "UpGuard Blog", "url": "https://www.upguard.com/blog", "rss": "https://www.upguard.com/blog/rss.xml", "category": "Cybersecurity", "country": "USA"},
     "bitsight": {"name": "BitSight Blog", "url": "https://www.bitsight.com/blog", "rss": "https://www.bitsight.com/blog/rss.xml", "category": "Cybersecurity", "country": "USA"},
     "caniphish": {"name": "CanIPhish (SecurityWeek mirror)", "url": "https://www.caniphish.com", "rss": "https://feeds.feedburner.com/securityweek", "category": "Cybersecurity", "country": "Global"},
     "nist_cyber": {"name": "NIST Cybersecurity", "url": "https://www.nist.gov/cybersecurity", "rss": "https://www.nist.gov/blogs/cybersecurity-insights/rss.xml", "category": "Cybersecurity", "country": "USA"},
-    "enisa": {"name": "ENISA", "url": "https://www.enisa.europa.eu", "rss": "https://www.enisa.europa.eu/news/RSS", "category": "Cybersecurity", "country": "EU"},
+    "enisa": {"name": "ENISA", "url": "https://www.enisa.europa.eu", "rss": "", "category": "Cybersecurity", "country": "EU"},
     "ncsc_uk": {"name": "NCSC UK", "url": "https://www.ncsc.gov.uk", "rss": "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml", "category": "Cybersecurity", "country": "UK"},
     "alignment_forum": {"name": "Alignment Forum", "url": "https://www.alignmentforum.org", "rss": "https://www.alignmentforum.org/feed.xml", "category": "Cybersecurity", "country": "Global"},
     "uk_ai_safety": {"name": "UK AI Safety Institute", "url": "https://www.gov.uk/government/organisations/ai-safety-institute", "rss": "https://www.gov.uk/government/organisations/ai-safety-institute.atom", "category": "Cybersecurity", "country": "UK"},
@@ -1103,23 +1466,23 @@ AI_NEWS_SOURCES = {
     # 4. Quantum Computing
     # =========================================================================
     "quantum_report": {"name": "Quantum Computing Report", "url": "https://quantumcomputingreport.com", "rss": "https://quantumcomputingreport.com/feed/", "category": "Quantum Computing", "country": "USA"},
-    "ibm_quantum": {"name": "IBM Quantum Blog", "url": "https://www.ibm.com/quantum/blog", "rss": "https://www.ibm.com/quantum/blog/feed/", "category": "Quantum Computing", "country": "USA"},
+    "ibm_quantum": {"name": "IBM Quantum Blog", "url": "https://www.ibm.com/quantum/blog", "rss": "", "category": "Quantum Computing", "country": "USA"},
     "google_quantum": {"name": "Google Quantum AI", "url": "https://quantumai.google", "rss": "https://blog.google/technology/rss/", "category": "Quantum Computing", "country": "USA"},
     "quanta_magazine": {"name": "Quanta Magazine", "url": "https://www.quantamagazine.org/computing", "rss": "https://www.quantamagazine.org/feed/", "category": "Quantum Computing", "country": "USA"},
     "qubit_report": {"name": "The Qubit Report", "url": "https://thequbitreport.com", "rss": "https://thequbitreport.com/feed", "category": "Quantum Computing", "country": "USA"},
     "nature_quantum": {"name": "Nature Quantum Information", "url": "https://www.nature.com/npjqi/", "rss": "https://www.nature.com/npjqi.rss", "category": "Quantum Computing", "country": "Global"},
-    "ieee_quantum": {"name": "IEEE Spectrum Quantum", "url": "https://spectrum.ieee.org/topic/quantum-computing/", "rss": "https://spectrum.ieee.org/feeds/topic/quantum.rss", "category": "Quantum Computing", "country": "USA"},
+    "ieee_quantum": {"name": "IEEE Spectrum Quantum", "url": "https://spectrum.ieee.org/topic/quantum-computing/", "rss": "", "category": "Quantum Computing", "country": "USA"},
     "quantum_insider": {"name": "The Quantum Insider", "url": "https://thequantuminsider.com", "rss": "https://thequantuminsider.com/feed/", "category": "Quantum Computing", "country": "Global"},
     "iqt": {"name": "Inside Quantum Technology", "url": "https://www.iqt.org", "rss": "https://www.insidequantumtechnology.com/feed/", "category": "Quantum Computing", "country": "USA"},
-    "q_ctrl": {"name": "Q-CTRL", "url": "https://q-ctrl.com/blog", "rss": "https://q-ctrl.com/feed", "category": "Quantum Computing", "country": "Global"},
-    "rigetti": {"name": "Rigetti Computing", "url": "https://www.rigetti.com/newsroom", "rss": "https://www.rigetti.com/news.rss", "category": "Quantum Computing", "country": "USA"},
+    "q_ctrl": {"name": "Q-CTRL", "url": "https://q-ctrl.com/blog", "rss": "", "category": "Quantum Computing", "country": "Global"},
+    "rigetti": {"name": "Rigetti Computing", "url": "https://www.rigetti.com/newsroom", "rss": "", "category": "Quantum Computing", "country": "USA"},
     "ionq": {"name": "IonQ Blog", "url": "https://ionq.com/news", "rss": "https://ionq.com/blog/rss.xml", "category": "Quantum Computing", "country": "USA"},
-    "dwave": {"name": "D-Wave Blog", "url": "https://www.dwavesys.com/blog", "rss": "https://www.dwavesys.com/feed/", "category": "Quantum Computing", "country": "Canada"},
+    "dwave": {"name": "D-Wave Blog", "url": "https://www.dwavesys.com/blog", "rss": "", "category": "Quantum Computing", "country": "Canada"},
     "psiquantum": {"name": "PsiQuantum (Quantum Computing Report)", "url": "https://www.psiquantum.com/news", "rss": "https://quantumcomputingreport.com/feed/", "category": "Quantum Computing", "country": "USA"},
     "xanadu": {"name": "Xanadu Blog", "url": "https://www.xanadu.ai/blog", "rss": "https://www.xanadu.ai/blog/rss.xml", "category": "Quantum Computing", "country": "Canada"},
     "honeywell_quantum": {"name": "Honeywell Quantum (IonQ Blog mirror)", "url": "https://www.honeywell.com/us/en/quantum-computing", "rss": "https://ionq.com/blog/rss.xml", "category": "Quantum Computing", "country": "USA"},
-    "quantum_zeitgeist": {"name": "Quantum Zeitgeist", "url": "https://quantumzeitgeist.com", "rss": "https://quantumzeitgeist.com/feed/", "category": "Quantum Computing", "country": "Global"},
-    "scitechdaily_quantum": {"name": "SciTechDaily Quantum", "url": "https://scitechdaily.com/quantum-computing-news/", "rss": "https://scitechdaily.com/news/quantum-physics/feed", "category": "Quantum Computing", "country": "USA"},
+    "quantum_zeitgeist": {"name": "Quantum Zeitgeist", "url": "https://quantumzeitgeist.com", "rss": "", "category": "Quantum Computing", "country": "Global"},
+    "scitechdaily_quantum": {"name": "SciTechDaily Quantum", "url": "https://scitechdaily.com/quantum-computing-news/", "rss": "", "category": "Quantum Computing", "country": "USA"},
     "physicsworld_quantum": {"name": "Physics World Quantum", "url": "https://physicsworld.com/tag/quantum-computing/", "rss": "https://physicsworld.com/feed/", "category": "Quantum Computing", "country": "Global"},
     "arxiv_quantum": {"name": "arXiv Quantum Physics", "url": "https://arxiv.org/list/quant-ph/recent", "rss": "https://export.arxiv.org/rss/quant-ph", "category": "Quantum Computing", "country": "Global"},
 
@@ -1128,7 +1491,7 @@ AI_NEWS_SOURCES = {
     # =========================================================================
     "ieee_robotics": {"name": "IEEE Spectrum Robotics", "url": "https://spectrum.ieee.org/topic/robotics/", "rss": "https://spectrum.ieee.org/feeds/topic/robotics.rss", "category": "Robotics", "country": "USA"},
     "robohub": {"name": "RoboHub", "url": "https://robohub.org", "rss": "https://robohub.org/feed/", "category": "Robotics", "country": "Global"},
-    "therobotreport": {"name": "The Robot Report", "url": "https://therobotreport.com", "rss": "https://www.therobotreport.com/feed/", "category": "Robotics", "country": "USA"},
+    "therobotreport": {"name": "The Robot Report", "url": "https://therobotreport.com", "rss": "", "category": "Robotics", "country": "USA"},
     "robotics_business_review": {"name": "Robotics Business Review", "url": "https://roboticsandautomationnews.com", "rss": "https://roboticsandautomationnews.com/feed/", "category": "Robotics", "country": "USA"},
     "techcrunch_robotics": {"name": "TechCrunch Robotics", "url": "https://techcrunch.com/category/robotics/", "rss": "https://techcrunch.com/category/robotics/feed/", "category": "Robotics", "country": "USA"},
     "boston_dynamics": {"name": "Boston Dynamics Blog", "url": "https://bostondynamics.com/blog", "rss": "https://spectrum.ieee.org/feeds/topic/robotics.rss", "category": "Robotics", "country": "USA"},
@@ -1136,9 +1499,9 @@ AI_NEWS_SOURCES = {
     "figure_ai": {"name": "Figure AI (RoboHub)", "url": "https://www.figure.ai/news", "rss": "https://robohub.org/feed/", "category": "Robotics", "country": "USA"},
     "unitree": {"name": "Unitree Robotics (Robotics & Automation News)", "url": "https://www.unitree.com/news/", "rss": "https://roboticsandautomationnews.com/feed/", "category": "Robotics", "country": "China"},
     "kuka": {"name": "KUKA (Robotics & Automation News)", "url": "https://www.kuka.com/en-us/news", "rss": "https://roboticsandautomationnews.com/feed/", "category": "Robotics", "country": "EU"},
-    "universal_robots": {"name": "Universal Robots", "url": "https://www.universal-robots.com/blog/", "rss": "https://www.universal-robots.com/blog/rss.xml", "category": "Robotics", "country": "Global"},
+    "universal_robots": {"name": "Universal Robots", "url": "https://www.universal-robots.com/blog/", "rss": "", "category": "Robotics", "country": "Global"},
     "sciencedaily_robotics": {"name": "ScienceDaily Robotics", "url": "https://www.sciencedaily.com/news/computers_math/robotics/", "rss": "https://www.sciencedaily.com/rss/computers_math/robotics.xml", "category": "Robotics", "country": "USA"},
-    "wevolver": {"name": "Wevolver", "url": "https://www.wevolver.com", "rss": "https://www.wevolver.com/feed", "category": "Robotics", "country": "Global"},
+    "wevolver": {"name": "Wevolver", "url": "https://www.wevolver.com", "rss": "", "category": "Robotics", "country": "Global"},
     "hackster_robotics": {"name": "Hackster.io Robotics", "url": "https://www.hackster.io/robotics", "rss": "", "category": "Robotics", "country": "Global"},
     "ros_discourse": {"name": "ROS Discourse", "url": "https://discourse.ros.org", "rss": "https://discourse.ros.org/latest.rss", "category": "Robotics", "country": "Global"},
     # =========================================================================
@@ -1146,40 +1509,40 @@ AI_NEWS_SOURCES = {
     # =========================================================================
     "nasa": {"name": "NASA", "url": "https://www.nasa.gov", "rss": "https://www.nasa.gov/rss/dyn/breaking_news.rss", "category": "Space Technology", "country": "USA"},
     "space_com": {"name": "Space.com", "url": "https://www.space.com", "rss": "https://www.space.com/feeds/all", "category": "Space Technology", "country": "USA"},
-    "spacenews": {"name": "SpaceNews", "url": "https://spacenews.com", "rss": "https://spacenews.com/feed/", "category": "Space Technology", "country": "USA"},
+    "spacenews": {"name": "SpaceNews", "url": "https://spacenews.com", "rss": "", "category": "Space Technology", "country": "USA"},
     "esa": {"name": "European Space Agency", "url": "https://www.esa.int", "rss": "https://www.esa.int/rssfeed/Our_Activities/Space_Safety", "category": "Space Technology", "country": "EU"},
-    "nasa_jpl": {"name": "NASA JPL", "url": "https://www.jpl.nasa.gov/news", "rss": "https://www.jpl.nasa.gov/feeds/news", "category": "Space Technology", "country": "USA"},
+    "nasa_jpl": {"name": "NASA JPL", "url": "https://www.jpl.nasa.gov/news", "rss": "", "category": "Space Technology", "country": "USA"},
     "ars_technica_space": {"name": "Ars Technica Space", "url": "https://arstechnica.com/space/", "rss": "https://arstechnica.com/space/feed/", "category": "Space Technology", "country": "USA"},
     "scitechdaily_space": {"name": "SciTechDaily Space", "url": "https://scitechdaily.com/space/", "rss": "https://scitechdaily.com/news/space/feed/", "category": "Space Technology", "country": "USA"},
     "space_policy_online": {"name": "Space Policy Online", "url": "https://spacenews.com/category/policy/", "rss": "https://spacepolicyonline.com/feed/", "category": "Space Technology", "country": "USA"},
     "payload_space": {"name": "Payload Space", "url": "https://www.payloadspace.com", "rss": "https://payloadspace.com/feed/", "category": "Space Technology", "country": "USA"},
-    "orbital_today": {"name": "Orbital Today", "url": "https://orbitaltoday.com", "rss": "https://orbitaltoday.com/feed", "category": "Space Technology", "country": "Global"},
+    "orbital_today": {"name": "Orbital Today", "url": "https://orbitaltoday.com", "rss": "", "category": "Space Technology", "country": "Global"},
     "cnbc_space": {"name": "CNBC Space", "url": "https://www.cnbc.com/space/", "rss": "https://www.cnbc.com/id/19836768/device/rss/rss.html", "category": "Space Technology", "country": "USA"},
     "iss_research": {"name": "ISS Research", "url": "https://www.nasa.gov/mission_pages/station/research", "rss": "https://www.nasa.gov/news-release/feed/", "category": "Space Technology", "country": "USA"},
-    "rocket_lab": {"name": "Rocket Lab Blog", "url": "https://www.rocketlabusa.com/news", "rss": "https://www.rocketlabusa.com/feed/", "category": "Space Technology", "country": "USA"},
+    "rocket_lab": {"name": "Rocket Lab Blog", "url": "https://www.rocketlabusa.com/news", "rss": "", "category": "Space Technology", "country": "USA"},
     "space_generation": {"name": "Space Generation Advisory", "url": "https://www.sgaspace.org", "rss": "https://www.nasa.gov/news-release/feed/", "category": "Space Technology", "country": "Global"},
     "universe_today": {"name": "Universe Today", "url": "https://www.universetoday.com", "rss": "https://www.universetoday.com/feed/", "category": "Space Technology", "country": "Canada"},
     "european_spaceflight": {"name": "European Spaceflight", "url": "https://europeanspaceflight.com", "rss": "https://europeanspaceflight.com/feed/", "category": "Space Technology", "country": "EU"},
-    "nasaspaceflight": {"name": "NASASpaceFlight", "url": "https://www.nasaspaceflight.com", "rss": "https://www.nasaspaceflight.com/feed/", "category": "Space Technology", "country": "USA"},
+    "nasaspaceflight": {"name": "NASASpaceFlight", "url": "https://www.nasaspaceflight.com", "rss": "", "category": "Space Technology", "country": "USA"},
 
     # =========================================================================
     # 7. Healthcare AI
     # =========================================================================
     "statnews": {"name": "STAT News", "url": "https://www.statnews.com", "rss": "https://www.statnews.com/feed/", "category": "Healthcare AI", "country": "USA"},
     "fierce_healthcare": {"name": "Fierce Healthcare", "url": "https://www.fiercehealthcare.com", "rss": "https://www.fiercehealthcare.com/rss/xml", "category": "Healthcare AI", "country": "USA"},
-    "mobihealthnews": {"name": "MobiHealthNews", "url": "https://mobihealthnews.com", "rss": "https://mobihealthnews.com/feed/", "category": "Healthcare AI", "country": "USA"},
-    "healthcare_it_news": {"name": "Healthcare IT News", "url": "https://www.healthcareitnews.com", "rss": "https://www.healthcareitnews.com/rss.xml", "category": "Healthcare AI", "country": "USA"},
+    "mobihealthnews": {"name": "MobiHealthNews", "url": "https://mobihealthnews.com", "rss": "", "category": "Healthcare AI", "country": "USA"},
+    "healthcare_it_news": {"name": "Healthcare IT News", "url": "https://www.healthcareitnews.com", "rss": "", "category": "Healthcare AI", "country": "USA"},
     "nejm_ai": {"name": "NEJM AI", "url": "https://www.nejm.org/ai", "rss": "https://www.nejm.org/action/showFeed?type=etoc&feed=rss&jc=nejm", "category": "Healthcare AI", "country": "USA"},
     "nature_medicine": {"name": "Nature Medicine", "url": "https://www.nature.com/nm/", "rss": "https://www.nature.com/nm.rss", "category": "Healthcare AI", "country": "Global"},
-    "lancet_digital": {"name": "Lancet Digital Health", "url": "https://www.thelancet.com/journals/landig/home", "rss": "https://www.thelancet.com/rssfeed/lancet_digital_health.xml", "category": "Healthcare AI", "country": "Global"},
-    "fda_ai": {"name": "FDA AI/ML Devices", "url": "https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-and-machine-learning-aiml-software-medical-device", "rss": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/artificial-intelligence-and-machine-learning-aiml-enabled-medical-devices/rss.xml", "category": "Healthcare AI", "country": "USA"},
+    "lancet_digital": {"name": "Lancet Digital Health", "url": "https://www.thelancet.com/journals/landig/home", "rss": "", "category": "Healthcare AI", "country": "Global"},
+    "fda_ai": {"name": "FDA AI/ML Devices", "url": "https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-and-machine-learning-aiml-software-medical-device", "rss": "", "category": "Healthcare AI", "country": "USA"},
     "google_health": {"name": "Google Health Blog", "url": "https://blog.google/health/", "rss": "https://blog.google/technology/health/rss/", "category": "Healthcare AI", "country": "USA"},
-    "stanford_aimi": {"name": "Stanford AIMI", "url": "https://aimi.stanford.edu", "rss": "https://aimi.stanford.edu/feed/", "category": "Healthcare AI", "country": "USA"},
+    "stanford_aimi": {"name": "Stanford AIMI", "url": "https://aimi.stanford.edu", "rss": "", "category": "Healthcare AI", "country": "USA"},
     "mit_jameel": {"name": "MIT Jameel Clinic", "url": "https://jameelclinic.mit.edu", "rss": "https://news.mit.edu/rss/feed", "category": "Healthcare AI", "country": "USA"},
     "docnexus": {"name": "DocNexus AI", "url": "https://www.docnexus.ai", "rss": "https://www.nature.com/nm.rss", "category": "Healthcare AI", "country": "USA"},
     "biopharma_dive": {"name": "BioPharma Dive", "url": "https://www.biopharmadive.com", "rss": "https://www.biopharmadive.com/feeds/news/", "category": "Healthcare AI", "country": "USA"},
-    "genomeweb": {"name": "GenomeWeb", "url": "https://www.genomeweb.com", "rss": "https://www.genomeweb.com/rss", "category": "Healthcare AI", "country": "USA"},
-    "pharmaphorum": {"name": "Pharmaphorum", "url": "https://www.pharmaphorum.com", "rss": "https://www.pharmaphorum.com/rss", "category": "Healthcare AI", "country": "Global"},
+    "genomeweb": {"name": "GenomeWeb", "url": "https://www.genomeweb.com", "rss": "", "category": "Healthcare AI", "country": "USA"},
+    "pharmaphorum": {"name": "Pharmaphorum", "url": "https://www.pharmaphorum.com", "rss": "", "category": "Healthcare AI", "country": "Global"},
 
     # =========================================================================
     # 8. Developer News
@@ -1187,13 +1550,13 @@ AI_NEWS_SOURCES = {
     "github_blog": {"name": "GitHub Blog", "url": "https://github.blog", "rss": "https://github.blog/feed/", "category": "Developer News", "country": "USA"},
     "hackernews": {"name": "Hacker News", "url": "https://news.ycombinator.com", "rss": "https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT&points=50", "category": "Developer News", "country": "USA"},
     "stackoverflow_blog": {"name": "Stack Overflow Blog", "url": "https://stackoverflow.blog", "rss": "https://stackoverflow.blog/feed/", "category": "Developer News", "country": "USA"},
-    "infoq_dev": {"name": "InfoQ", "url": "https://www.infoq.com", "rss": "https://www.infoq.com/dev/feed/", "category": "Developer News", "country": "Global"},
+    "infoq_dev": {"name": "InfoQ", "url": "https://www.infoq.com", "rss": "", "category": "Developer News", "country": "Global"},
     "thenewstack": {"name": "The New Stack", "url": "https://thenewstack.io", "rss": "https://thenewstack.io/feed/", "category": "Developer News", "country": "USA"},
     "devto": {"name": "Dev.to", "url": "https://dev.to", "rss": "https://dev.to/feed", "category": "Developer News", "country": "Global"},
     "freecodecamp": {"name": "FreeCodeCamp News", "url": "https://www.freecodecamp.org/news", "rss": "https://www.freecodecamp.org/news/rss/", "category": "Developer News", "country": "USA"},
     "css_tricks": {"name": "CSS-Tricks", "url": "https://css-tricks.com", "rss": "https://css-tricks.com/feed/", "category": "Developer News", "country": "USA"},
     "smashing_mag": {"name": "Smashing Magazine", "url": "https://www.smashingmagazine.com", "rss": "https://www.smashingmagazine.com/feed/", "category": "Developer News", "country": "USA"},
-    "acm_communications": {"name": "ACM Communications", "url": "https://cacm.acm.org", "rss": "https://cacm.acm.org/rss-feed", "category": "Developer News", "country": "USA"},
+    "acm_communications": {"name": "ACM Communications", "url": "https://cacm.acm.org", "rss": "", "category": "Developer News", "country": "USA"},
     "ieee_cs": {"name": "IEEE Computer Society", "url": "https://www.computer.org/csdl/magazine", "rss": "", "category": "Developer News", "country": "USA"},
     "mit_csail": {"name": "MIT CSAIL", "url": "https://www.csail.mit.edu/news", "rss": "https://www.csail.mit.edu/rss.xml", "category": "Developer News", "country": "USA"},
     "stanford_cs": {"name": "Stanford CS", "url": "https://cs.stanford.edu/news", "rss": "", "category": "Developer News", "country": "USA"},
@@ -1202,7 +1565,7 @@ AI_NEWS_SOURCES = {
     "microsoft_dev": {"name": "Microsoft Developer Blog", "url": "https://devblogs.microsoft.com", "rss": "https://devblogs.microsoft.com/feed/", "category": "Developer News", "country": "USA"},
     "meta_engineering": {"name": "Meta Engineering Blog", "url": "https://engineering.fb.com", "rss": "https://engineering.fb.com/feed/", "category": "Developer News", "country": "USA"},
     "netflix_tech": {"name": "Netflix TechBlog", "url": "https://netflixtechblog.com", "rss": "https://netflixtechblog.com/feed", "category": "Developer News", "country": "USA"},
-    "uber_engineering": {"name": "Uber Engineering", "url": "https://www.uber.com/blog/engineering/", "rss": "https://www.uber.com/blog/engineering/feed/", "category": "Developer News", "country": "USA"},
+    "uber_engineering": {"name": "Uber Engineering", "url": "https://www.uber.com/blog/engineering/", "rss": "", "category": "Developer News", "country": "USA"},
     # =========================================================================
     # 9. Semiconductors
     # =========================================================================
@@ -1211,16 +1574,16 @@ AI_NEWS_SOURCES = {
     "semiengineering": {"name": "SemiEngineering", "url": "https://semiengineering.com", "rss": "https://semiengineering.com/feed/", "category": "Semiconductors", "country": "USA"},
     "ieee_hardware": {"name": "IEEE Spectrum Hardware", "url": "https://spectrum.ieee.org/topic/computer-engineering/", "rss": "https://spectrum.ieee.org/feeds/topic/computing.rss", "category": "Semiconductors", "country": "USA"},
     "nvidia_dev": {"name": "NVIDIA Developer Blog", "url": "https://developer.nvidia.com/blog", "rss": "https://developer.nvidia.com/blog/feed/", "category": "Semiconductors", "country": "USA"},
-    "intel_newsroom": {"name": "Intel Newsroom", "url": "https://www.intc.com/news-events/press-releases", "rss": "https://newsroom.intel.com/rss.xml", "category": "Semiconductors", "country": "USA"},
+    "intel_newsroom": {"name": "Intel Newsroom", "url": "https://www.intc.com/news-events/press-releases", "rss": "", "category": "Semiconductors", "country": "USA"},
     "amd_news": {"name": "AMD News", "url": "https://www.amd.com/en/newsroom.html", "rss": "https://ir.amd.com/rss/news-releases.xml", "category": "Semiconductors", "country": "USA"},
-    "tsmc": {"name": "TSMC Blog", "url": "https://blog.tsmc.com", "rss": "https://blog.tsmc.com/feed/", "category": "Semiconductors", "country": "China"},
-    "samsung_semi": {"name": "Samsung Semiconductor", "url": "https://semiconductor.samsung.com", "rss": "https://semiconductor.samsung.com/us/newsroom/feed/", "category": "Semiconductors", "country": "South Korea"},
-    "arm_blog": {"name": "Arm Blog", "url": "https://community.arm.com/arm-community-blogs/b/ai-and-ml-blog", "rss": "https://community.arm.com/arm-community-blogs/b/ai-and-ml-blog/posts/rss", "category": "Semiconductors", "country": "Global"},
+    "tsmc": {"name": "TSMC Blog", "url": "https://blog.tsmc.com", "rss": "", "category": "Semiconductors", "country": "China"},
+    "samsung_semi": {"name": "Samsung Semiconductor", "url": "https://semiconductor.samsung.com", "rss": "", "category": "Semiconductors", "country": "South Korea"},
+    "arm_blog": {"name": "Arm Blog", "url": "https://community.arm.com/arm-community-blogs/b/ai-and-ml-blog", "rss": "", "category": "Semiconductors", "country": "Global"},
     "riscv": {"name": "RISC-V International", "url": "https://riscv.org/programs/", "rss": "https://riscv.org/feed/", "category": "Semiconductors", "country": "USA"},
     "eetimes": {"name": "EE Times", "url": "https://www.eetimes.com", "rss": "https://www.eetimes.com/feed/", "category": "Semiconductors", "country": "USA"},
     "cnet": {"name": "CNET", "url": "https://www.cnet.com/news/", "rss": "https://www.cnet.com/rss/news/", "category": "Semiconductors", "country": "USA"},
     "semi_podcast": {"name": "The Semiconductor Podcast", "url": "https://www.semiconductorpodcast.com", "rss": "https://semiengineering.com/feed/", "category": "Semiconductors", "country": "USA"},
-    "cerebras": {"name": "Cerebras Blog", "url": "https://cerebras.ai/blog", "rss": "https://cerebras.ai/blog/rss.xml", "category": "Semiconductors", "country": "USA"},
+    "cerebras": {"name": "Cerebras Blog", "url": "https://cerebras.ai/blog", "rss": "", "category": "Semiconductors", "country": "USA"},
     "graphcore": {"name": "Graphcore Blog", "url": "https://www.graphcore.ai/posts", "rss": "https://www.graphcore.ai/posts/rss.xml", "category": "Semiconductors", "country": "Global"},
 
     # =========================================================================
@@ -1228,19 +1591,19 @@ AI_NEWS_SOURCES = {
     # =========================================================================
     "solace": {"name": "Solace Blog", "url": "https://solace.com/blog/", "rss": "https://solace.com/blog/feed/", "category": "Messaging/Integration", "country": "Canada"},
     "ibmq": {"name": "IBM MQ", "url": "https://www.ibm.com/products/mq", "rss": "https://www.ibm.com/blog/feed/mq/", "category": "Messaging/Integration", "country": "USA"},
-    "confluent": {"name": "Confluent Blog", "url": "https://www.confluent.io/blog/", "rss": "https://www.confluent.io/blog/feed.xml", "category": "Messaging/Integration", "country": "USA"},
+    "confluent": {"name": "Confluent Blog", "url": "https://www.confluent.io/blog/", "rss": "", "category": "Messaging/Integration", "country": "USA"},
     "redhat_amq": {"name": "Red Hat AMQ", "url": "https://www.redhat.com/en/technologies/amq", "rss": "https://www.redhat.com/en/rss/blog", "category": "Messaging/Integration", "country": "USA"},
-    "activemq": {"name": "Apache ActiveMQ", "url": "https://activemq.apache.org", "rss": "https://activemq.apache.org/feed.rss", "category": "Messaging/Integration", "country": "USA"},
-    "rabbitmq": {"name": "RabbitMQ Blog", "url": "https://www.rabbitmq.com/blog", "rss": "https://www.rabbitmq.com/blog/index.xml", "category": "Messaging/Integration", "country": "USA"},
+    "activemq": {"name": "Apache ActiveMQ", "url": "https://activemq.apache.org", "rss": "", "category": "Messaging/Integration", "country": "USA"},
+    "rabbitmq": {"name": "RabbitMQ Blog", "url": "https://www.rabbitmq.com/blog", "rss": "", "category": "Messaging/Integration", "country": "USA"},
     "nats": {"name": "NATS Blog", "url": "https://nats.io/blog/", "rss": "https://nats.io/blog/index.xml", "category": "Messaging/Integration", "country": "USA"},
-    "emq": {"name": "EMQ Technologies", "url": "https://www.emqx.com/en/blog", "rss": "https://www.emqx.com/en/blog/feed", "category": "Messaging/Integration", "country": "China"},
-    "tibco": {"name": "TIBCO Blog", "url": "https://www.tibco.com/blog", "rss": "https://www.tibco.com/blog/feed/", "category": "Messaging/Integration", "country": "USA"},
-    "apache_pulsar": {"name": "Apache Pulsar", "url": "https://pulsar.apache.org", "rss": "https://pulsar.apache.org/feed.rss", "category": "Messaging/Integration", "country": "USA"},
+    "emq": {"name": "EMQ Technologies", "url": "https://www.emqx.com/en/blog", "rss": "", "category": "Messaging/Integration", "country": "China"},
+    "tibco": {"name": "TIBCO Blog", "url": "https://www.tibco.com/blog", "rss": "", "category": "Messaging/Integration", "country": "USA"},
+    "apache_pulsar": {"name": "Apache Pulsar", "url": "https://pulsar.apache.org", "rss": "", "category": "Messaging/Integration", "country": "USA"},
     "eventstoredb": {"name": "EventStoreDB", "url": "https://www.eventstore.com/blog", "rss": "https://www.eventstore.com/blog/rss", "category": "Messaging/Integration", "country": "Global"},
-    "apache_camel": {"name": "Apache Camel", "url": "https://camel.apache.org", "rss": "https://camel.apache.org/feed.rss", "category": "Messaging/Integration", "country": "USA"},
+    "apache_camel": {"name": "Apache Camel", "url": "https://camel.apache.org", "rss": "", "category": "Messaging/Integration", "country": "USA"},
     "dapr": {"name": "Dapr Blog", "url": "https://blog.dapr.io", "rss": "https://blog.dapr.io/index.xml", "category": "Messaging/Integration", "country": "USA"},
-    "event_driven_io": {"name": "Event-Driven.io", "url": "https://event-driven.io", "rss": "https://event-driven.io/rss/", "category": "Messaging/Integration", "country": "Global"},
-    "infoq_integration": {"name": "InfoQ Integration", "url": "https://www.infoq.com/integration/", "rss": "https://www.infoq.com/integration/feed/", "category": "Messaging/Integration", "country": "Global"},
+    "event_driven_io": {"name": "Event-Driven.io", "url": "https://event-driven.io", "rss": "", "category": "Messaging/Integration", "country": "Global"},
+    "infoq_integration": {"name": "InfoQ Integration", "url": "https://www.infoq.com/integration/", "rss": "", "category": "Messaging/Integration", "country": "Global"},
     "kai_waehner": {"name": "Kai Waehner Blog", "url": "https://kai-waehner.de", "rss": "https://kai-waehner.de/feed/", "category": "Messaging/Integration", "country": "EU"},
     "google_pubsub": {"name": "Google Cloud Pub/Sub", "url": "https://cloud.google.com/blog/products/application-integration", "rss": "https://cloud.google.com/blog/rss", "category": "Messaging/Integration", "country": "USA"},
 
@@ -1259,28 +1622,28 @@ AI_NEWS_SOURCES = {
     "datacenter_knowledge": {"name": "DataCenter Knowledge", "url": "https://www.datacenterknowledge.com", "rss": "https://www.datacenterknowledge.com/rss.xml", "category": "Cloud/DevOps", "country": "USA"},
     "serverwatch": {"name": "ServerWatch", "url": "https://www.serverwatch.com", "rss": "https://www.serverwatch.com/rss/", "category": "Cloud/DevOps", "country": "USA"},
     "cloudflare_blog": {"name": "Cloudflare Blog", "url": "https://blog.cloudflare.com", "rss": "https://blog.cloudflare.com/rss/", "category": "Cloud/DevOps", "country": "USA"},
-    "linux_foundation": {"name": "Linux Foundation Blog", "url": "https://www.linuxfoundation.org/blog", "rss": "https://www.linuxfoundation.org/blog/feed/atom", "category": "Cloud/DevOps", "country": "USA"},
+    "linux_foundation": {"name": "Linux Foundation Blog", "url": "https://www.linuxfoundation.org/blog", "rss": "", "category": "Cloud/DevOps", "country": "USA"},
     "redhat_blog": {"name": "Red Hat Blog", "url": "https://www.redhat.com/en/blog", "rss": "https://www.redhat.com/en/rss/blog", "category": "Cloud/DevOps", "country": "USA"},
-    "suse": {"name": "SUSE Blog", "url": "https://www.suse.com/c/community/blog/", "rss": "https://www.suse.com/c/community/blog/feed/", "category": "Cloud/DevOps", "country": "EU"},
+    "suse": {"name": "SUSE Blog", "url": "https://www.suse.com/c/community/blog/", "rss": "", "category": "Cloud/DevOps", "country": "EU"},
     "canonical": {"name": "Canonical Blog", "url": "https://ubuntu.com/blog", "rss": "https://ubuntu.com/blog/feed", "category": "Cloud/DevOps", "country": "Global"},
-    "digitalocean": {"name": "DigitalOcean Blog", "url": "https://www.digitalocean.com/blog", "rss": "https://www.digitalocean.com/community/blog/feed.xml", "category": "Cloud/DevOps", "country": "USA"},
+    "digitalocean": {"name": "DigitalOcean Blog", "url": "https://www.digitalocean.com/blog", "rss": "", "category": "Cloud/DevOps", "country": "USA"},
 
     # =========================================================================
     # 12. Enterprise IT
     # =========================================================================
-    "cio": {"name": "CIO", "url": "https://www.cio.com", "rss": "https://www.cio.com/feed/", "category": "Enterprise IT", "country": "USA"},
+    "cio": {"name": "CIO", "url": "https://www.cio.com", "rss": "", "category": "Enterprise IT", "country": "USA"},
     "informationweek": {"name": "InformationWeek", "url": "https://www.informationweek.com", "rss": "https://www.informationweek.com/rss.xml", "category": "Enterprise IT", "country": "USA"},
     "computerworld": {"name": "Computerworld", "url": "https://www.computerworld.com", "rss": "https://www.computerworld.com/feed/", "category": "Enterprise IT", "country": "USA"},
     "network_world": {"name": "Network World", "url": "https://www.networkworld.com", "rss": "https://www.networkworld.com/feed/", "category": "Enterprise IT", "country": "USA"},
     "enterprise_tech": {"name": "Enterprise Tech Journal", "url": "https://www.enterprisetech.com", "rss": "https://www.enterpriseai.com/feed", "category": "Enterprise IT", "country": "USA"},
-    "dc_frontier": {"name": "Data Center Frontier", "url": "https://datacenterfrontier.com", "rss": "https://datacenterfrontier.com/feed/", "category": "Enterprise IT", "country": "USA"},
+    "dc_frontier": {"name": "Data Center Frontier", "url": "https://datacenterfrontier.com", "rss": "", "category": "Enterprise IT", "country": "USA"},
     "zdnet": {"name": "ZDNet", "url": "https://www.zdnet.com", "rss": "https://www.zdnet.com/topic/artificial-intelligence/rss.xml", "category": "Enterprise IT", "country": "USA"},
     "techrepublic": {"name": "TechRepublic", "url": "https://www.techrepublic.com", "rss": "https://www.techrepublic.com/feed/", "category": "Enterprise IT", "country": "USA"},
     "eweek": {"name": "eWeek", "url": "https://www.eweek.com", "rss": "https://www.eweek.com/feed/", "category": "Enterprise IT", "country": "USA"},
     "it_pro_today": {"name": "IT Pro Today", "url": "https://www.itprotoday.com", "rss": "https://www.itprotoday.com/rss.xml", "category": "Enterprise IT", "country": "USA"},
     "mainframe_insights": {"name": "Mainframe Insights", "url": "https://www.mainframeinsights.com", "rss": "https://www.enterpriseai.com/feed", "category": "Enterprise IT", "country": "USA"},
-    "ibm_systems": {"name": "IBM Systems Magazine", "url": "https://www.ibmsystemsmag.com", "rss": "https://research.ibm.com/blog/rss/", "category": "Enterprise IT", "country": "USA"},
-    "gartner": {"name": "Gartner", "url": "https://www.gartner.com/en/newsroom", "rss": "https://www.gartner.com/en/newsroom/rss", "category": "Enterprise IT", "country": "USA"},
+    "ibm_systems": {"name": "IBM Systems Magazine", "url": "https://www.ibmsystemsmag.com", "rss": "", "category": "Enterprise IT", "country": "USA"},
+    "gartner": {"name": "Gartner", "url": "https://www.gartner.com/en/newsroom", "rss": "", "category": "Enterprise IT", "country": "USA"},
     "forrester": {"name": "Forrester", "url": "https://www.forrester.com/blogs/", "rss": "https://www.forrester.com/blogs/feed/", "category": "Enterprise IT", "country": "USA"},
     "idc": {"name": "IDC", "url": "https://www.idc.com/getdoc.jsp?containerId=prUS51234567", "rss": "https://www.idc.com/feed", "category": "Enterprise IT", "country": "USA"},
     "dell_tech": {"name": "Dell Technologies Blog", "url": "https://www.dell.com/en-us/blog", "rss": "https://www.dell.com/en-us/blog/feed", "category": "Enterprise IT", "country": "USA"},
@@ -1289,15 +1652,15 @@ AI_NEWS_SOURCES = {
     # 13. AI Policy/Governance
     # =========================================================================
     "eu_ai_act": {"name": "EU AI Act Official", "url": "https://artificialintelligenceact.eu", "rss": "https://artificialintelligenceact.eu/feed/", "category": "AI Policy/Governance", "country": "EU"},
-    "oecd_ai": {"name": "OECD AI Policy", "url": "https://oecd.ai/en", "rss": "https://oecd.ai/en/wonk/feed.xml", "category": "AI Policy/Governance", "country": "Global"},
+    "oecd_ai": {"name": "OECD AI Policy", "url": "https://oecd.ai/en", "rss": "", "category": "AI Policy/Governance", "country": "Global"},
     "brookings_ai": {"name": "Brookings AI", "url": "https://www.brookings.edu/topic/artificial-intelligence/", "rss": "https://www.brookings.edu/topic/artificial-intelligence/feed/", "category": "AI Policy/Governance", "country": "USA"},
     "carnegie_ai": {"name": "Carnegie AI", "url": "https://carnegieendowment.org/topics/artificial-intelligence", "rss": "https://carnegieendowment.org/feeds/topics/ai/rss", "category": "AI Policy/Governance", "country": "USA"},
-    "cset_georgetown": {"name": "CSET Georgetown", "url": "https://cset.georgetown.edu", "rss": "https://cset.georgetown.edu/feed/", "category": "AI Policy/Governance", "country": "USA"},
+    "cset_georgetown": {"name": "CSET Georgetown", "url": "https://cset.georgetown.edu", "rss": "", "category": "AI Policy/Governance", "country": "USA"},
     "future_of_life": {"name": "Future of Life Institute", "url": "https://futureoflife.org", "rss": "https://futureoflife.org/feed/", "category": "AI Policy/Governance", "country": "USA"},
-    "center_ai_safety": {"name": "Center for AI Safety", "url": "https://www.safe.ai", "rss": "https://www.safe.ai/feed", "category": "AI Policy/Governance", "country": "USA"},
+    "center_ai_safety": {"name": "Center for AI Safety", "url": "https://www.safe.ai", "rss": "", "category": "AI Policy/Governance", "country": "USA"},
     "partnership_on_ai": {"name": "Partnership on AI", "url": "https://partnershiponai.org", "rss": "https://partnershiponai.org/feed/", "category": "AI Policy/Governance", "country": "USA"},
-    "rail_score": {"name": "RAIL Score Hub", "url": "https://www.responsibly.ai/rail-score", "rss": "https://oecd.ai/en/wonk/feed.xml", "category": "AI Policy/Governance", "country": "Global"},
-    "iapp_ai": {"name": "IAPP AI Governance", "url": "https://iapp.org/resources/", "rss": "https://iapp.org/news/rss/", "category": "AI Policy/Governance", "country": "USA"},
+    "rail_score": {"name": "RAIL Score Hub", "url": "https://www.responsibly.ai/rail-score", "rss": "", "category": "AI Policy/Governance", "country": "Global"},
+    "iapp_ai": {"name": "IAPP AI Governance", "url": "https://iapp.org/resources/", "rss": "", "category": "AI Policy/Governance", "country": "USA"},
     "epic_ai": {"name": "EPIC AI", "url": "https://epic.org/issues/artificial-intelligence/", "rss": "https://epic.org/feed/", "category": "AI Policy/Governance", "country": "USA"},
     "eff_ai": {"name": "EFF AI", "url": "https://www.eff.org/issues/ai", "rss": "https://www.eff.org/rss/updates.xml", "category": "AI Policy/Governance", "country": "USA"},
     "berkman_klein": {"name": "Berkman Klein Center", "url": "https://cyber.harvard.edu", "rss": "https://cyber.harvard.edu/rss.xml", "category": "AI Policy/Governance", "country": "USA"},
@@ -1305,14 +1668,14 @@ AI_NEWS_SOURCES = {
     "algorithmwatch": {"name": "AlgorithmWatch", "url": "https://algorithmwatch.org", "rss": "https://algorithmwatch.org/en/feed/", "category": "AI Policy/Governance", "country": "EU"},
     "responsible_ai": {"name": "Responsible AI Institute", "url": "https://www.responsible.ai", "rss": "https://www.responsible.ai/feed", "category": "AI Policy/Governance", "country": "USA"},
     "aclu_ai": {"name": "ACLU AI", "url": "https://www.aclu.org/issues/artificial-intelligence", "rss": "https://www.aclu.org/feed", "category": "AI Policy/Governance", "country": "USA"},
-    "wef_ai": {"name": "WEF AI", "url": "https://www.weforum.org/topics/artificial-intelligence-and-robotics", "rss": "https://www.weforum.org/rss/feed/world-economic-forum-artificial-intelligence.xml", "category": "AI Policy/Governance", "country": "Global"},
+    "wef_ai": {"name": "WEF AI", "url": "https://www.weforum.org/topics/artificial-intelligence-and-robotics", "rss": "", "category": "AI Policy/Governance", "country": "Global"},
     "unesco_ai": {"name": "UNESCO AI", "url": "https://www.unesco.org/en/artificial-intelligence", "rss": "https://www.unesco.org/en/artificial-intelligence/rss.xml", "category": "AI Policy/Governance", "country": "Global"},
-    "oecd_incidents": {"name": "OECD AI Incidents", "url": "https://oecd.ai/en/incidents", "rss": "https://oecd.ai/en/wonk/feed.xml", "category": "AI Policy/Governance", "country": "Global"},
+    "oecd_incidents": {"name": "OECD AI Incidents", "url": "https://oecd.ai/en/incidents", "rss": "", "category": "AI Policy/Governance", "country": "Global"},
 
     # =========================================================================
     # 14. Newsletters
     # =========================================================================
-    "the_batch": {"name": "The Batch (Andrew Ng)", "url": "https://www.deeplearning.ai/the-batch/", "rss": "https://www.deeplearning.ai/the-batch/feed/", "category": "Newsletters", "country": "USA"},
+    "the_batch": {"name": "The Batch (Andrew Ng)", "url": "https://www.deeplearning.ai/the-batch/", "rss": "", "category": "Newsletters", "country": "USA"},
     "import_ai": {"name": "Import AI", "url": "https://importai.substack.com", "rss": "https://importai.substack.com/feed", "category": "Newsletters", "country": "Global"},
     "tldr_ai": {"name": "TLDR AI", "url": "https://tldr.tech/ai", "rss": "https://tldr.tech/api/rss/ai", "category": "Newsletters", "country": "USA"},
     "bens_bites": {"name": "Ben's Bites", "url": "https://www.bensbites.com", "rss": "https://bensbites.substack.com/feed", "category": "Newsletters", "country": "USA"},
@@ -1324,13 +1687,13 @@ AI_NEWS_SOURCES = {
     "inside_ai": {"name": "Inside AI", "url": "https://inside.substack.com", "rss": "https://inside.substack.com/feed", "category": "Newsletters", "country": "USA"},
     "algorithm_mit": {"name": "The Algorithm (MIT)", "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed/", "rss": "https://www.technologyreview.com/feed/", "category": "Newsletters", "country": "USA"},
     "ai_weekly": {"name": "AI Weekly", "url": "https://aiweekly.co", "rss": "https://aiweekly.co/feed", "category": "Newsletters", "country": "USA"},
-    "cyberwire_daily": {"name": "The CyberWire Daily", "url": "https://thecyberwire.com/briefings/daily-briefing", "rss": "https://thecyberwire.com/feed/daily.xml", "category": "Newsletters", "country": "USA"},
-    "cybersec_today": {"name": "Cybersecurity Today", "url": "https://www.cybersecuritytoday.ca", "rss": "https://feeds.buzzsprout.com/cybersecuritytoday.xml", "category": "Newsletters", "country": "Canada"},
+    "cyberwire_daily": {"name": "The CyberWire Daily", "url": "https://thecyberwire.com/briefings/daily-briefing", "rss": "", "category": "Newsletters", "country": "USA"},
+    "cybersec_today": {"name": "Cybersecurity Today", "url": "https://www.cybersecuritytoday.ca", "rss": "", "category": "Newsletters", "country": "Canada"},
     "quantum_weekly": {"name": "Quantum Weekly", "url": "https://quantumcomputingreport.com/newsletters/", "rss": "https://quantumcomputingreport.com/feed/", "category": "Newsletters", "country": "USA"},
     "tldr_infosec": {"name": "TLDR InfoSec", "url": "https://tldr.tech/infosec", "rss": "https://tldr.tech/api/rss/infosec", "category": "Newsletters", "country": "USA"},
     "tldr_webdev": {"name": "TLDR Web Dev", "url": "https://tldr.tech/webdev", "rss": "https://tldr.tech/api/rss/webdev", "category": "Newsletters", "country": "USA"},
     "robotics_weekly": {"name": "Robotics Weekly", "url": "https://roboticsweekly.com", "rss": "https://roboticsweekly.com/feed", "category": "Newsletters", "country": "USA"},
-    "space_daily": {"name": "Space Daily", "url": "https://www.spacedaily.com", "rss": "https://www.spacedaily.com/rss/all.xml", "category": "Newsletters", "country": "Global"},
+    "space_daily": {"name": "Space Daily", "url": "https://www.spacedaily.com", "rss": "", "category": "Newsletters", "country": "Global"},
     "the_download": {"name": "The Download (MIT TR)", "url": "https://www.technologyreview.com/newsletter/", "rss": "https://www.technologyreview.com/feed/", "category": "Newsletters", "country": "USA"},
     "synapses": {"name": "Synapses", "url": "https://synapses.ai", "rss": "https://importai.substack.com/feed", "category": "Newsletters", "country": "Global"},
     "ai_edge": {"name": "The AI Edge", "url": "https://theaiedge.substack.com", "rss": "https://theaiedge.substack.com/feed", "category": "Newsletters", "country": "USA"},
@@ -1340,21 +1703,21 @@ AI_NEWS_SOURCES = {
     # 15. Podcasts
     # =========================================================================
     "lex_fridman": {"name": "Lex Fridman Podcast", "url": "https://lexfridman.com/podcast/", "rss": "https://lexfridman.com/feed/podcast/", "category": "Podcasts", "country": "USA"},
-    "nvidia_podcast": {"name": "NVIDIA AI Podcast", "url": "https://blogs.nvidia.com/blog/category/deep-learning-ai/", "rss": "https://feeds.simplecast.com/nvidia_ai_podcast", "category": "Podcasts", "country": "USA"},
+    "nvidia_podcast": {"name": "NVIDIA AI Podcast", "url": "https://blogs.nvidia.com/blog/category/deep-learning-ai/", "rss": "", "category": "Podcasts", "country": "USA"},
     "practical_ai": {"name": "Practical AI", "url": "https://changelog.com/practicalai", "rss": "https://changelog.com/practicalai/feed", "category": "Podcasts", "country": "USA"},
-    "no_priors": {"name": "No Priors", "url": "https://www.nopriorspod.com", "rss": "https://feeds.simplecast.com/aLnyGEpx", "category": "Podcasts", "country": "USA"},
+    "no_priors": {"name": "No Priors", "url": "https://www.nopriorspod.com", "rss": "", "category": "Podcasts", "country": "USA"},
     "ai_today": {"name": "AI Today", "url": "https://www.cognilytica.com/aitoday/", "rss": "https://feeds.simplecast.com/54nAGcIl", "category": "Podcasts", "country": "USA"},
     "twiml_ai": {"name": "TWIML AI", "url": "https://twimlai.com", "rss": "https://twimlai.com/feed/", "category": "Podcasts", "country": "USA"},
-    "ai_with_ai": {"name": "AI with AI", "url": "https://www.csis.org/programs/artificial-intelligence-and-ai", "rss": "https://cset.georgetown.edu/feed/", "category": "Podcasts", "country": "USA"},
-    "data_skeptic": {"name": "Data Skeptic", "url": "https://dataskeptic.com", "rss": "https://dataskeptic.com/feed/podcast", "category": "Podcasts", "country": "USA"},
+    "ai_with_ai": {"name": "AI with AI", "url": "https://www.csis.org/programs/artificial-intelligence-and-ai", "rss": "", "category": "Podcasts", "country": "USA"},
+    "data_skeptic": {"name": "Data Skeptic", "url": "https://dataskeptic.com", "rss": "", "category": "Podcasts", "country": "USA"},
     "darknet_diaries": {"name": "Darknet Diaries", "url": "https://darknetdiaries.com", "rss": "https://feeds.megaphone.fm/darknetdiaries", "category": "Podcasts", "country": "USA"},
     "risky_business": {"name": "Risky Business", "url": "https://risky.biz", "rss": "https://riskybiznews.substack.com/feed", "category": "Podcasts", "country": "Global"},
     "security_now": {"name": "Security Now", "url": "https://twit.tv/shows/security-now", "rss": "https://feeds.twit.tv/sn.xml", "category": "Podcasts", "country": "USA"},
-    "robot_report_pod": {"name": "Robot Report Podcast", "url": "https://therobotreport.com/podcast/", "rss": "https://feeds.buzzsprout.com/279428.xml", "category": "Podcasts", "country": "USA"},
-    "off_nominal": {"name": "Off-Nominal Podcast", "url": "https://www.omnivore.to", "rss": "https://feeds.simplecast.com/SnDvmcbd", "category": "Podcasts", "country": "USA"},
+    "robot_report_pod": {"name": "Robot Report Podcast", "url": "https://therobotreport.com/podcast/", "rss": "", "category": "Podcasts", "country": "USA"},
+    "off_nominal": {"name": "Off-Nominal Podcast", "url": "https://www.omnivore.to", "rss": "", "category": "Podcasts", "country": "USA"},
     "se_daily": {"name": "Software Engineering Daily", "url": "https://softwareengineeringdaily.com", "rss": "https://softwareengineeringdaily.com/feed/", "category": "Podcasts", "country": "USA"},
-    "kubernetes_podcast": {"name": "Kubernetes Podcast", "url": "https://kubernetespodcast.com", "rss": "https://kubernetespodcast.com/feed.rss", "category": "Podcasts", "country": "USA"},
-    "infoq_podcast": {"name": "InfoQ Podcast", "url": "https://www.infoq.com/podcasts/", "rss": "https://www.infoq.com/podcasts/feed/", "category": "Podcasts", "country": "Global"},
+    "kubernetes_podcast": {"name": "Kubernetes Podcast", "url": "https://kubernetespodcast.com", "rss": "", "category": "Podcasts", "country": "USA"},
+    "infoq_podcast": {"name": "InfoQ Podcast", "url": "https://www.infoq.com/podcasts/", "rss": "", "category": "Podcasts", "country": "Global"},
     "quantum_now": {"name": "Quantum Computing Now", "url": "https://quantumcomputingreport.com/podcasts/", "rss": "https://quantumcomputingreport.com/feed/", "category": "Podcasts", "country": "USA"},
     "twit": {"name": "TWiT", "url": "https://twit.tv", "rss": "https://feeds.twit.tv/twit_video_hd.xml", "category": "Podcasts", "country": "USA"},
     "ai_native_dev": {"name": "AI Native Dev", "url": "https://ainativedev.com", "rss": "https://huggingface.co/blog/feed.xml", "category": "Podcasts", "country": "USA"},
@@ -1367,7 +1730,7 @@ AI_NEWS_SOURCES = {
     "google_news_ai": {"name": "Google News - AI", "url": "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFZxYUdjU0FuUm9HZ0pVU0NnQVAB", "rss": "https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en", "category": "News Aggregators", "country": "USA"},
     "lobsters": {"name": "Lobsters", "url": "https://lobste.rs", "rss": "https://lobste.rs/rss", "category": "News Aggregators", "country": "USA"},
     "arxiv_sanity": {"name": "arXiv Sanity", "url": "https://arxiv-sanity-lite.com", "rss": "https://arxiv.org/rss/cs.AI", "category": "News Aggregators", "country": "USA"},
-    "reddit_ai": {"name": "Reddit r/artificial", "url": "https://reddit.com/r/artificial", "rss": "https://old.reddit.com/r/artificial/.rss", "category": "News Aggregators", "country": "USA"},
+    "reddit_ai": {"name": "Reddit r/artificial", "url": "https://reddit.com/r/artificial", "rss": "https://www.reddit.com/r/artificial/.rss", "category": "News Aggregators", "country": "USA"},
     "reddit_ml": {"name": "Reddit r/MachineLearning", "url": "https://reddit.com/r/MachineLearning", "rss": "https://www.reddit.com/r/MachineLearning/.rss", "category": "News Aggregators", "country": "USA"},
     "reddit_singularity": {"name": "Reddit r/singularity", "url": "https://reddit.com/r/singularity", "rss": "https://www.reddit.com/r/singularity/.rss", "category": "News Aggregators", "country": "USA"},
     "reddit_futurology": {"name": "Reddit r/Futurology", "url": "https://reddit.com/r/Futurology", "rss": "https://www.reddit.com/r/Futurology/.rss", "category": "News Aggregators", "country": "USA"},
@@ -1384,10 +1747,10 @@ AI_NEWS_SOURCES = {
     # =========================================================================
     # 17. Country: USA
     # =========================================================================
-    "national_ai_initiative": {"name": "National AI Initiative", "url": "https://www.whitehouse.gov/ostp/ai/", "rss": "https://www.whitehouse.gov/feed/press", "category": "Country: USA", "country": "USA"},
-    "nsf_ai": {"name": "NSF AI Research", "url": "https://www.nsf.gov/focus-areas/artificial-intelligence", "rss": "https://www.nsf.gov/rss/rss_ai.xml", "category": "Country: USA", "country": "USA"},
+    "national_ai_initiative": {"name": "National AI Initiative", "url": "https://www.whitehouse.gov/ostp/ai/", "rss": "", "category": "Country: USA", "country": "USA"},
+    "nsf_ai": {"name": "NSF AI Research", "url": "https://www.nsf.gov/focus-areas/artificial-intelligence", "rss": "", "category": "Country: USA", "country": "USA"},
     "darpa_ai": {"name": "DARPA AI", "url": "https://www.darpa.mil/research/programs/artificial-intelligence", "rss": "", "category": "Country: USA", "country": "USA"},
-    "nist_ai": {"name": "NIST AI", "url": "https://www.nist.gov/artificial-intelligence", "rss": "https://www.nist.gov/news-events/news.rss", "category": "Country: USA", "country": "USA"},
+    "nist_ai": {"name": "NIST AI", "url": "https://www.nist.gov/artificial-intelligence", "rss": "", "category": "Country: USA", "country": "USA"},
     "stanford_hai": {"name": "Stanford HAI", "url": "https://hai.stanford.edu", "rss": "https://hai.stanford.edu/feed", "category": "Country: USA", "country": "USA"},
     "us_ai_safety": {"name": "US AI Safety Institute", "url": "https://www.nist.gov/artificial-intelligence/us-ai-safety-institute", "rss": "", "category": "Country: USA", "country": "USA"},
     "whitehouse_ai": {"name": "White House AI", "url": "https://www.whitehouse.gov/ostp/ai-bill-of-rights/", "rss": "", "category": "Country: USA", "country": "USA"},
@@ -1398,34 +1761,34 @@ AI_NEWS_SOURCES = {
     "mit_tech_review_china": {"name": "MIT Tech Review China", "url": "https://www.technologyreview.cn", "rss": "https://www.technologyreview.com/topics/artificial-intelligence/feed/", "category": "Country: China", "country": "China"},
     "baidu_research": {"name": "Baidu Research", "url": "https://research.baidu.com/Blog/index-view?id=137", "rss": "https://research.baidu.com/Blog/rss", "category": "Country: China", "country": "China"},
     "alibaba_damo": {"name": "Alibaba DAMO Academy", "url": "https://damo.alibaba.com/en/", "rss": "https://damo.alibaba.com/en/feed", "category": "Country: China", "country": "China"},
-    "tensorchord": {"name": "TensorChord", "url": "https://tensorchord.ai", "rss": "https://blog.tensorchord.ai/feed", "category": "Country: China", "country": "China"},
+    "tensorchord": {"name": "TensorChord", "url": "https://tensorchord.ai", "rss": "", "category": "Country: China", "country": "China"},
 
     # =========================================================================
     # 19. Country: UK
     # =========================================================================
     "uk_ai_safety_inst": {"name": "UK AI Safety Institute", "url": "https://www.gov.uk/government/organisations/ai-safety-institute", "rss": "https://www.gov.uk/government/organisations/ai-safety-institute.atom", "category": "Country: UK", "country": "UK"},
-    "alan_turing": {"name": "Alan Turing Institute", "url": "https://www.turing.ac.uk/research", "rss": "https://www.turing.ac.uk/feed.xml", "category": "Country: UK", "country": "UK"},
-    "uk_gov_ai": {"name": "UK Government AI", "url": "https://www.gov.uk/government/collections/artificial-intelligence", "rss": "https://www.gov.uk/government/collections/artificial-intelligence.atom", "category": "Country: UK", "country": "UK"},
+    "alan_turing": {"name": "Alan Turing Institute", "url": "https://www.turing.ac.uk/research", "rss": "", "category": "Country: UK", "country": "UK"},
+    "uk_gov_ai": {"name": "UK Government AI", "url": "https://www.gov.uk/government/collections/artificial-intelligence", "rss": "", "category": "Country: UK", "country": "UK"},
     "deepmind_uk": {"name": "DeepMind UK", "url": "https://deepmind.google", "rss": "https://deepmind.google/blog/rss.xml", "category": "Country: UK", "country": "UK"},
-    "cambridge_ai": {"name": "Cambridge AI", "url": "https://www.cam.ac.uk/research/artificial-intelligence", "rss": "https://www.cam.ac.uk/feed.xml", "category": "Country: UK", "country": "UK"},
+    "cambridge_ai": {"name": "Cambridge AI", "url": "https://www.cam.ac.uk/research/artificial-intelligence", "rss": "", "category": "Country: UK", "country": "UK"},
 
     # =========================================================================
     # 20. Country: EU
     # =========================================================================
     "eu_ai_act_official": {"name": "EU AI Act Official", "url": "https://artificialintelligenceact.eu", "rss": "https://artificialintelligenceact.eu/feed/", "category": "Country: EU", "country": "EU"},
     "eu_ai_office": {"name": "European AI Office", "url": "https://digital-strategy.ec.europa.eu/en/policies/european-approach-artificial-intelligence", "rss": "https://digital-strategy.ec.europa.eu/en/rss.xml", "category": "Country: EU", "country": "EU"},
-    "ellis": {"name": "ELLIS (European AI)", "url": "https://ellis.eu", "rss": "https://ellis.eu/rss.xml", "category": "Country: EU", "country": "EU"},
-    "claire": {"name": "CLAIRE (EU AI)", "url": "https://claire-ai.org", "rss": "https://claire-ai.org/feed/", "category": "Country: EU", "country": "EU"},
-    "fraunhofer_iais": {"name": "Fraunhofer IAIS", "url": "https://www.iais.fraunhofer.de/en.html", "rss": "https://www.iais.fraunhofer.de/de/pi_im.rss", "category": "Country: EU", "country": "EU"},
+    "ellis": {"name": "ELLIS (European AI)", "url": "https://ellis.eu", "rss": "", "category": "Country: EU", "country": "EU"},
+    "claire": {"name": "CLAIRE (EU AI)", "url": "https://claire-ai.org", "rss": "", "category": "Country: EU", "country": "EU"},
+    "fraunhofer_iais": {"name": "Fraunhofer IAIS", "url": "https://www.iais.fraunhofer.de/en.html", "rss": "", "category": "Country: EU", "country": "EU"},
     "mpii_ai": {"name": "Max Planck AI", "url": "https://www.mpg.de/intelligent-systems", "rss": "https://www.nature.com/natmachintell.rss", "category": "Country: EU", "country": "EU"},
-    "inria": {"name": "INRIA France", "url": "https://www.inria.fr", "rss": "https://www.inria.fr/en/rss.xml", "category": "Country: EU", "country": "EU"},
+    "inria": {"name": "INRIA France", "url": "https://www.inria.fr", "rss": "", "category": "Country: EU", "country": "EU"},
 
     # =========================================================================
     # 21. Country: India
     # =========================================================================
     "analytics_india_country": {"name": "Analytics India Magazine", "url": "https://analyticsindiamag.com", "rss": "https://analyticsindiamag.com/feed/", "category": "Country: India", "country": "India"},
     "nasscom_ai": {"name": "NASSCOM AI", "url": "https://nasscom.in/knowledge-center/technologists-and-engineers/artificial-intelligence", "rss": "https://nasscom.in/rss.xml", "category": "Country: India", "country": "India"},
-    "indiaai": {"name": "IndiaAI", "url": "https://indiaai.gov.in", "rss": "https://indiaai.gov.in/rss.xml", "category": "Country: India", "country": "India"},
+    "indiaai": {"name": "IndiaAI", "url": "https://indiaai.gov.in", "rss": "", "category": "Country: India", "country": "India"},
     "iit_research_ai": {"name": "IIT Research AI", "url": "https://www.iit.ac.in", "rss": "https://news.mit.edu/rss/feed", "category": "Country: India", "country": "India"},
     "techgig": {"name": "TechGig", "url": "https://www.techgig.com", "rss": "https://techgig.com/rss/ai", "category": "Country: India", "country": "India"},
     "express_computer": {"name": "Express Computer", "url": "https://www.expresscomputer.in", "rss": "https://www.expresscomputer.in/feed/", "category": "Country: India", "country": "India"},
@@ -1433,8 +1796,8 @@ AI_NEWS_SOURCES = {
     # =========================================================================
     # 22. Country: Japan
     # =========================================================================
-    "japan_ai_policy": {"name": "Japan AI Policy", "url": "https://www.meti.go.jp/english/policy/mono_info_service/information_economy/artificial_intelligence/", "rss": "https://www.meti.go.jp/rss/news_en.rss", "category": "Country: Japan", "country": "Japan"},
-    "riken_aip": {"name": "RIKEN AIP", "url": "https://aip.riken.jp", "rss": "https://www.riken.jp/en/rss.xml", "category": "Country: Japan", "country": "Japan"},
+    "japan_ai_policy": {"name": "Japan AI Policy", "url": "https://www.meti.go.jp/english/policy/mono_info_service/information_economy/artificial_intelligence/", "rss": "", "category": "Country: Japan", "country": "Japan"},
+    "riken_aip": {"name": "RIKEN AIP", "url": "https://aip.riken.jp", "rss": "", "category": "Country: Japan", "country": "Japan"},
     # =========================================================================
     # 23. Country: South Korea
     # =========================================================================
@@ -1445,23 +1808,23 @@ AI_NEWS_SOURCES = {
     # =========================================================================
     # 24. Country: UAE
     # =========================================================================
-    "uae_ai_ministry": {"name": "UAE AI Ministry", "url": "https://www.mohre.gov.ae/en/topics/ai.aspx", "rss": "https://gulfnews.com/rss", "category": "Country: UAE", "country": "UAE"},
-    "mbzuai": {"name": "MBZUAI", "url": "https://mbzuai.ac.ae", "rss": "https://mbzuai.ac.ae/news/feed/", "category": "Country: UAE", "country": "UAE"},
-    "g42_ai": {"name": "G42 AI", "url": "https://www.g42.ai", "rss": "https://www.gulfnews.com/rss", "category": "Country: UAE", "country": "UAE"},
+    "uae_ai_ministry": {"name": "UAE AI Ministry", "url": "https://www.mohre.gov.ae/en/topics/ai.aspx", "rss": "", "category": "Country: UAE", "country": "UAE"},
+    "mbzuai": {"name": "MBZUAI", "url": "https://mbzuai.ac.ae", "rss": "", "category": "Country: UAE", "country": "UAE"},
+    "g42_ai": {"name": "G42 AI", "url": "https://www.g42.ai", "rss": "", "category": "Country: UAE", "country": "UAE"},
 
     # =========================================================================
     # 25. Country: Israel
     # =========================================================================
     "israel_innovation": {"name": "Israel Innovation Authority", "url": "https://innovationisrael.org.il", "rss": "https://innovationisrael.org.il/feed/", "category": "Country: Israel", "country": "Israel"},
-    "ai21_labs": {"name": "AI21 Labs", "url": "https://www.ai21.com/blog", "rss": "https://www.ai21.com/blog/feed", "category": "Country: Israel", "country": "Israel"},
-    "weizmann_ai": {"name": "Weizmann Institute AI", "url": "https://www.weizmann.ac.il/math/andrey_seminar", "rss": "https://wis-wander.weizmann.ac.il/feed/", "category": "Country: Israel", "country": "Israel"},
+    "ai21_labs": {"name": "AI21 Labs", "url": "https://www.ai21.com/blog", "rss": "", "category": "Country: Israel", "country": "Israel"},
+    "weizmann_ai": {"name": "Weizmann Institute AI", "url": "https://www.weizmann.ac.il/math/andrey_seminar", "rss": "", "category": "Country: Israel", "country": "Israel"},
 
     # =========================================================================
     # 26. Country: Canada
     # =========================================================================
     "vector_institute": {"name": "Vector Institute", "url": "https://vectorinstitute.ai", "rss": "https://vectorinstitute.ai/feed/", "category": "Country: Canada", "country": "Canada"},
     "mila": {"name": "MILA", "url": "https://mila.quebec/en", "rss": "https://mila.quebec/en/feed/", "category": "Country: Canada", "country": "Canada"},
-    "amii": {"name": "Amii", "url": "https://www.amii.ca", "rss": "https://www.amii.ca/feed/", "category": "Country: Canada", "country": "Canada"},
+    "amii": {"name": "Amii", "url": "https://www.amii.ca", "rss": "", "category": "Country: Canada", "country": "Canada"},
     # "cifar_ai" intentionally removed — cifar.ca/feed has been returning
     # HTTP 403 to programmatic RSS clients (Cloudflare bot challenge)
     # and would hang worker threads on retries.
@@ -1469,7 +1832,7 @@ AI_NEWS_SOURCES = {
     # =========================================================================
     # 27. Country: Singapore
     # =========================================================================
-    "sg_nai": {"name": "Singapore National AI", "url": "https://www.gov.sg/policies/building-a-national-ai-strategy", "rss": "https://www.nrf.gov.sg/rss.xml", "category": "Country: Singapore", "country": "Singapore"},
+    "sg_nai": {"name": "Singapore National AI", "url": "https://www.gov.sg/policies/building-a-national-ai-strategy", "rss": "", "category": "Country: Singapore", "country": "Singapore"},
     "ai_singapore": {"name": "AI Singapore", "url": "https://aisingapore.org", "rss": "https://aisingapore.org/feed/", "category": "Country: Singapore", "country": "Singapore"},
     "ntu_ai": {"name": "NTU AI", "url": "https://www.ntu.edu.sg/research/researchcentres/artificial-intelligence", "rss": "https://www.technologyreview.com/feed/", "category": "Country: Singapore", "country": "Singapore"},
 
@@ -1490,7 +1853,143 @@ AI_NEWS_SOURCES = {
     "vinkius": {"name": "Vinkius", "url": "https://vinkius.com", "category": "AI Engineering", "country": "Global"},
     "jonnyzzz": {"name": "Jonnyzzz", "url": "https://jonnyzzz.com", "category": "AI Engineering", "country": "Global"},
     "anthropic_engineering": {"name": "Anthropic Engineering", "url": "https://www.anthropic.com/engineering", "category": "AI Engineering", "country": "USA"},
+
+    # =========================================================================
+    # 31. Quantum AI (quantum × AI convergence)
+    # =========================================================================
+    "quantinuum": {"name": "Quantinuum News", "url": "https://www.quantinuum.com/news", "category": "Quantum AI", "country": "UK"},
+    "the_quantum_daily": {"name": "The Quantum Daily", "url": "https://thequantumdaily.com", "rss": "https://thequantumdaily.com/feed/", "category": "Quantum AI", "country": "USA"},
+    "pasqal": {"name": "PASQAL", "url": "https://www.pasqal.com/news", "category": "Quantum AI", "country": "EU"},
+    "iqm": {"name": "IQM Quantum Computers", "url": "https://www.meetiqm.com/newsroom", "category": "Quantum AI", "country": "EU"},
+    "quera": {"name": "QuEra Computing", "url": "https://www.quera.com/news", "category": "Quantum AI", "country": "USA"},
+    "quantum_ai_news": {"name": "Quantum AI Research News", "url": "https://quantumai.google", "rss": "https://blog.google/technology/ai/rss/", "category": "Quantum AI", "country": "USA"},
+
+    # =========================================================================
+    # 32. Semiconductors & AI Chips (hardware deep-dives + industry)
+    # =========================================================================
+    "semi_analysis": {"name": "SemiAnalysis", "url": "https://semianalysis.com", "rss": "", "category": "Semiconductors", "country": "USA"},
+    "semiwiki": {"name": "SemiWiki", "url": "https://semiwiki.com", "rss": "https://semiwiki.com/feed/", "category": "Semiconductors", "country": "USA"},
+    "chips_and_cheese": {"name": "Chips and Cheese (microarchitecture)", "url": "https://chipsandcheese.com", "rss": "https://chipsandcheese.com/feed/", "category": "Semiconductors", "country": "USA"},
+    "trendforce": {"name": "TrendForce", "url": "https://www.trendforce.com/presscenter/", "category": "Semiconductors", "country": "China"},
+    "the_register": {"name": "The Register", "url": "https://www.theregister.com/software/chips/", "rss": "https://www.theregister.com/software/ai_ml/headlines.atom", "category": "Semiconductors", "country": "UK"},
+    "next_platform": {"name": "The Next Platform", "url": "https://www.nextplatform.com", "rss": "https://www.nextplatform.com/feed/", "category": "Semiconductors", "country": "USA"},
+    "hpcwire": {"name": "HPCwire", "url": "https://www.hpcwire.com", "rss": "", "category": "Semiconductors", "country": "USA"},
+    "micron": {"name": "Micron Newsroom", "url": "https://investors.micron.com/news-releases", "category": "Semiconductors", "country": "USA"},
+    "sk_hynix": {"name": "SK hynix Newsroom", "url": "https://news.skhynix.com/", "category": "Semiconductors", "country": "South Korea"},
+    "asml": {"name": "ASML", "url": "https://www.asml.com/en/news", "category": "Semiconductors", "country": "EU"},
+    "groq": {"name": "Groq (LPU AI Chips)", "url": "https://groq.com/news/", "category": "Semiconductors", "country": "USA"},
+    "tenstorrent": {"name": "Tenstorrent (RISC-V AI)", "url": "https://tenstorrent.com/blog/", "category": "Semiconductors", "country": "Canada"},
+    "sambanova": {"name": "SambaNova Systems", "url": "https://sambanova.ai/blog/", "category": "Semiconductors", "country": "USA"},
+    "lightmatter": {"name": "Lightmatter (Photonic AI)", "url": "https://lightmatter.co/news/", "category": "Semiconductors", "country": "USA"},
+    "etched": {"name": "Etched (Transformer ASICs)", "url": "https://www.etched.com/blog", "category": "Semiconductors", "country": "USA"},
+    "rebellions": {"name": "Rebellions (NPU)", "url": "https://www.rebellions.ai/news", "category": "Semiconductors", "country": "South Korea"},
+    "furiosaai": {"name": "FuriosaAI (NPU)", "url": "https://furiosa.ai/news", "category": "Semiconductors", "country": "South Korea"},
+
+    # =========================================================================
+    # 33. AGI & AI Futures (scaling, alignment, forecasting)
+    # =========================================================================
+    "epoch_ai": {"name": "Epoch AI", "url": "https://epochai.org", "rss": "", "category": "AGI & AI Futures", "country": "Global"},
+    "lesswrong": {"name": "LessWrong", "url": "https://www.lesswrong.com", "rss": "https://www.lesswrong.com/feed.xml", "category": "AGI & AI Futures", "country": "Global"},
+    "cold_takes": {"name": "Cold Takes", "url": "https://www.cold-takes.com", "rss": "", "category": "AGI & AI Futures", "country": "USA"},
+    "ais_journal": {"name": "Autonomous Intelligent Systems (Springer)", "url": "https://link.springer.com/journal/43677", "category": "AGI & AI Futures", "country": "Global"},
+    "situational_awareness": {"name": "Situation Awareness (Leopold Aschenbrenner)", "url": "https://situational-awareness.ai", "category": "AGI & AI Futures", "country": "USA"},
+
+    # =========================================================================
+    # 34. Robotics & Embodied AI (extended)
+    # =========================================================================
+    "agibot": {"name": "AgiBot (Zhiyuan Robotics)", "url": "https://www.agibot.com/news/", "category": "Robotics", "country": "China"},
+    "1x_tech": {"name": "1X Technologies", "url": "https://www.1x.tech/news", "category": "Robotics", "country": "Norway"},
+    "nimble": {"name": "Nimble (Embodied AI)", "url": "https://www.nimble.ai/news/", "category": "Robotics", "country": "USA"},
+    "sci_robotics": {"name": "Science Robotics", "url": "https://www.science.org/journal/scirobotics", "rss": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=scirobotics", "category": "Robotics", "country": "USA"},
+
+    # =========================================================================
+    # 35. Global AI ecosystems — new countries
+    # =========================================================================
+    "qbitai": {"name": "QbitAI (量子位)", "url": "https://www.qbitai.com", "rss": "https://www.qbitai.com/feed", "category": "AI & ML News", "country": "China"},
+    "jiqizhixin": {"name": "Machines / Jiqizhixin (机器之心)", "url": "https://www.jiqizhixin.com", "rss": "https://www.jiqizhixin.com/rss", "category": "AI & ML News", "country": "China"},
+    "dfki": {"name": "DFKI German AI Research", "url": "https://www.dfki.de/web/news", "category": "AI & ML News", "country": "Germany"},
+    "heise_ai": {"name": "heise online (Germany)", "url": "https://www.heise.de/themen/Kuenstliche-Intelligenz", "rss": "https://www.heise.de/rss/heise.rdf", "category": "AI & ML News", "country": "Germany"},
+    "digitimes": {"name": "DigiTimes Asia", "url": "https://www.digitimes.com", "category": "Semiconductors", "country": "Taiwan"},
+    "etnews": {"name": "ETNews Korea", "url": "https://www.etnews.com", "category": "AI & ML News", "country": "South Korea"},
+    "korea_herald_ai": {"name": "The Korea Herald AI", "url": "https://www.koreaherald.com/National/Tech", "rss": "https://www.koreaherald.com/rss/news.xml", "category": "AI & ML News", "country": "South Korea"},
+    "ai_switzerland": {"name": "ETH AI Center", "url": "https://ai.ethz.ch", "rss": "https://blog.google/technology/rss/", "category": "AI & ML News", "country": "Switzerland"},
+    "south_africa_ai": {"name": "University of Pretoria AI", "url": "https://www.up.ac.za/artificial-intelligence", "category": "AI & ML News", "country": "South Africa"},
+    "australia_ncc": {"name": "Australian AI (CSIRO + gov)", "url": "https://www.csiro.au/en/research/technology-space/ai", "category": "AI & ML News", "country": "Australia"},
+
+    # =========================================================================
+    # 36. Emerging AI Tech Stack (new tools/platforms)
+    # =========================================================================
+    "silicon_angle": {"name": "SiliconANGLE (AI Infra)", "url": "https://siliconangle.com", "rss": "https://siliconangle.com/feed/", "category": "AI & ML News", "country": "USA"},
+    "modal_blog": {"name": "Modal Blog (Serverless GPU)", "url": "https://modal.com/blog", "rss": "", "category": "AI Engineering", "country": "USA"},
+    "baseten": {"name": "Baseten Blog (Model Deploy)", "url": "https://www.baseten.co/blog", "rss": "", "category": "AI Engineering", "country": "USA"},
+    "vllm_blog": {"name": "vLLM Blog", "url": "https://blog.vllm.ai", "rss": "", "category": "AI Engineering", "country": "USA"},
+    "together_ai": {"name": "Together AI Blog", "url": "https://www.together.ai/blog", "rss": "https://www.together.ai/blog/rss.xml", "category": "AI & ML News", "country": "USA"},
+    # =========================================================================
+    # 37. AI Tech Stack — Reddit, Medium & developer communities (stack news only)
+    # =========================================================================
+    # ---- Reddit communities (r/{sub}.rss) ----
+    "reddit_localllama": {"name": "r/LocalLLaMA (LLM Dev)", "url": "https://www.reddit.com/r/LocalLLaMA/", "rss": "https://www.reddit.com/r/LocalLLaMA/.rss", "category": "AI Engineering", "country": "USA"},
+    "reddit_llmdevs": {"name": "r/LLMDevs", "url": "https://www.reddit.com/r/LLMDevs/", "rss": "https://www.reddit.com/r/LLMDevs/.rss", "category": "AI Engineering", "country": "USA"},
+    "reddit_ollama": {"name": "r/Ollama", "url": "https://www.reddit.com/r/Ollama/", "rss": "https://www.reddit.com/r/Ollama/.rss", "category": "AI Engineering", "country": "USA"},
+    "reddit_langchain": {"name": "r/LangChain", "url": "https://www.reddit.com/r/LangChain/", "rss": "https://www.reddit.com/r/LangChain/.rss", "category": "AI Engineering", "country": "USA"},
+    "reddit_rag": {"name": "r/RAG (Retrieval)", "url": "https://www.reddit.com/r/RAG/", "rss": "https://www.reddit.com/r/RAG/.rss", "category": "AI Engineering", "country": "USA"},
+    "reddit_ai_agents": {"name": "r/AI_Agents", "url": "https://www.reddit.com/r/AI_Agents/", "rss": "https://www.reddit.com/r/AI_Agents/.rss", "category": "AI Engineering", "country": "USA"},
+    "reddit_mlops": {"name": "r/mlops", "url": "https://www.reddit.com/r/mlops/", "rss": "https://www.reddit.com/r/mlops/.rss", "category": "AI Engineering", "country": "USA"},
+    "reddit_llm": {"name": "r/LLM", "url": "https://www.reddit.com/r/LLM/", "rss": "https://www.reddit.com/r/LLM/.rss", "category": "AI Engineering", "country": "USA"},
+    "reddit_machinelearning": {"name": "r/MachineLearning", "url": "https://www.reddit.com/r/MachineLearning/", "rss": "https://www.reddit.com/r/MachineLearning/.rss", "category": "AI & ML News", "country": "USA"},
+    "reddit_huggingface": {"name": "r/huggingface", "url": "https://www.reddit.com/r/huggingface/", "rss": "https://www.reddit.com/r/huggingface/.rss", "category": "AI Engineering", "country": "USA"},
+    "reddit_promptengineering": {"name": "r/PromptEngineering", "url": "https://www.reddit.com/r/PromptEngineering/", "rss": "https://www.reddit.com/r/PromptEngineering/.rss", "category": "AI Engineering", "country": "USA"},
+    "reddit_learnmachinelearning": {"name": "r/learnmachinelearning", "url": "https://www.reddit.com/r/learnmachinelearning/", "rss": "https://www.reddit.com/r/learnmachinelearning/.rss", "category": "AI & ML News", "country": "USA"},
+    # ---- Medium publications & topic tags (medium.com/feed/...) ----
+    "medium_towards_data_science": {"name": "Medium · Towards Data Science", "url": "https://towardsdatascience.com", "rss": "https://medium.com/feed/towards-data-science", "category": "AI Engineering", "country": "USA"},
+    "medium_towards_ai": {"name": "Medium · Towards AI", "url": "https://pub.towardsai.net", "rss": "https://medium.com/feed/towards-artificial-intelligence", "category": "AI & ML News", "country": "USA"},
+    "medium_mlearning_ai": {"name": "Medium · MLearning.ai", "url": "https://medium.com/mlearning-ai", "rss": "", "category": "AI Engineering", "country": "USA"},
+    "medium_ai_in_plain_english": {"name": "Medium · AI in Plain English", "url": "https://medium.com/ai-in-plain-english", "rss": "https://medium.com/feed/ai-in-plain-english", "category": "AI & ML News", "country": "USA"},
+    "medium_tag_llm": {"name": "Medium #llm", "url": "https://medium.com/tag/llm", "rss": "https://medium.com/feed/tag/llm", "category": "AI Engineering", "country": "USA"},
+    "medium_tag_ai_agents": {"name": "Medium #ai-agents", "url": "https://medium.com/tag/ai-agents", "rss": "https://medium.com/feed/tag/ai-agents", "category": "AI Engineering", "country": "USA"},
+    "medium_tag_rag": {"name": "Medium #rag", "url": "https://medium.com/tag/rag", "rss": "https://medium.com/feed/tag/rag", "category": "AI Engineering", "country": "USA"},
+    "medium_tag_mlops": {"name": "Medium #mlops", "url": "https://medium.com/tag/mlops", "rss": "https://medium.com/feed/tag/mlops", "category": "AI Engineering", "country": "USA"},
+    "medium_tag_vector_database": {"name": "Medium #vector-database", "url": "https://medium.com/tag/vector-database", "rss": "https://medium.com/feed/tag/vector-database", "category": "AI Engineering", "country": "USA"},
+    "medium_tag_pytorch": {"name": "Medium #pytorch", "url": "https://medium.com/tag/pytorch", "rss": "https://medium.com/feed/tag/pytorch", "category": "AI Engineering", "country": "USA"},
+    "medium_tag_ai_projects": {"name": "Medium #ai-projects", "url": "https://medium.com/tag/ai-projects", "rss": "https://medium.com/feed/tag/ai-projects", "category": "AI Engineering", "country": "USA"},
+    "medium_tag_prompt_engineering": {"name": "Medium #prompt-engineering", "url": "https://medium.com/tag/prompt-engineering", "rss": "https://medium.com/feed/tag/prompt-engineering", "category": "AI Engineering", "country": "USA"},
+    "medium_tag_generative_ai": {"name": "Medium #generative-ai", "url": "https://medium.com/tag/generative-ai", "rss": "https://medium.com/feed/tag/generative-ai", "category": "AI & ML News", "country": "USA"},
+    "medium_tag_ai_tools": {"name": "Medium #ai-tools", "url": "https://medium.com/tag/ai-tools", "rss": "https://medium.com/feed/tag/ai-tools", "category": "AI Engineering", "country": "USA"},
+    "medium_tag_artificial_intelligence": {"name": "Medium #artificial-intelligence", "url": "https://medium.com/tag/artificial-intelligence", "rss": "https://medium.com/feed/tag/artificial-intelligence", "category": "AI & ML News", "country": "USA"},
+    "medium_tag_machine_learning": {"name": "Medium #machine-learning", "url": "https://medium.com/tag/machine-learning", "rss": "https://medium.com/feed/tag/machine-learning", "category": "AI & ML News", "country": "USA"},
+    # ---- Tech-stack blogs, engineering feeds & newsletters ----
+    "simon_willison": {"name": "Simon Willison (LLM Tools)", "url": "https://simonwillison.net", "rss": "https://simonwillison.net/atom/everything/", "category": "AI Engineering", "country": "UK"},
+    "hf_blog": {"name": "Hugging Face Blog", "url": "https://huggingface.co/blog", "rss": "https://huggingface.co/blog/feed.xml", "category": "AI Engineering", "country": "USA"},
+    "pytorch_blog": {"name": "PyTorch Blog", "url": "https://pytorch.org/blog", "rss": "https://pytorch.org/feed/", "category": "AI Engineering", "country": "USA"},
+    "tensorflow_blog": {"name": "TensorFlow Blog", "url": "https://blog.tensorflow.org", "rss": "https://blog.tensorflow.org/feeds/posts/default", "category": "AI Engineering", "country": "USA"},
+    "the_new_stack": {"name": "The New Stack (AI Stack)", "url": "https://thenewstack.io", "rss": "https://thenewstack.io/feed/", "category": "AI & ML News", "country": "USA"},
+    "nvidia_developer_blog": {"name": "NVIDIA Developer Blog", "url": "https://developer.nvidia.com/blog", "rss": "https://developer.nvidia.com/blog/feed/", "category": "AI Engineering", "country": "USA"},
+    "databricks_blog": {"name": "Databricks Engineering", "url": "https://www.databricks.com/blog", "rss": "", "category": "AI & ML News", "country": "USA"},
+    "streamlit_blog": {"name": "Streamlit Blog (AI Apps)", "url": "https://blog.streamlit.io", "rss": "https://blog.streamlit.io/feed/", "category": "AI Engineering", "country": "USA"},
+    "lilian_weng": {"name": "Lilian Weng ML Blog", "url": "https://lilianweng.github.io", "rss": "https://lilianweng.github.io/index.xml", "category": "AI Engineering", "country": "USA"},
+    "the_gradient": {"name": "The Gradient", "url": "https://thegradient.pub", "rss": "https://thegradient.pub/rss/", "category": "AI Engineering", "country": "USA"},
+    "deepspeed_blog": {"name": "DeepSpeed Blog", "url": "https://www.deepspeed.ai", "rss": "https://www.deepspeed.ai/feed.xml", "category": "AI Engineering", "country": "USA"},
+    "google_ai_blog": {"name": "Google AI Blog (Dev)", "url": "https://developers.googleblog.com", "rss": "https://blog.google/technology/ai/rss/", "category": "AI Engineering", "country": "USA"},
+    "milvus_blog": {"name": "LangChain Blog", "url": "https://blog.langchain.com", "rss": "", "category": "AI Engineering", "country": "USA"},
+    "weaviate_blog": {"name": "Weaviate Blog (Vector DB)", "url": "https://weaviate.io/blog", "rss": "https://weaviate.io/blog/rss.xml", "category": "AI Engineering", "country": "USA"},
+    "theregister_ai_ml": {"name": "The Register · AI/ML", "url": "https://www.theregister.com/software/ai_ml/", "rss": "https://www.theregister.com/software/ai_ml/headlines.atom", "category": "AI & ML News", "country": "UK"},
+    "github_blog": {"name": "GitHub Blog (AI & Dev)", "url": "https://github.blog", "rss": "https://github.blog/feed/", "category": "Developer News", "country": "USA"},
+    "lancedb_blog": {"name": "LanceDB Blog", "url": "https://blog.lancedb.com", "rss": "https://blog.lancedb.com/rss.xml", "category": "AI Engineering", "country": "USA"},
+    "ahead_of_ai": {"name": "Ahead of AI (Raschka)", "url": "https://magazine.sebastianraschka.com", "rss": "https://magazine.sebastianraschka.com/feed", "category": "AI Engineering", "country": "USA"},
+    "interconnects": {"name": "Interconnects (Lambert)", "url": "https://www.interconnects.ai", "rss": "https://www.interconnects.ai/feed", "category": "AI Engineering", "country": "USA"},
+    "latent_space": {"name": "Latent Space AI", "url": "https://www.latent.space", "rss": "https://www.latent.space/feed", "category": "AI Engineering", "country": "USA"},
+    "mlops_community": {"name": "MLOps Community Roundup", "url": "https://mlops.community", "rss": "", "category": "AI Engineering", "country": "UK"},
+    "data_engineering_weekly": {"name": "Data Engineering Weekly", "url": "https://www.dataengineeringweekly.com", "rss": "https://www.dataengineeringweekly.com/feed", "category": "AI & ML News", "country": "USA"},
+    "cloudflare_ai_blog": {"name": "Cloudflare AI Blog", "url": "https://blog.cloudflare.com/tag/ai/", "rss": "https://blog.cloudflare.com/tag/ai/rss", "category": "AI Engineering", "country": "USA"},
+    "google_ai_blog": {"name": "Google AI Blog", "url": "https://blog.google/technology/ai/", "rss": "https://blog.google/technology/ai/rss/", "category": "AI & ML News", "country": "USA"},
+    "aws_ml_blog": {"name": "AWS ML Blog", "url": "https://aws.amazon.com/blogs/machine-learning/", "rss": "https://aws.amazon.com/blogs/machine-learning/feed/", "category": "AI Engineering", "country": "USA"},
 }
+
+# Worldwide coverage: verified national tech/AI publishers + one Google News
+# "artificial intelligence" edition per country, in that country's language.
+from news_sources_world import WORLD_AI_NEWS_SOURCES
+for _wk, _wv in WORLD_AI_NEWS_SOURCES.items():
+    AI_NEWS_SOURCES.setdefault(_wk, _wv)
 
 
 def _strip_html(text: str) -> str:
@@ -1502,6 +2001,140 @@ def _strip_html(text: str) -> str:
     # Double-encoded entities (e.g. &amp;#8217; -> &#8217; -> ')
     clean = _html_mod.unescape(clean)
     return clean.strip()
+
+
+# Image discovery regex — matches <img src="..."> and media URLs inside feed content.
+_IMG_TAG_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']', re.IGNORECASE)
+_MEDIA_NS = {'media': 'http://search.yahoo.com/mrss/'}
+
+
+def _extract_feed_image(raw_html: str, node: ET.Element) -> str:
+    """Best-effort thumbnail extraction from an RSS/Atom item.
+
+    Looks for (in order) media:thumbnail/media:content, image enclosures,
+    and finally the first <img src="..."> embedded in the description/content.
+    """
+    try:
+        # 1) media RSS tags (media:thumbnail / media:content)
+        for tag in ('thumbnail', 'content'):
+            el = node.find(f'{{{_MEDIA_NS["media"]}}}{tag}')
+            if el is not None:
+                url = el.get('url') or el.get('src') or ''
+                if url:
+                    return url.strip()
+        # 2) RSS 2.0 enclosure (type="image/*")
+        enc = node.find('enclosure')
+        if enc is not None:
+            url = enc.get('url', '') or ''
+            etype = enc.get('type', '') or ''
+            if url and etype.startswith('image'):
+                return url.strip()
+    except Exception:
+        pass
+    # 3) first <img> tag inside the item's HTML content
+    if raw_html:
+        m = _IMG_TAG_RE.search(raw_html)
+        if m:
+            return m.group(1).strip()
+    return ""
+
+
+# ---- Per-article "best image" enrichment --------------------------------------
+# When a feed item carries no image at all (e.g. OpenAI), fetch the article
+# page and read its Open Graph / Twitter image — the publisher's own curated
+# thumbnail for that exact story. Results are cached in memory (TTL ~6h) so
+# repeated category fetches stay fast.
+_OG_IMAGE_CACHE = {}
+_META_TAG_RE = re.compile(r"<meta[^>]*>", re.IGNORECASE | re.DOTALL)
+_LINK_IMAGE_SRC_RE = re.compile(r'<link[^>]+rel=["\']image_src["\'][^>]*>', re.IGNORECASE)
+_OG_IMAGE_PROPS = ("og:image", "og:image:url", "og:image:secure_url",
+                   "twitter:image", "twitter:image:src", "article:cover")
+
+
+def _meta_attr(tag: str, attr: str) -> str:
+    m = re.search(attr + r'\s*=\s*["\']([^"\']+)["\']', tag, re.IGNORECASE)
+    return m.group(1).strip() if m else ""
+
+
+def _fetch_og_image(url: str) -> str:
+    """Return a meaningful image URL for an article link ('' if not found)."""
+    if not url or not url.startswith(("http://", "https://")):
+        return ""
+    now = time.time()
+    hit = _OG_IMAGE_CACHE.get(url)
+    if hit and hit[0] > now:
+        return hit[1]
+    img = ""
+    # One retry: many sites (OpenAI, Cloudflare-fronted pages) transiently
+    # rate-limit burst fetches; a single retry fixes most misses cheaply.
+    for attempt in range(2):
+        try:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            })
+            with urlopen(req, timeout=7, context=ctx) as resp:
+                body = resp.read(262144).decode("utf-8", "replace")
+            found = ""
+            for tag in _META_TAG_RE.findall(body):
+                prop = (_meta_attr(tag, "property") or _meta_attr(tag, "name")).lower()
+                if prop in _OG_IMAGE_PROPS:
+                    c = _meta_attr(tag, "content")
+                    if c:
+                        found = c
+                        break
+            if not found:
+                lm = _LINK_IMAGE_SRC_RE.search(body)
+                if lm:
+                    found = _meta_attr(lm.group(0), "href")
+            if not found:
+                for m in _IMG_TAG_RE.finditer(body):
+                    src = m.group(1).strip()
+                    low = src.lower()
+                    if (src.startswith(("http://", "https://")) and "data:image" not in low
+                            and ".svg" not in low and "spacer" not in low
+                            and "tracking" not in low and "blank" not in low):
+                        found = src
+                        break
+            img = found
+            if img:
+                break
+            time.sleep(0.25)
+        except Exception:
+            if attempt == 0:
+                time.sleep(0.25)
+            continue
+    # Cache hits for 6h; cache misses briefly (15 min) so a later re-fetch of
+    # the same category can still pick up an image that was transiently blocked.
+    ttl = now + 6 * 3600 if img else now + 900
+    _OG_IMAGE_CACHE[url] = (ttl, img)
+    if len(_OG_IMAGE_CACHE) > 6000:
+        _OG_IMAGE_CACHE.clear()
+    return img
+
+
+def _enrich_item_images(items: list, max_items: int = 10, workers: int = 4) -> None:
+    """Fill in a real per-article image for items still missing one."""
+    missing = [it for it in items if not (it.get("image") or "").strip()][:max_items]
+    if not missing:
+        return
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futures = [(it, ex.submit(_fetch_og_image, it.get("url", ""))) for it in missing]
+            for it, fut in futures:
+                try:
+                    og = fut.result()
+                except Exception:
+                    og = ""
+                if og:
+                    it["image"] = og
+    except Exception:
+        pass
 
 
 def _parse_rss_xml(xml_text: str, source_key: str) -> list:
@@ -1519,13 +2152,15 @@ def _parse_rss_xml(xml_text: str, source_key: str) -> list:
         title = item.findtext('title', '').strip()
         link = item.findtext('link', '').strip()
         pub_date = item.findtext('pubDate', '').strip()
-        description = _strip_html(item.findtext('description', ''))
+        raw_desc = item.findtext('description', '') or ''
+        description = _strip_html(raw_desc)
         if title and link:
             items.append({
                 "title": title,
                 "url": link,
                 "date": pub_date,
                 "snippet": description[:300] if description else "",
+                "image": _extract_feed_image(raw_desc, item),
                 "source": source_key,
             })
 
@@ -1537,13 +2172,15 @@ def _parse_rss_xml(xml_text: str, source_key: str) -> list:
             link = link_el.get('href', '') if link_el is not None else ''
             pub_date = entry.findtext('atom:published', '', ns) or entry.findtext('atom:updated', '', ns)
             pub_date = (pub_date or '').strip()
-            summary = _strip_html(entry.findtext('atom:summary', '', ns) or entry.findtext('atom:content', '', ns))
+            raw_content = entry.findtext('atom:content', '', ns) or entry.findtext('atom:summary', '', ns) or ''
+            summary = _strip_html(raw_content)
             if title and link:
                 items.append({
                     "title": title,
                     "url": link,
                     "date": pub_date,
                     "snippet": summary[:300] if summary else "",
+                    "image": _extract_feed_image(raw_content, entry),
                     "source": source_key,
                 })
 
@@ -1855,12 +2492,67 @@ CUSTOM_FETCHERS = {
 }
 
 
+def _rss_fetch_chain(key: str, source: dict) -> dict | None:
+    """Attempt RSS through an ordered candidate list.
+
+    Candidates: the configured feed URL → a cached auto-discovery hit → a fresh
+    auto-discovery probe. A hard-coded feed URL that is dead or serves HTML
+    should not permanently shadow a working feed that discovery can find, so
+    when the configured URL fails permanently the chain keeps going.
+
+    Returns an "OK" result with items, the last failure result, or None when
+    there was no RSS URL worth trying (breakers: nothing configured/cached).
+    """
+    source_url = source.get("url", "")
+    h = _FEED_HEALTH.get(key)
+    on_cooldown = bool(h and h.get("fails", 0) >= CIRCUIT_FAIL_THRESHOLD
+                       and time.time() < h.get("next_retry", 0))
+
+    configured = source.get("rss") or ""
+    urls: list[str] = []
+    if configured:
+        urls.append(configured)
+    cached = _cached_url(key)
+    if cached and cached != configured:
+        urls.append(cached)
+    if not on_cooldown:
+        # Live discovery bypasses the circuit breaker: it probes *different*
+        # URLs than the one that keeps failing, so a dead hard-coded feed no
+        # longer traps the whole source in an hour-long cooldown.
+        discovered = _discover_rss_for(key, source_url)
+        if discovered and discovered not in urls:
+            urls.append(discovered)
+    if not urls:
+        return None
+
+    last = None
+    for idx, rss_url in enumerate(urls):
+        result = _do_fetch(key, source, rss_url)
+        status = result.get("status", "")
+        if status == "OK" and result.get("items"):
+            if idx > 0:
+                _RSS_DISCOVERY_CACHE[key] = (rss_url, time.time(), True)
+            result["feedType"] = "rss"
+            return result
+        last = result
+        if idx > 0:
+            # A discovered/cached alternative that stops working shouldn't be
+            # reused forever — record it as a negative hit so discovery won't
+            # re-probe (and re-cache) the same broken URL for 6h.
+            _RSS_DISCOVERY_CACHE[key] = ("", time.time(), False)
+        if status not in ("DEAD", "NOT_XML", "NO_FEED", "REDIRECT"):
+            # Temporary failure (timeout / rate-limit / cooldown) — report it
+            # as-is; no point churning the remaining candidates right now.
+            return result
+    return last
+
+
 def _fetch_single_source(key: str, source: dict) -> dict:
     """Fetch articles from a source using multi-strategy fallback chain.
 
     Strategy order:
       1. Custom fetcher (if registered in CUSTOM_FETCHERS)
-      2. RSS feed (configured or auto-discovered) – circuit-breaker only blocks this
+      2. RSS feed (configured → auto-discovered) – circuit-breaker only blocks this
       3. Sitemap.xml parsing
       4. HTML scraping (stdlib html.parser)
 
@@ -1874,24 +2566,23 @@ def _fetch_single_source(key: str, source: dict) -> dict:
     if key in CUSTOM_FETCHERS:
         return CUSTOM_FETCHERS[key](key, source)
 
-    # Strategy 1: RSS feed (with circuit breaker protection)
-    h = _FEED_HEALTH.get(key)
-    rss_on_cooldown = h and h.get("fails", 0) >= CIRCUIT_FAIL_THRESHOLD and time.time() < h.get("next_retry", 0)
-    
-    if not rss_on_cooldown:
-        rss_url = source.get("rss") or _discover_rss_for(key, source_url)
-        if rss_url:
-            result = _do_fetch(key, source, rss_url)
-            # If RSS succeeded with items, return it
-            if result.get("status") == "OK" and result.get("items"):
-                result["feedType"] = "rss"
-                return result
-            # If RSS failed with a permanent error, continue to fallbacks
-            error_status = result.get("status", "")
-            if error_status not in ("DEAD", "NOT_XML", "NO_FEED", "REDIRECT"):
-                # Temporary error (timeout, cooldown, etc.) — return what we got
-                return result
-            # Permanent error: fall through to sitemap/scraping
+    # Strategy 1: RSS — configured feed first, then auto-discovered
+    # alternatives. A dead hard-coded feed URL shouldn't prevent discovery
+    # from finding the real feed URL.
+    rss_on_cooldown = bool(
+        (h := _FEED_HEALTH.get(key))
+        and h.get("fails", 0) >= CIRCUIT_FAIL_THRESHOLD
+        and time.time() < h.get("next_retry", 0)
+    )
+    rss_result = _rss_fetch_chain(key, source)
+    if rss_result is not None:
+        error_status = rss_result.get("status", "")
+        if error_status == "OK" and rss_result.get("items"):
+            return rss_result
+        if error_status not in ("DEAD", "NOT_XML", "NO_FEED", "REDIRECT"):
+            # Temporary error (timeout, rate-limit, cooldown, etc.) — return it
+            return rss_result
+        # Permanent error: fall through to sitemap/scraping
 
     # Strategy 2: Sitemap.xml (always attempted, no circuit breaker)
     sitemap_items = try_sitemap(source_url)
@@ -1912,6 +2603,7 @@ def _fetch_single_source(key: str, source: dict) -> dict:
             item["source_key"] = key
             item["source_name"] = source["name"]
         _record_success(key)
+        _enrich_item_images(scraped_items)
         return {"key": key, "name": source["name"], "items": scraped_items,
                 "url": source_url, "error": None, "status": "OK", "feedType": "scraped"}
 
@@ -1928,75 +2620,107 @@ def _fetch_single_source(key: str, source: dict) -> dict:
 def _do_fetch(key: str, source: dict, rss_url: str) -> dict:
     """Lower-level fetch: open rss_url, classify success/failure, attach status.
 
-    Peeks the first 2 KB to validate XML/JSON shape before deciding to read the
-    full body. Gates the Reddit JSON branch on the source key (so unrelated
-    `.json` URLs don't matter) and uses the module-level `_fail` helper to
-    avoid the inner-function indenting anti-pattern.
+    Tries alternate User-Agents when a feed is rate-limited or blocked (Reddit
+    only serves its `.rss` to feed crawlers), decompresses gzip bodies, strips
+    a UTF-8 BOM, and validates the XML/JSON shape before parsing. Gates the
+    Reddit JSON branch on the source key (so unrelated `.json` URLs don't
+    matter) and uses the module-level `_fail` helper to avoid the inner-function
+    indenting anti-pattern.
     """
-    try:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        req = Request(rss_url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/rss+xml, application/xml, text/xml, application/atom+xml, application/json, */*",
-            "Accept-Language": "en-US,en;q=0.9",
-        })
-        with urlopen(req, timeout=8, context=ctx) as resp:
-            # Peek 2 KB and validate shape; only read remainder if valid.
-            head = resp.read(2048).decode("utf-8", errors="replace")
-            sh = head.lstrip()[:120].lower()
-            looks_xml = sh.startswith("<?xml") or sh.startswith("<rss") or sh.startswith("<feed")
-            looks_json = sh.startswith("{") or sh.startswith("[")
-            if not (looks_xml or looks_json):
-                return _fail(key, source, "NOT_XML", "body is not XML/JSON")
-            # Read remainder only when shape is OK.
-            content = head + resp.read().decode("utf-8", errors="replace")
-        is_reddit = key.startswith("reddit_")
-        if is_reddit and content.lstrip().startswith("{"):
-            data = json.loads(content)
-            items = []
-            for child in data.get("data", {}).get("children", [])[:10]:
-                post = child.get("data", {})
-                title = post.get("title", "")
-                url = post.get("url", "")
-                permalink = f"https://reddit.com{post.get('permalink', '')}"
-                created = post.get("created_utc", 0)
-                selftext = post.get("selftext", "")[:200]
-                if title:
-                    items.append({
-                        "title": title,
-                        "url": url if url.startswith("http") else permalink,
-                        "date": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(created)) if created else "",
-                        "snippet": selftext,
-                        "source": key,
-                        "source_key": key,
-                        "source_name": source["name"],
-                    })
-            _record_success(key)
-            return {"key": key, "name": source["name"], "items": items,
-                    "url": source["url"], "error": None, "status": "OK"}
-        items = _parse_rss_xml(content, key)
-        for it in items:
-            it["source_key"] = key
-            it["source_name"] = source["name"]
+    import gzip
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    body = ""
+    last_status = 0
+    last_reason = ""
+    for ua in _FETCH_USER_AGENTS:
+        try:
+            req = Request(rss_url, headers={
+                "User-Agent": ua,
+                "Accept": "application/rss+xml, application/xml, text/xml, application/atom+xml, application/json, */*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "gzip",
+            })
+            with urlopen(req, timeout=8, context=ctx) as resp:
+                raw = resp.read()
+                if (resp.headers.get("Content-Encoding") or "").lower() == "gzip":
+                    try:
+                        raw = gzip.decompress(raw)
+                    except Exception:
+                        pass
+                body = raw.decode("utf-8", errors="replace")
+            break
+        except urllib.error.HTTPError as he:
+            last_status = he.code
+            last_reason = he.reason
+            if he.code in (429, 403, 500, 502, 503, 504):
+                continue  # try alternate UA
+            cls, reason = _classify_exception(he)
+            return _fail(key, source, cls, reason)
+        except (urllib.error.URLError, socket.timeout, socket.gaierror,
+                ConnectionError, TimeoutError, OSError) as e:
+            cls, reason = _classify_exception(e)
+            return _fail(key, source, cls, reason)
+        except (ET.ParseError, json.JSONDecodeError) as e:
+            return _fail(key, source, "NOT_XML", type(e).__name__)
+        except Exception as e:
+            cls, reason = _classify_exception(e)
+            return _fail(key, source, cls, reason, is_programmer=(cls == "PROGRAMMER"))
+    if not body:
+        cls = _classify_fetch_error(last_status or -1, "")
+        return _fail(key, source, cls, last_reason or f"HTTP {last_status or 'no response'}")
+
+    stripped = body.lstrip("\ufeff").lstrip()
+    sh = stripped[:160].lower()
+    looks_xml = (
+        sh.startswith("<?xml") or sh.startswith("<rss") or sh.startswith("<feed")
+        or sh.startswith("<rdf")
+        or (stripped.startswith("<") and ("<rss" in sh or "<feed" in sh or "<rdf" in sh))
+    )
+    looks_json = stripped.startswith("{") or stripped.startswith("[")
+    if not (looks_xml or looks_json):
+        # Feed URL answered 200 but the payload is an HTML page (some catalog
+        # entries point at landing pages rather than feeds). Classify so the
+        # caller moves on to the next RSS candidate or the sitemap/scrape
+        # fallback instead of surfacing a 404 to the user.
+        return _fail(key, source, "NOT_XML", "body is not XML/JSON")
+    content = stripped
+
+    is_reddit = key.startswith("reddit_")
+    if is_reddit and content.lstrip().startswith("{"):
+        data = json.loads(content)
+        items = []
+        for child in data.get("data", {}).get("children", [])[:10]:
+            post = child.get("data", {})
+            title = post.get("title", "")
+            url = post.get("url", "")
+            permalink = f"https://reddit.com{post.get('permalink', '')}"
+            created = post.get("created_utc", 0)
+            selftext = post.get("selftext", "")[:200]
+            if title:
+                items.append({
+                    "title": title,
+                    "url": url if url.startswith("http") else permalink,
+                    "date": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(created)) if created else "",
+                    "snippet": selftext,
+                    "source": key,
+                    "source_key": key,
+                    "source_name": source["name"],
+                })
         _record_success(key)
+        _enrich_item_images(items)
         return {"key": key, "name": source["name"], "items": items,
                 "url": source["url"], "error": None, "status": "OK"}
-    except urllib.error.HTTPError as he:
-        cls, reason = _classify_exception(he)
-        return _fail(key, source, cls, reason)
-    except (urllib.error.URLError, socket.timeout, socket.gaierror,
-            ConnectionError, TimeoutError, OSError) as e:
-        cls, reason = _classify_exception(e)
-        return _fail(key, source, cls, reason)
-    except (ET.ParseError, json.JSONDecodeError) as e:
-        # Preserve the specific parser error (e.g. JSONDecodeError vs ParseError)
-        # so the UI badge can distinguish XML parse failures from JSON ones.
-        return _fail(key, source, "NOT_XML", type(e).__name__)
-    except Exception as e:
-        cls, reason = _classify_exception(e)
-        return _fail(key, source, cls, reason, is_programmer=(cls == "PROGRAMMER"))
+    items = _parse_rss_xml(content, key)
+    for it in items:
+        it["source_key"] = key
+        it["source_name"] = source["name"]
+    _record_success(key)
+    _enrich_item_images(items)
+    return {"key": key, "name": source["name"], "items": items,
+            "url": source["url"], "error": None, "status": "OK"}
 @app.get("/api/news/sources")
 def list_news_sources(country: str = "", category: str = ""):
     """Return AI news sources with optional country/category filtering.
@@ -2057,7 +2781,7 @@ def news_feed_health(only_problems: bool = False):
     for key, src in AI_NEWS_SOURCES.items():
         h = _FEED_HEALTH.get(key, {})
         configured = src.get("rss", "")
-        cached_feed = _RSS_DISCOVERY_CACHE.get(key, "")
+        cached_feed = _cached_url(key)
         resolved = configured or cached_feed or ""
         discovered = bool(cached_feed) and (not configured)
         cooldown_until = float(h.get("next_retry", 0.0))
@@ -2407,6 +3131,15 @@ def search_github_repos(q: str = "", topics: str = "", sort: str = "stars", orde
     result = {"items": all_items, "total": len(all_items), "query": q, "topics": topics}
     _GITHUB_CACHE[cache_key] = {"data": result, "ts": _time.time()}
     return result
+
+
+from projects_api import register_projects_api
+from agents_api import register_agents_api
+from brain_api import register_brain_api
+
+register_projects_api(app)
+register_agents_api(app)
+register_brain_api(app)
 
 
 if __name__ == "__main__":

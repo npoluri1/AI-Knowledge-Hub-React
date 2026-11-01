@@ -1,0 +1,2728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python — The Complete Language Masterclass — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Python — The Complete Language Masterclass</span><span class="spacer"></span>
+<a class="navlink" href="index.html">&larr; Home</a> <a class="navlink" href="fastapi.html">FastAPI &rarr;</a></nav>
+<header class="hero"><div class="mono">PY</div><div><h1>Python — The Complete Language Masterclass</h1>
+<p class="tagline">From zero to metaclasses — every concept a working developer needs, with modern 3.13+ coverage</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>This is the flagship chapter — 61 topic cards plus 5 project cards spanning the entire Python language from installation to metaclasses, free-threaded 3.13+, and production-grade design patterns. Work through each tier sequentially.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Syntax, data types, control flow, functions, scope, basic typing</td><td>Write clean, idiomatic Python scripts and small programs</td></tr>
+<tr><td>Tier 2</td><td>OOP, error handling, file I/O, modules, virtual environments, CLI tools</td><td>Build structured, maintainable multi-file Python projects</td></tr>
+<tr><td>Tier 3</td><td>Iteration protocol, decorators, dunders, dataclasses, advanced typing, testing</td><td>Write library-quality Python with deep language mastery</td></tr>
+<tr><td>Tier 4</td><td>Metaclasses, import internals, concurrency, asyncio, C interop, packaging</td><td>Architect high-performance, distributable Python systems</td></tr>
+<tr><td>Tier 5</td><td>End-to-end projects: CLI tools, async scrapers, daemon services, test frameworks, ETL pipelines</td><td>Ship production-grade Python applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Syntax, Types, Control Flow, and Functions</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Install, REPL, and IDE Setup</h3>
+<p><strong>What &amp; why.</strong> Python installation has matured: the official installer bundles pip, IDLE, and the standard library. The REPL (Read-Eval-Print Loop) is your sandbox for rapid experimentation. Modern IDEs like VS Code with Pylance or PyCharm provide IntelliSense, debugging, and formatting out of the box.</p>
+<pre class="code"><code># Verify installation
+$ python --version
+Python 3.13.1
+
+# Launch the interactive REPL
+$ python
+&gt;&gt;&gt; import sys
+&gt;&gt;&gt; sys.version_info
+sys.version_info(major=3, minor=13, micro=1, releaselevel='final')
+
+# Per-project virtual environment
+$ python -m venv .venv
+$ .venv\Scripts\activate
+(.venv) $ pip install --upgrade pip
+(.venv) $ pip install requests rich
+(.venv) $ pip install -e ".[dev]"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every Python project starts here. Virtual environments keep dependency isolation clean, and the REPL is used for quick prototyping, debugging, and testing snippets before committing to files.</div>
+<div class="callout hood"><span>Under the hood</span>CPython compiles source to bytecode (.pyc) stored in __pycache__. The REPL uses the <code>code</code> module internally, and <code>python -m venv</code> copies the interpreter binary plus pip into an isolated directory tree with rewritten paths.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Variables and Dynamic Typing</h3>
+<p><strong>What &amp; why.</strong> Python variables are names bound to objects — they carry no type information themselves. Assignment uses <code>=</code> and the name resolves to whatever object it currently references. This dynamic typing enables rapid prototyping but demands discipline through type hints and linting.</p>
+<pre class="code"><code># Names are references, not typed slots
+x = 42          # x &rarr; int object 42
+x = "hello"     # x &rarr; str object (int 42 is unreferenced)
+x = [1, 2, 3]   # x &rarr; list object
+
+# Multiple assignment and swapping
+a, b, c = 1, 2, 3
+a, b = b, a     # swap without temp variable
+
+# Identity vs equality
+lst1 = [1, 2]
+lst2 = [1, 2]
+print(lst1 == lst2)   # True  — same value
+print(lst1 is lst2)   # False — different objects
+
+# Inspect what a name references
+print(type(x))  # &lt;class 'list'&gt;</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every line of Python uses variable binding. Understanding reference semantics prevents bugs around mutable default arguments, shared references, and unexpected aliasing in functions.</div>
+<div class="callout hood"><span>Under the hood</span>CPython uses reference counting as the primary memory management strategy. Each object has an ob_refcnt incremented when a new name references it. When refcount hits zero, the object is deallocated immediately or added to the generational garbage collector for cycles.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Int, Float, and Complex Numbers</h3>
+<p><strong>What &amp; why.</strong> Python integers have arbitrary precision — no overflow. Floats follow IEEE 754 double-precision, and complex numbers are first-class with <code>j</code> suffix. The <code>decimal</code> and <code>fractions</code> modules handle exact arithmetic when floating-point errors are unacceptable.</p>
+<pre class="code"><code># Arbitrary-precision integers
+big = 10 ** 100
+print(big.bit_length())  # 333 bits
+
+# Float precision pitfalls
+print(0.1 + 0.2)         # 0.30000000000000004
+print(0.1 + 0.2 == 0.3)  # False
+
+# Use math.isclose for float comparison
+import math
+print(math.isclose(0.1 + 0.2, 0.3))  # True
+
+# Complex numbers
+z = 3 + 4j
+print(z.real, z.imag)    # 3.0 4.0
+print(abs(z))             # 5.0 (magnitude)
+print(z.conjugate())     # (3-4j)
+
+# Exact arithmetic
+from fractions import Fraction
+from decimal import Decimal
+print(Fraction(1, 3) + Fraction(1, 6))  # 1/2
+print(Decimal('0.1') + Decimal('0.2'))  # 0.3</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Floating-point comparison is the number one source of numerical bugs. Financial systems use Decimal, scientific computing uses numpy, and equality checks always use <code>math.isclose</code> with tolerances.</div>
+<div class="callout hood"><span>Under the hood</span>CPython stores each int as a variable-length array of 30-bit digits (PyLongObject), allowing arbitrary precision. Floats map directly to C doubles. Complex numbers are two doubles stored in a single PyComplexObject.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Strings and Methods</h3>
+<p><strong>What &amp; why.</strong> Strings in Python 3 are Unicode by default (UTF-8 internally). They are immutable — every method returns a new string. Python provides a rich set of string methods for searching, transforming, and formatting.</p>
+<pre class="code"><code>s = "  Hello, World!  "
+
+print(s.strip())            # "Hello, World!"
+print(s.strip().lower())    # "hello, world!"
+print(s.strip().upper())    # "HELLO, WORLD!"
+print(s.strip().replace("World", "Python"))  # "Hello, Python!"
+
+print("hello".startswith("he"))   # True
+print("hello".endswith("lo"))     # True
+print("abc123".isalnum())         # True
+print("abc123".find("12"))        # 3
+
+csv_line = "alice,bob,charlie"
+names = csv_line.split(",")
+print(" &amp; ".join(names))  # "alice &amp; bob &amp; charlie"
+
+data = "caf\u00e9".encode("utf-8")
+print(data.decode("utf-8"))
+
+print("=" * 40)     # 40 equals signs
+print("x" in "xyz") # True</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>String manipulation is the bread and butter of text processing — parsing log files, cleaning data, building HTTP responses, generating reports, and template rendering.</div>
+<div class="callout hood"><span>Under the hood</span>Python 3.12+ uses a flexible string representation: compact ASCII (1 byte/char), compact Latin-1 (1 byte/char), or flexible Unicode (1, 2, or 4 bytes/char) depending on the widest codepoint.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>f-strings and format()</h3>
+<p><strong>What &amp; why.</strong> f-strings (formatted string literals, Python 3.6+) are the preferred way to embed expressions in strings. They support debugging with <code>=</code> syntax (3.8+), and in 3.12+ allow nested quotes and multiline expressions.</p>
+<pre class="code"><code>name, score, pct = "Alice", 95, 0.9234
+
+print(f"Hello, {name}!")  # "Hello, Alice!"
+print(f"{name=}, {score=}")  # name='Alice', score=95
+
+print(f"Score: {score:.2f}")      # "Score: 95.00"
+print(f"Percent: {pct:.1%}")      # "Percent: 92.3%"
+print(f"Name: {name:&lt;10}")        # "Name: Alice     "
+print(f"Hex: {255:#x}")           # "Hex: 0xff"
+
+data = {"x": 10, "y": 20}
+print(f"Coords: ({data['x']}, {data['y']})")
+
+msg = (
+    f"Name: {name}\n"
+    f"Score: {score}\n"
+    f"Pass: {'yes' if score &gt;= 60 else 'no'}"
+)
+print(msg)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>f-strings are used everywhere: logging messages, SQL query construction, HTML templating, CLI output formatting. They are faster than both <code>format()</code> and <code>%</code> formatting.</div>
+<div class="callout hood"><span>Under the hood</span>f-strings compile to efficient bytecode that calls <code>__format__</code> on each embedded object. Python 3.12 rewrote the f-string parser to handle nested expressions and arbitrary string content inside braces.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Booleans and Truthiness</h3>
+<p><strong>What &amp; why.</strong> <code>bool</code> is a subclass of <code>int</code> — <code>True</code> equals 1 and <code>False</code> equals 0. Python defines truthiness for every object: empty containers, zero, <code>None</code>, and <code>False</code> are falsy; everything else is truthy.</p>
+<pre class="code"><code># Booleans are ints
+print(True + True)    # 2
+print(True * 10)      # 10
+
+falsy = [None, False, 0, 0.0, 0j, "", [], (), {}, set(), frozenset()]
+for val in falsy:
+    assert not val
+
+items = [1, 2, 3]
+if items:                    # empty list is falsy
+    print("has items")
+
+name = ""
+display = name or "Anonymous"  # short-circuit to default
+
+nums = [2, 4, 6, 8]
+print(all(n % 2 == 0 for n in nums))  # True
+print(any(n &gt; 5 for n in nums))        # True
+
+print(bool("hello"))  # True
+print(bool(""))       # False</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Truthiness is the backbone of Pythonic conditional logic. It eliminates verbose null checks, enables default-value patterns with <code>or</code>, and powers <code>any</code>/<code>all</code>.</div>
+<div class="callout hood"><span>Under the hood</span>Every Python object has a <code>__bool__</code> method. If not defined, Python falls back to <code>__len__</code>, then always truthy. The <code>or</code> operator short-circuits: it returns the first truthy operand or the last operand.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Lists</h3>
+<p><strong>What &amp; why.</strong> Lists are mutable, ordered, heterogeneous sequences. They support append, insert, remove, pop, sort, and list comprehension. Under the hood, they are dynamic arrays with amortized O(1) appends.</p>
+<pre class="code"><code>nums = [3, 1, 4, 1, 5, 9]
+nums.append(2)         # [3, 1, 4, 1, 5, 9, 2]
+nums.insert(0, 0)      # [0, 3, 1, 4, 1, 5, 9, 2]
+nums.remove(1)         # removes first occurrence
+popped = nums.pop()    # removes and returns last
+nums.extend([6, 7])    # in-place concatenation
+
+nums.sort()            # in-place sort
+sorted_copy = sorted(nums)  # returns new list
+
+squares = [x ** 2 for x in range(10)]
+evens = [x for x in range(20) if x % 2 == 0]
+
+matrix = [[i * j for j in range(1, 4)] for i in range(1, 4)]
+# [[1, 2, 3], [2, 4, 6], [3, 6, 9]]
+
+first, *middle, last = [1, 2, 3, 4, 5]
+print(middle)  # [2, 3, 4]
+
+copy1 = nums[:]
+copy2 = list(nums)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Lists are used for ordered collections, stacks (append/pop), queues (with collections.deque), data pipelines via comprehensions, and as the backbone of most algorithms.</div>
+<div class="callout hood"><span>Under the hood</span>CPython lists are C arrays of PyObject pointers. When full, it over-allocates (~12.5%) for amortized O(1) appends. Removal from the front is O(n) because all elements shift.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Tuples</h3>
+<p><strong>What &amp; why.</strong> Tuples are immutable, ordered sequences. They are faster than lists, can be dictionary keys and set members (if hashable), and are the language's mechanism for multiple return values.</p>
+<pre class="code"><code>point = (3, 4)
+single = (42,)      # trailing comma required
+empty = ()
+
+x, y = point
+print(f"Distance: {(x**2 + y**2) ** 0.5}")  # 5.0
+
+locations = {(35.68, 139.69): "Tokyo", (48.85, 2.35): "Paris"}
+
+from typing import NamedTuple
+class User(NamedTuple):
+    name: str
+    age: int
+    active: bool = True
+
+u = User("Alice", 30)
+print(u.name, u.active)  # Alice True
+
+def min_max(items):
+    return min(items), max(items)
+
+lo, hi = min_max([3, 1, 4, 1, 5])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Tuples represent fixed-structure records: coordinates, RGB values, function return pairs, database rows, and dictionary keys.</div>
+<div class="callout hood"><span>Under the hood</span>Tuples are stored as a single contiguous block of PyObject pointers but the tuple object itself is immutable. Their hashability comes from a stable <code>__hash__</code> that hashes based on content.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Sets</h3>
+<p><strong>What &amp; why.</strong> Sets are unordered collections of unique, hashable elements. They excel at membership testing (O(1) average), deduplication, and set algebra (union, intersection, difference).</p>
+<pre class="code"><code>a = {1, 2, 3, 4}
+b = {3, 4, 5, 6}
+empty = set()  # NOT {} which creates an empty dict
+
+unique = set([1, 2, 2, 3, 3, 3])  # {1, 2, 3}
+
+print(a | b)   # union:        {1, 2, 3, 4, 5, 6}
+print(a &amp; b)   # intersection: {3, 4}
+print(a - b)   # difference:   {1, 2}
+print(a ^ b)   # symmetric:    {1, 2, 5, 6}
+
+print({1, 2} &lt;= {1, 2, 3})   # True
+
+ascii_vals = {ord(c) for c in "hello" if c.isalpha()}
+fs = frozenset([1, 2, 3])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Sets are essential for deduplicating data, membership testing against white/blacklists, finding common or unique elements, and graph algorithms.</div>
+<div class="callout hood"><span>Under the hood</span>Sets are hash tables with open addressing. Insertion and lookup are O(1) amortized. The table resizes at 2/3 capacity.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Dictionaries</h3>
+<p><strong>What &amp; why.</strong> Dicts map unique keys to values. Since Python 3.7, insertion order is guaranteed. Dicts power namespaces, JSON, configuration, and countless libraries.</p>
+<pre class="code"><code>user = {"name": "Alice", "age": 30, "active": True}
+fromkeys = dict.fromkeys(["a", "b", "c"], 0)
+
+print(user["name"])                    # KeyError if missing
+print(user.get("email", "N/A"))       # safe with default
+print(user.setdefault("role", "user")) # insert if missing
+
+user |= {"email": "alice@example.com"}  # 3.9+ in-place merge
+merged = user | {"age": 31}             # new dict
+
+for key, value in user.items():
+    print(f"{key}: {value}")
+
+squares = {x: x**2 for x in range(6)}
+
+from collections import defaultdict
+words = ["apple", "banana", "avocado", "blueberry"]
+by_first = defaultdict(list)
+for word in words:
+    by_first[word[0]].append(word)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Dicts are ubiquitous — JSON is dicts, objects are dicts of attributes, caches are dicts. Almost every Python library uses dicts for configuration and data interchange.</div>
+<div class="callout hood"><span>Under the hood</span>Python 3.6+ dicts use a compact hash table with an auxiliary indices array. Insertion order is preserved by storing entries in insertion sequence. O(1) average lookup.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>range() and Looping Patterns</h3>
+<p><strong>What &amp; why.</strong> <code>range()</code> generates integer sequences lazily — constant memory regardless of size. Combined with enumerate, zip, and reversed, it forms the backbone of Python iteration.</p>
+<pre class="code"><code>print(list(range(5)))          # [0, 1, 2, 3, 4]
+print(list(range(2, 10, 2)))   # [2, 4, 6, 8]
+print(list(range(10, 0, -1)))  # [10, 9, 8, ..., 1]
+
+fruits = ["apple", "banana", "cherry"]
+for i, fruit in enumerate(fruits, start=1):
+    print(f"{i}. {fruit}")
+
+names = ["Alice", "Bob", "Charlie"]
+scores = [95, 87, 91]
+for name, score in zip(names, scores):
+    print(f"{name}: {score}")
+
+from itertools import zip_longest
+a = [1, 2, 3]; b = ["x", "y"]
+print(list(zip_longest(a, b, fillvalue="-")))
+
+for val in reversed(range(5)):
+    print(val, end=" ")  # 4 3 2 1 0
+
+def find_item(lst, target):
+    for item in lst:
+        if item == target:
+            break
+    else:
+        print(f"{target} not found")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>These patterns appear in every Python script. <code>enumerate</code> eliminates index bugs, <code>zip</code> enables parallel processing, <code>range</code> generates indices for numeric algorithms.</div>
+<div class="callout hood"><span>Under the hood</span><code>range</code> is a dedicated type that generates values on demand. <code>zip</code> and <code>enumerate</code> are iterator types that pull lazily from their underlying iterables.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>if / elif / else</h3>
+<p><strong>What &amp; why.</strong> Python's conditional logic uses keywords instead of braces. The ternary expression and walrus operator (<code>:=</code>, 3.8+) provide inline conditional capabilities.</p>
+<pre class="code"><code>score = 85
+if score &gt;= 90:
+    grade = "A"
+elif score &gt;= 80:
+    grade = "B"
+elif score &gt;= 70:
+    grade = "C"
+else:
+    grade = "F"
+
+status = "pass" if score &gt;= 60 else "fail"
+
+import re
+text = "Call 555-1234 or 555-5678"
+while match := re.search(r"\d{3}-\d{4}", text):
+    print(match.group())
+    text = text[match.end():]
+
+x = 5
+if 0 &lt; x &lt; 10:
+    print("single digit positive")
+
+data = []
+if not data:
+    print("empty")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Conditionals drive all program logic: input validation, feature flags, configuration branching, error recovery paths, and state machine transitions.</div>
+<div class="callout hood"><span>Under the hood</span>Python compiles conditionals to POP_JUMP_IF_FALSE / POP_JUMP_IF_TRUE bytecodes. Chained comparisons are compiled as a single expression with two comparisons — atomic and efficient.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>for, while, break, continue, and loop-else</h3>
+<p><strong>What &amp; why.</strong> Python loops iterate over iterables. <code>break</code> exits the innermost loop, <code>continue</code> skips to the next iteration, and the <code>else</code> clause executes only if the loop completed without hitting <code>break</code>.</p>
+<pre class="code"><code>for char in "Python":
+    print(char, end=" ")
+print()  # P y t h o n
+
+n = 10
+while n &gt; 0:
+    n -= 3
+print(n)  # -2
+
+for i in range(100):
+    if i ** 2 &gt; 50:
+        print(f"First square &gt; 50: {i**2}")
+        break
+
+for i in range(10):
+    if i % 3 == 0:
+        continue
+    print(i, end=" ")  # 1 2 4 5 7 8
+
+def is_prime(n):
+    if n &lt; 2:
+        return False
+    for i in range(2, int(n ** 0.5) + 1):
+        if n % i == 0:
+            break
+    else:
+        return True
+    return False
+
+print(is_prime(17))  # True</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Loops are the core of data processing, algorithms, and control flow. The loop-else pattern distinguishes "found and exited" from "never found."</div>
+<div class="callout hood"><span>Under the hood</span>Python's for loop calls <code>__iter__()</code> then repeatedly <code>__next__()</code>, catching StopIteration. The else clause uses a bytecode flag tracking whether break was hit.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>match-case (Structural Pattern Matching)</h3>
+<p><strong>What &amp; why.</strong> Python 3.10 introduced <code>match-case</code> for structural pattern matching — similar to switch-case but far more powerful. It supports value matching, sequence unpacking, mapping patterns, and guard clauses.</p>
+<pre class="code"><code>def http_status(code):
+    match code:
+        case 200:
+            return "OK"
+        case 301:
+            return "Moved"
+        case 404:
+            return "Not Found"
+        case _:
+            return f"Unknown: {code}"
+
+def process_command(cmd):
+    match cmd.split():
+        case ["quit"]:
+            return "exiting"
+        case ["load", filename]:
+            return f"loading {filename}"
+        case ["move", x, y] if x.isdigit() and y.isdigit():
+            return f"moving to ({x}, {y})"
+        case _:
+            return "unknown command"
+
+def handle_event(event):
+    match event:
+        case {"type": "click", "x": x, "y": y}:
+            return f"Click at ({x}, {y})"
+        case {"type": "key", "key": key, "modifiers": mods}:
+            return f"Key {key} with {mods}"
+        case {"type": event_type}:
+            return f"Unhandled: {event_type}"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pattern matching excels in protocol parsing, AST traversal, event handling, CLI command dispatch, and complex branching over structured data.</div>
+<div class="callout hood"><span>Under the hood</span>The match statement compiles to comparison bytecodes. The _ wildcard always matches. Guard clauses (if) add runtime boolean checks after the pattern succeeds.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>def Functions</h3>
+<p><strong>What &amp; why.</strong> Functions in Python are first-class objects. The <code>def</code> statement creates a function object with a name, parameters, and a docstring. Default arguments, annotations, and nested functions add powerful composition.</p>
+<pre class="code"><code>def calculate_discount(price: float, rate: float = 0.1) -&gt; float:
+    """Calculate discounted price."""
+    return price * (1 - rate)
+
+def append_to(item, lst=None):
+    if lst is None:
+        lst = []
+    lst.append(item)
+    return lst
+
+def make_multiplier(factor):
+    def multiply(x):
+        return x * factor
+    return multiply
+
+double = make_multiplier(2)
+print(double(5))  # 10
+
+print(calculate_discount.__name__)   # "calculate_discount"
+
+import inspect
+sig = inspect.signature(calculate_discount)
+print(sig.parameters)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Functions are the fundamental building block of all Python programs. They enable testability, reuse, composition, and decorator/callback patterns.</div>
+<div class="callout hood"><span>Under the hood</span>A def statement creates a function object containing the code object, default values (evaluated once at definition time), closure cells, and annotations. Calls use the CALL opcode.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>*args and **kwargs</h3>
+<p><strong>What &amp; why.</strong> The <code>*args</code> and <code>**kwargs</code> syntax enables variadic functions — any number of positional or keyword arguments. Essential for decorators, wrappers, and flexible APIs.</p>
+<pre class="code"><code>def log_everything(*args, **kwargs):
+    print(f"Positional: {args}")
+    print(f"Keyword: {kwargs}")
+
+log_everything("hello", 42, level="info", module="auth")
+
+def connect(host, port, timeout=30):
+    print(f"{host}:{port} timeout={timeout}")
+
+config = {"host": "localhost", "port": 8080}
+connect(**config, timeout=60)
+
+def create_user(name, *, email, role="viewer"):
+    return {"name": name, "email": email, "role": role}
+
+def divmod_builtin(x, /, y):
+    return divmod(x, y)
+
+def full_signature(pos, /, normal, *args, kw_only=True, **kwargs):
+    print(f"{pos=}, {normal=}, {args=}, {kw_only=}, {kwargs=}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span><code>*args</code>/<code>**kwargs</code> power decorators, factory functions, and flexible APIs. The <code>**kwargs</code> pattern is ubiquitous in Django, Flask, and dataclass constructors.</div>
+<div class="callout hood"><span>Under the hood</span>CPython collects excess positional arguments into a tuple and excess keyword arguments into a dict during CALL setup. The <code>*</code> and <code>/</code> markers control argument kind.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Lambda Functions</h3>
+<p><strong>What &amp; why.</strong> Lambdas are anonymous single-expression functions. They are limited to a single expression, suitable for short callbacks and key functions. Not more performant than <code>def</code> — their value is conciseness.</p>
+<pre class="code"><code>square = lambda x: x ** 2
+print(square(5))  # 25
+
+students = [("Alice", 92), ("Bob", 85), ("Charlie", 95)]
+students.sort(key=lambda s: s[1], reverse=True)
+
+from functools import reduce
+nums = [1, 2, 3, 4, 5]
+product = reduce(lambda a, b: a * b, nums)  # 120
+
+doubled = list(map(lambda x: x * 2, nums))
+odds = list(filter(lambda x: x % 2 != 0, nums))
+
+# Prefer def over lambda for named functions
+# BAD:  f = lambda x: x + 1
+# GOOD:
+def f(x):
+    return x + 1
+
+handlers = {
+    "add": lambda a, b: a + b,
+    "sub": lambda a, b: a - b,
+}
+print(handlers["add"](3, 4))  # 7</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Lambdas shine as sort keys, dictionary dispatch values, and one-off callbacks.</div>
+<div class="callout hood"><span>Under the hood</span>Lambdas compile to the same code objects as def. The only difference is <code>__name__</code> defaults to &lt;lambda&gt; and they cannot contain statements.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>LEGB Scope</h3>
+<p><strong>What &amp; why.</strong> Python resolves names using the LEGB rule: Local, Enclosing, Global, Built-in. This four-layer system determines which variable is referenced at any point.</p>
+<pre class="code"><code>print(len([1, 2, 3]))  # 'len' found in Built-in scope
+
+module_var = "I am global"
+
+def outer():
+    enclosing_var = "I am enclosing"
+
+    def inner():
+        local_var = "I am local"
+        print(local_var)          # Local
+        print(enclosing_var)      # Enclosing
+        print(module_var)         # Global
+    inner()
+
+outer()
+
+counter = 0
+def increment():
+    global counter
+    counter += 1
+
+def make_counter(start=0):
+    count = [start]
+    def increment(step=1):
+        count[0] += step
+        return count[0]
+    return increment
+
+c = make_counter()
+print(c(), c(), c())  # 1 2 3</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LEGB governs every variable reference. Closures (enclosing scope) power decorators, callbacks, and factory functions.</div>
+<div class="callout hood"><span>Under the hood</span>CPython compiles scopes at definition time. Local variables get fastlocals array slots (LOAD_FAST). Enclosing-scope variables become cell objects.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Type Hints Introduction</h3>
+<p><strong>What &amp; why.</strong> Type hints (PEP 484, Python 3.5+) annotate signatures with expected types. They don't enforce at runtime but enable static analysis tools like mypy and Pyright to catch bugs before execution.</p>
+<pre class="code"><code>def greet(name: str) -&gt; str:
+    return f"Hello, {name}"
+
+def find_user(user_id: int) -&gt; dict | None:
+    ...
+
+def process(value: int | float | str) -&gt; str:
+    return str(value)
+
+from collections.abc import Callable
+from typing import TypeVar, Sequence
+T = TypeVar("T")
+def first(items: Sequence[T]) -&gt; T:
+    return items[0]
+
+MAX_SIZE: int = 1024
+names: list[str] = []
+lookup: dict[str, int] = {}
+
+transform: Callable[[int], str] = str</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Type hints are standard in production codebases. They improve IDE autocompletion, enable automated documentation, and prevent entire categories of bugs.</div>
+<div class="callout hood"><span>Under the hood</span>Annotations are stored in <code>__annotations__</code> (lazily with <code>from __future__ import annotations</code>). Python ignores them at runtime — enforcement is in external tools.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>String Formatting Deep Dive</h3>
+<p><strong>What &amp; why.</strong> Beyond basic f-strings, Python offers <code>format_map</code>, custom <code>__format__</code>, template strings, and textwrap for advanced formatting needs.</p>
+<pre class="code"><code>from string import Template
+t = Template("$name has $count items")
+print(t.substitute(name="Alice", count=5))
+
+class Money:
+    def __init__(self, amount, currency="USD"):
+        self.amount = amount
+        self.currency = currency
+    def __format__(self, spec):
+        if spec == "":
+            return f"{self.amount:.2f} {self.currency}"
+        return format(self.amount, spec)
+
+price = Money(49.99, "EUR")
+print(f"Price: {price}")      # "Price: 49.99 EUR"
+print(f"Price: {price:.0f}")  # "Price: 50 EUR"
+
+import textwrap
+code = textwrap.dedent("""\
+    def hello():
+        print("Hello, World!")
+""")
+print(textwrap.indent(code, "  "))
+
+data = [("Alice", 95), ("Bob", 87), ("Charlie", 100)]
+for name, score in data:
+    print(f"{name:&lt;12}{score:&gt;5}")
+
+print(f"{1234567:,}")      # "1,234,567"
+print(f"{3.14159:.4f}")    # "3.1416"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Custom formatting is used in financial displays, scientific notation, CLI table output, and localization systems.</div>
+<div class="callout hood"><span>Under the hood</span>f-strings and <code>format()</code> both call <code>__format__</code>. The format spec mini-language is parsed and passed to <code>__format__</code>. <code>Template</code> uses regex-based <code>$</code> substitution for safer user-facing templating.</div>
+</article>
+
+</section>
+
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — OOP, Error Handling, Files, Modules, and Tooling</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Comprehensions: List, Dict, Set, Generator</h3>
+<p><strong>What &amp; why.</strong> Comprehensions are concise, expressive loops that build collections in a single expression. They are faster than equivalent for-loops because the iteration happens in C. Generator expressions yield items lazily, consuming minimal memory.</p>
+<pre class="code"><code># List comprehension
+squares = [x ** 2 for x in range(10) if x % 2 == 0]
+# [0, 4, 16, 36, 64]
+
+# Dict comprehension
+word_lengths = {w: len(w) for w in ["hello", "world", "python"]}
+
+# Set comprehension
+ascii_chars = {ord(c) for c in "abracadabra"}
+
+# Generator expression — lazy evaluation
+total = sum(x ** 2 for x in range(1_000_000))
+
+# Nested comprehension
+matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+flat = [val for row in matrix for val in row]
+
+# Walrus in comprehension (3.8+)
+results = [y for x in range(10) if (y := x ** 2) &gt; 20]
+
+# Generator pipeline
+def process_pipeline(data):
+    return (
+        transform(clean(validate(item)))
+        for item in data
+        if item is not None
+    )</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Comprehensions are the Pythonic way to transform, filter, and build collections. They appear in virtually every script.</div>
+<div class="callout hood"><span>Under the hood</span>List comprehensions execute in a dedicated bytecode loop (LIST_APPEND) avoiding repeated .append() lookups. Generator expressions create objects that suspend at each yield point.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Slicing Mastery</h3>
+<p><strong>What &amp; why.</strong> Python slicing (a[start:stop:step]) works on any sequence. Understanding negative indices, slice assignment, and the slice object enables elegant data manipulation without manual index arithmetic.</p>
+<pre class="code"><code>s = "Python"[0:3]   # "Pyt"
+s = "Python"[:3]    # "Pyt"
+s = "Python"[-3:]   # "hon"
+
+s = "abcdefgh"[::2]    # "aceg"
+s = "abcdefgh"[::-1]   # "hgfedcba"
+
+nums = list(range(10))
+nums[2:5] = [20, 30, 40]  # slice assignment
+
+my_slice = slice(1, 10, 2)
+data = list(range(20))
+print(data[my_slice])  # [1, 3, 5, 7, 9]
+
+name = "Python"
+print(name[::-2])  # "nty"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Slicing is used for extracting sub-sequences, reversing data, striding through arrays, and implementing circular buffers.</div>
+<div class="callout hood"><span>Under the hood</span>Slices call __getitem__ with a slice(start, stop, step) object. Built-in sequences implement slicing at C level. For lists, slicing creates a shallow copy.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>enumerate, zip, and sorted with Key</h3>
+<p><strong>What &amp; why.</strong> These built-ins are essential iteration utilities. enumerate adds indices, zip pairs elements, and sorted with key enables custom ordering.</p>
+<pre class="code"><code>tasks = ["read", "write", "deploy"]
+for i, task in enumerate(tasks, start=1):
+    print(f"{i}. {task}")
+
+students = ["Alice", "Bob"]
+grades = [95, 87]
+roles = ["admin", "viewer"]
+for name, grade, role in zip(students, grades, roles):
+    print(f"{name}: {grade} ({role})")
+
+mapping = dict(zip(roles, students))
+
+words = ["banana", "Apple", "cherry", "date"]
+by_length = sorted(words, key=len)
+by_lower = sorted(words, key=str.lower)
+by_complex = sorted(words, key=lambda w: (len(w), w.lower()))
+
+from operator import attrgetter
+class Student:
+    def __init__(self, name, gpa, age):
+        self.name, self.gpa, self.age = name, gpa, age
+roster = [Student("Alice", 3.9, 20), Student("Bob", 3.7, 22)]
+ranked = sorted(roster, key=attrgetter("gpa", "name"), reverse=True)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>These appear in every Python script: enumerate for indexed loops, zip for parallel processing, sorted with key for custom ordering.</div>
+<div class="callout hood"><span>Under the hood</span>enumerate wraps an iterator with an internal counter. zip pulls one element from each iterator per step. sorted uses TimSort (O(n log n)) and caches key values to avoid recomputing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Classes and __init__</h3>
+<p><strong>What &amp; why.</strong> Classes define blueprints for objects, bundling data (attributes) and behavior (methods). The __init__ method initializes new instances. Python classes support inheritance, composition, and multiple paradigms.</p>
+<pre class="code"><code>class BankAccount:
+    """A simple bank account."""
+
+    def __init__(self, owner: str, balance: float = 0.0):
+        self.owner = owner
+        self._balance = balance  # underscore = private by convention
+
+    def deposit(self, amount: float) -&gt; None:
+        if amount &lt;= 0:
+            raise ValueError("Deposit must be positive")
+        self._balance += amount
+
+    def withdraw(self, amount: float) -&gt; float:
+        if amount &gt; self._balance:
+            raise ValueError("Insufficient funds")
+        self._balance -= amount
+        return amount
+
+    @property
+    def balance(self) -&gt; float:
+        return self._balance
+
+    def __repr__(self) -&gt; str:
+        return f"BankAccount({self.owner!r}, {self._balance})"
+
+acct = BankAccount("Alice", 1000)
+acct.deposit(500)
+print(acct.balance)    # 1500
+
+class Dog:
+    species = "Canis familiaris"  # class attribute
+    def __init__(self, name):
+        self.name = name          # instance attribute
+
+buddy = Dog("Buddy")
+print(buddy.species)  # "Canis familiaris"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Classes model real-world entities: API resources, database models, configuration objects, plugin systems, and service layers.</div>
+<div class="callout hood"><span>Under the hood</span>class creates a type object (metaclass instance). __init__ is called after __new__ allocates the instance. Instance attributes are stored in the instance's __dict__.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Instance vs Class Attributes</h3>
+<p><strong>What &amp; why.</strong> Instance attributes belong to individual objects. Class attributes are shared across all instances. Understanding the lookup order (instance → class → parent) prevents subtle bugs.</p>
+<pre class="code"><code>class Counter:
+    instances_created = 0  # class attribute
+
+    def __init__(self, label):
+        self.label = label  # instance attribute
+        self.count = 0
+        Counter.instances_created += 1
+
+a = Counter("a")
+b = Counter("b")
+print(a.instances_created)  # 2 (class attr)
+a.count = 10
+print(b.count)  # 0 (instance attr — no conflict)
+
+class Parent:
+    x = "parent"
+class Child(Parent):
+    y = "child"
+
+c = Child()
+print(c.x)  # Found in Parent
+print(c.y)  # Found in Child
+
+print(c.__dict__)                     # {'y': 'child'}
+print(hasattr(c, "x"))                # True
+print(getattr(c, "missing", "default"))  # "default"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Class attributes for constants, shared state (counters, registries). Instance attributes for per-object data.</div>
+<div class="callout hood"><span>Under the hood</span>Python uses MRO for attribute chain traversal. Instance attributes shadow class attributes because __dict__ is checked first.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Inheritance and MRO</h3>
+<p><strong>What &amp; why.</strong> Inheritance lets classes share behavior. Python supports multiple inheritance, and C3 linearization (MRO) determines search order. super() cooperates with MRO for diamond patterns.</p>
+<pre class="code"><code>class Animal:
+    def __init__(self, name):
+        self.name = name
+    def speak(self):
+        raise NotImplementedError
+
+class Dog(Animal):
+    def speak(self):
+        return "Woof!"
+
+class Cat(Animal):
+    def speak(self):
+        return "Meow!"
+
+class Robot:
+    def __init__(self, model):
+        self.model = model
+
+class RoboDog(Dog, Robot):
+    def __init__(self, name, model):
+        Animal.__init__(self, name)
+        Robot.__init__(self, model)
+
+print(RoboDog.__mro__)
+# (RoboDog, Dog, Animal, Robot, object)
+
+class Base:
+    def __init__(self):
+        print("Base.__init__")
+class Left(Base):
+    def __init__(self):
+        super().__init__()
+        print("Left.__init__")
+class Right(Base):
+    def __init__(self):
+        super().__init__()
+        print("Right.__init__")
+class Diamond(Left, Right):
+    def __init__(self):
+        super().__init__()
+        print("Diamond.__init__")
+
+Diamond()  # Base → Left → Right → Diamond (C3 order)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Inheritance for extending framework classes, plugin systems, modeling hierarchies. Mixins add reusable behavior.</div>
+<div class="callout hood"><span>Under the hood</span>C3 linearization ensures consistent, monotonic MRO. super() uses the __mro__ tuple to find the next class in the chain.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Polymorphism</h3>
+<p><strong>What &amp; why.</strong> Polymorphism — same interface, different types. Python achieves this through duck typing: if an object has the right method, it works regardless of its class.</p>
+<pre class="code"><code>class Duck:
+    def quack(self):
+        return "Quack!"
+
+class Person:
+    def quack(self):
+        return "I'm quacking like a duck!"
+
+def make_it_quack(animal):
+    return animal.quack()
+
+print(make_it_quack(Duck()))     # "Quack!"
+print(make_it_quack(Person()))   # "I'm quacking like a duck!"
+
+def total_length(items):
+    return sum(len(item) for item in items)
+
+print(total_length(["hello", "world"]))       # 10
+print(total_length([b"binary", b"data"]))     # 10
+print(total_length([(1, 2), (3, 4, 5)]))      # 5
+
+print("a" + "b")    # string concat
+print(3 + 4)        # integer add
+print([1] + [2])    # list concat</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Polymorphism powers file-like objects, iterator protocol, context manager protocol. NumPy relies on duck typing.</div>
+<div class="callout hood"><span>Under the hood</span>Python never checks types at method call time. It looks up the method in the object's namespace (instance → class → MRO).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>@property</h3>
+<p><strong>What &amp; why.</strong> The @property decorator creates managed attributes — methods that look like attribute access. The getter, setter, and deleter allow validation, computation, and encapsulation.</p>
+<pre class="code"><code>class Temperature:
+    def __init__(self, celsius=0):
+        self._celsius = celsius
+
+    @property
+    def celsius(self) -&gt; float:
+        return self._celsius
+
+    @celsius.setter
+    def celsius(self, value: float) -&gt; None:
+        if value &lt; -273.15:
+            raise ValueError("Below absolute zero")
+        self._celsius = value
+
+    @property
+    def fahrenheit(self) -&gt; float:
+        return self._celsius * 9 / 5 + 32
+
+    @fahrenheit.setter
+    def fahrenheit(self, value: float) -&gt; None:
+        self.celsius = (value - 32) * 5 / 9
+
+t = Temperature(25)
+print(t.fahrenheit)    # 77.0
+t.fahrenheit = 32
+print(t.celsius)       # 0.0</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Properties for computed attributes, backward-compatible API changes, and validation without breaking the public interface.</div>
+<div class="callout hood"><span>Under the hood</span>@property creates a descriptor object. Attribute lookup checks the class's __dict__ for descriptors before the instance's __dict__.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Static and Class Methods</h3>
+<p><strong>What &amp; why.</strong> @staticmethod defines a method without instance or class arguments. @classmethod receives the class as the first argument, enabling factory methods and inheritance-safe constructors.</p>
+<pre class="code"><code>class Date:
+    def __init__(self, year, month, day):
+        self.year, self.month, self.day = year, month, day
+
+    def __repr__(self):
+        return f"Date({self.year}, {self.month}, {self.day})"
+
+    @classmethod
+    def from_string(cls, date_str):
+        year, month, day = map(int, date_str.split("-"))
+        return cls(year, month, day)  # respects subclass
+
+    @classmethod
+    def today(cls):
+        from datetime import date
+        d = date.today()
+        return cls(d.year, d.month, d.day)
+
+    @staticmethod
+    def is_valid(year, month, day):
+        return 1 &lt;= month &lt;= 12 and 1 &lt;= day &lt;= 31
+
+d = Date.from_string("2024-01-15")
+
+class USDate(Date):
+    def __repr__(self):
+        return f"USDate({self.month}/{self.day}/{self.year})"
+
+us = USDate.from_string("2024-01-15")
+print(us)  # USDate(1/15/2024) — classmethod uses USDate
+
+print(Date.is_valid(2024, 13, 1))  # False</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Class methods for alternative constructors (from_dict, from_json). Static methods for namespace-scoped utilities.</div>
+<div class="callout hood"><span>Under the hood</span>@classmethod creates a bound method where the first argument is the class. @staticmethod is a simple function wrapped in the class namespace — no implicit argument.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>try / except / else / finally</h3>
+<p><strong>What &amp; why.</strong> Exception handling separates error recovery from normal flow. try protects risky code, except catches specific exceptions, else runs on success, finally always executes for cleanup.</p>
+<pre class="code"><code>def read_config(path):
+    try:
+        with open(path) as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        print(f"Config not found at {path}, using defaults")
+        config = {}
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON: {e}")
+        config = {}
+    else:
+        print("Config loaded successfully")
+    finally:
+        print("Config loading attempt complete")
+    return config
+
+# Exception chaining (3.11+ ExceptionGroup)
+try:
+    raise ExceptionGroup("multi", [ValueError("v"), TypeError("t")])
+except* ValueError as eg:
+    print(f"ValueErrors: {eg.exceptions}")
+except* TypeError as eg:
+    print(f"TypeErrors: {eg.exceptions}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Exception handling everywhere: network retries, database transactions, file I/O, user input validation, graceful degradation.</div>
+<div class="callout hood"><span>Under the hood</span>CPython uses zero-cost exception handling (3.11+): no overhead for try blocks without exceptions. When raised, the interpreter walks the stack for matching handlers.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Custom Exceptions</h3>
+<p><strong>What &amp; why.</strong> Custom exceptions create a structured error hierarchy for your application. They carry domain-specific data and enable targeted except clauses.</p>
+<pre class="code"><code>class AppError(Exception):
+    """Base exception for the application."""
+    pass
+
+class ValidationError(AppError):
+    def __init__(self, field, message, value=None):
+        self.field = field
+        self.message = message
+        self.value = value
+        super().__init__(f"{field}: {message}")
+
+class NotFoundError(AppError):
+    def __init__(self, resource_type, resource_id):
+        self.resource_type = resource_type
+        self.resource_id = resource_id
+        super().__init__(f"{resource_type} {resource_id} not found")
+
+class PermissionError(AppError):
+    def __init__(self, user, action, resource):
+        self.user = user
+        self.action = action
+        self.resource = resource
+        super().__init__(f"{user} cannot {action} on {resource}")
+
+try:
+    raise NotFoundError("User", 42)
+except NotFoundError as e:
+    print(f"Missing: {e.resource_type} #{e.resource_id}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Custom exceptions in libraries and applications to distinguish business logic errors from programming bugs.</div>
+<div class="callout hood"><span>Under the hood</span>Exception classes inherit from BaseException. The traceback machinery captures the call stack. Custom __str__ and __repr__ control log and user-facing output.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>with-Statement and Context Managers</h3>
+<p><strong>What &amp; why.</strong> The with statement ensures resources are properly acquired and released. Context managers implement __enter__ and __exit__. contextlib provides utilities for creating them concisely.</p>
+<pre class="code"><code>with open("data.txt", "w") as f:
+    f.write("hello\n")
+# File automatically closed even on exception
+
+with open("in.txt") as fin, open("out.txt", "w") as fout:
+    fout.write(fin.read())
+
+class Timer:
+    def __init__(self, label="Block"):
+        self.label = label
+    def __enter__(self):
+        import time
+        self._start = time.perf_counter()
+        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        import time
+        self.elapsed = time.perf_counter() - self._start
+        print(f"{self.label}: {self.elapsed:.4f}s")
+        return False
+
+with Timer("Computation"):
+    sum(range(1_000_000))
+
+from contextlib import contextmanager
+
+@contextmanager
+def managed_resource(name):
+    print(f"Acquiring {name}")
+    try:
+        yield name
+    except Exception as e:
+        print(f"Error: {e}")
+        raise
+    finally:
+        print(f"Releasing {name}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Context managers for database connections, locks, temporary dirs, HTTP sessions — any resource requiring deterministic cleanup.</div>
+<div class="callout hood"><span>Under the hood</span>The with statement compiles to SETUP_WITH bytecodes. __enter__ runs before the block, __exit__ in the finally path. __exit__ receives exception info and returns True to suppress or False to propagate.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Modules, Packages, and __main__</h3>
+<p><strong>What &amp; why.</strong> Modules are Python files; packages are directories with __init__.py. The import system searches sys.path and handles circular imports. The __main__ guard makes files both importable and executable.</p>
+<pre class="code"><code># mypackage/__init__.py
+from .core import Engine
+from .utils import helper
+
+# Script vs import guard
+def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--verbose", "-v", action="store_true")
+    args = parser.parse_args()
+    print("Running verbose" if args.verbose else "Running")
+
+if __name__ == "__main__":
+    main()
+
+# Running as module
+# $ python -m mypackage.core
+
+import os                         # entire module
+from os import path               # specific name
+import numpy as np                # alias
+from . import sibling             # relative import (packages)
+from ..parent import thing        # parent package import
+
+import importlib
+importlib.reload(module)  # force re-import</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every Python project uses modules and packages. __main__ guard is the standard pattern for CLI tools.</div>
+<div class="callout hood"><span>Under the hood</span>Python maintains sys.modules as a cache. First import executes the module code. Subsequent imports retrieve from cache. importlib uses finders and loaders to locate and execute modules.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>venv and pip</h3>
+<p><strong>What &amp; why.</strong> Virtual environments isolate project dependencies. venv is the standard library solution; pip manages package installation, versions, and dependency resolution.</p>
+<pre class="code"><code># Create a virtual environment
+$ python -m venv .venv
+
+# Activate (Windows / macOS/Linux)
+$ .venv\Scripts\activate
+$ source .venv/bin/activate
+
+# Install with version pinning
+(.venv) $ pip install requests==2.31.0
+(.venv) $ pip install "django&gt;=4.2,&lt;5.0"
+
+# Save and restore dependencies
+(.venv) $ pip freeze &gt; requirements.txt
+(.venv) $ pip install -r requirements.txt
+
+# Modern: install project in editable mode
+(.venv) $ pip install -e ".[dev]"
+
+# Security audit
+(.venv) $ pip install pip-audit
+(.venv) $ pip-audit
+
+# Deactivate
+(.venv) $ deactivate</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every project should use a virtual environment. Prevents dependency conflicts, enables reproducible builds, required for CI/CD.</div>
+<div class="callout hood"><span>Under the hood</span>venv copies (or symlinks) the Python interpreter. Activation modifies PATH and sets VIRTUAL_ENV. pip uses a backtracking resolver to satisfy constraints.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>pathlib and File I/O</h3>
+<p><strong>What &amp; why.</strong> pathlib (3.4+) provides an object-oriented filesystem interface. It replaces os.path with readable, cross-platform path manipulation.</p>
+<pre class="code"><code>from pathlib import Path
+
+project = Path("myproject")
+config = project / "config" / "settings.json"
+print(config.name)    # settings.json
+print(config.suffix)  # .json
+print(config.parent)  # myproject/config
+
+config.write_text('{"debug": true}', encoding="utf-8")
+content = config.read_text(encoding="utf-8")
+
+py_files = list(Path(".").rglob("*.py"))
+
+config.rename("settings_v2.json")
+config.unlink()
+
+output = Path("output")
+output.mkdir(parents=True, exist_ok=True)
+
+if config.exists() and config.is_file():
+    print(f"Size: {config.stat().st_size} bytes")
+
+import tempfile
+with tempfile.NamedTemporaryFile(mode="w", suffix=".txt") as f:
+    f.write("temporary data")
+    tmp_path = f.name</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>pathlib for file I/O, config loading, test fixtures, build scripts. Modern replacement for os.path and os.walk.</div>
+<div class="callout hood"><span>Under the hood</span>Path objects wrap os.fspath() and OS path operations. The / operator uses __truediv__. Path objects are immutable — operations return new instances.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>JSON and CSV</h3>
+<p><strong>What &amp; why.</strong> The json and csv standard library modules handle the two most common data interchange formats.</p>
+<pre class="code"><code>import json
+from pathlib import Path
+
+data = {"users": [{"name": "Alice", "age": 30}]}
+json_str = json.dumps(data, indent=2, ensure_ascii=False)
+parsed = json.loads(json_str)
+
+Path("data.json").write_text(json_str, encoding="utf-8")
+loaded = json.loads(Path("data.json").read_text(encoding="utf-8"))
+
+class User:
+    def __init__(self, name, age):
+        self.name, self.age = name, age
+
+def user_encoder(obj):
+    if isinstance(obj, User):
+        return {"name": obj.name, "age": obj.age, "_type": "User"}
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+users_json = json.dumps([User("Alice", 30)], default=user_encoder, indent=2)
+
+import csv
+with open("users.csv", "w", newline="", encoding="utf-8") as f:
+    writer = csv.DictWriter(f, fieldnames=["name", "age"])
+    writer.writeheader()
+    writer.writerow({"name": "Alice", "age": 30})
+
+with open("users.csv", newline="", encoding="utf-8") as f:
+    for row in csv.DictReader(f):
+        print(row["name"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>JSON for APIs, configs, logs. CSV for data exports, spreadsheets, ETL. Essential for any data-processing app.</div>
+<div class="callout hood"><span>Under the hood</span>json.dumps walks the object tree with type dispatch. json.loads uses a C-accelerated parser (3.11+). CSV uses a state machine for quoting and escaping.</div>
+</article>
+
+
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Iteration Protocol, Decorators, Dunders, Dataclasses, and Testing</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Iterators: __iter__ and __next__</h3>
+<p><strong>What &amp; why.</strong> The iterator protocol is Python's fundamental abstraction for lazy sequence production. Any object with __iter__ (returning an iterator) or __next__ directly can be used in for loops.</p>
+<pre class="code"><code>class CountDown:
+    def __init__(self, start):
+        self.current = start
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current &lt;= 0:
+            raise StopIteration
+        value = self.current
+        self.current -= 1
+        return value
+
+for num in CountDown(5):
+    print(num, end=" ")  # 5 4 3 2 1
+
+# Built-in iterators
+nums = iter([1, 2, 3])
+print(next(nums))  # 1
+
+from itertools import islice, count
+first_three = list(islice(count(1), 3))  # [1, 2, 3]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Iterators power all Python iteration: file reading, database cursors, streaming APIs, memory-efficient large-dataset processing.</div>
+<div class="callout hood"><span>Under the hood</span>The for loop calls iter(obj) → __iter__, then repeatedly next() until StopIteration. Built-in types implement this in C.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Generators and yield Pipelines</h3>
+<p><strong>What &amp; why.</strong> Generators are functions that yield values lazily, maintaining state between yields. Generator pipelines chain multiple generators for composable data transformation.</p>
+<pre class="code"><code>def fibonacci():
+    a, b = 0, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+from itertools import islice
+print(list(islice(fibonacci(), 10)))
+
+squares = (x**2 for x in range(1000000))
+
+# Generator pipeline
+def read_lines(filename):
+    with open(filename) as f:
+        for line in f:
+            yield line.strip()
+
+def filter_comments(lines):
+    for line in lines:
+        if not line.startswith("#"):
+            yield line
+
+def parse_csv_line(lines):
+    for line in lines:
+        yield line.split(",")
+
+pipeline = parse_csv_line(filter_comments(read_lines("data.csv")))
+
+# yield from — delegation
+def flatten(nested):
+    for item in nested:
+        if isinstance(item, (list, tuple)):
+            yield from flatten(item)
+        else:
+            yield item
+
+print(list(flatten([1, [2, 3], [4, [5, 6]]])))
+# [1, 2, 3, 4, 5, 6]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Generators for streaming data, lazy evaluation, coroutine-based concurrency, and composable data pipelines handling millions of records.</div>
+<div class="callout hood"><span>Under the hood</span>A generator function returns a generator-iterator. Each yield suspends execution by saving frame state. next() resumes from the last yield. The frame stays alive until StopIteration.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>itertools Deep Dive</h3>
+<p><strong>What &amp; why.</strong> itertools provides C-optimized iterator building blocks for efficient looping: combinations, permutations, grouping, chaining, and infinite sequences.</p>
+<pre class="code"><code>from itertools import (
+    chain, islice, groupby, combinations, permutations,
+    product, accumulate, takewhile, zip_longest, count, tee,
+)
+
+first_10 = list(islice(count(1, 2), 10))
+# [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
+
+cards = ["A", "K", "Q", "J"]
+print(list(combinations(cards, 2)))  # 6 pairs
+print(list(permutations(cards, 2)))  # 12 ordered pairs
+print(list(product("AB", "12")))
+
+data = [("a", 1), ("a", 2), ("b", 3)]
+for key, group in groupby(data, key=lambda x: x[0]):
+    print(key, list(group))
+
+import operator
+print(list(accumulate([1, 2, 3, 4], operator.mul)))
+# [1, 2, 6, 24]
+
+merged = list(chain([1, 2], [3, 4], [5]))
+
+iter1, iter2 = tee(range(100), 2)
+
+odds = list(filterfalse(lambda x: x % 2 == 0, range(10)))
+under_5 = list(takewhile(lambda x: x &lt; 5, [1, 3, 6, 2]))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>itertools for combinatorial algorithms, data pipelines, performance-critical iteration. 2-10x faster than pure Python equivalents.</div>
+<div class="callout hood"><span>Under the hood</span>Each function is implemented in C, returns lazy iterators. Chaining together uses no intermediate list creation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>functools: lru_cache, partial, reduce, wraps</h3>
+<p><strong>What &amp; why.</strong> functools provides higher-order functions: lru_cache memoizes, partial creates specialized functions, reduce folds iterables, wraps preserves metadata.</p>
+<pre class="code"><code>from functools import lru_cache, partial, reduce, wraps
+import time
+
+@lru_cache(maxsize=128)
+def fibonacci(n):
+    if n &lt; 2:
+        return n
+    return fibonacci(n - 1) + fibonacci(n - 2)
+
+print(fibonacci(100))
+print(fibonacci.cache_info())
+
+def power(base, exponent):
+    return base ** exponent
+
+square = partial(power, exponent=2)
+cube = partial(power, exponent=3)
+
+product = reduce(lambda a, b: a * b, [1, 2, 3, 4, 5])
+
+def timer(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        elapsed = time.perf_counter() - start
+        print(f"{func.__name__} took {elapsed:.4f}s")
+        return result
+    return wrapper
+
+@timer
+def slow_function():
+    time.sleep(0.1)
+
+print(slow_function.__name__)  # "slow_function"
+
+from functools import singledispatch
+
+@singledispatch
+def process(value):
+    raise TypeError(f"Unsupported: {type(value)}")
+
+@process.register(int)
+def _(value):
+    return value * 2</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>lru_cache for expensive computations. partial for specialized callbacks. singledispatch for type-based overloading.</div>
+<div class="callout hood"><span>Under the hood</span>lru_cache uses an ordered dict for LRU eviction. wraps copies __name__, __doc__, __module__, __wrapped__. singledispatch maintains a type-to-implementation registry.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">41</span>Closures</h3>
+<p><strong>What &amp; why.</strong> A closure captures variables from its enclosing scope, retaining them after the outer function returns. Foundation of decorators, callbacks, and stateful functions.</p>
+<pre class="code"><code>def make_adder(n):
+    def adder(x):
+        return x + n  # captured from enclosing scope
+    return adder
+
+add_5 = make_adder(5)
+print(add_5(3))   # 8
+
+def make_counter(start=0):
+    count = [start]
+    def increment(step=1):
+        count[0] += step
+        return count[0]
+    def get():
+        return count[0]
+    return increment, get
+
+inc, get_count = make_counter()
+print(inc(), inc(), get_count())  # 1 2 2
+
+# Using nonlocal
+def make_accumulator(total=0):
+    def accumulate(value):
+        nonlocal total
+        total += value
+        return total
+    return accumulate
+
+acc = make_accumulator()
+print(acc(10), acc(20), acc(5))  # 10 30 35
+
+# Inspect closure variables
+print(add_5.__closure__[0].cell_contents)  # 5</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Closures power decorators, event handlers, middleware, factory functions.</div>
+<div class="callout hood"><span>Under the hood</span>Closures capture enclosing variables as cell objects. __closure__ holds a tuple of cells. nonlocal allows rebinding cell contents.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">42</span>Decorators: Factories and Class Decorators</h3>
+<p><strong>What &amp; why.</strong> Decorators modify functions and classes using @syntax. Decorator factories take arguments and return decorators. Class decorators add behavior without inheritance.</p>
+<pre class="code"><code>import functools
+
+def retry(max_attempts=3, delay=1.0):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    if attempt &lt; max_attempts - 1:
+                        time.sleep(delay * (2 ** attempt))
+            raise last_exception
+        return wrapper
+    return decorator
+
+@retry(max_attempts=5, delay=0.5)
+def fetch_data(url):
+    ...
+
+# Class decorator
+def add_init_repr(cls):
+    annotations = cls.__annotations__
+
+    def __init__(self, **kwargs):
+        for name in annotations:
+            setattr(self, name, kwargs.get(name))
+
+    def __repr__(self):
+        attrs = ", ".join(f"{k}={getattr(self, k)!r}" for k in annotations)
+        return f"{cls.__name__}({attrs})"
+
+    cls.__init__ = __init__
+    cls.__repr__ = __repr__
+    return cls
+
+@add_init_repr
+class Point:
+    x: float
+    y: float
+
+p = Point(x=1.0, y=2.0)
+print(p)  # Point(x=1.0, y=2.0)
+
+@bold
+@italic
+def greet(name):
+    return f"Hello, {name}"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Decorators for logging, caching, retry, auth, rate limiting, framework route registration (Flask, pytest).</div>
+<div class="callout hood"><span>Under the hood</span>@dec on func is syntactic sugar for func = dec(func). Decorators execute at definition time. Class decorators run when the class body finishes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">43</span>Dunder Methods: __repr__, __eq__, __lt__, __call__, __getitem__, __len__</h3>
+<p><strong>What &amp; why.</strong> Dunder methods let classes integrate with Python's built-in operators and functions — enabling operator overloading, iteration, comparison, and callable behavior.</p>
+<pre class="code"><code>class Vector:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def __repr__(self):
+        return f"Vector({self.x}, {self.y})"
+
+    def __eq__(self, other):
+        if not isinstance(other, Vector):
+            return NotImplemented
+        return self.x == other.x and self.y == other.y
+
+    def __lt__(self, other):
+        return (self.x ** 2 + self.y ** 2) &lt; (other.x ** 2 + other.y ** 2)
+
+    def __add__(self, other):
+        return Vector(self.x + other.x, self.y + other.y)
+
+    def __mul__(self, scalar):
+        return Vector(self.x * scalar, self.y * scalar)
+
+    def __abs__(self):
+        return (self.x ** 2 + self.y ** 2) ** 0.5
+
+    def __len__(self):
+        return 2
+
+    def __getitem__(self, index):
+        return (self.x, self.y)[index]
+
+    def __call__(self, factor):
+        return Vector(self.x * factor, self.y * factor)
+
+v1, v2 = Vector(3, 4), Vector(1, 2)
+print(repr(v1))           # Vector(3, 4)
+print(v1 + v2)            # Vector(4, 6)
+print(abs(v1))             # 5.0
+print(v1[0], v1[1])       # 3 4
+print(v1(2))               # Vector(6, 8)
+print(sorted([v2, v1]))   # [Vector(1, 2), Vector(3, 4)]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Dunders in every custom class needing natural Python integration: numeric types, containers, callables.</div>
+<div class="callout hood"><span>Under the hood</span>Operators invoke dunders through C-level APIs. a + b calls type(a).__add__(a, b), falling back to type(b).__radd__(b, a) if NotImplemented.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">44</span>Operator Overloading</h3>
+<p><strong>What &amp; why.</strong> The operator module provides function equivalents of all built-in operators, enabling functional-style composition and generic algorithms.</p>
+<pre class="code"><code>import operator
+from functools import reduce
+
+print(operator.add(3, 4))        # 7
+print(operator.mul(3, 4))        # 12
+
+nums = [3, 1, 4, 1, 5, 9]
+print(reduce(operator.mul, nums))  # 540
+
+items = [("Alice", 95), ("Bob", 87)]
+by_score = sorted(items, key=operator.itemgetter(1))
+by_name = sorted(items, key=operator.itemgetter(0))
+
+class User:
+    def __init__(self, name, age):
+        self.name, self.age = name, age
+
+users = [User("Charlie", 25), User("Alice", 30), User("Bob", 22)]
+by_age = sorted(users, key=operator.attrgetter("age"))
+print([u.name for u in by_age])  # ['Bob', 'Charlie', 'Alice']
+
+from operator import methodcaller
+upper = methodcaller("upper")
+print(upper("hello"))  # "HELLO"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>operator module in data processing, sorting, generic algorithms. itemgetter/attrgetter faster than lambda equivalents.</div>
+<div class="callout hood"><span>Under the hood</span>operator functions are C-implemented, calling the same C-level operations as syntax. Not wrappers around dunder methods — direct C API calls.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">45</span>Dataclasses: frozen, slots</h3>
+<p><strong>What &amp; why.</strong> dataclasses (3.7+) generate __init__, __repr__, __eq__ from annotations. frozen=True makes instances immutable (hashable). slots=True (3.10+) reduces memory.</p>
+<pre class="code"><code>from dataclasses import dataclass, field, asdict, astuple
+
+@dataclass
+class User:
+    name: str
+    email: str
+    age: int = 0
+    tags: list = field(default_factory=list)
+
+    def __post_init__(self):
+        if self.age &lt; 0:
+            raise ValueError("Age cannot be negative")
+
+u = User("Alice", "alice@example.com", 30, ["admin"])
+
+@dataclass(frozen=True)
+class Point:
+    x: float
+    y: float
+
+p1 = Point(1.0, 2.0)
+p2 = Point(1.0, 2.0)
+print(p1 == p2)           # True
+print(hash(p1))            # works — frozen is hashable
+
+@dataclass(slots=True, frozen=True)
+class Config:
+    host: str = "localhost"
+    port: int = 8080
+
+cfg = Config("example.com", 443)
+
+@dataclass
+class Product:
+    name: str
+    price: float = field(compare=False)
+
+print(asdict(u))    # {'name': 'Alice', 'email': '...', ...}
+print(astuple(u))   # ('Alice', 'alice@example.com', 30, ['admin'])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>dataclasses for value objects, DTOs, configuration records. Standard in Pydantic, FastAPI, modern Python.</div>
+<div class="callout hood"><span>Under the hood</span>@dataclass introspects annotations and generates methods at class creation. frozen sets __hash__ and blocks __setattr__. slots replaces __dict__ with fixed-size array (~40% memory reduction).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">46</span>Enums</h3>
+<p><strong>What &amp; why.</strong> The enum module provides named constants. StrEnum (3.11+) makes string-valued enums that are also proper strings. Enums prevent magic numbers and enable type-safe comparisons.</p>
+<pre class="code"><code>from enum import Enum, IntEnum, StrEnum, auto, unique
+
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+    BLUE = 3
+
+print(Color.RED)        # Color.RED
+print(Color.RED.value)  # 1
+print(Color(2))         # Color.GREEN
+
+class HttpStatus(StrEnum):
+    OK = "200"
+    NOT_FOUND = "404"
+    SERVER_ERROR = "500"
+
+print(f"Status: {HttpStatus.OK}")        # "Status: 200"
+print(f"Upper: {HttpStatus.OK.upper()}") # "200"
+
+class Priority(IntEnum):
+    LOW = auto()      # 1
+    MEDIUM = auto()   # 2
+    HIGH = auto()     # 3
+
+Animal = Enum("Animal", ["DOG", "CAT", "BIRD"])
+
+@unique
+class Direction(Enum):
+    NORTH = "N"
+    SOUTH = "S"
+    EAST = "E"
+    WEST = "W"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Enums for state machines, status codes, permissions, configuration constants.</div>
+<div class="callout hood"><span>Under the hood</span>Enum metaclass creates singleton member instances. Members are always identical: Color.RED is Color.RED. _value2member_map_ enables lookup by value.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">47</span>Advanced Typing: Optional, Union|, Literal, TypedDict, Generic, Protocol, Callable</h3>
+<p><strong>What &amp; why.</strong> Modern Python typing provides powerful static analysis tools: Union types, TypedDicts, Generics, and Protocols enable precise type contracts.</p>
+<pre class="code"><code>from typing import TypedDict, Generic, TypeVar, Protocol, Callable
+
+def process(value: int | float | str) -&gt; str:
+    return str(value)
+
+def find(name: str) -&gt; dict | None:
+    ...
+
+def set_mode(mode: "Literal['read', 'write', 'append']") -&gt; None:
+    ...
+
+class UserDict(TypedDict):
+    name: str
+    age: int
+    email: str | None
+
+T = TypeVar("T")
+
+class Stack(Generic[T]):
+    def __init__(self) -&gt; None:
+        self._items: list[T] = []
+    def push(self, item: T) -&gt; None:
+        self._items.append(item)
+    def pop(self) -&gt; T:
+        return self._items.pop()
+
+int_stack: Stack[int] = Stack()
+
+class Printable(Protocol):
+    def __str__(self) -&gt; str: ...
+
+def print_item(item: Printable) -&gt; None:
+    print(str(item))
+
+transform: Callable[[int, int], int] = lambda x, y: x + y</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>TypedDicts for API responses, Generics for reusable structures, Protocols for interface contracts.</div>
+<div class="callout hood"><span>Under the hood</span>All typing constructs are erased at runtime — zero performance cost. Protocol enables structural subtyping: satisfy a Protocol without explicit inheritance.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">48</span>ABC vs Protocol</h3>
+<p><strong>What &amp; why.</strong> Abstract Base Classes enforce interfaces via inheritance. Protocols (3.8+) enable structural subtyping without inheritance. Choose ABCs when you control the hierarchy; Protocols for duck typing with static analysis.</p>
+<pre class="code"><code>from abc import ABC, abstractmethod
+from typing import Protocol, runtime_checkable
+
+class Shape(ABC):
+    @abstractmethod
+    def area(self) -&gt; float:
+        ...
+    @abstractmethod
+    def perimeter(self) -&gt; float:
+        ...
+    def describe(self) -&gt; str:
+        return f"Area: {self.area():.2f}"
+
+class Circle(Shape):
+    def __init__(self, radius: float):
+        self.radius = radius
+    def area(self) -&gt; float:
+        return 3.14159 * self.radius ** 2
+    def perimeter(self) -&gt; float:
+        return 2 * 3.14159 * self.radius
+
+@runtime_checkable
+class Drawable(Protocol):
+    def draw(self) -&gt; str: ...
+
+class Button:
+    def draw(self) -&gt; str:
+        return "Drawing button"
+
+def render(obj: Drawable) -&gt; None:
+    print(obj.draw())
+
+render(Button())  # no inheritance needed
+print(isinstance(Button(), Drawable))  # True</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ABCs for plugin systems, repository patterns. Protocols for duck typing when you can't modify the classes.</div>
+<div class="callout hood"><span>Under the hood</span>ABCs use ABCMeta to register abstract methods. Protocols create virtual subclasses — mypy checks structural compatibility at analysis time with no runtime cost.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">49</span>Descriptors</h3>
+<p><strong>What &amp; why.</strong> Descriptors are objects with __get__, __set__, or __delete__ that customize attribute access. They power @property, @classmethod, @staticmethod, and many ORM field systems.</p>
+<pre class="code"><code>class Validated:
+    def __init__(self, min_val=None, max_val=None):
+        self.min_val = min_val
+        self.max_val = max_val
+
+    def __set_name__(self, owner, name):
+        self.name = name
+        self.private_name = f"_{name}"
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return getattr(obj, self.private_name, None)
+
+    def __set__(self, obj, value):
+        if self.min_val is not None and value &lt; self.min_val:
+            raise ValueError(f"{self.name} must be &gt;= {self.min_val}")
+        if self.max_val is not None and value &gt; self.max_val:
+            raise ValueError(f"{self.name} must be &lt;= {self.max_val}")
+        setattr(obj, self.private_name, value)
+
+class Temperature:
+    celsius = Validated(min_val=-273.15, max_val=1e6)
+
+    def __init__(self, celsius):
+        self.celsius = celsius
+
+t = Temperature(25)
+print(t.celsius)  # 25
+# t.celsius = -300  # ValueError</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Descriptors power @property, @classmethod. ORMs use them for database field mapping.</div>
+<div class="callout hood"><span>Under the hood</span>Python checks instance __dict__ then class MRO for descriptors. Data descriptors (with __set__) take priority over instance attributes. __set_name__ is called when the class is created.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">50</span>__slots__ and Memory Optimization</h3>
+<p><strong>What &amp; why.</strong> __slots__ replaces per-instance __dict__ with a fixed-size attribute array. Reduces memory by 40-60% per instance and slightly speeds attribute access.</p>
+<pre class="code"><code>import sys
+
+class PointDict:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+class PointSlots:
+    __slots__ = ("x", "y")
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+pd = PointDict(1, 2)
+ps = PointSlots(1, 2)
+
+print(sys.getsizeof(pd))         # 48 bytes
+print(sys.getsizeof(ps))         # 40 bytes
+print(sys.getsizeof(pd.__dict__))  # 64 bytes additional!
+
+# Without __slots__: 48 + 64 = 112 bytes
+# With __slots__: 40 bytes — 64% reduction
+
+# Limitations
+s = PointSlots(1, 2)
+# s.z = 10    # AttributeError — no dynamic attributes
+# s.__dict__  # AttributeError
+
+# Inheritance with __slots__
+class Base:
+    __slots__ = ("a",)
+class Child(Base):
+    __slots__ = ("b",)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>__slots__ for performance in data-heavy apps: game entities, network packets, large collections.</div>
+<div class="callout hood"><span>Under the hood</span>Without __slots__, each instance has a __dict__ dict. With __slots__, Python allocates a C struct with fixed offsets. Attribute access becomes pointer offset vs dictionary hash lookup.</div>
+</article>
+
+
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Metaclasses, Import Internals, Concurrency, C Interop, Packaging, and Design Patterns</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">51</span>Metaclasses and __init_subclass__</h3>
+<p><strong>What &amp; why.</strong> Metaclasses control class creation — they are classes that create classes. __init_subclass__ (3.6+) provides a simpler alternative for most use cases: hooking into subclass creation without full metaclass complexity.</p>
+<pre class="code"><code># __init_subclass__ — simpler alternative to metaclasses
+class Plugin:
+    registry = {}
+
+    def __init_subclass__(cls, plugin_name=None, **kwargs):
+        super().__init_subclass__(**kwargs)
+        name = plugin_name or cls.__name__.lower()
+        Plugin.registry[name] = cls
+
+class JSONPlugin(Plugin, plugin_name="json"):
+    pass
+
+class XMLPlugin(Plugin, plugin_name="xml"):
+    pass
+
+print(Plugin.registry)  # {'json': &lt;class 'JSONPlugin'&gt;, 'xml': ...}
+
+# Full metaclass — when you need __new__ on the class itself
+class ValidatedMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        for key, value in namespace.items():
+            if isinstance(value, str):
+                namespace[key] = value.strip()
+        return super().__new__(mcs, name, bases, namespace)
+
+class Formatted(metaclass=ValidatedMeta):
+    title = "  Hello World  "
+    body = "  Some content  "
+
+print(Formatted.title)  # "Hello World"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>__init_subclass__ for plugin registries, automatic registration, ORM field processing. Metaclasses for framework-level class manipulation (ABCMeta, EnumMeta).</div>
+<div class="callout hood"><span>Under the hood</span>When Python encounters a class statement, it calls type.__call__(meta, name, bases, namespace) which invokes __new__ and __init__ on the metaclass. __init_subclass__ is called on the parent class during subclass creation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">52</span>Import Internals and importlib</h3>
+<p><strong>What &amp; why.</strong> Python's import system is pluggable: finders locate modules, loaders execute them, and the registry (sys.modules) caches results. importlib provides programmatic control over this process.</p>
+<pre class="code"><code>import sys
+import importlib
+
+# sys.modules — the import cache
+import json
+assert "json" in sys.modules
+
+# importlib — programmatic imports
+math = importlib.import_module("math")
+print(math.pi)
+
+# Reload a module
+importlib.reload(math)
+
+# Find a module without importing
+spec = importlib.util.find_spec("json")
+print(spec.origin)
+
+# Lazy loading (3.12+)
+import importlib.resources
+
+# Custom finder for virtual modules
+class VirtualFinder:
+    def find_module(self, fullname, path=None):
+        if fullname.startswith("virtual_"):
+            return self
+        return None
+
+    def load_module(self,fullname):
+        if fullname in sys.modules:
+            return sys.modules[fullname]
+        module = type(sys) (fullname)
+        module.__loader__ = self
+        sys.modules[fullname] = module
+        return module
+
+# Entry point (3.9+)
+from importlib.metadata import entry_points
+eps = entry_points(group="myapp.plugins")
+for ep in eps:
+    cls = ep.load()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Plugin systems using entry points, dynamic module loading, testing module isolation, and build tools that manage imports.</div>
+<div class="callout hood"><span>Under the hood</span>import uses a three-step process: find (via sys.meta_path finders), load (via spec.loader), and cache (in sys.modules). PEP 451 standardized the module spec system.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">53</span>GIL Explained + Threading/Multiprocessing/asyncio Decision Matrix</h3>
+<p><strong>What &amp; why.</strong> The Global Interpreter Lock (GIL) ensures only one thread executes Python bytecode at a time. This makes threads unsuitable for CPU-bound work but fine for I/O-bound work. Choose threading for I/O, multiprocessing for CPU, asyncio for concurrent I/O with low overhead.</p>
+<pre class="code"><code># GIL Impact Visualization
+import threading
+import multiprocessing
+import time
+
+def cpu_bound(n):
+    return sum(i * i for i in range(n))
+
+def io_bound():
+    import urllib.request
+    return urllib.request.urlopen("https://httpbin.org/delay/1").read()
+
+# THREADING — good for I/O-bound (GIL released during I/O)
+start = time.perf_counter()
+threads = [threading.Thread(target=io_bound) for _ in range(10)]
+for t in threads: t.start()
+for t in threads: t.join()
+print(f"Threaded I/O: {time.perf_counter() - start:.2f}s")
+
+# MULTIPROCESSING — good for CPU-bound (separate GIL per process)
+start = time.perf_counter()
+with multiprocessing.Pool(4) as pool:
+    results = pool.map(cpu_bound, [10_000_000] * 4)
+print(f"Parallel CPU: {time.perf_counter() - start:.2f}s")
+
+# ASYNCIO — best for high-concurrency I/O (single thread, no context switches)
+import asyncio
+import aiohttp
+
+async def fetch(session, url):
+    async with session.get(url) as resp:
+        return await resp.text()
+
+async def main():
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch(session, "https://httpbin.org/delay/1") for _ in range(10)]
+        results = await asyncio.gather(*tasks)
+
+asyncio.run(main())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Threading for file I/O, database queries, API calls. Multiprocessing for data processing, image manipulation, computations. asyncio for thousands of concurrent network connections.</div>
+<div class="callout hood"><span>Under the hood</span>The GIL is a mutex protecting Python's object allocation. Python 3.13+ introduces experimental free-threading (PEP 703) that removes the GIL entirely. asyncio uses an event loop with coroutines that yield control cooperatively.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">54</span>asyncio: Coroutines, Tasks, gather, Semaphores, Queues</h3>
+<p><strong>What &amp; why.</strong> asyncio provides infrastructure for writing single-threaded concurrent code using coroutines, multiplexing I/O access, and running network clients/servers. Key primitives: Tasks for concurrent execution, gather for aggregation, semaphores for concurrency limits.</p>
+<pre class="code"><code>import asyncio
+
+# Basic coroutine
+async def fetch_data(url, delay):
+    print(f"Starting fetch: {url}")
+    await asyncio.sleep(delay)  # simulated I/O
+    print(f"Completed: {url}")
+    return f"Data from {url}"
+
+# Run multiple tasks concurrently
+async def main():
+    # gather — run all and collect results
+    results = await asyncio.gather(
+        fetch_data("api/users", 1),
+        fetch_data("api/orders", 2),
+        fetch_data("api/products", 1.5),
+    )
+    print(results)
+
+    # Semaphore — limit concurrency
+    sem = asyncio.Semaphore(3)
+
+    async def limited_fetch(url):
+        async with sem:
+            return await fetch_data(url, 1)
+
+    tasks = [limited_fetch(f"url_{i}") for i in range(10)]
+    await asyncio.gather(*tasks)
+
+    # Queue — producer/consumer pattern
+    queue = asyncio.Queue(maxsize=5)
+
+    async def producer():
+        for i in range(10):
+            await queue.put(f"item_{i}")
+        await queue.put(None)  # sentinel
+
+    async def consumer():
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            print(f"Processing {item}")
+            queue.task_done()
+
+    await asyncio.gather(producer(), consumer())
+
+asyncio.run(main())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>asyncio for web servers (FastAPI), API clients (aiohttp), database drivers (asyncpg), task queues, and any high-concurrency I/O application.</div>
+<div class="callout hood"><span>Under the hood</span>asyncio uses a single-threaded event loop that schedules coroutines. When a coroutine hits await (I/O suspension), the event loop runs other coroutines. No threads, no GIL contention, minimal context-switch overhead.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">55</span>async Generators and async with</h3>
+<p><strong>What &amp; why.</strong> Async generators (async def + yield) and async context managers (async with + __aenter__/__aexit__) extend async patterns to iteration and resource management.</p>
+<pre class="code"><code>import asyncio
+from typing import AsyncGenerator
+
+# Async generator
+async def stream_data(count: int) -&gt; AsyncGenerator[int, None]:
+    for i in range(count):
+        await asyncio.sleep(0.1)  # simulated I/O
+        yield i
+
+async def main():
+    async for value in stream_data(5):
+        print(value, end=" ")
+    print()
+
+    # Async comprehension
+    results = [x async for x in stream_data(10) if x % 2 == 0]
+    print(results)
+
+asyncio.run(main())
+
+# Async context manager
+class AsyncDatabase:
+    async def __aenter__(self):
+        print("Connecting to database...")
+        await asyncio.sleep(0.5)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        print("Closing database connection...")
+        await asyncio.sleep(0.1)
+        return False
+
+    async def query(self, sql):
+        await asyncio.sleep(0.1)
+        return [{"id": 1, "name": "Alice"}]
+
+async def use_db():
+    async with AsyncDatabase() as db:
+        results = await db.query("SELECT * FROM users")
+        print(results)
+
+# Async for with break (cleanup runs)
+async def process_stream():
+    async for chunk in stream_data(100):
+        if chunk &gt; 5:
+            break
+        print(chunk)
+
+asyncio.run(process_stream())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Async generators for streaming API responses, database cursors, real-time data feeds. Async context managers for connections, locks, sessions.</div>
+<div class="callout hood"><span>Under the hood</span>async generators maintain coroutine state across yields. async context managers use __aenter__/__aexit__ which are coroutines. The async for protocol catches StopAsyncIteration to end iteration.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">56</span>concurrent.futures</h3>
+<p><strong>What &amp; why.</strong> concurrent.futures provides a high-level interface for parallel execution: ThreadPoolExecutor for I/O-bound, ProcessPoolExecutor for CPU-bound. Futures represent pending results with callback support.</p>
+<pre class="code"><code>from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+import time
+
+def download(url):
+    import urllib.request
+    return urllib.request.urlopen(url).read()
+
+def cpu_heavy(n):
+    return sum(i ** 2 for i in range(n))
+
+# ThreadPoolExecutor — I/O-bound work
+with ThreadPoolExecutor(max_workers=10) as executor:
+    urls = ["https://example.com"] * 5
+    futures = {executor.submit(download, url): url for url in urls}
+    for future in as_completed(futures):
+        url = futures[future]
+        try:
+            data = future.result()
+            print(f"Downloaded {url}: {len(data)} bytes")
+        except Exception as e:
+            print(f"Failed {url}: {e}")
+
+# ProcessPoolExecutor — CPU-bound work
+with ProcessPoolExecutor(max_workers=4) as executor:
+    numbers = [10_000_000] * 8
+    results = list(executor.map(cpu_heavy, numbers))
+
+# Future callbacks
+def callback(future):
+    print(f"Result: {future.result()}")
+
+with ThreadPoolExecutor() as executor:
+    future = executor.submit(cpu_heavy, 1000)
+    future.add_done_callback(callback)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>concurrent.futures for batch processing, parallel downloads, data pipeline stages. Simpler API than raw threading/multiprocessing.</div>
+<div class="callout hood"><span>Under the hood</span>Executor manages a pool of worker threads/processes. submit() returns a Future that wraps the result. as_completed() yields futures as they finish, enabling result processing before all tasks complete.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">57</span>Reference Counting and Generational GC</h3>
+<p><strong>What &amp; why.</strong> CPython uses reference counting as primary memory management (immediate deallocation when refcount hits zero) plus a generational garbage collector to handle reference cycles.</p>
+<pre class="code"><code>import sys
+import gc
+
+# Reference counting
+a = []            # refcount of list = 1
+b = a             # refcount = 2
+del b             # refcount = 1
+del a             # refcount = 0 — immediately freed
+
+# Check reference count
+x = [1, 2, 3]
+print(sys.getrefcount(x))  # 2 (includes the getrefcount call itself)
+
+# Reference cycles — where gc is needed
+class Node:
+    def __init__(self):
+        self.parent = None
+        self.children = []
+
+parent = Node()
+child = Node()
+parent.children.append(child)
+child.parent = parent  # CYCLE: parent -> child -> parent
+
+del parent
+del child  # refcount never hits 0 due to cycle!
+
+# Generational garbage collector handles this
+gc.collect()  # force cycle collection
+print(gc.get_stats())  # stats for each generation
+
+# Disable and manage manually (performance-critical code)
+gc.disable()
+# ... critical section ...
+gc.enable()
+gc.collect()
+
+# Weak references — don't prevent garbage collection
+import weakref
+class Expensive:
+    pass
+
+obj = Expensive()
+weak = weakref.ref(obj)
+print(weak())    # &lt;Expensive object&gt;
+del obj
+print(weak())    # None</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding GC is critical for long-running servers, detecting memory leaks, and writing performance-sensitive code. weakref for caches and registries.</div>
+<div class="callout hood"><span>Under the hood</span>CPython's gc has three generations. New objects enter gen0. Survivors promote to gen1, then gen2. Gen0 is collected frequently, gen2 rarely. The cycle detector uses the Mark-Sweep algorithm.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">58</span>dis: Bytecode Peek</h3>
+<p><strong>What &amp; why.</strong> The dis module disassembles Python bytecode, revealing exactly what the interpreter executes. Useful for understanding performance characteristics and language implementation details.</p>
+<pre class="code"><code>import dis
+
+# Disassemble a function
+def example(x, y):
+    z = x + y
+    if z &gt; 0:
+        return "positive"
+    return "non-positive"
+
+dis.dis(example)
+#  2           0 LOAD_FAST                0 (x)
+#              2 LOAD_FAST                1 (y)
+#              4 BINARY_ADD
+#              6 STORE_FAST               2 (z)
+#
+#  3           8 LOAD_FAST                2 (z)
+#             10 LOAD_CONST               1 (0)
+#             12 COMPARE_OP               4 (&gt;)
+#             14 POP_JUMP_IF_FALSE       20
+#
+#  4          16 LOAD_CONST               2 ('positive')
+#             18 RETURN_VALUE
+#
+#  5     &gt;   20 LOAD_CONST               3 ('non-positive')
+#             22 RETURN_VALUE
+
+# Compare bytecode of different approaches
+code_inline = compile("sum(range(100))", "&lt;string&gt;", "eval")
+code_loop = compile("""
+total = 0
+for i in range(100):
+    total += i
+""", "&lt;string&gt;", "exec")
+
+print("Inline:", dis.code_info(code_inline))
+print("Loop:", dis.code_info(code_loop))
+
+# Show constants and names
+print("Constants:", code_loop.co_consts)
+print("Names:", code_loop.co_names)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Bytecode analysis for performance optimization, understanding comprehension vs loop performance, debugging unusual behavior, and language research.</div>
+<div class="callout hood"><span>Under the hood</span>Python compiles source to a code object containing bytecode instructions. Each instruction is a (opcode, arg) pair. The interpreter is a simple switch-based VM that executes instructions sequentially.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">59</span>ctypes: Calling C</h3>
+<p><strong>What &amp; why.</strong> ctypes provides FFI (Foreign Function Interface) for calling C libraries from Python without writing C extensions. It handles type conversion, memory management, and library loading.</p>
+<pre class="code"><code>from ctypes import cdll, c_int, c_double, POINTER, byref, Structure
+import platform
+
+# Load C standard library
+if platform.system() == "Windows":
+    libc = cdll.msvcrt
+else:
+    libc = cdll.LoadLibrary("libc.so.6")
+
+# Call C functions
+print(libc.abs(-42))        # 42
+print(libc.pow(2.0, 10.0))  # 1024.0
+
+# Define C structs in Python
+class Point(Structure):
+    _fields_ = [("x", c_double), ("y", c_double)]
+
+p = Point(3.0, 4.0)
+print(f"Distance: {libc.sqrt(p.x**2 + p.y**2):.1f}")  # 5.0
+
+# Work with shared libraries (.so/.dll)
+lib = cdll.LoadLibrary("./mylib.so")
+lib.my_function.argtypes = [c_int, c_int]  # define parameter types
+lib.my_function.restype = c_int              # define return type
+result = lib.my_function(42, 17)
+
+# Callbacks — pass Python functions to C
+from ctypes import CFUNCTYPE, c_char_p
+
+CMPFUNC = CFUNCTYPE(c_int, c_char_p, c_char_p)
+
+def compare(a, b):
+    return (a &gt; b) - (a &lt; b)
+
+cmp_func = CMPFUNC(compare)
+# Pass cmp_func to C qsort</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ctypes for interfacing with C libraries (libcurl, OpenSSL, system APIs) when writing C extensions isn't practical. Used in Python's own standard library.</div>
+<div class="callout hood"><span>Under the hood</span>ctypes wraps the platform's dynamic linker (dlopen/LoadLibrary) and provides type marshaling between Python objects and C types. Memory is managed by Python's garbage collector.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">60</span>Free-Threaded Python 3.13+</h3>
+<p><strong>What &amp; why.</strong> Python 3.13 (PEP 703) introduces experimental free-threaded builds that remove the GIL entirely. This enables true multi-threaded parallelism for CPU-bound code, fundamentally changing the concurrency model.</p>
+<pre class="code"><code># Free-threaded Python (3.13+, experimental)
+# Build with: ./configure --disable-gil
+
+import sys
+
+# Check if running free-threaded build
+if hasattr(sys, "_is_gil_enabled"):
+    print(f"GIL enabled: {sys._is_gil_enabled()}")
+
+# With free-threaded Python, threads can run CPU-bound code in parallel
+import threading
+
+def cpu_work(n):
+    total = 0
+    for i in range(n):
+        total += i * i
+    return total
+
+# On free-threaded build: true parallelism
+# On GIL build: serialized execution
+threads = []
+start = time.perf_counter()
+for _ in range(4):
+    t = threading.Thread(target=cpu_work, args=(10_000_000,))
+    threads.append(t)
+    t.start()
+for t in threads:
+    t.join()
+elapsed = time.perf_counter() - start
+print(f"4 threads: {elapsed:.2f}s")
+
+# Compatibility considerations
+# - Some C extensions assume GIL exists
+# - Fine-grained locking may be needed
+# - unittest.mock and some stdlib modules may need updates
+# - Free-threading is opt-in per build as of 3.13</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Free-threaded Python enables true parallel CPU-bound workloads without multiprocessing overhead. Expected to mature through 3.14+ as the default build.</div>
+<div class="callout hood"><span>Under the hood</span>PEP 703 makes the GIL optional by adding per-object locking to CPython's internals. Biased reference counting replaces global refcounting. The experimental build uses per-interpreter GIL as an intermediate step.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">61</span>pyproject.toml and Packaging</h3>
+<p><strong>What &amp; why.</strong> pyproject.toml (PEP 518/621) is the single configuration file for Python projects: build system, dependencies, metadata, tool config. It replaces setup.py, setup.cfg, and many tool-specific configs.</p>
+<pre class="code"><code># pyproject.toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "myapp"
+version = "1.0.0"
+description = "A sample application"
+readme = "README.md"
+license = "MIT"
+requires-python = "&gt;=3.11"
+authors = [
+    {name = "Alice", email = "alice@example.com"},
+]
+dependencies = [
+    "requests&gt;=2.28",
+    "pydantic&gt;=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest&gt;=7.0", "ruff", "mypy"]
+docs = ["sphinx"]
+
+[project.scripts]
+myapp = "myapp.cli:main"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+
+# Build and distribute
+# $ pip install build
+# $ python -m build
+# Creates dist/myapp-1.0.0.tar.gz and myapp-1.0.0-py3-none-any.whl
+# $ twine upload dist/*</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every modern Python project uses pyproject.toml. It is required for publishing to PyPI and is the standard for dependency and tool configuration.</div>
+<div class="callout hood"><span>Under the hood</span>Build backends (hatchling, setuptools, flit) read pyproject.toml and create wheels (.whl) — pre-packaged zip files that pip installs directly. Wheels avoid running setup.py and are deterministic.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">62</span>Idiomatic Design Patterns: Singleton, Factory, Strategy, Observer</h3>
+<p><strong>What &amp; why.</strong> Python implements classic design patterns with Pythonic idioms. Singletons use modules, factories use functions or __init_subclass__, strategies use callables, and observers use callbacks or the blinker library.</p>
+<pre class="code"><code># Singleton — Python module is already a singleton
+# config.py
+_config = None
+
+def get_config():
+    global _config
+    if _config is None:
+        _config = {"debug": False, "db_url": "sqlite:///app.db"}
+    return _config
+
+# Factory — function or __init_subclass__
+class Shape:
+    _registry = {}
+
+    @classmethod
+    def register(cls, name, klass):
+        cls._registry[name] = klass
+
+    @classmethod
+    def create(cls, name, **kwargs):
+        return cls._registry[name](**kwargs)
+
+class Circle(Shape):
+    def __init__(self, radius):
+        self.radius = radius
+
+class Rectangle(Shape):
+    def __init__(self, width, height):
+        self.width, self.height = width, height
+
+Shape.register("circle", Circle)
+Shape.register("rect", Rectangle)
+shape = Shape.create("circle", radius=5)
+
+# Strategy — first-class functions
+def bubble_sort(data): return sorted(data)
+def quick_sort(data): return sorted(data, key=lambda x: x)
+
+def process(data, strategy=sorted):
+    return strategy(data)
+
+# Observer — callback pattern
+class EventEmitter:
+    def __init__(self):
+        self._listeners = {}
+
+    def on(self, event, callback):
+        self._listeners.setdefault(event, []).append(callback)
+
+    def emit(self, event, *args, **kwargs):
+        for cb in self._listeners.get(event, []):
+            cb(*args, **kwargs)
+
+emitter = EventEmitter()
+emitter.on("data", lambda d: print(f"Received: {d}"))
+emitter.emit("data", "hello")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Singletons for config/driver instances, factories for creating objects from data, strategies for swappable algorithms, observers for event-driven architectures.</div>
+<div class="callout hood"><span>Under the hood</span>Python's first-class functions and dynamic typing make many OOP patterns simpler. Modules are natural singletons. Callables replace strategy interfaces. No abstract factory boilerplate needed.</div>
+</article>
+
+
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Expense Tracker CLI with JSON Persistence</h3>
+<p>Build a command-line expense tracker that persists data to JSON, supports CRUD operations, and generates category-based reports with summary statistics.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Define data models using dataclasses with JSON serialization (asdict/astuple)</li>
+<li>Implement a JSON persistence layer using pathlib and atomic writes (write to temp, then rename)</li>
+<li>Build the CLI with argparse: add, list, delete, summary, and export subcommands</li>
+<li>Implement filtering by date range, category, and amount threshold using list comprehensions</li>
+<li>Add monthly and category summaries with sorted/aggregated statistics</li>
+<li>Handle errors gracefully with custom exceptions for validation and file operations</li>
+<li>Generate a formatted text report using f-strings and string alignment</li>
+<li>Write pytest tests with fixtures (sample data) and parametrize (edge cases)</li>
+</ol>
+<pre class="code"><code>from dataclasses import dataclass, field, asdict
+from datetime import datetime
+from pathlib import Path
+import json, uuid
+
+@dataclass
+class Expense:
+    id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    amount: float = 0.0
+    category: str = ""
+    description: str = ""
+    date: str = field(default_factory=lambda: datetime.now().isoformat())
+
+class ExpenseTracker:
+    def __init__(self, filepath="expenses.json"):
+        self.filepath = Path(filepath)
+        self.expenses: list[Expense] = []
+        self._load()
+
+    def _load(self):
+        if self.filepath.exists():
+            data = json.loads(self.filepath.read_text())
+            self.expenses = [Expense(**e) for e in data]
+
+    def _save(self):
+        tmp = self.filepath.with_suffix(".tmp")
+        tmp.write_text(json.dumps([asdict(e) for e in self.expenses], indent=2))
+        tmp.rename(self.filepath)
+
+    def add(self, amount, category, description=""):
+        e = Expense(amount=amount, category=category, description=description)
+        self.expenses.append(e)
+        self._save()
+        return e
+
+    def summary(self):
+        by_cat = {}
+        for e in self.expenses:
+            by_cat.setdefault(e.category, 0.0)
+            by_cat[e.category] += e.amount
+        return sorted(by_cat.items(), key=lambda x: x[1], reverse=True)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Dataclass-based modeling with JSON serialization</li>
+<li>Atomic file writes for data integrity</li>
+<li>argparse subcommands for multi-action CLIs</li>
+<li>Comprehensions and generator expressions for data aggregation</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Async Web Scraper with Rate Limiting and CSV Export</h3>
+<p>Build an async web scraper using aiohttp that fetches pages concurrently with configurable rate limiting, parses HTML content, and exports results to CSV.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Set up asyncio event loop with aiohttp ClientSession and proper connection pooling</li>
+<li>Implement a token-bucket rate limiter using asyncio.Semaphore and asyncio.sleep</li>
+<li>Create async worker tasks with configurable concurrency (semaphore-based)</li>
+<li>Parse HTML responses using selectolax or built-in html.parser</li>
+<li>Implement retry logic with exponential backoff using async generators</li>
+<li>Write results to CSV incrementally using csv.DictWriter (streaming output)</li>
+<li>Add progress tracking with asyncio.Queue for completed URLs</li>
+<li>Handle graceful shutdown with signal handlers and asyncio.gather cancellation</li>
+</ol>
+<pre class="code"><code>import asyncio
+import aiohttp
+import csv
+from dataclasses import dataclass
+
+@dataclass
+class PageResult:
+    url: str
+    status: int
+    title: str
+    links: list[str]
+
+async def scrape(url, session, sem, results):
+    async with sem:
+        try:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                html = await resp.text()
+                links = [a["href"] for a in
+                    __import__("re").findall(r'href="(https?://[^"]+)"', html)]
+                title_match = __import__("re").search(r"<title>(.*?)</title>", html)
+                title = title_match.group(1) if title_match else "No title"
+                results.append(PageResult(url, resp.status, title, links[:10]))
+        except Exception as e:
+            print(f"Error: {url} — {e}")
+        await asyncio.sleep(0.5)  # rate limit
+
+async def main(urls):
+    sem = asyncio.Semaphore(10)  # max concurrent
+    results = []
+    async with aiohttp.ClientSession() as session:
+        tasks = [scrape(u, session, sem, results) for u in urls]
+        await asyncio.gather(*tasks)
+
+    with open("results.csv", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["url", "status", "title"])
+        writer.writeheader()
+        writer.writerows([{"url": r.url, "status": r.status, "title": r.title}
+                          for r in results])</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>asyncio coroutine orchestration with gather and semaphores</li>
+<li>Rate limiting patterns for ethical web scraping</li>
+<li>Streaming CSV output for memory-efficient data export</li>
+<li>Graceful error handling and cleanup in async contexts</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Log Analyzer Daemon with Regex Live-Tail</h3>
+<p>Build a daemon service that monitors log files in real-time, applies regex patterns to extract structured data, aggregates metrics, and outputs alerts when thresholds are exceeded.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Create a file-tailing generator that follows file growth (poll + seek) without loading entire files</li>
+<li>Define regex patterns for common log formats (Apache, syslog, JSON-structured)</li>
+<li>Implement pattern registry using dict dispatch mapping regex names to handler functions</li>
+<li>Build a metrics aggregator using collections.Counter and defaultdict for time-windowed stats</li>
+<li>Configure threshold-based alerting with configurable rules in JSON config</li>
+<li>Implement graceful daemon lifecycle: signal handlers, PID file, log rotation awareness</li>
+<li>Add a simple HTTP status endpoint using http.server for health checks</li>
+<li>Write comprehensive tests with parametrize for various log formats and edge cases</li>
+</ol>
+<pre class="code"><code>import re
+import time
+import signal
+from pathlib import Path
+from collections import defaultdict, Counter
+
+PATTERNS = {
+    "apache": re.compile(
+        r'(?P&lt;ip&gt;\S+) \S+ \S+ \[(?P&lt;time&gt;[^\]]+)\] '
+        r'"(?P&lt;method&gt;\S+) (?P&lt;path&gt;\S+) \S+" (?P&lt;status&gt;\d+)'
+    ),
+    "error": re.compile(r'ERROR|CRITICAL|FATAL'),
+}
+
+class LogTailer:
+    def __init__(self, filepath, poll_interval=1.0):
+        self.filepath = Path(filepath)
+        self.poll_interval = poll_interval
+        self.position = self.filepath.stat().st_size if self.filepath.exists() else 0
+
+    def tail(self):
+        while True:
+            if not self.filepath.exists():
+                time.sleep(self.poll_interval)
+                continue
+            current_size = self.filepath.stat().st_size
+            if current_size &lt; self.position:
+                self.position = 0  # file rotated
+            with open(self.filepath) as f:
+                f.seek(self.position)
+                for line in f:
+                    yield line.rstrip("\n")
+                self.position = f.tell()
+            time.sleep(self.poll_interval)
+
+class LogAnalyzer:
+    def __init__(self):
+        self.error_counts = Counter()
+        self.status_counts = Counter()
+        self.alerts = []
+
+    def process_line(self, line):
+        for name, pattern in PATTERNS.items():
+            match = pattern.search(line)
+            if match:
+                self._handlers.get(name, self._default)(match)
+                break
+
+    def _handle_apache(self, match):
+        self.status_counts[match.group("status")] += 1
+
+    def _handle_error(self, match):
+        self.error_counts["errors"] += 1
+        if self.error_counts["errors"] &gt; 100:
+            self.alerts.append(f"Error threshold exceeded: {self.error_counts['errors']}")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>File I/O with seek for efficient log tailing</li>
+<li>Regex pattern matching for structured data extraction</li>
+<li>Signal handling for daemon lifecycle management</li>
+<li>Counter and defaultdict for real-time aggregation</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Mini pytest-like Test Framework from Scratch</h3>
+<p>Build a minimal test framework that discovers test functions, supports fixtures, parametrization, assertions with informative diffs, and generates colored terminal output.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Implement test discovery: scan directories for test_*.py files, collect functions starting with test_</li>
+<li>Build a fixture system using function annotations and dependency injection</li>
+<li>Implement parametrize decorator that generates multiple test cases from parameter lists</li>
+<li>Create a custom assert wrapper that generates informative failure messages with diffs</li>
+<li>Build a test runner that handles setup/teardown, exception capture, and result collection</li>
+<li>Implement colored terminal output using ANSI escape codes (no external dependencies)</li>
+<li>Add pytest-compatible conftest.py loading for shared fixtures</li>
+<li>Generate a summary report: pass/fail counts, duration, failure details</li>
+</ol>
+<pre class="code"><code>import inspect
+import time
+import sys
+from dataclasses import dataclass, field
+
+def parametrize(**params):
+    """Decorator that generates multiple test cases."""
+    def decorator(func):
+        keys = list(params.keys())
+        values = list(params.values())
+        func._parametrize = list(zip(*values))
+        func._parametrize_keys = keys
+        return func
+    return decorator
+
+def fixture(func):
+    """Mark a function as a test fixture."""
+    func._is_fixture = True
+    return func
+
+@dataclass
+class TestResult:
+    name: str
+    passed: bool
+    duration: float = 0.0
+    error: str = ""
+    skipped: bool = False
+
+@dataclass
+class TestSuite:
+    results: list = field(default_factory=list)
+
+    def add(self, result):
+        self.results.append(result)
+
+    def summary(self):
+        passed = sum(1 for r in self.results if r.passed)
+        failed = sum(1 for r in self.results if not r.passed and not r.skipped)
+        skipped = sum(1 for r in self.results if r.skipped)
+        total_dur = sum(r.duration for r in self.results)
+        print(f"\n{'='*50}")
+        print(f"  {passed} passed, {failed} failed, {skipped} skipped")
+        print(f"  Time: {total_dur:.3f}s")
+        for r in self.results:
+            if not r.passed:
+                print(f"  FAIL: {r.name}")
+                print(f"    {r.error}")
+
+def assert_eq(actual, expected):
+    if actual != expected:
+        raise AssertionError(f"Expected {expected!r}, got {actual!r}")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Python introspection for test discovery and collection</li>
+<li>Decorator patterns for parametrize and fixture registration</li>
+<li>Exception handling for test isolation and error capture</li>
+<li>Dataclass-based result collection and reporting</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Multiprocessing CSV-to-Parquet ETL with Profiling Report</h3>
+<p>Build a data pipeline that reads large CSV files, transforms data through multiprocessing workers, writes Parquet output, and generates a profiling report with timing and memory statistics.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Implement CSV chunking using pandas read_csv with chunksize for memory-efficient reading</li>
+<li>Create a multiprocessing pool with configurable worker count for parallel transformation</li>
+<li>Define transformation pipeline: clean, validate, enrich, and aggregate in worker processes</li>
+<li>Write output using pyarrow/parquet with columnar compression (snappy/zstd)</li>
+<li>Implement progress tracking using multiprocessing.Value for shared counters</li>
+<li>Add profiling with cProfile for hot path analysis and tracemalloc for memory tracking</li>
+<li>Generate an HTML profiling report with timing breakdowns and memory peak statistics</li>
+<li>Validate output with schema checking and row count assertions</li>
+</ol>
+<pre class="code"><code>import multiprocessing as mp
+import pandas as pd
+import tracemalloc
+import cProfile
+import time
+from pathlib import Path
+
+def transform_chunk(chunk):
+    """Process a chunk of CSV data."""
+    chunk = chunk.dropna(subset=["id"])
+    chunk["amount"] = chunk["amount"].astype(float)
+    chunk["category"] = chunk["category"].str.lower().str.strip()
+    chunk["date"] = pd.to_datetime(chunk["date"])
+    chunk["total"] = chunk["amount"] * chunk.get("quantity", 1)
+    return chunk
+
+def run_etl(input_path, output_path, workers=4, chunksize=100_000):
+    tracemalloc.start()
+    start = time.perf_counter()
+    profiler = cProfile.Profile()
+    profiler.enable()
+
+    chunks = pd.read_csv(input_path, chunksize=chunksize)
+
+    with mp.Pool(workers) as pool:
+        results = pool.map(transform_chunk, chunks)
+
+    df = pd.concat(results, ignore_index=True)
+    df.to_parquet(output_path, engine="pyarrow", compression="snappy", index=False)
+
+    profiler.disable()
+    elapsed = time.perf_counter() - start
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    rows = len(df)
+    print(f"Processed {rows:,} rows in {elapsed:.2f}s")
+    print(f"Memory: current={current/1e6:.1f}MB, peak={peak/1e6:.1f}MB")
+    print(f"Output: {Path(output_path).stat().st_size / 1e6:.1f}MB")
+    return df</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Multiprocessing Pool for CPU-bound data transformation</li>
+<li>Chunked processing for memory-efficient large file handling</li>
+<li>Parquet columnar format for compressed, queryable output</li>
+<li>tracemalloc and cProfile for performance profiling and reporting</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Dynamic typing</td><td>Names are references, no fixed types</td><td><code>x = 42; x = "hi"</code></td></tr>
+<tr><td>f-strings</td><td>Embed expressions in strings with format spec</td><td><code>f"{val:.2f}"</code></td></tr>
+<tr><td>Truthiness</td><td>Empty containers, 0, None, False are falsy</td><td><code>if items:</code></td></tr>
+<tr><td>List comprehension</td><td>Build lists from iterables in one expression</td><td><code>[x for x in ... if ...]</code></td></tr>
+<tr><td>match-case</td><td>Structural pattern matching (3.10+)</td><td><code>match x: case _: ...</code></td></tr>
+<tr><td>*args / **kwargs</td><td>Variadic positional and keyword arguments</td><td><code>def f(*a, **kw):</code></td></tr>
+<tr><td>LEGB scope</td><td>Local &rarr; Enclosing &rarr; Global &rarr; Built-in</td><td><code>nonlocal, global</code></td></tr>
+<tr><td>Decorators</td><td>Modify functions/classes with @syntax</td><td><code>@decorator def f():</code></td></tr>
+<tr><td>Context managers</td><td>Guarantee resource cleanup with with</td><td><code>with open(...) as f:</code></td></tr>
+<tr><td>Generators</td><td>Lazy sequences via yield</td><td><code>def gen(): yield ...</code></td></tr>
+<tr><td>itertools</td><td>C-optimized iterator building blocks</td><td><code>chain, groupby, product</code></td></tr>
+<tr><td>lru_cache</td><td>Memoization with LRU eviction</td><td><code>@lru_cache(maxsize=128)</code></td></tr>
+<tr><td>Descriptors</td><td>Customize attribute access via __get__/__set__</td><td><code>class Desc: def __get__:</code></td></tr>
+<tr><td>dataclasses</td><td>Auto-generate __init__, __repr__, __eq__</td><td><code>@dataclass class C:</code></td></tr>
+<tr><td>Enum</td><td>Named constants, type-safe values</td><td><code>class Color(Enum): RED=1</code></td></tr>
+<tr><td>TypedDict</td><td>Typed dictionaries for static analysis</td><td><code>class D(TypedDict): x: int</code></td></tr>
+<tr><td>Protocol</td><td>Structural subtyping without inheritance</td><td><code>@runtime_checkable class P(Protocol):</code></td></tr>
+<tr><td>__slots__</td><td>Replace __dict__ for memory savings</td><td><code>__slots__ = ("x", "y")</code></td></tr>
+<tr><td>metaclass</td><td>Class that creates classes</td><td><code>class M(type): def __new__:</code></td></tr>
+<tr><td>GIL</td><td>One thread executes bytecode at a time</td><td>Use multiprocessing for CPU-bound</td></tr>
+<tr><td>asyncio</td><td>Single-threaded concurrent I/O with coroutines</td><td><code>async def, await, gather()</code></td></tr>
+<tr><td>concurrent.futures</td><td>High-level thread/process pools</td><td><code>ThreadPoolExecutor, ProcessPoolExecutor</code></td></tr>
+<tr><td>Weak references</td><td>Don't prevent garbage collection</td><td><code>weakref.ref(obj)</code></td></tr>
+<tr><td>secrets</td><td>Cryptographically secure random values</td><td><code>secrets.token_hex(32)</code></td></tr>
+<tr><td>pyproject.toml</td><td>Single config file for Python projects</td><td>[project], [build-system], [tool.*]</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="index.html">&larr; Home</a><a href="fastapi.html">FastAPI &rarr;</a></footer>
+</body></html>

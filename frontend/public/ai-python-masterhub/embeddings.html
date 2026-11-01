@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embeddings — Vector Representations — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Embeddings — Vector Representations</span><span class="spacer"></span>
+<a class="navlink" href="ml-fundamentals.html">&larr; ML Fundamentals</a> <a class="navlink" href="llms.html">LLMs &rarr;</a></nav>
+<header class="hero"><div class="mono">EM</div><div><h1>Embeddings — Vector Representations</h1>
+<p class="tagline">Transform text, images, and data into dense numerical vectors that capture meaning, enabling similarity search, clustering, and retrieval-augmented systems.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Embeddings are the bridge between human language and machine computation. This chapter covers everything from the intuition of vector space through production-grade semantic search systems, including model selection, indexing strategies, and cost optimization at scale.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Vector space intuition, similarity metrics, basic encoding with pre-trained models</td><td>You can encode text and compute similarity between documents</td></tr>
+<tr><td>Tier 2</td><td>Pooling strategies, batching, caching, hybrid search, visualization</td><td>You can build efficient embedding pipelines with hybrid retrieval</td></tr>
+<tr><td>Tier 3</td><td>Fine-tuning, quantization, advanced indexing, long-document strategies</td><td>You can optimize embedding quality and retrieval speed for production</td></tr>
+<tr><td>Tier 4</td><td>Theoretical foundations, production metrics, cost modeling, privacy</td><td>You can architect and operate embedding systems at scale</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready vector search applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Vector space, similarity, encoding, and basic retrieval</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Embedding Definition and Vector Space Intuition</h3>
+<p><strong>What &amp; why.</strong> An embedding is a learned mapping that projects discrete items (words, sentences, documents) into a continuous vector space where geometric proximity reflects semantic similarity. Unlike sparse representations, embeddings capture nuanced relationships such as analogy, synonymy, and topical clustering in a fixed-dimensional space.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+vectors = model.encode(["cat sits on mat", "dog rests on rug"])
+print(vectors.shape)  # (2, 384) — two 384-dim vectors
+print(vectors[0][:5])  # dense float values, not sparse one-hots</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every semantic search engine, recommendation system, RAG pipeline, and anomaly detector starts with converting raw data into embeddings before any downstream processing.</div>
+<div class="callout hood"><span>Under the hood</span>Transformer-based embedders use self-attention to contextualize each token, then aggregate token representations into a single fixed-length vector. The resulting space is continuous and differentiable, enabling gradient-based learning of semantic structure.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Cosine, Euclidean, and Dot-Product Similarity</h3>
+<p><strong>What &amp; why.</strong> Three primary distance metrics operate on embedding vectors. Cosine similarity measures the angle between vectors (range -1 to 1), ignoring magnitude, making it the default for normalized embeddings. Euclidean distance (L2) measures straight-line distance in the space. Dot product combines magnitude and direction, equivalent to cosine when vectors are unit-normalized.</p>
+<pre class="code"><code>import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+vecs = model.encode(["king", "queen", "apple"])
+
+def cosine(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+print(f"king-queen:  {cosine(vecs[0], vecs[1]):.3f}")
+print(f"king-apple:  {cosine(vecs[0], vecs[2]):.3f}")
+# king-queen score is significantly higher than king-apple</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cosine similarity is the standard for semantic search, recommendation engines, and deduplication. Euclidean distance appears in clustering algorithms like k-means. Dot product is used inside model training objectives.</div>
+<div class="callout hood"><span>Under the hood</span>Most embedding APIs return vectors that are already L2-normalized, making cosine and dot product equivalent. FAISS indexes exploit this by using inner-product search on pre-normalized vectors for maximum throughput.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>One-Hot vs Dense Representations</h3>
+<p><strong>What &amp; why.</strong> One-hot encoding represents each word as a binary vector with length equal to vocabulary size, resulting in extreme sparsity (typically 50K-100K dimensions with exactly one 1). Dense embeddings compress this into 100-1536 dimensions of continuous values, capturing semantic relationships that one-hot vectors cannot express since all one-hot vectors are equidistant.</p>
+<pre class="code"><code># One-hot: sparse, high-dimensional, no semantic meaning
+vocab = {"cat": 0, "dog": 1, "fish": 2}
+one_hot_cat = [1, 0, 0]  # dim = len(vocab)
+one_hot_dog = [0, 1, 0]  # distance(cat, dog) == distance(cat, fish)
+
+# Dense: compact, continuous, semantic structure preserved
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")
+embed = model.encode
+cat_vec = embed("cat")       # 384 dimensions, continuous floats
+dog_vec = embed("dog")       # similar to cat in vector space
+fish_vec = embed("fish")     # more distant from cat than dog</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>One-hot appears only in legacy systems and as inputs to embedding layers. All modern NLP, search, and recommendation systems use dense embeddings.</div>
+<div class="callout hood"><span>Under the hood</span>The embedding matrix in a transformer is essentially a learned dense projection from one-hot space. During training, gradient updates pull semantically similar items closer together while pushing dissimilar items apart.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Word2Vec Skip-Gram with Gensim</h3>
+<p><strong>What &amp; why.</strong> Word2Vec learns word vectors by predicting context words from a target word (Skip-Gram) or vice versa (CBOW). Skip-Gram feeds a target word through a single hidden layer and trains it to predict surrounding words within a window, producing vectors where analogies like king - man + woman = queen emerge naturally.</p>
+<pre class="code"><code>from gensim.models import Word2Vec
+from gensim.utils import simple_preprocess
+
+sentences = [
+    ["the", "cat", "sat", "on", "the", "mat"],
+    ["the", "dog", "lay", "on", "the", "rug"],
+    ["the", "king", "ruled", "the", "kingdom"],
+    ["the", "queen", "ruled", "the", "kingdom"],
+]
+
+model = Word2Vec(sentences, vector_size=100, window=5, min_count=1, sg=1)
+print(model.wv["cat"].shape)  # (100,)
+print(model.wv.most_similar("cat", topn=3))
+print(model.wv.most_similar(positive=["king", "woman"], negative=["man"])[0])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Word2Vec is useful for domain-specific word-level embeddings when you have a large specialized corpus (medical, legal, technical) where pre-trained models lack vocabulary coverage.</div>
+<div class="callout hood"><span>Under the hood</span>The Skip-gram objective maximizes the probability of context words given a target word using negative sampling. Each training example updates only the target word vector and sampled context vectors, keeping computation efficient.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>GloVe and FastText: Differences and Advantages</h3>
+<p><strong>What &amp; why.</strong> GloVe learns vectors from global co-occurrence statistics of word pairs across an entire corpus, capturing both local context and global statistical patterns. FastText extends Word2Vec by representing each word as a bag of character n-grams, enabling it to generate embeddings for out-of-vocabulary words and capture morphological structure.</p>
+<pre class="code"><code># FastText: handles unseen words via subword composition
+from gensim.models import FastText
+
+sentences = [s.split() for s in open("corpus.txt").read().splitlines()]
+model = FastText(sentences, vector_size=100, min_n=3, max_n=6, sg=1)
+
+# OOV word still gets a vector from its character n-grams
+print(model.wv["unhappiness"].shape)  # (100,) — composed from subwords
+
+# GloVe: pre-trained from global co-occurrence
+import gensim.downloader as api
+glove = api.load("glove-wiki-gigaword-100")
+print(glove.most_similar("algorithm"))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>GloVe provides strong general-purpose word vectors with minimal training. FastText is essential for morphologically rich languages (German, Turkish, Finnish) and domain-specific corpora with rare technical terms.</div>
+<div class="callout hood"><span>Under the hood</span>GloVe optimizes a weighted least-squares objective on log co-occurrence ratios. FastText builds each word vector by summing its constituent n-gram vectors plus the full word vector, creating a compositional representation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Sentence-Transformers Encode</h3>
+<p><strong>What &amp; why.</strong> The sentence-transformers library provides pre-trained models that produce sentence-level embeddings by pooling token-level representations. Unlike word-level embeddings, these capture sentence meaning as a single vector, enabling direct semantic comparison of entire texts without additional aggregation logic.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+sentences = [
+    "How do I reset my password?",
+    "I forgot my login credentials and need help.",
+    "What is the capital of France?",
+]
+
+embeddings = model.encode(sentences, show_progress_bar=True)
+print(embeddings.shape)  # (3, 384)
+
+# Pairwise cosine similarity via model utility
+from sentence_transformers.util import cos_sim
+similarities = cos_sim(embeddings, embeddings)
+print(similarities)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Sentence-transformers is the default starting point for any text similarity, clustering, or semantic search project. It provides the encode() interface that wraps batching, normalization, and device placement.</div>
+<div class="callout hood"><span>Under the hood</span>Most sentence-transformer models apply mean pooling over token embeddings from a BERT-style backbone, followed by a normalization layer. The "all-MiniLM-L6-v2" model uses a distilled 6-layer transformer optimized for speed and quality trade-off.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>OpenAI Embeddings API</h3>
+<p><strong>What &amp; why.</strong> OpenAI's embedding API produces high-quality vectors via their text-embedding-3 family, supporting variable dimensions (matryoshka representation) and offering both small and large model variants. The API handles tokenization, batching, and normalization server-side, returning ready-to-use vectors.</p>
+<pre class="code"><code>from openai import OpenAI
+
+client = OpenAI()
+
+response = client.embeddings.create(
+    model="text-embedding-3-small",
+    input=["semantic search is useful", "embeddings power retrieval"],
+    dimensions=512,  # matryoshka truncation — default 1536
+)
+
+for item in response.data:
+    print(len(item.embedding), item.embedding[:3])
+print(f"Total tokens: {response.usage.total_tokens}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>OpenAI embeddings power RAG systems, semantic search in production apps, and content recommendation. The text-embedding-3-small model offers excellent quality at $0.02/1M tokens.</div>
+<div class="callout hood"><span>Under the hood</span>text-embedding-3 models use a technique called matryoshka representation learning (MRL), allowing the first N dimensions to be a useful embedding on their own. You can truncate to 256, 512, or 1024 dimensions to reduce storage and compute with graceful quality degradation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Embedding Normalization</h3>
+<p><strong>What &amp; why.</strong> L2 normalization projects every embedding vector onto the unit hypersphere, ensuring all vectors have magnitude 1. This makes cosine similarity equivalent to dot product, which enables faster nearest-neighbor search using inner-product indexes and prevents magnitude bias where longer documents produce larger vectors.</p>
+<pre class="code"><code>import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+vectors = model.encode(["short text", "a much longer document with many words"])
+
+# L2 normalize — now cosine = dot product
+norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+normalized = vectors / norms
+
+# Verify: all magnitudes are 1
+print(np.linalg.norm(normalized, axis=1))  # [1.0, 1.0]
+
+# Dot product now equals cosine similarity
+cos_sim = np.dot(normalized[0], normalized[1])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Normalization is a prerequisite for FAISS inner-product indexes, Annoy angular distance, and any system where magnitude shouldn't influence relevance ranking.</div>
+<div class="callout hood"><span>Under the hood</span>Most modern embedding models apply normalization as their final layer. When using sentence-transformers, setting normalize_embeddings=True in encode() handles this automatically. OpenAI's API returns pre-normalized vectors.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Brute-Force Nearest Neighbor with NumPy</h3>
+<p><strong>What &amp; why.</strong> The simplest nearest-neighbor implementation computes similarity between a query vector and every vector in the corpus, then returns the top-k results. While O(n*d) per query, this approach is correct, easy to debug, and fast enough for corpora under 100K vectors, making it ideal for prototyping and validation.</p>
+<pre class="code"><code>import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+corpus = ["first document", "second document", "third document"]
+corpus_vecs = model.encode(corpus)
+corpus_norms = corpus_vecs / np.linalg.norm(corpus_vecs, axis=1, keepdims=True)
+
+def search(query: str, top_k: int = 3):
+    q = model.encode([query])[0]
+    q_norm = q / np.linalg.norm(q)
+    scores = corpus_norms @ q_norm  # dot product on normalized = cosine
+    top_idx = np.argsort(scores)[::-1][:top_k]
+    return [(corpus[i], float(scores[i])) for i in top_idx]
+
+print(search("find the first text"))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Brute-force search serves as the ground-truth baseline for evaluating approximate nearest neighbor indexes. It is also used in production for small reference corpora where index overhead is unjustified.</div>
+<div class="callout hood"><span>Under the hood</span>On normalized vectors, the dot product is equivalent to cosine similarity and can be computed as a single matrix-vector multiplication. NumPy delegates this to optimized BLAS routines (OpenBLAS, MKL) that use SIMD instructions for speed.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Batching Embed Requests</h3>
+<p><strong>What &amp; why.</strong> Embedding APIs and local models process multiple texts simultaneously for efficiency. Batching amortizes GPU kernel launch overhead, maximizes memory bandwidth utilization, and reduces total latency. The optimal batch size depends on model size, available VRAM, and text length, typically ranging from 32 to 256.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+texts = [f"document number {i}" for i in range(1000)]
+
+# encode() handles batching internally
+embeddings = model.encode(
+    texts,
+    batch_size=64,        # texts per forward pass
+    show_progress_bar=True,
+    normalize_embeddings=True,
+    device="cuda",        # if GPU available
+)
+print(embeddings.shape)  # (1000, 384)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Batch encoding is essential when indexing document corpora, computing embeddings for search results, or processing large datasets. It reduces total encoding time by 5-10x compared to single-item processing.</div>
+<div class="callout hood"><span>Under the hood</span>Transformer models process batched inputs by computing attention and FFN operations across all sequences in parallel on GPU. The bottleneck shifts from kernel launch overhead to memory bandwidth, making batch size a critical throughput parameter.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Storing Vectors: JSON and NumPy .npy</h3>
+<p><strong>What &amp; why.</strong> Persistent vector storage requires serialization formats that balance portability, speed, and file size. JSON is human-readable and interoperable but slow for large arrays. NumPy's .npy format stores arrays in a compact binary format with shape and dtype metadata, enabling fast load/save with zero parsing overhead.</p>
+<pre class="code"><code>import numpy as np
+import json
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+texts = ["doc one", "doc two", "doc three"]
+vectors = model.encode(texts)
+
+# NumPy binary — fast, compact
+np.save("vectors.npy", vectors)
+loaded = np.load("vectors.npy")
+
+# JSON with metadata — portable, human-readable
+data = {"vectors": vectors.tolist(), "texts": texts}
+with open("embeddings.json", "w") as f:
+    json.dump(data, f)
+
+with open("embeddings.json") as f:
+    restored = json.load(f)
+    arr = np.array(restored["vectors"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>.npy files serve as intermediate storage during pipeline development. JSON files work for small datasets shared across systems. Production systems use vector databases (FAISS, Qdrant, Pinecone) for persistent storage.</div>
+<div class="callout hood"><span>Under the hood</span>.npy files store raw array bytes with a header containing shape, dtype, and endianness. Loading is a single mmap or read operation with no parsing, making it orders of magnitude faster than JSON for large arrays.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Toy Semantic Search Script</h3>
+<p><strong>What &amp; why.</strong> A complete semantic search pipeline in under 30 lines: encode a corpus, store vectors, accept a query, compute similarities, and return ranked results. This demonstrates the full encode-store-search workflow that underpins every vector search system.</p>
+<pre class="code"><code>import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+corpus = [
+    "FastAPI is a modern Python web framework for building APIs",
+    "Django is a high-level Python web framework",
+    "NumPy is the fundamental package for scientific computing",
+    "Pandas provides data structures for data analysis",
+    "React is a JavaScript library for building user interfaces",
+]
+corpus_emb = model.encode(corpus, normalize_embeddings=True)
+
+def search(query: str, k: int = 3):
+    q_emb = model.encode([query], normalize_embeddings=True)[0]
+    scores = corpus_emb @ q_emb
+    top_k = np.argsort(scores)[::-1][:k]
+    for idx in top_k:
+        print(f"  {scores[idx]:.3f}  {corpus[idx]}")
+
+search("Python data analysis tools")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This exact pattern scales to production with FAISS or a vector database replacing the brute-force search, and a web framework exposing the search as an API endpoint.</div>
+<div class="callout hood"><span>Under the hood</strong>The search quality depends entirely on the embedding model's ability to capture semantic similarity. The all-MiniLM-L6-v2 model achieves a Pearson correlation of 0.82 on semantic textual similarity benchmarks while running at over 10K sentences per second on CPU.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Pooling, efficiency, hybrid search, and visualization</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Pooling Strategies: CLS, Mean, and Max</h3>
+<p><strong>What &amp; why.</strong> Transformer models produce per-token embeddings that must be aggregated into a single vector. CLS pooling uses the special [CLS] token output. Mean pooling averages all token vectors, weighted by attention mask. Max pooling takes the element-wise maximum across tokens. Mean pooling typically performs best for semantic similarity tasks.</p>
+<pre class="code"><code>import torch
+from transformers import AutoTokenizer, AutoModel
+
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+model = AutoModel.from_pretrained("bert-base-uncased")
+
+inputs = tokenizer("Embeddings pool token representations", return_tensors="pt")
+with torch.no_grad():
+    outputs = model(**inputs)
+
+token_embs = outputs.last_hidden_state  # (1, seq_len, 768)
+mask = inputs["attention_mask"].unsqueeze(-1)  # (1, seq_len, 1)
+
+# Mean pooling
+mean_pooled = (token_embs * mask).sum(1) / mask.sum(1)
+
+# CLS pooling
+cls_pooled = token_embs[:, 0, :]  # first token
+
+# Max pooling
+max_pooled = (token_embs.masked_fill(~mask.bool(), -1e9)).max(1).values</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pooling strategy choice affects retrieval quality. sentence-transformers defaults to mean pooling. When building custom embedding heads, selecting the right pooling is a critical design decision.</div>
+<div class="callout hood"><span>Under the hood</span>Mean pooling preserves information from all tokens, making it robust to varying input lengths. CLS pooling relies on the [CLS] token which is trained for classification, not necessarily for similarity. Max pooling captures the most activating features per dimension.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Dimension Storage Math</h3>
+<p><strong>What &amp; why.</strong> Embedding dimension directly impacts storage cost, index size, and query latency. A 384-dim float32 vector uses 1,536 bytes per vector. A 1536-dim float32 vector uses 6,144 bytes. At 1 million documents, the difference is 1.5 GB vs 6 GB, which affects RAM requirements, index build time, and query throughput.</p>
+<pre class="code"><code>import numpy as np
+
+dims = [384, 768, 1024, 1536]
+n_docs = 1_000_000
+
+print("Vector storage requirements:")
+print(f"{'Dims':>6} {'float32':>12} {'float16':>12} {'int8':>12}")
+for d in dims:
+    fp32 = n_docs * d * 4
+    fp16 = n_docs * d * 2
+    int8 = n_docs * d * 1
+    print(f"{d:>6} {fp32/1e9:>10.2f}GB {fp16/1e9:>10.2f}GB {int8/1e9:>10.2f}GB")
+
+# OpenAI text-embedding-3-small at 1536 dims, 1M docs
+# = ~6 GB float32, ~3 GB float16, ~1.5 GB int8
+# Truncated to 512 dims: ~2 GB float32</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Dimension planning is essential when selecting models for production. Higher dimensions improve recall but increase storage, RAM, and query cost. Matryoshka models let you choose the optimal dimension for your budget.</div>
+<div class="callout hood"><span>Under the hood</span>Vector indexes like FAISS and HNSW store vectors in memory for fast access. The index overhead (graph edges, quantization codebooks) adds 1.5-3x on top of raw vector storage, making dimension selection a major cost driver.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Cosine Similarity Numerical Stability</h3>
+<p><strong>What &amp; why.</strong> Computing cosine similarity requires dividing by the product of vector norms, which is undefined for zero vectors. In production, near-zero norms from degenerate inputs cause division-by-zero or floating-point instability. Adding a small epsilon to the denominator and checking for zero norms prevents silent failures.</p>
+<pre class="code"><code>import numpy as np
+
+def safe_cosine(a: np.ndarray, b: np.ndarray, eps: float = 1e-8) -> float:
+    norm_a = np.linalg.norm(a)
+    norm_b = np.linalg.norm(b)
+    if norm_a &lt; eps or norm_b &lt; eps:
+        return 0.0
+    return float(np.dot(a, b) / (norm_a * norm_b))
+
+# Pre-normalized vectors — dot product IS cosine similarity
+# Skip epsilon check since norms are guaranteed to be 1.0
+def fast_cosine(normalized_a: np.ndarray, normalized_b: np.ndarray) -> float:
+    return float(np.dot(normalized_a, normalized_b))
+
+a = np.array([1.0, 2.0, 3.0])
+b = np.array([4.0, 5.0, 6.0])
+print(safe_cosine(a, b))  # 0.9746...
+print(safe_cosine(a, np.zeros(3)))  # 0.0 — safe fallback</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any custom similarity computation or distance metric in production must handle edge cases. This is especially critical when processing user-generated text that may produce degenerate embeddings.</div>
+<div class="callout hood"><span>Under the hood</span>Zero vectors typically result from empty input strings passing through an embedding model. Most APIs return near-zero but non-zero vectors for empty strings, but robust systems should handle the degenerate case explicitly.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Chunk Before Embed: Text Splitting</h3>
+<p><strong>What &amp; why.</strong> Embedding models have token limits (typically 512 tokens for sentence-transformers, 8191 for OpenAI). Long documents must be split into overlapping chunks before embedding. Chunk size and overlap directly affect retrieval quality: too small loses context, too large dilutes specificity, and overlap prevents information loss at boundaries.</p>
+<pre class="code"><code>def chunk_text(text: str, max_tokens: int = 500, overlap: int = 100) -&gt; list[str]:
+    words = text.split()
+    chunks = []
+    start = 0
+    while start &lt; len(words):
+        end = start + max_tokens
+        chunk = " ".join(words[start:end])
+        chunks.append(chunk)
+        start = end - overlap  # slide window back by overlap
+    return chunks
+
+doc = open("long_report.txt").read()
+chunks = chunk_text(doc, max_tokens=400, overlap=80)
+print(f"Split {len(doc.split())} words into {len(chunks)} chunks")
+
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")
+embeddings = model.encode(chunks, normalize_embeddings=True)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Chunking is the first step in any RAG pipeline. The chunk size determines the granularity of retrieval, and overlap ensures that key information at chunk boundaries is not lost during indexing.</div>
+<div class="callout hood"><span>Under the hood</span>Semantic chunking (splitting at paragraph or section boundaries) often outperforms fixed-size chunking because it preserves natural document structure. The overlap parameter creates redundant coverage at boundaries, increasing recall at the cost of index size.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Multilingual Embedding Models</h3>
+<p><strong>What &amp; why.</strong> Multilingual embedding models map text from 50-100+ languages into a shared vector space, enabling cross-lingual similarity search without translation. A query in Malay can find relevant documents in English, making them essential for multilingual knowledge bases and global applications.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+
+queries = ["how to reset password", "cara menetapkan semula kata laluan"]
+docs = [
+    "Go to Settings and click Reset Password",
+    "Navigate to Settings then select Change Password",
+    "Pergi ke Tetapan dan klik Tetapkan Semula Kata Laluan",
+]
+
+q_emb = model.encode(queries, normalize_embeddings=True)
+d_emb = model.encode(docs, normalize_embeddings=True)
+sims = q_emb @ d_emb.T
+print(sims)  # cross-lingual similarity computed in shared space</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multilingual embeddings power customer support systems serving multiple languages, cross-lingual document retrieval, and global content recommendation without per-language model deployment.</div>
+<div class="callout hood"><span>Under the hood</span>Multilingual models are trained on parallel corpora using contrastive learning, pulling translations of the same sentence together while pushing different sentences apart across all supported languages.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Domain-Specific vs Generic Embedding Models</h3>
+<p><strong>What &amp; why.</strong> General-purpose embedding models perform well across domains but may miss specialized terminology. Domain-specific models fine-tuned on medical, legal, or technical corpora capture domain semantics more accurately. The choice depends on whether your corpus contains domain-specific jargon that general models misrepresent.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer, util
+
+generic = SentenceTransformer("all-MiniLM-L6-v2")
+# Domain-specific: fine-tuned on biomedical text
+# domain = SentenceTransformer("pritamdeka/S-PubMedBert-MS-MARCO")
+
+queries = ["myocardial infarction treatment protocol", "heart attack treatment"]
+docs = [
+    "STEMI protocol: aspirin 300mg loading dose, PCI within 90 minutes",
+    "Take aspirin and go to hospital immediately",
+]
+
+generic_embs = generic.encode(queries + docs, normalize_embeddings=True)
+print("Generic cosine matrix:")
+print(generic_embs @ generic_embs.T)
+
+# Domain model would show stronger alignment between
+# "myocardial infarction" and "STEMI protocol"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Medical search, legal document retrieval, and scientific literature review all benefit from domain-specific embeddings. Generic models may conflate "virus" (biological) with "virus" (computer), while domain models resolve this ambiguity.</div>
+<div class="callout hood"><span>Under the hood</span>Domain-specific models are typically continued pre-trained on domain corpora and then fine-tuned with contrastive learning on domain-specific query-document pairs. This shifts the embedding space to better represent domain-specific similarity relationships.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Evaluation with STS Benchmark</h3>
+<p><strong>What &amp; why.</strong> The Semantic Textual Similarity Benchmark (STS Benchmark) evaluates embedding quality by measuring Pearson correlation between model-predicted cosine similarities and human-annotated similarity scores (0-5 scale). It provides a standardized metric to compare models and detect regressions after fine-tuning or model swaps.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer, evaluation
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+evaluator = evaluation.EmbeddingSimilarityEvaluator(
+    sentences1=["A man is riding a horse", "A cat sits on a mat"],
+    sentences2=["A person is on a horse", "A dog lies on a rug"],
+    scores=[4.5, 2.0],
+    main_similarity="cosine",
+)
+
+# Full STS Benchmark evaluation
+from datasets import load_dataset
+sts = load_dataset("mteb/stsbenchmark-sts", split="test")
+
+evaluator_full = evaluation.EmbeddingSimilarityEvaluator(
+    sentences1=sts["sentence1"],
+    sentences2=sts["sentence2"],
+    scores=sts["score"],
+    main_similarity="cosine",
+    show_progress_bar=True,
+)
+
+score = evaluator_full(model)
+print(f"Pearson correlation: {score:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>STS Benchmark is the standard evaluation for embedding models. Run it after any model change to quantify quality impact. Track scores over time to detect regressions from model updates or fine-tuning.</div>
+<div class="callout hood"><span>Under the hood</span>Pearson correlation measures linear relationship between predicted similarities and human scores. Models achieving above 0.85 correlation are considered strong. The STS Benchmark covers diverse domains including news, forums, and captions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>PCA and t-SNE Visualization</h3>
+<p><strong>What &amp; why.</strong> High-dimensional embeddings cannot be directly visualized. PCA projects vectors to 2D by finding axes of maximum variance, preserving global structure. t-SNE maps vectors to 2D by preserving local neighborhood relationships, revealing clusters and semantic groupings. Both are essential for debugging embedding quality and understanding model behavior.</p>
+<pre class="code"><code>import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from sentence_transformers import SentenceTransformer
+import matplotlib.pyplot as plt
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+texts = ["cat", "dog", "kitten", "puppy", "car", "truck", "python", "java"]
+embeddings = model.encode(texts)
+
+# PCA to 2D
+pca = PCA(n_components=2)
+coords_pca = pca.fit_transform(embeddings)
+
+# t-SNE to 2D
+tsne = TSNE(n_components=2, perplexity=5, random_state=42)
+coords_tsne = tsne.fit_transform(embeddings)
+
+plt.scatter(coords_pca[:, 0], coords_pca[:, 1])
+for i, t in enumerate(texts):
+    plt.annotate(t, (coords_pca[i, 0], coords_pca[i, 1]))
+plt.savefig("embeddings_pca.png")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Visualization helps debug embedding quality: clusters should group semantically similar items. It also validates fine-tuning results by comparing before/after embedding distributions.</div>
+<div class="callout hood"><span>Under the hood</span>PCA is deterministic and preserves global distances. t-SNE is stochastic and preserves local distances, creating tighter clusters. Use PCA for quick overviews and t-SNE for detailed cluster inspection. UMAP is a faster alternative to t-SNE with better global structure preservation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Hash-Keyed Embedding Caching</h3>
+<p><strong>What &amp; why.</strong> Re-encoding identical texts wastes API calls and compute. A hash-based cache maps a deterministic hash of the input text to its stored embedding, avoiding redundant encodes calls. This reduces costs and latency for repeated queries, which is common in search and chatbot systems where users ask similar questions.</p>
+<pre class="code"><code>import hashlib
+import json
+from pathlib import Path
+
+cache = Path("embed_cache.json")
+cache_data = json.loads(cache.read_text()) if cache.exists() else {}
+
+def cached_encode(model, texts: list[str]) -&gt; list:
+    results = []
+    to_encode = []
+    to_encode_idx = []
+
+    for i, text in enumerate(texts):
+        h = hashlib.sha256(text.encode()).hexdigest()
+        if h in cache_data:
+            results.append((i, cache_data[h]))
+        else:
+            to_encode.append(text)
+            to_encode_idx.append(i)
+
+    if to_encode:
+        new_embs = model.encode(to_encode).tolist()
+        for idx, emb in zip(to_encode_idx, new_embs):
+            h = hashlib.sha256(to_encode[to_encode_idx.index(idx)].encode()).hexdigest()
+            cache_data[h] = emb
+            results.append((idx, emb))
+
+    cache.write_text(json.dumps(cache_data))
+    results.sort(key=lambda x: x[0])
+    return [r[1] for r in results]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Caching is critical for chatbot and search systems where users frequently rephrase the same questions. It can reduce API costs by 30-60% in high-traffic applications.</div>
+<div class="callout hood"><span>Under the hood</span>The cache uses SHA-256 hashing for deterministic key generation. For LRU eviction, combine with functools.lru_cache or a Redis TTL-based cache to bound memory usage in production.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Near-Duplicate Detection with Deduplication</h3>
+<p><strong>What &amp; why.</strong> Near-duplicate documents share most of their content with minor variations (reformatting, minor edits). Embedding-based deduplication computes pairwise cosine similarity and flags documents above a threshold (typically 0.92-0.97) as near-duplicates, enabling content moderation, data cleaning, and training data deduplication.</p>
+<pre class="code"><code>import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+docs = [
+    "The quick brown fox jumps over the lazy dog",
+    "The quick brown fox leaps over the lazy dog",
+    "A completely different topic about machine learning",
+]
+
+emb = model.encode(docs, normalize_embeddings=True)
+sims = emb @ emb.T
+
+threshold = 0.90
+duplicates = []
+for i in range(len(docs)):
+    for j in range(i + 1, len(docs)):
+        if sims[i, j] &gt; threshold:
+            duplicates.append((i, j, float(sims[i, j])))
+
+for i, j, score in duplicates:
+    print(f"Near-duplicate ({score:.3f}): [{i}] vs [{j}]")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Deduplication is essential before fine-tuning LLMs (removing near-duplicate training examples), in search engines (avoiding multiple results for the same content), and in content platforms (flagging reposts).</div>
+<div class="callout hood"><span>Under the hood</span>For large-scale deduplication, use MinHash LSH for approximate duplicate detection, then refine with embedding cosine similarity. This two-stage approach scales to millions of documents with O(n) rather than O(n^2) complexity.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>BM25 with rank_bm25 and Hybrid Fusion</h3>
+<p><strong>What &amp; why.</strong> BM25 is a lexical retrieval algorithm based on term frequency and inverse document frequency that excels at exact keyword matching. Hybrid fusion combines BM25 lexical scores with embedding semantic scores, typically via reciprocal rank fusion (RRF), to capture both exact keyword matches and semantic similarity that pure embedding search may miss.</p>
+<pre class="code"><code>from rank_bm25 import BM25Okapi
+import numpy as np
+
+corpus = [
+    "FastAPI Python web framework async endpoints",
+    "Django Python web framework batteries included",
+    "React JavaScript frontend library component-based",
+]
+tokenized = [doc.lower().split() for doc in corpus]
+bm25 = BM25Okapi(tokenized)
+
+query = "Python API framework"
+bm25_scores = bm25.get_scores(query.lower().split())
+
+# Embedding scores (pre-computed)
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")
+query_emb = model.encode([query], normalize_embeddings=True)[0]
+corpus_emb = model.encode(corpus, normalize_embeddings=True)
+emb_scores = corpus_emb @ query_emb
+
+# Reciprocal Rank Fusion
+def rrf融合(bm25_rank, emb_rank, k: int = 60) -&gt; float:
+    return 1.0 / (k + bm25_rank) + 1.0 / (k + emb_rank)
+
+bm25_ranks = np.argsort(bm25_scores)[::-1]
+emb_ranks = np.argsort(emb_scores)[::-1]
+rrf_scores = [rrf融合(int(np.where(bm25_ranks == i)[0][0]),
+                        int(np.where(emb_ranks == i)[0][0])) for i in range(len(corpus))]
+print(np.argsort(rrf_scores)[::-1])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hybrid search is the default architecture in production search systems. Elasticsearch 8+ and OpenSearch 2.x both support hybrid BM25+embedding retrieval natively via kNN queries combined with BM25.</div>
+<div class="callout hood"><span>Under the hood</span>RRF normalizes rankings from different scoring systems into a unified score. The parameter k controls how much weight is given to higher-ranked results. This approach avoids the need to calibrate score magnitudes between BM25 and cosine similarity.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Cross-Encoder Reranking</h3>
+<p><strong>What &amp; why.</strong> Cross-encoders take both query and document as input to a single transformer, producing a relevance score with full cross-attention. This is more accurate than bi-encoder similarity but O(n) per query, making it impractical for full retrieval. The solution: use bi-encoders for candidate retrieval, then cross-encoders to rerank the top-k results.</p>
+<pre class="code"><code>from sentence_transformers import CrossEncoder
+
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+query = "What is FastAPI?"
+candidates = [
+    "FastAPI is a Python web framework for building APIs",
+    "React is a JavaScript UI library",
+    "FastAPI provides automatic OpenAPI documentation",
+]
+
+# Cross-encoder scores (query, document) pairs
+pairs = [(query, doc) for doc in candidates]
+scores = reranker.predict(pairs)
+ranked = sorted(zip(scores, candidates), reverse=True)
+
+for score, doc in ranked:
+    print(f"  {score:.3f}  {doc}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Reranking is the final stage in production search pipelines. Retrieve 100-1000 candidates with bi-encoders, then rerank the top 20-50 with a cross-encoder for maximum precision at the top of results.</div>
+<div class="callout hood"><span>Under the hood</span>Cross-encoders use full self-attention between query and document tokens, capturing fine-grained relevance signals that bi-encoders miss due to their independent encoding. The accuracy gain comes at 100-1000x computational cost per query.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Fine-tuning, quantization, advanced indexing, and long documents</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Matryoshka Representation Learning: Truncated Dimensions</h3>
+<p><strong>What &amp; why.</strong> Matryoshka embedding models are trained so that the first N dimensions form a useful embedding on their own, independent of the remaining dimensions. This enables dynamic dimension truncation at query time: use 256 dims for fast screening, then 1024 or 1536 dims for precision, without retraining or maintaining separate indexes.</p>
+<pre class="code"><code>from openai import OpenAI
+import numpy as np
+
+client = OpenAI()
+
+response = client.embeddings.create(
+    model="text-embedding-3-small",
+    input=["matryoshka representation learning"],
+    dimensions=256,  # truncated from 1536 to 256
+)
+
+vec_256 = np.array(response.data[0].embedding)
+print(f"Truncated vector: {vec_256.shape}")  # (256,)
+
+# Two-stage retrieval: fast screen with 256, precise rerank with 1536
+response_full = client.embeddings.create(
+    model="text-embedding-3-small",
+    input=["matryoshka representation learning"],
+    dimensions=1536,
+)
+vec_full = np.array(response_full.data[0].embedding)
+print(f"Full vector: {vec_full.shape}")  # (1536,)
+
+# 256-dim captures ~90% of 1536-dim quality on MTEB</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Matryoshka models enable cost-optimized tiered retrieval: cheap fast screening at low dimensions, expensive precise ranking at full dimensions. This reduces embedding API costs by 6x for the screening stage.</div>
+<div class="callout hood"><span>Under the hood</span>During training, the loss function is computed at multiple dimension truncation points simultaneously, ensuring each prefix is independently useful. OpenAI's text-embedding-3 models are trained with MRL, supporting 256, 512, 1024, and 1536 dimensions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Instruction-Tuned Embeddings</h3>
+<p><strong>What &amp; why.</strong> Instruction-tuned embedding models accept a task description prefix that steers the embedding toward the intended use case. A single model can produce different embeddings for retrieval, classification, or clustering tasks based on the instruction, enabling one model to serve multiple downstream applications with task-specific accuracy.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("Snowflake/snowflake-arctic-embed-l")
+
+query = "How do I deploy a FastAPI application?"
+
+# Task-specific instructions steer embedding quality
+retrieval_emb = model.encode(query, prompt_name="search_query")
+clustering_emb = model.encode(query, prompt_name="cluster")
+
+# Document encoding uses corresponding instruction
+doc_emb = model.encode("Deploy with uvicorn behind nginx reverse proxy",
+                        prompt_name="search_document")
+
+print(f"Retrieval query shape: {retrieval_emb.shape}")
+print(f"Document shape: {doc_emb.shape}")
+
+# Cosine similarity between query and document
+import numpy as np
+sim = np.dot(retrieval_emb / np.linalg.norm(retrieval_emb),
+             doc_emb / np.linalg.norm(doc_emb))
+print(f"Similarity: {sim:.3f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Instruction-tuned models are essential when a single embedding model serves multiple purposes (retrieval, classification, clustering, deduplication). The instruction prefix optimizes the representation for each specific task.</div>
+<div class="callout hood"><span>Under the hood</span>Instruction-tuned models are trained with task-specific prefixes prepended to inputs during contrastive fine-tuning. The model learns to attend to the instruction and modulate its representation accordingly, similar to how ChatGPT follows system prompts.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Contrastive Learning and InfoNCE Intuition</h3>
+<p><strong>What &amp; why.</strong> Contrastive learning trains embeddings by pulling positive pairs (semantically similar texts) together while pushing negative pairs (dissimilar texts) apart. InfoNCE (Noise Contrastive Estimation) is the standard loss function that maximizes the similarity of positive pairs relative to all negatives in the batch, creating a softmax over similarities.</p>
+<pre class="code"><code>import torch
+import torch.nn.functional as F
+
+def infonce_loss(anchor: torch.Tensor, positive: torch.Tensor,
+                  negatives: torch.Tensor, temperature: float = 0.05) -&gt; torch.Tensor:
+    """InfoNCE: positive should score highest among all candidates."""
+    anchor = F.normalize(anchor, dim=-1)
+    positive = F.normalize(positive, dim=-1)
+    negatives = F.normalize(negatives, dim=-1)
+
+    pos_sim = F.cosine_similarity(anchor, positive) / temperature
+    neg_sim = negatives @ anchor.T / temperature  # (batch, batch)
+    logits = torch.cat([pos_sim.unsqueeze(1), neg_sim], dim=1)
+    labels = torch.zeros(logits.size(0), dtype=torch.long)
+    return F.cross_entropy(logits, labels)
+
+# Each batch provides positives (paired) and negatives (others)
+anchors = torch.randn(32, 384)
+positives = torch.randn(32, 384)
+negatives = torch.randn(32, 384)
+loss = infonce_loss(anchors, positives, negatives)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>InfoNCE is the foundation of all embedding model training. Understanding it is essential for fine-tuning custom embedding models and interpreting training metrics.</div>
+<div class="callout hood"><span>Under the hood</span>InfoNCE is equivalent to cross-entropy classification where the positive is the correct class. Temperature controls the sharpness of the similarity distribution. Lower temperatures create harder gradients by focusing on hard negatives.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Hard Negative Mining</h3>
+<p><strong>What &amp; why.</strong> Hard negatives are documents that are semantically dissimilar to the query but have high embedding similarity, causing false positives in retrieval. Mining hard negatives during training (using BM25 retrieval, in-batch negatives, or mined from a separate retrieval pass) forces the model to learn finer-grained distinctions, significantly improving retrieval precision.</p>
+<pre class="code"><code>from sentence_transformers import (
+    SentenceTransformer, InputExample, losses, miners
+)
+from torch.utils.data import DataLoader
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+train_examples = [
+    InputExample(texts=["How to reset password", "Click Settings then Reset Password"]),
+    InputExample(texts=["How to reset password", "Reset button on router hardware"]),
+    InputExample(texts=["What is Python", "Python is a programming language"]),
+]
+
+# Semi-hard negative miner: finds hardest in-batch negatives
+miner = miners.MultipleNegativesMiner(
+    similarity_fct=losses.SentenceTransformerEvaluationFn  # placeholder
+)
+loss = losses.ContrastiveLoss(model)
+
+loader = DataLoader(train_examples, batch_size=16)
+
+# During training, mining selects negatives that the model
+# currently ranks closest to the anchor — these are hardest</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hard negative mining is the single most impactful technique for improving embedding quality during fine-tuning. Without it, models learn easy distinctions and fail on ambiguous queries.</div>
+<div class="callout hood"><span>Under the hood</span>In-batch negatives (using other positives in the batch as negatives) provide free hard negatives. Mining with a separate retriever (BM25 or an existing embedding model) provides even harder negatives from the full corpus.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Fine-Tune with MultipleNegativesRankingLoss</h3>
+<p><strong>What &amp; why.</strong> MultipleNegativesRankingLoss (MNRL) is the state-of-the-art loss for fine-tuning embedding models on retrieval tasks. It uses in-batch negatives (other positive pairs in the batch serve as negatives), requiring no explicit negative labels. Combined with hard negative mining, it produces domain-adapted embeddings that significantly outperform general-purpose models.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer, InputExample
+from sentence_transformers.losses import MultipleNegativesRankingLoss
+from torch.utils.data import DataLoader
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+train_examples = [
+    InputExample(texts=["query about API deployment", "deploy FastAPI with uvicorn"]),
+    InputExample(texts=["SQL join performance", "optimize query with proper indexes"]),
+    InputExample(texts=["React hooks useEffect", "component lifecycle with useEffect"]),
+]
+
+train_dataloader = DataLoader(train_examples, batch_size=16, shuffle=True)
+loss = MultipleNegativesRankingLoss(model)
+
+model.fit(
+    train_objectives=[(train_dataloader, loss)],
+    epochs=3,
+    warmup_steps=100,
+    output_path="domain-embeddings",
+    show_progress_bar=True,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MNRL fine-tuning is used to adapt general-purpose embeddings to domain-specific retrieval: legal document search, medical literature retrieval, code search, and customer support knowledge bases.</div>
+<div class="callout hood"><span>Under the hood</span>MNRL treats every other positive in the batch as a negative, creating batch_size - 1 negatives per example. This is equivalent to softmax cross-entropy over similarities within the batch, making it computationally efficient and highly effective.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Quantization: int8, Binary, and Recall Impact</h3>
+<p><strong>What &amp; why.</strong> Quantization reduces embedding precision from float32 (4 bytes/dim) to int8 (1 byte/dim) or binary (1 bit/dim), shrinking storage by 4x or 32x respectively. This enables fitting larger indexes in RAM and faster distance computations, with measurable but often acceptable recall degradation depending on the application's tolerance.</p>
+<pre class="code"><code>import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+texts = [f"document number {i} about topic {i % 10}" for i in range(10000)]
+emb = model.encode(texts, normalize_embeddings=True)
+
+# float32 baseline
+emb_f32 = emb.astype(np.float32)
+
+# int8 quantization: 4x compression
+emb_int8 = (emb * 127).astype(np.int8)
+
+# Binary quantization: 32x compression
+emb_binary = (emb &gt; 0).astype(np.int8)
+
+print(f"float32: {emb_f32.nbytes / 1e6:.1f} MB")
+print(f"int8:    {emb_int8.nbytes / 1e6:.1f} MB")
+print(f"binary:  {emb_binary.nbytes / 1e6:.1f} MB")
+
+# Approximate recall: float32 &gt; int8 &gt; binary
+# Typically: float32=1.0, int8=0.98+, binary=0.90+</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Quantization is essential for large-scale vector stores (100M+ vectors). FAISS supports IVF-PQ (product quantization) and binary indexes. Pinecone and Weaviate offer built-in quantization with automatic recall tuning.</div>
+<div class="callout hood"><span>Under the hood</span>Product quantization (PQ) splits vectors into subvectors and quantizes each independently, achieving compression ratios of 8-64x with graceful recall degradation. Binary quantization uses Hamming distance for extremely fast approximate search.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>HNSW and IVF Index Preview</h3>
+<p><strong>What &amp; why.</strong> HNSW (Hierarchical Navigable Small World) builds a multi-layer graph where each node connects to nearby neighbors, enabling logarithmic search time. IVF (Inverted File Index) partitions vectors into clusters and searches only nearby clusters. Both provide sub-millisecond approximate nearest neighbor search on millions of vectors.</p>
+<pre class="code"><code>import faiss
+import numpy as np
+
+dimension = 384
+n_vectors = 100000
+np.random.seed(42)
+vectors = np.random.randn(n_vectors, dimension).astype("float32")
+
+# HNSW index
+index_hnsw = faiss.IndexHNSWFlat(dimension, 32)  # 32 neighbors per node
+index_hnsw.hnsw.efSearch = 128  # search depth
+index_hnsw.add(vectors)
+
+# IVF index with product quantization
+nlist = 256  # number of clusters
+quantizer = faiss.IndexFlatIP(dimension)
+index_ivf = faiss.IndexIVFPQ(quantizer, dimension, nlist, 16, 8)
+index_ivf.train(vectors)
+index_ivf.add(vectors)
+index_ivf.nprobe = 16  # clusters to search
+
+# Query
+query = np.random.randn(1, dimension).astype("float32")
+distances_h, indices_h = index_hnsw.search(query, k=10)
+distances_v, indices_v = index_ivf.search(query, k=10)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>HNSW is the default for most vector databases (Qdrant, Milvus, Pinecone) due to its excellent recall-speed trade-off. IVF-PQ is preferred when memory is constrained and 90%+ recall is acceptable.</div>
+<div class="callout hood"><span>Under the hood</span>HNSW builds a small-world graph at multiple layers, starting from the top (sparse) layer and descending to the bottom (dense) layer during search. The graph diameter is O(log n), giving logarithmic search complexity with high recall.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>ColBERT and Late Interaction</h3>
+<p><strong>What &amp; why.</strong> ColBERT (Contextualized Late Interaction over BERT) encodes query and document independently into per-token vectors, then computes relevance via MaxSim: for each query token, find the maximum similarity to any document token and sum. This captures fine-grained token-level relevance without the quadratic cost of full cross-attention.</p>
+<pre class="code"><code># ColBERT late interaction concept
+import torch
+import torch.nn.functional as F
+
+def maxsim(query_tokens: torch.Tensor, doc_tokens: torch.Tensor) -&gt; torch.Tensor:
+    """
+    query_tokens: (q_len, dim)
+    doc_tokens: (d_len, dim)
+    Returns: scalar similarity score
+    """
+    query_norm = F.normalize(query_tokens, dim=-1)
+    doc_norm = F.normalize(doc_tokens, dim=-1)
+    sim_matrix = query_norm @ doc_norm.T  # (q_len, d_len)
+    max_per_query = sim_matrix.max(dim=1).values  # (q_len,)
+    return max_per_query.sum()  # aggregate across query tokens
+
+# ColBERT stores per-token vectors (larger index)
+# but achieves cross-encoder-like quality at bi-encoder speed
+# Typical: query 32 tokens x 128 dim, document 256 tokens x 128 dim</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ColBERT is used when bi-encoder quality is insufficient but cross-encoder cost is prohibitive. It excels in ad-hoc retrieval, passage ranking, and scenarios requiring token-level relevance explanation.</div>
+<div class="callout hood"><span>Under the hood</span>Late interaction avoids the quadratic attention cost by encoding sequences independently, then using MaxSim as a lightweight cross-attention approximation. This achieves 95%+ of cross-encoder quality at bi-encoder indexing speed.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Long-Text Sliding Window Aggregation</h3>
+<p><strong>What &amp; why.</strong> When documents exceed the embedding model's token limit, a sliding window approach chunks the text, embeds each chunk, and aggregates the chunk embeddings into a single document vector. Weighted averaging (giving more weight to central chunks) or attention-based aggregation typically outperforms simple mean pooling.</p>
+<pre class="code"><code>import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+def sliding_window_embed(text: str, window: int = 512, stride: int = 256) -&gt; np.ndarray:
+    words = text.split()
+    if len(words) &lt;= window:
+        return model.encode([text], normalize_embeddings=True)[0]
+
+    chunk_embs = []
+    for start in range(0, len(words), stride):
+        chunk = " ".join(words[start:start + window])
+        chunk_embs.append(model.encode([chunk], normalize_embeddings=True)[0])
+
+    # Weighted average: center chunks get higher weight
+    n_chunks = len(chunk_embs)
+    weights = np.exp(-0.5 * ((np.arange(n_chunks) - n_chunks / 2) / (n_chunks / 4)) ** 2)
+    weights /= weights.sum()
+    doc_emb = np.average(chunk_embs, axis=0, weights=weights)
+    return doc_emb / np.linalg.norm(doc_emb)
+
+long_doc = open("research_paper.txt").read()
+doc_vector = sliding_window_embed(long_doc)
+print(f"Document embedding: {doc_vector.shape}")  # (384,)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Long-document embedding is critical for indexing research papers, legal contracts, technical manuals, and books. Simple truncation loses information; sliding window aggregation preserves it.</div>
+<div class="callout hood"><span>Under the hood</span>The Gaussian weighting function assumes central content is more important (inverted pyramid writing style). Alternative approaches include attention-based aggregation where a lightweight model learns chunk importance.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Reading the MTEB Leaderboard</h3>
+<p><strong>What &amp; why.</strong> The Massive Text Embedding Benchmark (MTEB) is the standard leaderboard for comparing embedding models across 8 tasks and 58+ datasets. Understanding MTEB scores helps select the right model: retrieval scores matter for search, classification scores for categorization, and clustering scores for unsupervised grouping.</p>
+<pre class="code"><code># MTEB evaluation categories and what they measure
+mteb_tasks = {
+    "Retrieval":    "Bi-encoder ranking quality (NDCG@10)",
+    "Classification": "Embedding quality for linear probes",
+    "Clustering":   "K-means purity on embedded texts",
+    "STS":          "Semantic textual similarity correlation",
+    "PairClassification": "Paraphrase detection accuracy",
+    "BitextMining": "Cross-lingual translation matching",
+    "Reranking":    "Cross-encoder-like document reordering",
+    "Summarization": "Summary-to-document similarity",
+}
+
+# Model selection strategy:
+# - Retrieval-heavy RAG: prioritize Retrieval score
+# - Multilingual app: check BitextMining across language pairs
+# - General purpose: look at overall mean score
+# - Latency-critical: check model size and speed benchmarks</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MTEB is the primary reference when selecting embedding models. Check both task-specific scores and overall mean. A model with 65.0 retrieval but 58.0 mean may outperform a 62.0 mean model for search applications.</div>
+<div class="callout hood"><span>Under the hood</span>MTEB evaluates models using standardized train/test splits and metrics. Scores are not directly comparable across tasks (different metric scales), but relative rankings within a task are meaningful. New models are submitted and evaluated regularly.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Hash-Keyed Caching with TTL</h3>
+<p><strong>What &amp; why.</strong> Production embedding caches need eviction policies to bound memory. A hash-based cache with TTL (time-to-live) entries ensures stale embeddings are re-computed periodically, while LRU eviction bounds total cache size. This balances cost savings from caching against freshness requirements.</p>
+<pre class="code"><code>import hashlib
+import time
+from collections import OrderedDict
+
+class TTLCache:
+    def __init__(self, max_size: int = 10000, ttl: int = 3600):
+        self.max_size = max_size
+        self.ttl = ttl
+        self.cache: OrderedDict[str, tuple[float, any]] = OrderedDict()
+
+    def get(self, text: str):
+        key = hashlib.sha256(text.encode()).hexdigest()
+        if key in self.cache:
+            ts, value = self.cache[key]
+            if time.time() - ts &lt; self.ttl:
+                self.cache.move_to_end(key)
+                return value
+            del self.cache[key]
+        return None
+
+    def put(self, text: str, embedding):
+        key = hashlib.sha256(text.encode()).hexdigest()
+        if key in self.cache:
+            del self.cache[key]
+        elif len(self.cache) &gt;= self.max_size:
+            self.cache.popitem(last=False)  # evict oldest
+        self.cache[key] = (time.time(), embedding)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>TTL caches are essential for embedding services where content changes over time. Customer support queries may be cached indefinitely, but news article embeddings should expire as stories develop.</div>
+<div class="callout hood"><span>Under the hood</span>OrderedDict provides O(1) get/put with automatic LRU eviction. The TTL check on access ensures stale entries are lazily evicted without background threads. For Redis-backed caches, use EXPIRE for TTL management.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Near-Duplicate Deduplication at Scale</h3>
+<p><strong>What &amp; why.</strong> Pairwise cosine similarity is O(n^2) and infeasible for large corpora. MinHash LSH (Locality-Sensitive Hashing) provides approximate near-duplicate detection in O(n) time by hashing documents into buckets where similar documents land in the same bucket with high probability, followed by embedding-based verification.</p>
+<pre class="code"><code>from datasketch import MinHash, MinHashLSH
+
+def minhash_sign(text: str, num_perm: int = 128) -&gt; MinHash:
+    m = MinHash(num_perm=num_perm)
+    for word in text.split():
+        m.update(word.encode("utf8"))
+    return m
+
+docs = [
+    "FastAPI is a modern Python web framework",
+    "FastAPI is a modern Python web framework for building APIs",
+    "Completely different content about machine learning",
+]
+
+lsh = MinHashLSH(threshold=0.8, num_perm=128)
+signatures = [minhash_sign(doc) for doc in docs]
+
+for i, sig in enumerate(signatures):
+    lsh.insert(f"doc_{i}", sig)
+
+# Query with first doc to find near-duplicates
+results = lsh.query(signatures[0])
+print(f"Near-duplicates of doc_0: {results}")
+
+# Combine with embedding cosine for verification</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MinHash LSH is used by Common Crawl, BigScience, and major training data pipelines to remove near-duplicates from web-scale datasets before LLM training.</div>
+<div class="callout hood"><span>Under the hood</span>MinHash creates compact document signatures by computing minimum hash values for each permutation. LSH hashes these signatures into buckets where similar documents collide. The threshold parameter controls the Jaccard similarity cutoff.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>BM25 + Embedding Hybrid Search Architecture</h3>
+<p><strong>What &amp; why.</strong> Production search systems combine BM25 lexical matching with embedding semantic matching using Reciprocal Rank Fusion. BM25 excels at exact keyword matching (finding "FastAPI" literally), while embeddings capture semantic similarity (understanding that "async Python web framework" relates to FastAPI). RRF unifies both ranking signals.</p>
+<pre class="code"><code>import numpy as np
+from rank_bm25 import BM25Okapi
+from sentence_transformers import SentenceTransformer
+from dataclasses import dataclass
+
+@dataclass
+class SearchResult:
+    doc_id: int
+    bm25_rank: int
+    emb_rank: int
+    rrf_score: float
+
+def hybrid_search(query: str, corpus: list[str], model, bm25_index, k: int = 10):
+    # BM25 lexical scores
+    bm25_scores = bm25_index.get_scores(query.lower().split())
+    bm25_order = np.argsort(bm25_scores)[::-1]
+
+    # Embedding semantic scores
+    q_emb = model.encode([query], normalize_embeddings=True)[0]
+    emb_scores = corpus_emb @ q_emb
+    emb_order = np.argsort(emb_scores)[::-1]
+
+    # Reciprocal Rank Fusion
+    rrf_k = 60
+    scores = {}
+    for rank, idx in enumerate(bm25_order):
+        scores[idx] = scores.get(idx, 0) + 1.0 / (rrf_k + rank + 1)
+    for rank, idx in enumerate(emb_order):
+        scores[idx] = scores.get(idx, 0) + 1.0 / (rrf_k + rank + 1)
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:k]
+    return ranked</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hybrid search is the production standard. Elasticsearch 8+ provides combined kNN + BM25 queries. OpenSearch 2.x supports hybrid queries natively. Most RAG systems should use hybrid retrieval.</div>
+<div class="callout hood"><span>Under the hood</span>RRF is parameter-free and requires no score calibration between BM25 (TF-IDF based) and cosine similarity (embedding based). The k parameter (typically 60) controls ranking smoothness. This avoids the score normalization problem of linear combination approaches.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Cross-Encoder Reranking Pipeline</h3>
+<p><strong>What &amp; why.</strong> A reranking pipeline uses a fast bi-encoder to retrieve top-50-100 candidates, then a more accurate cross-encoder to score and re-rank them. The cross-encoder sees the full query-document pair with cross-attention, capturing relevance signals invisible to bi-encoders, but is too slow for full corpus search.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer, CrossEncoder
+import numpy as np
+
+bi_encoder = SentenceTransformer("all-MiniLM-L6-v2")
+cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+def search_pipeline(query: str, corpus: list[str], top_k: int = 5):
+    # Stage 1: fast bi-encoder retrieval
+    q_emb = bi_encoder.encode([query], normalize_embeddings=True)[0]
+    d_emb = bi_encoder.encode(corpus, normalize_embeddings=True)
+    bi_scores = d_emb @ q_emb
+    candidates_idx = np.argsort(bi_scores)[::-1][:50]
+
+    # Stage 2: cross-encoder reranking
+    candidates = [corpus[i] for i in candidates_idx]
+    pairs = [(query, doc) for doc in candidates]
+    ce_scores = cross_encoder.predict(pairs)
+
+    # Merge and rank
+    reranked = sorted(zip(candidates_idx, ce_scores), key=lambda x: x[1], reverse=True)
+    return [(corpus[i], float(score)) for i, score in reranked[:top_k]]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Reranking adds 5-15ms latency but significantly improves top-5 precision. It is standard in production search engines, RAG pipelines, and recommendation systems where precision at the top of results matters most.</div>
+<div class="callout hood"><span>Under the hood</span>Cross-encoders process query and document tokens together through a transformer, enabling full cross-attention. This captures nuanced relevance signals (query term overlap, semantic alignment) that bi-encoders miss because they encode independently.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Theory, production metrics, cost, privacy, and architecture</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>Manifold Hypothesis and Curse of Dimensionality</h3>
+<p><strong>What &amp; why.</strong> The manifold hypothesis states that high-dimensional data (like text embeddings) lies on a lower-dimensional manifold within the embedding space. The curse of dimensionality describes how, as dimensions increase, all points become approximately equidistant, making distance-based retrieval less discriminative. This explains why dimension reduction can sometimes improve search quality.</p>
+<pre class="code"><code>import numpy as np
+
+# Demonstrate curse of dimensionality
+np.random.seed(42)
+for dim in [10, 100, 1000, 10000]:
+    points = np.random.randn(1000, dim)
+    dists = np.linalg.norm(points[:, None] - points[None, :], axis=-1)
+    np.fill_diagonal(dists, np.inf)
+    min_dists = dists.min(axis=1)
+    max_dists = dists.max(axis=1)
+    ratio = max_dists.mean() / min_dists.mean()
+    print(f"dim={dim:>5}: mean min_dist={min_dists.mean():.2f}, "
+          f"max/min ratio={ratio:.2f}")
+
+# In high dims, the gap between nearest and farthest shrinks
+# making brute-force search nearly as effective as ANN</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The manifold hypothesis justifies dimension reduction (PCA, UMAP) before indexing. The curse of dimensionality explains why HNSW and IVF become necessary as corpus size grows, and why quantization impacts recall differently across dimensions.</div>
+<div class="callout hood"><span>Under the hood</span>Real-world data occupies a lower-dimensional manifold because semantic relationships are structured, not random. Modern embedding models learn this manifold structure through contrastive training, mapping semantically meaningful text to a smoothly varying subspace.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>Anisotropy, Whitening, and Isotropy Fixes</h3>
+<p><strong>What &amp; why.</strong> Transformer-based embeddings exhibit anisotropy: they occupy a narrow cone in the embedding space rather than being uniformly distributed. This compresses similarity scores into a small range, reducing discriminative power. Whitening (applying PCA or ZCA transformation to normalize the distribution) spreads embeddings more evenly, improving retrieval quality.</p>
+<pre class="code"><code>import numpy as np
+from sklearn.decomposition import PCA
+
+def isotropy_fix(embeddings: np.ndarray) -&gt; np.ndarray:
+    """Apply post-hoc whitening to improve embedding isotropy."""
+    mean = embeddings.mean(axis=0)
+    centered = embeddings - mean
+
+    pca = PCA(n_components=embeddings.shape[1])
+    pca.fit(centered)
+
+    # Whitening: divide by sqrt of eigenvalues
+    whiten = centered @ pca.components_.T
+    whiten /= np.sqrt(pca.explained_variance_ + 1e-8)
+
+    # Rotate back to original space
+    result = whiten @ pca.components_
+    return result / np.linalg.norm(result, axis=1, keepdims=True)
+
+# Before whitening: embeddings clustered in narrow cone
+# After whitening: embeddings spread more uniformly
+# This improves cosine similarity discriminability</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Whitening is a cheap post-hoc improvement when using pre-trained embeddings without fine-tuning. It is especially effective for older models (BERT, RoBERTa) that exhibit strong anisotropy.</div>
+<div class="callout hood"><span>Under the hood</span>Anisotropy arises because transformer models tend to map all inputs toward a shared mean direction, compressing the effective dimensionality of the embedding space. Modern models (E5, BGE, text-embedding-3) reduce anisotropy through training techniques, but it remains relevant for older architectures.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">41</span>Distilled Small Embedding Models</h3>
+<p><strong>What &amp; why.</strong> Knowledge distillation trains smaller student models to replicate larger teacher model embeddings. Distilled models achieve 95-99% of teacher quality at 2-5x less compute, enabling deployment on CPUs, edge devices, and cost-sensitive applications where GPU inference is prohibitive.</p>
+<pre class="code"><code>from sentence_transformers import SentenceTransformer
+
+# Distilled model: 33M params vs 110M for BERT-base
+small_model = SentenceTransformer("all-MiniLM-L6-v2")
+# 6-layer transformer, 384-dim, ~5x faster than BERT-base
+
+# Even smaller distilled model
+tiny_model = SentenceTransformer("all-MiniLM-L12-v2")
+# 12-layer but optimized for speed
+
+# Compare inference speed
+import time
+texts = [f"test sentence number {i}" for i in range(1000)]
+
+start = time.time()
+small_model.encode(texts, batch_size=64, show_progress_bar=False)
+small_time = time.time() - start
+
+print(f"MiniLM-L6: {small_time:.2f}s for 1000 sentences")
+# Typically 10-15K sentences/second on CPU</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Distilled models are the default choice for production embedding services. all-MiniLM-L6-v2 offers the best speed-quality trade-off for English. For multilingual, paraphrase-multilingual-MiniLM-L12-v2 is the standard.</div>
+<div class="callout hood"><span>Under the hood</span>Distillation uses KL divergence loss to match teacher embedding distributions. The teacher's soft targets contain more information than hard labels, enabling the student to learn fine-grained similarity distinctions that would be lost with standard contrastive training alone.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">42</span>Production Metrics: Recall@k, MRR, NDCG</h3>
+<p><strong>What &amp; why.</strong> Recall@k measures what fraction of relevant items appear in the top-k results. MRR (Mean Reciprocal Rank) measures where the first relevant result appears on average. NDCG@k (Normalized Discounted Cumulative Gain) weights ranking position logarithmically, rewarding relevant items at the top. Together they capture different aspects of search quality.</p>
+<pre class="code"><code>import numpy as np
+
+def recall_at_k(retrieved: list[int], relevant: set[int], k: int) -&gt; float:
+    return len(set(retrieved[:k]) &amp; relevant) / len(relevant)
+
+def mrr(retrieved: list[int], relevant: set[int]) -&gt; float:
+    for i, doc in enumerate(retrieved):
+        if doc in relevant:
+            return 1.0 / (i + 1)
+    return 0.0
+
+def ndcg_at_k(retrieved: list[int], relevant: set[int], k: int) -&gt; float:
+    dcg = sum(1.0 / np.log2(i + 2) for i, d in enumerate(retrieved[:k]) if d in relevant)
+    ideal = sum(1.0 / np.log2(i + 2) for i in range(min(len(relevant), k)))
+    return dcg / ideal if ideal &gt; 0 else 0.0
+
+# Example: search returns [3, 1, 4, 2], relevant = {1, 2}
+retrieved = [3, 1, 4, 2]
+relevant = {1, 2}
+print(f"Recall@3: {recall_at_k(retrieved, relevant, 3):.2f}")  # 0.50
+print(f"MRR:      {mrr(retrieved, relevant):.2f}")            # 0.50
+print(f"NDCG@4:   {ndcg_at_k(retrieved, relevant, 4):.2f}")   # 0.69</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>These metrics are the standard evaluation toolkit for search systems. Track Recall@10 for retrieval completeness, NDCG@5 for top-of-list precision, and MRR for single-answer queries.</div>
+<div class="callout hood"><span>Under the hood</span>NDCG is preferred over precision/recall for ranked retrieval because it rewards placing relevant items higher. The logarithmic discount means moving a relevant item from position 10 to 1 has much more impact than from position 100 to 91.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">43</span>Cost Modeling at Scale</h3>
+<p><strong>What &amp; why.</strong> Embedding costs include API pricing per token, compute for self-hosted models, storage for vectors, and query-time retrieval. At 1M documents with 1536-dim embeddings, OpenAI costs approximately $0.20 for initial embedding, while self-hosted inference costs GPU time but eliminates per-query charges. Modeling these costs is essential for budgeting.</p>
+<pre class="code"><code># Cost modeling for embedding systems
+config = {
+    "n_documents": 1_000_000,
+    "avg_tokens_per_doc": 200,
+    "embedding_dim": 1536,
+    "queries_per_day": 10_000,
+    "avg_query_tokens": 20,
+}
+
+# OpenAI text-embedding-3-small pricing
+openai_cost_per_token = 0.00000002  # $0.02 per 1M tokens
+total_tokens = config["n_documents"] * config["avg_tokens_per_doc"]
+indexing_cost = total_tokens * openai_cost_per_token
+daily_query_cost = config["queries_per_day"] * config["avg_query_tokens"] * openai_cost_per_token
+
+print(f"Indexing: {indexing_cost:.2f}")
+print(f"Daily queries: {daily_query_cost:.4f}")
+print(f"Annual query cost: {daily_query_cost * 365:.2f}")
+
+# Self-hosted: GPU cost vs storage cost
+# A100 80GB: ~$2/hr, encodes ~50K docs/hr
+gpu_hours = config["n_documents"] / 50000
+gpu_cost = gpu_hours * 2.0
+print(f"Self-hosted indexing: {gpu_cost:.2f} (one-time)")
+
+# Storage: 1M x 1536 x 4 bytes = ~6 GB float32
+# FAISS index: ~12 GB with HNSW overhead</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost modeling is required for production system design. API pricing works for small-scale; self-hosted models become cost-effective above ~10M documents or high query volumes.</div>
+<div class="callout hood"><span>Under the hood</span>OpenAI text-embedding-3-small charges $0.02 per 1M tokens, making it one of the cheapest APIs. Self-hosted models have fixed GPU costs but zero marginal query cost, creating a crossover point where self-hosting wins.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">44</span>Privacy-Preserving Embeddings</h3>
+<p><strong>What &amp; why.</strong> Sensitive text (medical records, financial data, PII) cannot be sent to external APIs without privacy guarantees. Self-hosted models on private infrastructure, federated embedding computation, and homomorphic encryption for similarity search provide privacy-preserving alternatives. Differential privacy can be added to embedding training to prevent membership inference.</p>
+<pre class="code"><code># Privacy-preserving embedding: local model deployment
+from sentence_transformers import SentenceTransformer
+import os
+
+os.environ["HF_HUB_OFFLINE"] = "1"  # No network calls
+
+# Model cached locally after initial download
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+# Sensitive text never leaves the machine
+sensitive_docs = [
+    "Patient NRIC S1234567D diagnosed with condition",
+    "Account ending 4521 has balance SGD 50,000",
+]
+
+embeddings = model.encode(sensitive_docs)
+print(f"Embeddings computed locally: {embeddings.shape}")
+print("No data sent to external APIs")
+
+# For federated scenarios: each client computes embeddings locally
+# and only shares the vector (not the text) with the central server</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Healthcare, finance, and government sectors require self-hosted embedding models to comply with PDPA, HIPAA, and data residency regulations. OpenAI and similar APIs should never process sensitive PII.</div>
+<div class="callout hood"><span>Under the hood</span>Embeddings themselves can leak information about the original text through reconstruction attacks. Privacy-preserving techniques add calibrated noise to embeddings, reducing reconstruction accuracy while maintaining useful similarity relationships.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">45</span>Embedding Ensembles</h3>
+<p><strong>What &amp; why.</strong> Combining embeddings from multiple models (ensemble) often outperforms any single model by capturing complementary semantic signals. Concatenation, averaging, or learned weighting of embeddings from different models can improve recall by 2-5% on benchmarks, particularly when models have different architectural biases.</p>
+<pre class="code"><code>import numpy as np
+from sentence_transformers import SentenceTransformer
+
+model_a = SentenceTransformer("all-MiniLM-L6-v2")
+model_b = SentenceTransformer("all-mpnet-base-v2")
+
+texts = ["Python web framework", "REST API documentation"]
+
+emb_a = model_a.encode(texts, normalize_embeddings=True)
+emb_b = model_b.encode(texts, normalize_embeddings=True)
+
+# Concatenation ensemble: more dimensions, richer representation
+emb_concat = np.concatenate([emb_a, emb_b], axis=1)  # (2, 1152)
+
+# Averaging ensemble: same dimensions, combined signal
+emb_avg = (emb_a + emb_b) / 2  # (2, 384)
+
+# Weighted ensemble: domain-tuned weights
+w_a, w_b = 0.6, 0.4
+emb_weighted = w_a * emb_a + w_b * emb_b  # (2, 384)
+
+# Normalize final ensemble
+emb_weighted = emb_weighted / np.linalg.norm(emb_weighted, axis=1, keepdims=True)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Ensembles are used in competition-winning search systems and production pipelines where marginal recall improvements justify doubled compute costs. Concatenation ensembles are most common because they preserve model-specific information.</div>
+<div class="callout hood"><span>Under the hood</span>Ensemble effectiveness comes from complementary coverage: one model may excel at short queries while another handles long documents. The concatenation approach doubles index storage but provides the richest signal for reranking.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">46</span>Real-Time Index Update Architecture</h3>
+<p><strong>What &amp; why.</strong> Production embedding systems require real-time document ingestion and index updates without full rebuilds. The architecture separates the embedding compute layer (async workers) from the index layer (vector DB), connected by a message queue that buffers ingestion requests and decouples embedding latency from index availability.</p>
+<pre class="code"><code># Real-time embedding ingestion architecture
+import asyncio
+from dataclasses import dataclass
+from collections import deque
+
+@dataclass
+class IngestRequest:
+    doc_id: str
+    text: str
+    metadata: dict
+
+class EmbeddingPipeline:
+    def __init__(self, model, index_store, batch_size: int = 32):
+        self.model = model
+        self.index_store = index_store
+        self.buffer: deque = deque()
+        self.batch_size = batch_size
+
+    async def ingest(self, request: IngestRequest):
+        self.buffer.append(request)
+        if len(self.buffer) &gt;= self.batch_size:
+            await self._flush()
+
+    async def _flush(self):
+        batch = [self.buffer.popleft() for _ in range(min(self.batch_size, len(self.buffer)))]
+        texts = [r.text for r in batch]
+        embeddings = self.model.encode(texts, normalize_embeddings=True)
+        for req, emb in zip(batch, embeddings):
+            await self.index_store.upsert(req.doc_id, emb, req.metadata)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Real-time ingestion is critical for news feeds, customer support knowledge bases, and e-commerce catalogs where documents are added and updated continuously.</div>
+<div class="callout hood"><span>Under the hood</strong>The message queue (Kafka, Redis Streams) decouples embedding compute from index updates, providing backpressure during traffic spikes. Vector databases like Qdrant and Weaviate support real-time upserts with eventual consistency guarantees.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Personal Notes Semantic Search CLI</h3>
+<p>Build a command-line tool that indexes personal notes (markdown files) and returns semantically similar notes for any query, with incremental indexing and a persistent vector store.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Walk a directory tree and load all .md files, splitting by heading into note chunks</li><li>Encode all notes using sentence-transformers all-MiniLM-L6-v2 with normalization</li><li>Store embeddings and metadata in a local SQLite database with numpy .npy backup</li><li>Implement a search command that accepts a query string and returns top-5 similar notes with cosine scores</li><li>Add an index command that detects new/modified files via mtime and incrementally updates the vector store</li><li>Implement an interactive REPL mode for continuous search sessions</li><li>Add colorized terminal output with note excerpts highlighted at matching terms</li><li>Cache embeddings in a hash-keyed JSON file to avoid re-encoding unchanged notes</li></ol>
+<pre class="code"><code>import click, sqlite3, numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+@click.group()
+def cli():
+    pass
+
+@cli.command()
+@click.argument("directory")
+def index(directory):
+    conn = sqlite3.connect("notes.db")
+    conn.execute("CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, path TEXT, text TEXT, embedding BLOB)")
+    for path in Path(directory).rglob("*.md"):
+        text = path.read_text()
+        emb = model.encode([text], normalize_embeddings=True)[0].tobytes()
+        conn.execute("INSERT INTO notes (path, text, embedding) VALUES (?, ?, ?)", (str(path), text, emb))
+    conn.commit()
+
+@cli.command()
+@click.argument("query")
+def search(query):
+    conn = sqlite3.connect("notes.db")
+    rows = conn.execute("SELECT path, text, embedding FROM notes").fetchall()
+    q_emb = model.encode([query], normalize_embeddings=True)[0]
+    results = []
+    for path, text, emb_blob in rows:
+        emb = np.frombuffer(emb_blob, dtype=np.float32)
+        score = float(np.dot(q_emb, emb))
+        results.append((score, path, text[:120]))
+    for score, path, excerpt in sorted(results, reverse=True)[:5]:
+        click.echo(f"[{score:.3f}] {path}\n  {excerpt}\n")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Semantic search with sentence-transformers encode API</li><li>SQLite-backed vector storage with numpy serialization</li><li>Incremental indexing with file change detection</li><li>Click CLI framework for structured commands</li><li>Hash-based embedding caching for efficiency</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>FAQ Retriever with Cross-Encoder Reranker</h3>
+<p>Build a two-stage FAQ retrieval system: fast bi-encoder candidate retrieval followed by cross-encoder reranking, serving answers through a REST API with response time tracking.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Load FAQ data from JSON with question-answer pairs, encoding questions with all-MiniLM-L6-v2</li><li>Pre-build a FAISS inner-product index for fast candidate retrieval of top-50 results</li><li>Implement cross-encoder reranking using cross-encoder/ms-marco-MiniLM-L-6-v2 on top candidates</li><li>Build a FastAPI endpoint accepting a query string and returning top-5 reranked results with scores</li><li>Add response time logging: bi-encoder time, cross-encoder time, total pipeline time</li><li>Implement batch query endpoint for processing multiple queries efficiently</li><li>Add a hybrid BM25 fallback using rank_bm25 for keyword-heavy queries</li><li>Create a health check endpoint verifying model load status and index integrity</li></ol>
+<pre class="code"><code>from fastapi import FastAPI
+from sentence_transformers import SentenceTransformer, CrossEncoder
+import faiss, numpy as np, time
+
+app = FastAPI()
+bi_encoder = SentenceTransformer("all-MiniLM-L6-v2")
+cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+index = faiss.read_index("faq_index.faiss")
+questions = load_questions("faq.json")
+
+@app.get("/search")
+async def search(q: str, k: int = 5):
+    t0 = time.time()
+    q_emb = bi_encoder.encode([q], normalize_embeddings=True)
+    _, candidates = index.search(q_emb.astype("float32"), 50)
+    t1 = time.time()
+    candidate_qs = [questions[i] for i in candidates[0]]
+    scores = cross_encoder.predict([(q, cq) for cq in candidate_qs])
+    t2 = time.time()
+    ranked = sorted(zip(candidates[0], scores), key=lambda x: x[1], reverse=True)[:k]
+    return {
+        "results": [{"question": questions[i], "score": float(s)} for i, s in ranked],
+        "bi_encoder_ms": (t1 - t0) * 1000,
+        "reranker_ms": (t2 - t1) * 1000,
+    }</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Two-stage retrieval architecture with bi-encoder + cross-encoder</li><li>FAISS inner-product index for fast candidate retrieval</li><li>FastAPI endpoint design with performance metrics</li><li>Hybrid BM25 + embedding search</li><li>Batch processing and model load optimization</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Near-Duplicate Posting Detector</h3>
+<p>Build a system that detects near-duplicate content submissions using MinHash LSH for fast candidate detection and embedding cosine similarity for verification, with a web dashboard showing duplicate clusters.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Ingest text posts and compute MinHash signatures for each document</li><li>Build an LSH index with threshold 0.8 for fast near-duplicate candidate detection</li><li>For each new post, query LSH for candidates, then verify with embedding cosine similarity</li><li>Use sentence-transformers to encode posts and compute pairwise cosine for verified pairs</li><li>Cluster verified duplicates using union-find to group all transitively similar posts</li><li>Store duplicate clusters in SQLite with timestamps and similarity scores</li><li>Build a FastAPI dashboard endpoint returning cluster summaries with original/variant links</li><li>Add real-time ingestion endpoint that checks for duplicates before accepting new posts</li></ol>
+<pre class="code"><code>from datasketch import MinHash, MinHashLSH
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+lsh = MinHashLSH(threshold=0.8, num_perm=128)
+
+class DuplicateDetector:
+    def __init__(self):
+        self.posts = {}  # id -&gt; (text, emb)
+        self.clusters = []  # list of sets
+
+    def add(self, post_id: str, text: str) -&gt; list[str]:
+        mh = MinHash(num_perm=128)
+        for word in text.lower().split():
+            mh.update(word.encode("utf8"))
+
+        candidates = lsh.query(mh)
+        if not candidates:
+            lsh.insert(post_id, mh)
+            emb = model.encode([text], normalize_embeddings=True)[0]
+            self.posts[post_id] = (text, emb)
+            return []
+
+        emb = model.encode([text], normalize_embeddings=True)[0]
+        duplicates = []
+        for cand_id in candidates:
+            cand_emb = self.posts[cand_id][1]
+            sim = float(np.dot(emb, cand_emb))
+            if sim &gt; 0.90:
+                duplicates.append(cand_id)
+
+        lsh.insert(post_id, mh)
+        self.posts[post_id] = (text, emb)
+        return duplicates</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>MinHash LSH for approximate near-duplicate detection</li><li>Embedding cosine similarity for precise duplicate verification</li><li>Union-find clustering for transitive duplicate grouping</li><li>Real-time duplicate detection at ingestion time</li><li>FastAPI dashboard for duplicate cluster visualization</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Embedding</td><td>Dense vector capturing semantic meaning</td><td>model.encode(texts)</td></tr>
+<tr><td>Cosine similarity</td><td>Angle-based similarity, range -1 to 1</td><td>np.dot(a, b) / (norm(a) * norm(b))</td></tr>
+<tr><td>One-hot vs dense</td><td>Sparse binary vs compact continuous representation</td><td>len(vocab) vs 384-1536 dims</td></tr>
+<tr><td>Word2Vec Skip-Gram</td><td>Predict context from target word</td><td>Word2Vec(sentences, sg=1)</td></tr>
+<tr><td>FastText</td><td>Subword n-grams handle OOV words</td><td>FastText(sentences, min_n=3)</td></tr>
+<tr><td>GloVe</td><td>Global co-occurrence statistics</td><td>glove-wiki-gigaword-100</td></tr>
+<tr><td>sentence-transformers</td><td>Sentence-level embeddings from BERT variants</td><td>SentenceTransformer("all-MiniLM-L6-v2")</td></tr>
+<tr><td>OpenAI embeddings</td><td>High-quality hosted embedding API</td><td>client.embeddings.create(model="text-embedding-3-small")</td></tr>
+<tr><td>L2 normalization</td><td>Unit vectors make cosine = dot product</td><td>v / np.linalg.norm(v)</td></tr>
+<tr><td>Brute-force search</td><td>O(n*d) correct baseline for small corpora</td><td>corpus_norms @ query_norm</td></tr>
+<tr><td>Batch encoding</td><td>Process multiple texts for throughput</td><td>model.encode(texts, batch_size=64)</td></tr>
+<tr><td>.npy storage</td><td>Fast binary NumPy array format</td><td>np.save/load("vectors.npy")</td></tr>
+<tr><td>Mean pooling</td><td>Average token embeddings, best for similarity</td><td>(embs * mask).sum(1) / mask.sum(1)</td></tr>
+<tr><td>Chunking</td><td>Split long text before embedding</td><td>chunk_text(text, max_tokens=500)</td></tr>
+<tr><td>Multilingual embeddings</td><td>Shared space across 50+ languages</td><td>paraphrase-multilingual-MiniLM-L12-v2</td></tr>
+<tr><td>STS Benchmark</td><td>Pearson correlation on human similarity scores</td><td>EmbeddingSimilarityEvaluator</td></tr>
+<tr><td>PCA / t-SNE</td><td>2D visualization of high-dim embeddings</td><td>PCA(n_components=2), TSNE(perplexity=5)</td></tr>
+<tr><td>BM25</td><td>Lexical TF-IDF-based retrieval</td><td>BM25Okapi(tokenized_corpus)</td></tr>
+<tr><td>Hybrid fusion (RRF)</td><td>Combine BM25 + embedding rankings</td><td>1/(k + rank_bm25) + 1/(k + rank_emb)</td></tr>
+<tr><td>Cross-encoder reranker</td><td>Full attention query-doc scoring</td><td>CrossEncoder("cross-encoder/ms-marco-...")</td></tr>
+<tr><td>Matryoshka dims</td><td>Truncate embeddings to fewer dimensions</td><td>dimensions=256 in API call</td></tr>
+<tr><td>InfoNCE loss</td><td>Contrastive softmax over in-batch negatives</td><td>cross_entropy(logits, labels)</td></tr>
+<tr><td>MultipleNegativesRankingLoss</td><td>State-of-the-art retrieval fine-tuning loss</td><td>MultipleNegativesRankingLoss(model)</td></tr>
+<tr><td>Hard negative mining</td><td>Train on hardest false positives</td><td>MultipleNegativesMiner()</td></tr>
+<tr><td>int8/binary quantization</td><td>4x/32x compression with recall trade-off</td><td>emb.astype(np.int8)</td></tr>
+<tr><td>HNSW</td><td>Multi-layer graph, O(log n) search</td><td>faiss.IndexHNSWFlat(dim, 32)</td></tr>
+<tr><td>IVF-PQ</td><td>Cluster-then-quantize for large scales</td><td>faiss.IndexIVFPQ(quantizer, dim, nlist, m, bits)</td></tr>
+<tr><td>ColBERT</td><td>Late interaction per-token MaxSim</td><td>max_per_query_sim.sum()</td></tr>
+<tr><td>Whitening</td><td>Fix embedding anisotropy via PCA transform</td><td>PCA + divide by sqrt(eigenvalues)</td></tr>
+<tr><td>Recall@k / MRR / NDCG</td><td>Standard search quality metrics</td><td>len(intersection) / len(relevant)</td></tr>
+<tr><td>MinHash LSH</td><td>O(n) approximate near-duplicate detection</td><td>MinHashLSH(threshold=0.8)</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="ml-fundamentals.html">&larr; ML Fundamentals</a><a href="llms.html">LLMs &rarr;</a></footer>
+</body></html>

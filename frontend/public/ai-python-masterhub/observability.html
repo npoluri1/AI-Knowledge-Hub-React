@@ -1,0 +1,1966 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Observability â€” Tracing GenAI Systems â€” AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Observability â€” Tracing GenAI Systems</span><span class="spacer"></span>
+<a class="navlink" href="evaluations.html">&larr; Evaluations</a> <a class="navlink" href="mlops.html">MLOps &rarr;</a></nav>
+<header class="hero"><div class="mono">OB</div><div><h1>Observability â€” Tracing GenAI Systems</h1>
+<p class="tagline">Full-stack visibility into LLM-powered systems â€” from individual API calls to multi-agent workflows â€” using OpenTelemetry, structured tracing, and purpose-built platforms that turn opaque model interactions into debuggable, measurable, billable operations.</p>
+<div class="chips"><span class="chip t1">Tier 1 Â· Foundations</span><span class="chip t2">Tier 2 Â· Intermediate</span><span class="chip t3">Tier 3 Â· Advanced</span><span class="chip t4">Tier 4 Â· Expert</span><span class="chip t5">Tier 5 Â· Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>GenAI systems are black boxes by default: a prompt goes in, a response comes out, and everything in between is invisible. Observability adds structured traces, metrics, and logs that make LLM behavior debuggable, costs attributable, and quality measurable in production. This chapter covers the three pillars, purpose-built platforms, and advanced operational patterns.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Three pillars, span hierarchy, OpenTelemetry basics, Langfuse quickstart, token tracking</td><td>You can instrument a basic LLM app with traces and metrics</td></tr>
+<tr><td>Tier 2</td><td>LangSmith debug, Phoenix embeddings, streaming metrics, async context, RED metrics</td><td>You can debug production LLM issues and monitor quality</td></tr>
+<tr><td>Tier 3</td><td>OTel collector, distributed tracing, cost dashboards, SLOs, anomaly detection</td><td>You can operate a production-grade observability stack</td></tr>
+<tr><td>Tier 4</td><td>Telemetry economics, cardinality, chaos observability, compliance, build vs buy</td><td>You can architect and govern enterprise observability</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have production-ready observability implementations</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I Â· Foundations<small>Tier 1 â€” Three pillars, spans, OTel, Langfuse, token tracking, hello-traced-app</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Three Pillars Applied to GenAI: Traces, Logs, Metrics</h3>
+<p><strong>What &amp; why.</strong> Observability rests on three pillars: traces (structured records of a single request flowing through components), logs (timestamped event records), and metrics (numeric measurements aggregated over time). For GenAI systems, traces capture the full LLM call chain, logs record individual completions and errors, and metrics track token usage, latency, and cost in real time.</p>
+<pre class="code"><code># Three pillars in a single LLM call
+import logging, time
+
+logger = logging.getLogger("genai")
+
+def call_llm(prompt: str) -&gt; dict:
+    start = time.perf_counter()
+
+    # TRACE: spans for each step
+    with tracer.start_as_current_span("llm.request") as span:
+        span.set_attribute("model", "gpt-4o")
+        span.set_attribute("prompt_tokens", count_tokens(prompt))
+
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        span.set_attribute("completion_tokens",
+                           response.usage.completion_tokens)
+        span.set_attribute("total_tokens",
+                           response.usage.total_tokens)
+        span.set_attribute("latency_ms",
+                           (time.perf_counter() - start) * 1000)
+
+    # LOG: structured event
+    logger.info("llm.completed", extra={
+        "model": "gpt-4o",
+        "tokens": response.usage.total_tokens,
+        "latency_ms": (time.perf_counter() - start) * 1000,
+    })
+
+    # METRIC: aggregated for dashboards
+    llm_tokens_counter.add(response.usage.total_tokens)
+    llm_latency_histogram.record(time.perf_counter() - start)
+    return response</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every production LLM application needs all three pillars. Traces debug individual failures, logs provide audit trails, and metrics drive alerts and capacity planning.</div>
+<div class="callout hood"><span>Under the hood</span>The three pillars are complementary, not interchangeable. A metric tells you "P95 latency is 3 seconds." A trace tells you "this specific request spent 2.8 seconds in the retrieval step." A log tells you "this request failed with a timeout error."</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Span Hierarchy: Trace, Chain, LLM, Tool</h3>
+<p><strong>What &amp; why.</strong> A trace is a tree of spans representing a request's journey through your system. The root span represents the entire request. Child spans represent sub-operations: a chain (orchestration logic), an LLM call (model invocation), or a tool call (API lookup, database query). This hierarchy lets you pinpoint exactly where time is spent and where errors occur.</p>
+<pre class="code"><code>from opentelemetry import trace
+
+tracer = trace.get_tracer("my-rag-app")
+
+def rag_query(question: str) -&gt; str:
+    # Root span: entire RAG query
+    with tracer.start_as_current_span("rag.query") as root:
+        root.set_attribute("question", question[:100])
+
+        # Child span: retrieval
+        with tracer.start_as_current_span("rag.retrieve") as retriever:
+            docs = vector_store.similarity_search(question, k=5)
+            retriever.set_attribute("docs_found", len(docs))
+
+        # Child span: LLM generation
+        with tracer.start_as_current_span("rag.generate") as gen:
+            gen.set_attribute("model", "gpt-4o")
+            gen.set_attribute("context_docs", len(docs))
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{
+                    "role": "system",
+                    "content": f"Answer based on: {format_docs(docs)}"
+                }, {
+                    "role": "user",
+                    "content": question
+                }]
+            )
+            gen.set_attribute("completion_tokens",
+                              response.usage.completion_tokens)
+
+        # Child span: post-processing
+        with tracer.start_as_current_span("rag.postprocess") as post:
+            citations = extract_citations(response, docs)
+            post.set_attribute("citations_found", len(citations))
+
+    return response.choices[0].message.content</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Span hierarchy is the primary debugging tool for multi-step LLM systems. When a RAG query is slow, the span tree shows whether the bottleneck is retrieval, generation, or post-processing.</div>
+<div class="callout hood"><span>Under the hood</span>Each span carries a unique trace ID (shared across the whole request) and a span ID (unique to that operation). Parent-child relationships are encoded via parent_span_id, forming the tree.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>OpenTelemetry Concepts: Tracer, Span, Context</h3>
+<p><strong>What &amp; why.</strong> OpenTelemetry (OTel) is the vendor-neutral standard for generating and exporting telemetry data. A Tracer creates spans, a Span represents a unit of work, and Context Propagation ensures spans from different services are linked into a single trace. OTel's SDK handles sampling, batching, and export to any backend (Jaeger, Zipkin, Datadog, Grafana Tempo).</p>
+<pre class="code"><code>from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+    OTLPSpanExporter
+)
+
+# Set up OTel SDK
+provider = TracerProvider()
+processor = BatchSpanProcessor(
+    OTLPSpanExporter(endpoint="http://otel-collector:4317")
+)
+provider.add_span_processor(processor)
+trace.set_tracer_provider(provider)
+
+# Get a tracer and create spans
+tracer = trace.get_tracer("my-app", "1.0.0")
+
+def process_request(request_id: str, query: str):
+    with tracer.start_as_current_span(
+        "process_request",
+        attributes={"request.id": request_id}
+    ) as span:
+        # Context automatically propagated to child spans
+        result = call_llm(query)
+        span.set_attribute("result.length", len(result))
+        return result
+
+# Sampling: only trace 10% of requests in production
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
+sampler = TraceIdRatioBased(0.1)
+provider = TracerProvider(sampler=sampler)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>OTel is the standard for instrumenting production systems. Its vendor neutrality means you can switch backends (from Jaeger to Datadog) without changing application code.</div>
+<div class="callout hood"><span>Under the hood</span>BatchSpanProcessor buffers spans in memory and exports them in batches, minimizing performance overhead. The default batch size is 512 spans or 5 seconds, whichever comes first.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Langfuse Quickstart: Decorator-Based Observability</h3>
+<p><strong>What &amp; why.</strong> Langfuse is a purpose-built observability platform for LLM applications. Its Python SDK uses decorators to automatically capture function calls, LLM invocations, token usage, costs, and user feedback. Unlike raw OTel, Langfuse understands LLM-specific concepts like generations, embeddings, and prompt management.</p>
+<pre class="code"><code>from langfuse import Langfuse
+from langfuse.decorators import observe, langfuse_context
+
+langfuse = Langfuse(
+    public_key="pk-lf-...",
+    secret_key="sk-lf-...",
+    host="https://cloud.langfuse.com"
+)
+
+@observe(as_type="generation")
+def call_llm(messages, model="gpt-4o"):
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages
+    )
+    # Langfuse auto-captures: model, tokens, cost, latency
+    return response.choices[0].message.content
+
+@observe()  # creates a span in the trace
+def answer_question(question: str) -&gt; str:
+    docs = retrieve(question)
+    answer = call_llm(
+        messages=[{
+            "role": "system",
+            "content": f"Use this context: {docs}"
+        }, {
+            "role": "user",
+            "content": question
+        }]
+    )
+    return answer
+
+# Usage: automatic tracing
+@observe()
+def handle_request(user_id: str, question: str):
+    answer = answer_question(question)
+    # Attach user feedback
+    langfuse_context.score_current_trace(
+        name="user_feedback",
+        value=1,  # thumbs up
+        comment="Helpful answer"
+    )
+    return answer</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Langfuse is the fastest path to production-grade LLM observability. The decorator pattern requires minimal code changes and captures more detail than manual OTel instrumentation.</div>
+<div class="callout hood"><span>Under the hood</span>Langfuse's @observe decorator wraps functions with OTel-compatible spans. The as_type="generation" parameter tells Langfuse to treat the span as an LLM call, enabling model-specific metadata capture.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Capturing Prompts, Completions, Tokens, and Cost</h3>
+<p><strong>What &amp; why.</strong> The core value of LLM observability is capturing what was sent to the model, what came back, how many tokens were consumed, and what it cost. This data enables debugging (what went wrong?), optimization (where are tokens wasted?), and chargeback (which feature consumed $X?).</p>
+<pre class="code"><code>import litellm
+from dataclasses import dataclass, field
+
+@dataclass
+class LLMCallRecord:
+    model: str
+    messages: list[dict]
+    response: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    cost_usd: float
+    latency_ms: float
+    metadata: dict = field(default_factory=dict)
+
+def tracked_llm_call(model: str, messages: list[dict],
+                     **kwargs) -&gt; LLMCallRecord:
+    import time
+    start = time.perf_counter()
+
+    response = client.chat.completions.create(
+        model=model, messages=messages, **kwargs
+    )
+
+    latency_ms = (time.perf_counter() - start) * 1000
+    usage = response.usage
+
+    # litellm provides cost calculation
+    cost = litellm.completion_cost(
+        model=model,
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+    )
+
+    record = LLMCallRecord(
+        model=model,
+        messages=messages,
+        response=response.choices[0].message.content,
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+        total_tokens=usage.total_tokens,
+        cost_usd=cost,
+        latency_ms=latency_ms,
+    )
+
+    # Send to observability backend
+    langfuse.trace(
+        name="llm_call",
+        input=messages,
+        output=record.response,
+        model=model,
+        usage={
+            "promptTokens": usage.prompt_tokens,
+            "completionTokens": usage.completion_tokens,
+        },
+        metadata={"cost_usd": cost, "latency_ms": latency_ms},
+    )
+    return record</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Token and cost tracking per call is essential for per-feature and per-tenant cost attribution. Without it, your monthly bill is a single number with no visibility into which features drove the cost.</div>
+<div class="callout hood"><span>Under the hood</span>litellm.completion_cost uses published provider pricing tables. It handles model-specific pricing tiers (input vs. output tokens, context window pricing) automatically.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Latency Waterfall Reading</h3>
+<p><strong>What &amp; why.</strong> A latency waterfall chart shows how a single request's time is distributed across components. For a RAG query, you can see that 60% of time was in vector search, 30% in LLM generation, and 10% in post-processing. This immediately identifies optimization targets â€” improving the slowest component has the highest impact.</p>
+<pre class="code"><code>import time
+from dataclasses import dataclass
+
+@dataclass
+class SpanTiming:
+    name: str
+    start: float
+    end: float
+    children: list["SpanTiming"] = None
+
+    @property
+    def duration_ms(self) -&gt; float:
+        return (self.end - self.start) * 1000
+
+def build_waterfall(spans: list[SpanTiming]) -&gt; str:
+    """Render a text-based latency waterfall."""
+    total = spans[0].duration_ms
+    lines = []
+    for span in sorted(spans, key=lambda s: s.start):
+        pct = (span.duration_ms / total) * 100
+        bar = "#" * int(pct / 2)
+        lines.append(
+            f"  {span.name:&lt;30s} {span.duration_ms:6.1f}ms "
+            f"({pct:4.1f}%) {bar}"
+        )
+    return "\n".join(lines)
+
+def trace_rag_query(question: str):
+    spans = []
+    t0 = time.perf_counter()
+
+    with Timer("total", spans, t0):
+        with Timer("retrieve", spans, t0):
+            docs = vector_store.search(question)
+        with Timer("generate", spans, t0):
+            response = call_llm(question, docs)
+        with Timer("postprocess", spans, t0):
+            citations = extract_citations(response, docs)
+
+    print(build_waterfall(spans))
+    #   total                          2450.3ms (100.0%) ######################################
+    #   retrieve                        980.1ms ( 40.0%) ################################
+    #   generate                       1225.2ms ( 50.0%) ####################################
+    #   postprocess                     245.0ms ( 10.0%) ####
+
+class Timer:
+    def __init__(self, name, spans, t0):
+        self.name = name
+        self.spans = spans
+        self.t0 = t0
+    def __enter__(self):
+        self.start = time.perf_counter()
+        return self
+    def __exit__(self, *args):
+        self.spans.append(SpanTiming(
+            self.name, self.start, time.perf_counter()
+        ))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Latency waterfalls are the first thing to check when users report slowness. A waterfall that shows 80% of time in one component narrows the investigation immediately.</div>
+<div class="callout hood"><span>Under the hood</span>In production, span timings are captured by OTel and rendered in trace viewers (Jaeger, Grafana Tempo, Langfuse). The text-based waterfall above is for local development debugging.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Error Spans and Exception Recording</h3>
+<p><strong>What &amp; why.</strong> When an LLM call fails (rate limit, timeout, invalid response), the error must be recorded on the span with the exception type, message, and stack trace. This makes failures searchable and aggregateable: you can query "show me all timeout errors in the last hour" and get the full context.</p>
+<pre class="code"><code>from opentelemetry import trace
+from opentelemetry.trace import StatusCode
+import httpx
+
+tracer = trace.get_tracer("llm-calls")
+
+def call_llm_with_error_handling(prompt: str) -&gt; str:
+    with tracer.start_as_current_span("llm.call") as span:
+        span.set_attribute("model", "gpt-4o")
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                timeout=30.0,
+            )
+            span.set_status(StatusCode.OK)
+            return response.choices[0].message.content
+
+        except httpx.TimeoutException as e:
+            span.set_status(StatusCode.ERROR, "Timeout")
+            span.record_exception(e, attributes={
+                "error.type": "timeout",
+                "timeout.seconds": 30,
+                "prompt_preview": prompt[:100],
+            })
+            # Fallback to smaller model
+            return call_llm_fallback(prompt)
+
+        except Exception as e:
+            span.set_status(StatusCode.ERROR, str(e)[:200])
+            span.record_exception(e, attributes={
+                "error.type": type(e).__name__,
+                "prompt_preview": prompt[:100],
+            })
+            raise</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Error spans with exception recording enable "show me all errors for model X in the last 24 hours" queries. Without structured error recording, debugging production failures means grepping log files.</div>
+<div class="callout hood"><span>Under the hood</span>span.record_exception() creates a span event with the exception details. These events are indexed by most trace backends, enabling faceted error analysis by type, model, and endpoint.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Session Grouping: Tracking User Journeys</h3>
+<p><strong>What &amp; why.</strong> A single user interaction may involve multiple LLM calls: a clarifying question, a retrieval step, a generation, a self-critique, and a final answer. Session grouping links these into a single user journey using a session_id or user_id tag. This enables per-user debugging and journey-level metrics.</p>
+<pre class="code"><code>from langfuse import Langfuse
+import uuid
+
+langfuse = Langfuse()
+
+def start_session(user_id: str) -&gt; str:
+    """Create a session ID linking all interactions."""
+    return f"{user_id}:{uuid.uuid4().hex[:8]}"
+
+def handle_conversation_turn(session_id: str, user_message: str):
+    with langfuse.trace(
+        name="conversation_turn",
+        session_id=session_id,
+        user_id=session_id.split(":")[0],
+        tags=["conversation"],
+    ) as trace:
+        # Step 1: Classify intent
+        intent = classify_intent(user_message)
+        trace.span(
+            name="intent_classification",
+            output=intent,
+            metadata={"intent": intent}
+        )
+
+        # Step 2: Retrieve context
+        docs = retrieve_docs(user_message, intent)
+        trace.span(
+            name="retrieval",
+            output=f"{len(docs)} documents",
+            metadata={"doc_count": len(docs)}
+        )
+
+        # Step 3: Generate response
+        response = generate_response(user_message, docs, intent)
+        trace.generation(
+            name="response_generation",
+            model="gpt-4o",
+            input=user_message,
+            output=response,
+        )
+
+        return response
+
+# Track full user session
+session = start_session("user-123")
+handle_conversation_turn(session, "How do I reset my password?")
+handle_conversation_turn(session, "And what about 2FA?")
+handle_conversation_turn(session, "Thanks, that worked!")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Session grouping reveals multi-turn failure patterns: the first turn succeeds, but the third turn fails because context was lost. Without sessions, each turn appears as an isolated, passing interaction.</div>
+<div class="callout hood"><span>Under the hood</span>Session IDs are propagated through HTTP headers (X-Session-ID) or embedded in context objects. OTel uses baggage propagation for cross-service session linking.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Simple Dashboard Queries for LLM Operations</h3>
+<p><strong>What &amp; why.</strong> Once telemetry is flowing, you need operational dashboards answering: what's the error rate? Which model is consuming the most tokens? What's the P95 latency? Simple queries on trace data provide immediate visibility without complex analytics infrastructure.</p>
+<pre class="code"><code># Common operational queries against trace data
+
+# 1. Error rate by model (last hour)
+# SQL-like query on trace backend:
+# SELECT model, COUNT(*) as errors
+# FROM spans WHERE status = 'ERROR' AND timestamp &gt; now() - 1h
+# GROUP BY model ORDER BY errors DESC
+
+# 2. Token consumption by feature
+def token_consumption_by_feature(traces):
+    consumption = {}
+    for trace in traces:
+        feature = trace.tags.get("feature", "unknown")
+        if feature not in consumption:
+            consumption[feature] = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "cost_usd": 0.0,
+                "call_count": 0,
+            }
+        for span in trace.spans:
+            if span.attributes.get("gen_ai.system"):
+                consumption[feature]["prompt_tokens"] += (
+                    span.attributes.get("prompt_tokens", 0)
+                )
+                consumption[feature]["completion_tokens"] += (
+                    span.attributes.get("completion_tokens", 0)
+                )
+                consumption[feature]["cost_usd"] += (
+                    span.attributes.get("cost_usd", 0)
+                )
+                consumption[feature]["call_count"] += 1
+    return consumption
+
+# 3. Latency percentiles
+def latency_percentiles(latencies):
+    import numpy as np
+    return {
+        "p50": float(np.percentile(latencies, 50)),
+        "p90": float(np.percentile(latencies, 90)),
+        "p95": float(np.percentile(latencies, 95)),
+        "p99": float(np.percentile(latencies, 99)),
+    }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Operational dashboards are the first thing on-call engineers check during incidents. They answer "is it just me, or is the whole system slow?" in seconds.</div>
+<div class="callout hood"><span>Under the hood</span>Most trace backends (Grafana, Datadog, Langfuse) provide built-in dashboard builders. The queries above translate to PromQL (Prometheus), LogQL (Loki), or backend-specific query languages.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Sampling Strategies: What to Record</h3>
+<p><strong>What &amp; why.</strong> Recording every trace at full detail is expensive and noisy. Sampling strategies determine which traces to record and at what fidelity. Common strategies: head-based (decide at trace start), tail-based (decide after completion, keeping errors and slow traces), and adaptive (adjust rate based on traffic volume).</p>
+<pre class="code"><code>from opentelemetry.sdk.trace.sampling import (
+    TraceIdRatioBased, ParentBasedTraceIdRatio
+)
+
+# Strategy 1: Head-based â€” sample 10% at trace start
+sampler = TraceIdRatioBased(0.1)
+
+# Strategy 2: Parent-based â€” respect parent's sampling decision
+sampler = ParentBasedTraceIdRatio(rate=0.1)
+
+# Strategy 3: Tail-based â€” implemented at collector level
+# Keep: all errors, slow requests, random 5% of successes
+TAIL_SAMPLING_CONFIG = {
+    "policies": [
+        {"name": "errors", "type": "status_code",
+         "status_code": {"status_codes": ["ERROR"]}},
+        {"name": "slow", "type": "latency",
+         "latency": {"threshold_ms": 5000}},
+        {"name": "random", "type": "probabilistic",
+         "probabilistic": {"sampling_percentage": 5}},
+    ]
+}
+
+# Strategy 4: Event-based â€” always sample important events
+def should_sample(span) -&gt; bool:
+    if span.attributes.get("error"):
+        return True  # always keep errors
+    if span.attributes.get("latency_ms", 0) &gt; 5000:
+        return True  # always keep slow requests
+    if span.attributes.get("user_feedback") is not None:
+        return True  # always keep feedback-tagged traces
+    return hash(span.trace_id) % 100 &lt; 5  # 5% random</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Sampling is a cost-quality tradeoff. Too aggressive: you miss issues. Too conservative: you drown in data. Start at 10% and adjust based on error rate and investigation needs.</div>
+<div class="callout hood"><span>Under the hood</span>Tail-based sampling is more powerful but requires a collector to buffer spans before deciding. Head-based sampling is simpler but may miss errors (a slow trace might be sampled out before the error occurs).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>PII in Traces: What to Capture and What to Mask</h3>
+<p><strong>What &amp; why.</strong> Traces capture full prompts and completions, which may contain PII: names, emails, phone numbers, medical information, financial data. GDPR, CCPA, and internal policies require PII handling. The approach is to capture structured metadata (model, tokens, latency) while masking or excluding PII from trace payloads.</p>
+<pre class="code"><code>import re
+
+# PII patterns to mask
+PII_PATTERNS = {
+    "email": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+    "phone": r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b',
+    "nric": r'\b[STFG]\d{7}[A-Z]\b',
+    "credit_card": r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b',
+}
+
+def mask_pii(text: str) -&gt; str:
+    masked = text
+    for pii_type, pattern in PII_PATTERNS.items():
+        masked = re.sub(pattern, f"[REDACTED_{pii_type.upper()}]", masked)
+    return masked
+
+def safe_span_attributes(messages, response_text):
+    """Create span attributes with PII masked."""
+    masked_messages = [
+        {**msg, "content": mask_pii(msg["content"])}
+        for msg in messages
+    ]
+    return {
+        "input_preview": mask_pii(str(messages[-1]["content"]))[:200],
+        "output_preview": mask_pii(response_text)[:200],
+        "messages_count": len(messages),
+        # Never log full messages in attributes â€” use span events
+    }
+
+# In Langfuse with PII redaction
+langfuse = Langfuse(
+    mask=lambda data: mask_pii(str(data)) if isinstance(data, str)
+    else data
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>PII masking is a compliance requirement, not a nice-to-have. Every organization handling user data must implement trace-level PII protection before shipping observability to production.</div>
+<div class="callout hood"><span>Under the hood</span>Regex-based masking catches common PII formats but misses unstructured PII (names, addresses without standard formats). For high-compliance environments, combine regex with NER-based PII detection.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Hello-Traced-App: Full Working Example</h3>
+<p><strong>What &amp; why.</strong> A complete, minimal example tying together all Tier 1 concepts: a Python application instrumented with OTel traces, exporting to a local collector, with Langfuse integration for LLM-specific capture. This is the starting point for adding observability to any project.</p>
+<pre class="code"><code># hello_traced_app.py
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+    OTLPSpanExporter
+)
+from langfuse import Langfuse
+from langfuse.decorators import observe
+import litellm, time
+
+# Initialize OTel
+provider = TracerProvider()
+provider.add_span_processor(BatchSpanProcessor(
+    OTLPSpanExporter(endpoint="http://localhost:4317")
+))
+trace.set_tracer_provider(provider)
+otel_tracer = trace.get_tracer("hello-llm-app")
+
+# Initialize Langfuse
+langfuse = Langfuse()
+
+@observe(as_type="generation")
+def llm_call(messages, model="gpt-4o-mini"):
+    response = litellm.completion(model=model, messages=messages)
+    return response.choices[0].message.content
+
+@observe()
+def rag_app(question: str) -&gt; str:
+    with otel_tracer.start_as_current_span("retrieval") as span:
+        docs = ["Doc A: Python is a language.", "Doc B: LLMs use tokens."]
+        span.set_attribute("docs.count", len(docs))
+
+    answer = llm_call(messages=[
+        {"role": "system", "content": f"Context: {docs}"},
+        {"role": "user", "content": question},
+    ])
+    return answer
+
+if __name__ == "__main__":
+    result = rag_app("What is Python?")
+    print(f"Answer: {result}")
+    langfuse.flush()  # ensure all events are sent</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This hello-traced-app is the template for adding observability to any LLM project. Copy it, customize the spans, and you have production-ready tracing in under 50 lines.</div>
+<div class="callout hood"><span>Under the hood</span>litellm automatically generates OTel spans when an OTel provider is configured. This means you get basic tracing without any explicit span creation â€” the explicit spans above add domain-specific context.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II Â· Intermediate<small>Tier 2 â€” LangSmith debug, Phoenix embeddings, streaming, RED metrics</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>LangSmith Trace Viewer: Workflow Debugging</h3>
+<p><strong>What &amp; why.</strong> LangSmith provides a visual trace viewer that shows the full execution graph of LangChain/LangGraph workflows. Each node (chain, LLM call, tool call, retrieval) is a span with input/output, token usage, and latency. The viewer lets you click into any step, see the exact prompt sent, and replay the execution.</p>
+<pre class="code"><code>import os
+os.environ["LANGSMITH_TRACING"] = "true"
+os.environ["LANGSMITH_API_KEY"] = "ls-..."
+
+# LangSmith auto-traces all LangChain operations
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# Every step is automatically traced in LangSmith
+chain = (
+    ChatPromptTemplate.from_template(
+        "Answer based on context: {context}\nQuestion: {question}"
+    )
+    | ChatOpenAI(model="gpt-4o-mini")
+    | StrOutputParser()
+)
+
+# This call produces a full trace in LangSmith
+result = chain.invoke({
+    "context": "Python is a programming language.",
+    "question": "What is Python?"
+})
+
+# In LangSmith UI:
+# - Click on the chain span to see the full execution
+# - Click on the LLM span to see exact prompt + completion
+# - Check the "Error" tab for any failures
+# - View token usage and cost breakdown</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LangSmith trace viewer is the primary debugging tool for LangChain/LangGraph applications. It replaces print-based debugging with structured, visual trace inspection.</div>
+<div class="callout hood"><span>Under the hood</span>LangSmith batches trace data and sends it asynchronously to avoid blocking your application. Traces appear in the UI within 2-5 seconds of completion.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Phoenix Arize: Embeddings View and Drift Detection</h3>
+<p><strong>What &amp; why.</strong> Phoenix (by Arize) provides embedding-specific observability: it visualizes your vector embeddings in a UMAP projection, colors them by metadata (topic, user segment, outcome), and detects drift by comparing embedding distributions over time. This is essential for RAG systems where embedding quality directly impacts retrieval quality.</p>
+<pre class="code"><code>import phoenix as px
+from phoenix.inference import embed_records
+
+# Launch Phoenix server
+px.launch_app()
+
+# Log embedding data for visualization
+import numpy as np
+
+records = [
+    {
+        "id": "doc-1",
+        "embedding": np.random.randn(1536).tolist(),
+        "text": "Python is a high-level programming language.",
+        "topic": "programming",
+        "retrieved": True,
+        "relevant": True,
+    },
+    {
+        "id": "doc-2",
+        "embedding": np.random.randn(1536).tolist(),
+        "text": "The weather today is sunny.",
+        "topic": "weather",
+        "retrieved": True,
+        "relevant": False,
+    },
+    # ... more records
+]
+
+# Phoenix displays:
+# - UMAP projection of all embeddings colored by topic
+# - Drift dashboard: embedding distribution shift over time
+# - Retrieval quality: relevant vs irrelevant retrieved documents
+# - Cluster analysis: which document groups are retrieved together
+
+# Detect drift
+from phoenix.trace import DocumentEvaluations
+
+drift_result = px.analyze_embedding_drift(
+    reference_embeddings=baseline_embeddings,
+    current_embeddings=current_embeddings,
+)
+print(f"Drift detected: {drift_result.drift_detected}")
+print(f"Drift score: {drift_result.drift_score:.3f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Phoenix is essential for debugging RAG retrieval issues. The UMAP view shows whether relevant documents cluster together or are scattered, revealing embedding quality problems.</div>
+<div class="callout hood"><span>Under the hood</span>Phoenix uses dimensionality reduction (UMAP) to project high-dimensional embeddings into 2D for visualization. Drift detection uses statistical tests (KS test, PSI) on embedding distributions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Manual Spans: Custom Instrumentation</h3>
+<p><strong>What &amp; why.</strong> Not everything is automatically captured by framework integrations. Manual spans let you instrument custom business logic: database queries, external API calls, data transformation pipelines, and any operation where you need timing, error tracking, and context.</p>
+<pre class="code"><code>from opentelemetry import trace
+
+tracer = trace.get_tracer("custom-instrumentation")
+
+def process_document(doc_path: str) -&gt; dict:
+    with tracer.start_as_current_span("document.process") as span:
+        span.set_attribute("document.path", doc_path)
+
+        # Span: parse
+        with tracer.start_as_current_span("document.parse") as parse_span:
+            content = parse_document(doc_path)
+            parse_span.set_attribute("pages", content.page_count)
+
+        # Span: chunk
+        with tracer.start_as_current_span("document.chunk") as chunk_span:
+            chunks = chunk_text(content.text, chunk_size=512)
+            chunk_span.set_attribute("chunk_count", len(chunks))
+
+        # Span: embed
+        with tracer.start_as_current_span("document.embed") as embed_span:
+            embeddings = embed_chunks(chunks)
+            embed_span.set_attribute("embedding_model", "text-embedding-3-small")
+            embed_span.set_attribute("dimensions", len(embeddings[0]))
+
+        # Span: store
+        with tracer.start_as_current_span("document.store") as store_span:
+            vector_store.upsert(chunks, embeddings)
+            store_span.set_attribute("store", "pinecone")
+
+        span.set_attribute("total_chunks", len(chunks))
+        return {"chunks": len(chunks), "status": "stored"}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Manual spans are essential for custom pipelines that frameworks don't instrument. Document processing, ETL jobs, and data pipelines all benefit from manual span instrumentation.</div>
+<div class="callout hood"><span>Under the hood</span>Manual spans automatically inherit the current trace context. As long as the function is called within an active trace, the new span becomes a child of the current span.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Streaming Observability: TTFT and TBT</h3>
+<p><strong>What &amp; why.</strong> Streaming LLM responses require specialized metrics: Time to First Token (TTFT) measures how long until the user sees the first character, and Time Between Tokens (TBT) measures the streaming cadence. These are more user-relevant than total latency because they determine perceived responsiveness.</p>
+<pre class="code"><code>import time
+
+def stream_with_metrics(prompt: str):
+    ttft = None
+    tbt_values = []
+    prev_time = None
+    full_response = []
+
+    start = time.perf_counter()
+
+    stream = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
+    )
+
+    for chunk in stream:
+        if chunk.choices[0].delta.content:
+            now = time.perf_counter()
+
+            if ttft is None:
+                ttft = (now - start) * 1000  # TTFT in ms
+
+            if prev_time is not None:
+                tbt_values.append((now - prev_time) * 1000)
+
+            prev_time = now
+            full_response.append(chunk.choices[0].delta.content)
+            yield chunk.choices[0].delta.content
+
+    total_time = (time.perf_counter() - start) * 1000
+    avg_tbt = sum(tbt_values) / len(tbt_values) if tbt_values else 0
+    p95_tbt = sorted(tbt_values)[int(len(tbt_values) * 0.95)] if tbt_values else 0
+
+    # Record metrics
+    ttft_histogram.record(ttft)
+    tbt_histogram.record(avg_tbt)
+
+    print(f"TTFT: {ttft:.0f}ms, Avg TBT: {avg_tbt:.1f}ms, "
+          f"P95 TBT: {p95_tbt:.1f}ms, Total: {total_time:.0f}ms")
+    return "".join(full_response)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>TTFT and TBT are the metrics that chat applications must optimize. A 500ms TTFT feels instant; a 3000ms TTFT feels broken, even if total latency is identical.</div>
+<div class="callout hood"><span>Under the hood</span>TTFT is dominated by the provider's time-to-first-token latency, which depends on model size, prompt length, and queue depth. TBT is more about throughput â€” how fast the provider can generate and stream tokens.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Async Context Propagation in asyncio Tasks</h3>
+<p><strong>What &amp; why.</strong> In async Python applications, OTel context does not automatically propagate across asyncio.create_task boundaries. Without explicit propagation, child tasks create orphaned spans not linked to the parent trace. The opentelemetry-context package handles this, but you must use the correct async patterns.</p>
+<pre class="code"><code>import asyncio
+from opentelemetry import context, trace
+
+tracer = trace.get_tracer("async-app")
+
+async def process_item(item_id: str):
+    # Manually capture context before spawning task
+    ctx = context.get_current()
+
+    async def _process():
+        # Restore context in child task
+        token = context.attach(ctx)
+        try:
+            with tracer.start_as_current_span(
+                f"process_item.{item_id}"
+            ) as span:
+                result = await llm_call(item_id)
+                span.set_attribute("item_id", item_id)
+                return result
+        finally:
+            context.detach(token)
+
+    return await asyncio.create_task(_process())
+
+async def process_batch(items: list[str]):
+    with tracer.start_as_current_span("process_batch") as span:
+        span.set_attribute("batch_size", len(items))
+
+        # All child tasks are linked to this trace
+        tasks = [process_item(item_id) for item_id in items]
+        results = await asyncio.gather(*tasks)
+
+        span.set_attribute("completed", len(results))
+        return results
+
+# Usage
+asyncio.run(process_batch(["item-1", "item-2", "item-3"]))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Async context propagation is critical for any FastAPI or async-based LLM application. Without it, concurrent requests create interleaved, unlinked spans that are impossible to trace.</div>
+<div class="callout hood"><span>Under the hood</span>OTel's context uses thread-local storage by default. asyncio tasks run on the same thread but in different execution contexts. context.attach/detach manually bridges this gap.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>GenAI Semantic Convention Attributes</h3>
+<p><strong>What &amp; why.</strong> OpenTelemetry defines semantic conventions for GenAI instrumentation (gen_ai.*) that standardize attribute names across implementations. Using these conventions ensures your traces are compatible with OTel-native dashboards and enables cross-vendor comparison.</p>
+<pre class="code"><code>from opentelemetry import trace
+from opentelemetry.semconv._incubating.attributes import (
+    GenAiAttributes
+)
+
+tracer = trace.get_tracer("genai-app")
+
+def llm_call_standardized(messages, model="gpt-4o"):
+    with tracer.start_as_current_span(
+        "openai.chat",
+        attributes={
+            GenAiAttributes.GEN_AI_SYSTEM: "openai",
+            GenAiAttributes.GEN_AI_REQUEST_MODEL: model,
+            GenAiAttributes.GEN_AI_REQUEST_MAX_TOKENS: 1024,
+            GenAiAttributes.GEN_AI_OPERATION_NAME: "chat",
+        }
+    ) as span:
+        response = client.chat.completions.create(
+            model=model, messages=messages
+        )
+
+        # Set response attributes
+        span.set_attributes({
+            GenAiAttributes.GEN_AI_RESPONSE_MODEL:
+                response.model,
+            GenAiAttributes.GEN_AI_USAGE_INPUT_TOKENS:
+                response.usage.prompt_tokens,
+            GenAiAttributes.GEN_AI_USAGE_OUTPUT_TOKENS:
+                response.usage.completion_tokens,
+            GenAiAttributes.GEN_AI_REQUEST_TEMPERATURE: 0.7,
+        })
+        return response</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Semantic conventions are the interoperability layer. When every team uses gen_ai.request.model instead of "model_name" or "llm_model", dashboards and alerts work across the organization.</div>
+<div class="callout hood"><span>Under the hood</span>The GenAI semantic conventions are defined in the opentelemetry-gen-ai specification (still incubating as of 2025). They cover LLM calls, embeddings, and tool use.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Log Correlation: Request IDs End-to-End</h3>
+<p><strong>What &amp; why.</strong> Log correlation links application logs to traces using a shared request_id. When a user reports an issue, you search by request_id and see both the structured trace (spans, timing) and the unstructured logs (debug messages, errors) in one view. This eliminates the "which log belongs to which request?" problem.</p>
+<pre class="code"><code>import logging
+from opentelemetry import trace
+from contextvars import ContextVar
+
+request_id_var: ContextVar[str] = ContextVar("request_id", default="none")
+
+class RequestIdFilter(logging.Filter):
+    def filter(self, record):
+        record.request_id = request_id_var.get()
+        return True
+
+# Configure logging with request ID
+handler = logging.StreamHandler()
+handler.addFilter(RequestIdFilter())
+formatter = logging.Formatter(
+    "%(asctime)s [%(request_id)s] %(levelname)s %(message)s"
+)
+handler.setFormatter(formatter)
+logging.getLogger().addHandler(handler)
+
+logger = logging.getLogger("genai")
+
+def handle_request(request_id: str, query: str):
+    request_id_var.set(request_id)
+
+    with trace.get_tracer("app").start_as_current_span(
+        "handle_request",
+        attributes={"request.id": request_id}
+    ):
+        logger.info(f"Processing query: {query[:50]}")
+        result = call_llm(query)
+        logger.info(f"LLM returned {len(result)} chars")
+        return result
+
+# Output: 2025-01-15 10:30:00 [req-abc-123] INFO Processing query
+#          2025-01-15 10:30:02 [req-abc-123] INFO LLM returned 245 chars</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Request ID correlation is the difference between "there's an error somewhere" and "request abc-123 failed at the LLM call step with a timeout." Every production system needs this.</div>
+<div class="callout hood"><span>Under the hood</span>Context variables (ContextVar in Python) automatically scope the request_id to the current async execution context. This works correctly in FastAPI and asyncio applications.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>RED Metrics: Rate, Errors, Duration per Endpoint</h3>
+<p><strong>What &amp; why.</strong> RED (Rate, Errors, Duration) is a metric framework for service-level monitoring. For LLM endpoints: Rate = requests per second, Errors = error count/rate, Duration = latency distribution. RED metrics answer "is the service healthy?" at a glance and form the basis for SLO-based alerting.</p>
+<pre class="code"><code>from prometheus_client import Counter, Histogram, start_http_server
+import time
+
+# RED metrics for LLM endpoint
+llm_requests_total = Counter(
+    "llm_requests_total",
+    "Total LLM requests",
+    ["model", "endpoint", "status"]
+)
+
+llm_request_duration_seconds = Histogram(
+    "llm_request_duration_seconds",
+    "LLM request latency",
+    ["model", "endpoint"],
+    buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+)
+
+llm_tokens_total = Counter(
+    "llm_tokens_total",
+    "Total tokens consumed",
+    ["model", "token_type"]
+)
+
+def track_red(model: str, endpoint: str = "chat"):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            start = time.perf_counter()
+            try:
+                result = func(*args, **kwargs)
+                llm_requests_total.labels(
+                    model=model, endpoint=endpoint, status="success"
+                ).inc()
+                return result
+            except Exception as e:
+                llm_requests_total.labels(
+                    model=model, endpoint=endpoint, status="error"
+                ).inc()
+                raise
+            finally:
+                duration = time.perf_counter() - start
+                llm_request_duration_seconds.labels(
+                    model=model, endpoint=endpoint
+                ).observe(duration)
+        return wrapper
+    return decorator
+
+# Usage
+@track_red(model="gpt-4o", endpoint="summarize")
+def summarize(text: str) -&gt; str:
+    return call_llm(f"Summarize: {text}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>RED metrics are the universal health check for any service. Grafana dashboards, Prometheus alerts, and SLO calculations all build on these three numbers.</div>
+<div class="callout hood"><span>Under the hood</span>Histogram buckets define the latency distribution resolution. The buckets above [0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0] are appropriate for LLM calls where most complete in 1-5 seconds.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Token-Cost Meters per Feature and Tenant</h3>
+<p><strong>What &amp; why.</strong> Aggregate token consumption by feature (chat, summarization, search) and by tenant (team, customer) to enable cost allocation and budget enforcement. Cost meters track both prompt and completion tokens separately because they have different pricing, and they track cost in USD (not just tokens) for business reporting.</p>
+<pre class="code"><code>from dataclasses import dataclass
+import litellm
+
+@dataclass
+class CostMeter:
+    feature: str
+    tenant: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    cost_usd: float = 0.0
+    call_count: int = 0
+
+class CostTracker:
+    def __init__(self):
+        self.meters: dict[tuple[str, str], CostMeter] = {}
+
+    def record(self, model: str, feature: str, tenant: str,
+               prompt_tokens: int, completion_tokens: int):
+        key = (feature, tenant)
+        if key not in self.meters:
+            self.meters[key] = CostMeter(feature=feature, tenant=tenant)
+
+        meter = self.meters[key]
+        meter.prompt_tokens += prompt_tokens
+        meter.completion_tokens += completion_tokens
+        meter.call_count += 1
+
+        cost = litellm.completion_cost(
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
+        meter.cost_usd += cost
+        return meter
+
+    def report(self):
+        for (feature, tenant), meter in self.meters.items():
+            print(f"{tenant}/{feature}: {meter.call_count} calls, "
+                  f"{meter.prompt_tokens + meter.completion_tokens} "
+                  f"tokens, ${meter.cost_usd:.4f}")
+
+# Usage
+tracker = CostTracker()
+tracker.record("gpt-4o", "summarize", "team-alpha", 500, 200)
+tracker.record("gpt-4o", "chat", "team-alpha", 300, 150)
+tracker.record("gpt-4o-mini", "search", "team-beta", 200, 50)
+tracker.report()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost meters answer: "which feature consumed $X this month?" This is essential for pricing, budget enforcement, and identifying cost optimization opportunities.</div>
+<div class="callout hood"><span>Under the hood</span>Per-tenant tracking requires tenant identification at the request level. Pass tenant_id through middleware or JWT claims and thread it through all LLM calls.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Alerting Rules: P95 Spikes and Error Budgets</h3>
+<p><strong>What &amp; why.</strong> Alerting converts metrics into actionable notifications. LLM-specific alerts include: P95 latency spike (provider degradation), error rate increase (bug or provider outage), token consumption spike (prompt injection or abuse), and error budget burn (SLO at risk). Well-designed alerts reduce noise and prevent alert fatigue.</p>
+<pre class="code"><code># Prometheus alerting rules for LLM services
+ALERT_RULES = {
+    "LLMHighLatency": {
+        "expr": (
+            "histogram_quantile(0.95, "
+            "rate(llm_request_duration_seconds_bucket[5m])) &gt; 5"
+        ),
+        "for": "5m",
+        "labels": {"severity": "warning"},
+        "annotations": {
+            "summary": "LLM P95 latency exceeds 5s",
+            "description": "Model {{ $labels.model }} P95 latency "
+                          "is {{ $value }}s",
+        },
+    },
+    "LLMHighErrorRate": {
+        "expr": (
+            "rate(llm_requests_total{status='error'}[5m]) / "
+            "rate(llm_requests_total[5m]) &gt; 0.05"
+        ),
+        "for": "3m",
+        "labels": {"severity": "critical"},
+        "annotations": {
+            "summary": "LLM error rate exceeds 5%",
+            "description": "Error rate: {{ $value | humanizePercentage }}",
+        },
+    },
+    "LLMBudgetBurn": {
+        "expr": (
+            "rate(llm_tokens_total[1h]) / "
+            "rate(llm_budget_limit[1h]) &gt; 1.5"
+        ),
+        "for": "10m",
+        "labels": {"severity": "warning"},
+        "annotations": {
+            "summary": "Token budget burn rate 1.5x expected",
+            "description": "At this rate, budget exhausts in "
+                          "{{ $remaining_hours }}h",
+        },
+    },
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Alerting is the bridge from monitoring to incident response. Without alerts, dashboards are viewed only after users complain. With alerts, you know about issues before users notice.</div>
+<div class="callout hood"><span>Under the hood</span>The "for" duration prevents flapping: an alert must fire continuously for 3-10 minutes before triggering a notification. This eliminates transient spikes from causing pages.</div>
+</article>
+
+
+
+</section>
+
+<section><h2 class="part p3">Part III Â· Advanced<small>Tier 3 â€” OTel collector, distributed tracing, cost dashboards, SLOs</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>OTel Collector Pipelines: Processors and Tail-Sampling</h3>
+<p><strong>What &amp; why.</strong> The OTel Collector sits between your application and your trace backend. It receives spans, processes them (filtering, enriching, sampling), and exports them. Tail-sampling in the collector decides which traces to keep based on the complete trace â€” keeping all errors, slow traces, and a percentage of successes.</p>
+<pre class="code"><code># otel-collector-config.yaml
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 2048
+    spike_limit_mib: 512
+
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 100000
+    policies:
+      - name: errors
+        type: status_code
+        status_code: {status_codes: [ERROR]}
+      - name: slow
+        type: latency
+        latency: {threshold_ms: 5000}
+      - name: sampled
+        type: probabilistic
+        probabilistic: {sampling_percentage: 5}
+      - name: high-value
+        type: string_attribute
+        string_attribute: {key: "user.tier", values: ["enterprise"]}
+
+exporters:
+  otlp:
+    endpoint: "tempo:4317"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, tail_sampling, batch]
+      exporters: [otlp]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The OTel Collector is the control plane for your observability pipeline. It handles sampling, enrichment, and routing independently of your application code.</div>
+<div class="callout hood"><span>Under the hood</span>Tail-sampling requires the collector to buffer all spans for a trace before deciding. The decision_wait (10s) sets how long to wait for slow spans before making the sampling decision.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Distributed Tracing Across Microservices and Agents</h3>
+<p><strong>What &amp; why.</strong> In microservice architectures or multi-agent systems, a single user request traverses multiple services. Distributed tracing links spans across service boundaries using context propagation (HTTP headers, message metadata). This creates a single trace view across the entire request path, even when services are written in different languages.</p>
+<pre class="code"><code># Service A: API Gateway
+from opentelemetry.propagate import inject
+import httpx
+
+def gateway_forward(query: str):
+    with tracer.start_as_current_span("gateway.handle") as span:
+        headers = {}
+        inject(headers)  # inject trace context into headers
+
+        response = httpx.post(
+            "http://agent-service/process",
+            json={"query": query},
+            headers=headers,  # propagate trace context
+        )
+        return response.json()
+
+# Service B: Agent Service
+from opentelemetry.propagate import extract
+
+def agent_process(request):
+    # Extract trace context from incoming headers
+    ctx = extract(request.headers)
+    token = context.attach(ctx)
+
+    try:
+        with tracer.start_as_current_span("agent.process") as span:
+            result = call_llm(request["query"])
+
+            # Call Tool Service
+            tool_headers = {}
+            inject(tool_headers)
+            tool_response = httpx.post(
+                "http://tool-service/search",
+                json={"query": result},
+                headers=tool_headers,
+            )
+            return combine(result, tool_response.json())
+    finally:
+        context.detach(token)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Distributed tracing is essential when LLM requests flow through an API gateway, agent orchestrator, tool service, and vector store. Without it, each service's trace is isolated and debugging requires manual log correlation.</div>
+<div class="callout hood"><span>Under the hood</span>W3C TraceContext is the standard for HTTP header propagation. The headers traceparent (trace ID + span ID) and tracestate (vendor-specific data) are injected/extracted automatically by the OTel SDK.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Cost Dashboards: Rollups and OLAP Analysis</h3>
+<p><strong>What &amp; why.</strong> Cost dashboards aggregate LLM spending across dimensions: by feature, tenant, model, time period, and prompt type. OLAP-style analysis enables drill-down from "total cost this month" to "which tenant consumed the most on summarization with GPT-4o." Rollups pre-aggregate data for fast dashboard rendering.</p>
+<pre class="code"><code>import pandas as pd
+from datetime import datetime, timedelta
+
+def build_cost_rollups(trace_data):
+    """Build multi-dimensional cost rollups from trace data."""
+    df = pd.DataFrame(trace_data)
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df["date"] = df["timestamp"].dt.date
+    df["hour"] = df["timestamp"].dt.hour
+
+    rollups = {
+        "by_model_and_date": (
+            df.groupby(["date", "model"])["cost_usd"]
+            .sum().reset_index()
+        ),
+        "by_feature_and_tenant": (
+            df.groupby(["feature", "tenant"])["cost_usd"]
+            .agg(["sum", "count", "mean"]).reset_index()
+        ),
+        "by_hour": (
+            df.groupby(["date", "hour"])["cost_usd"]
+            .sum().reset_index()
+        ),
+        "by_model_percentile": (
+            df.groupby("model")["cost_usd"]
+            .agg(["mean", "median",
+                  lambda x: x.quantile(0.95)])
+            .rename(columns={"&lt;lambda_0&gt;": "p95"})
+            .reset_index()
+        ),
+    }
+    return rollups
+
+def cost_drilldown(df, model=None, tenant=None, feature=None):
+    """OLAP drill-down on cost data."""
+    filtered = df.copy()
+    if model:
+        filtered = filtered[filtered["model"] == model]
+    if tenant:
+        filtered = filtered[filtered["tenant"] == tenant]
+    if feature:
+        filtered = filtered[filtered["feature"] == feature]
+    return {
+        "total_cost": filtered["cost_usd"].sum(),
+        "total_tokens": filtered["total_tokens"].sum(),
+        "call_count": len(filtered),
+        "avg_cost_per_call": filtered["cost_usd"].mean(),
+    }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost dashboards answer the questions finance teams ask: "why did our LLM bill increase 40%?" Drill-down reveals it was a single feature running 10x more calls after a prompt change.</div>
+<div class="callout hood"><span>Under the hood</span>OLAP (Online Analytical Processing) uses pre-aggregated rollups to enable fast multi-dimensional queries. Without rollups, each dashboard query scans the full trace table.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>SLO Burn Rate Alerts: Multi-Window Approach</h3>
+<p><strong>What &amp; why.</strong> SLO (Service Level Objective) burn rate measures how fast you're consuming your error budget. A burn rate of 2x means you're burning budget twice as fast as normal. Multi-window burn rate alerts use two time windows (short + long) to catch both sudden incidents and slow-burning degradations without false positives.</p>
+<pre class="code"><code>def calculate_burn_rate(success_rate, slo_target=0.99):
+    """Calculate error budget burn rate."""
+    error_rate = 1 - success_rate
+    allowed_error_rate = 1 - slo_target
+    if error_rate == 0:
+        return 0
+    return error_rate / allowed_error_rate
+
+def multi_window_alert(burn_rates):
+    """
+    Multi-window burn rate alerting:
+    - Short window (1h): fast-burning incidents
+    - Long window (6h): slow-burning degradations
+    """
+    alerts = []
+
+    # Fast burn: burn rate &gt; 14.4x for 1 hour
+    if (burn_rates["1h"] &gt; 14.4 and
+        burn_rates["6h"] &gt; 1.0):
+        alerts.append({
+            "type": "fast_burn",
+            "severity": "critical",
+            "message": f"Fast burn: {burn_rates['1h']:.1f}x "
+                       f"(1h), {burn_rates['6h']:.1f}x (6h)",
+        })
+
+    # Slow burn: burn rate &gt; 3x for 6 hours
+    if burn_rates["6h"] &gt; 3.0:
+        alerts.append({
+            "type": "slow_burn",
+            "severity": "warning",
+            "message": f"Slow burn: {burn_rates['6h']:.1f}x "
+                       f"(6h window)",
+        })
+
+    # Budget exhaustion estimate
+    if burn_rates["6h"] &gt; 0:
+        budget_remaining_hours = 72 / burn_rates["6h"]
+        alerts.append({
+            "type": "budget_status",
+            "severity": "info",
+            "message": f"Error budget exhausts in "
+                       f"~{budget_remaining_hours:.0f}h "
+                       f"at current burn rate",
+        })
+
+    return alerts</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-window burn rate alerts are the industry standard for SLO-based alerting (popularized by Google SRE). They dramatically reduce false positives compared to single-metric alerts.</div>
+<div class="callout hood"><span>Under the hood</span>The 14.4x multiplier for the 1h window corresponds to a 5-minute error budget exhaustion in 1 hour. The 3x multiplier for 6h catches gradual degradations that single-window alerts miss.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Anomaly Detection on Traffic Patterns</h3>
+<p><strong>What &amp; why.</strong> Anomaly detection identifies unusual patterns in LLM traffic: sudden token spikes (prompt injection attack), unexpected error surges (provider outage), or unusual latency patterns (model degradation). Statistical methods (moving average, Z-score, IQR) detect anomalies without requiring labeled training data.</p>
+<pre class="code"><code>import numpy as np
+from collections import deque
+
+class AnomalyDetector:
+    def __init__(self, window_size=100, threshold=3.0):
+        self.window = deque(maxlen=window_size)
+        self.threshold = threshold
+
+    def update(self, value: float) -&gt; dict:
+        self.window.append(value)
+        if len(self.window) &lt; 20:
+            return {"anomaly": False, "reason": "insufficient_data"}
+
+        values = np.array(self.window)
+        mean = np.mean(values)
+        std = np.std(values)
+
+        if std == 0:
+            return {"anomaly": False, "reason": "zero_variance"}
+
+        z_score = (value - mean) / std
+        is_anomaly = abs(z_score) &gt; self.threshold
+
+        return {
+            "anomaly": is_anomaly,
+            "z_score": float(z_score),
+            "value": value,
+            "mean": float(mean),
+            "std": float(std),
+            "direction": "high" if z_score &gt; 0 else "low",
+        }
+
+# Usage: monitor multiple metrics
+detectors = {
+    "token_rate": AnomalyDetector(window_size=60, threshold=3.0),
+    "error_rate": AnomalyDetector(window_size=60, threshold=2.5),
+    "latency_p95": AnomalyDetector(window_size=60, threshold=2.0),
+}
+
+def monitor_tick(metrics):
+    alerts = []
+    for metric, value in metrics.items():
+        if metric in detectors:
+            result = detectors[metric].update(value)
+            if result["anomaly"]:
+                alerts.append({
+                    "metric": metric,
+                    "z_score": result["z_score"],
+                    "direction": result["direction"],
+                    "value": result["value"],
+                    "expected_mean": result["mean"],
+                })
+    return alerts</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Anomaly detection catches issues that threshold-based alerts miss. A gradual 10% latency increase won't trigger a static P95 threshold, but it will trigger a Z-score anomaly alert.</div>
+<div class="callout hood"><span>Under the hood</span>Z-score anomaly detection assumes approximately normal distribution. For skewed metrics (like latency), consider using IQR-based detection or percentile-based bounds instead.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Session Replay: Reconstructing Agent Runs</h3>
+<p><strong>What &amp; why.</strong> Session replay reconstructs the full execution of an agent run from trace data: what the agent saw, what it decided, what tools it called, and what it returned. This enables debugging by replaying the exact sequence of events that led to a specific outcome, similar to browser DevTools network replay.</p>
+<pre class="code"><code>def reconstruct_agent_run(trace_id: str, spans: list[dict]):
+    """Reconstruct an agent run from trace spans."""
+    run = {
+        "trace_id": trace_id,
+        "events": [],
+        "total_tokens": 0,
+        "total_cost": 0,
+    }
+
+    for span in sorted(spans, key=lambda s: s["start_time"]):
+        event = {
+            "timestamp": span["start_time"],
+            "type": span["name"],
+            "duration_ms": (span["end_time"] - span["start_time"]) / 1e6,
+        }
+
+        if "llm" in span["name"].lower():
+            event["input"] = span["attributes"].get("gen_ai.prompt")
+            event["output"] = span["attributes"].get("gen_ai.completion")
+            event["model"] = span["attributes"].get("gen_ai.model")
+            event["tokens"] = span["attributes"].get("gen_ai.tokens", 0)
+            run["total_tokens"] += event["tokens"]
+
+        elif "tool" in span["name"].lower():
+            event["tool_name"] = span["attributes"].get("tool.name")
+            event["tool_input"] = span["attributes"].get("tool.input")
+            event["tool_output"] = span["attributes"].get("tool.output")
+
+        elif "retrieval" in span["name"].lower():
+            event["query"] = span["attributes"].get("retrieval.query")
+            event["docs_found"] = span["attributes"].get("retrieval.docs")
+
+        run["events"].append(event)
+    return run
+
+def print_replay(run):
+    print(f"Agent Run: {run['trace_id']}")
+    print(f"Total tokens: {run['total_tokens']}, "
+          f"Cost: ${run['total_cost']:.4f}")
+    print("-" * 60)
+    for i, event in enumerate(run["events"], 1):
+        print(f"  {i}. [{event['type']}] {event['duration_ms']:.0f}ms")
+        if "input" in event:
+            print(f"     Prompt: {str(event['input'])[:80]}...")
+            print(f"     Output: {str(event['output'])[:80]}...")
+        if "tool_name" in event:
+            print(f"     Tool: {event['tool_name']}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Session replay is the ultimate debugging tool for agent systems. Instead of reading raw trace JSON, you see the agent's decision sequence in human-readable form.</div>
+<div class="callout hood"><span>Under the hood</span>Session replay reconstructs from spans, but raw spans lack high-level semantic meaning (which decision did the agent make?). Enrich spans with agent-specific attributes for meaningful replays.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Privacy Redaction in Collector Pipelines</h3>
+<p><strong>What &amp; why.</strong> PII redaction at the collector level ensures sensitive data never reaches your trace backend, regardless of what application code sends. The collector applies regex, NER, or policy-based redaction to span attributes before export. This is a defense-in-depth measure: even if application code forgets to mask PII, the collector catches it.</p>
+<pre class="code"><code># otel-collector-config.yaml with redaction processor
+processors:
+  attributes:
+    actions:
+      # Redact email addresses in any attribute value
+      - key: email
+        action: update
+        value: "[REDACTED]"
+      - key: user.id
+        action: hash
+
+  # Custom redaction using transform processor
+  transform:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          # Redact any attribute containing an email pattern
+          - set(attributes["prompt_preview"],
+                ReplaceAllString(attributes["prompt_preview"],
+                "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+                "[REDACTED_EMAIL]"))
+          # Truncate long strings to prevent payload bloat
+          - limit(attributes["prompt_preview"], 200)
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [attributes, transform, batch]
+      exporters: [otlp]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Collector-level redaction is a compliance requirement for GDPR, HIPAA, and SOC 2. It provides a centralized, auditable redaction layer that does not depend on individual developers remembering to mask data.</div>
+<div class="callout hood"><span>Under the hood</span>The OTel Collector's transform processor uses the OpenTelemetry Transformation Language (OTTL) for inline attribute manipulation. It runs in the collector process, before data reaches any backend.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Vendor-Neutral Export: Avoiding Lock-in</h3>
+<p><strong>What &amp; why.</strong> OTel's exporter abstraction means you can send traces to any backend (Jaeger, Grafana Tempo, Datadog, Honeycomb) by changing a single configuration line. This prevents vendor lock-in: if your observability vendor changes pricing or degrades service, you switch backends without touching application code.</p>
+<pre class="code"><code># Switching backends requires only config changes
+
+# Option 1: Jaeger (self-hosted, free)
+# otel-collector-config.yaml
+exporters:
+  otlp:
+    endpoint: "jaeger:4317"
+
+# Option 2: Grafana Cloud
+exporters:
+  otlp:
+    endpoint: "tempo.grafana.net:443"
+    headers:
+      Authorization: "Bearer ${GRAFANA_CLOUD_TOKEN}"
+
+# Option 3: Datadog
+exporters:
+  datadog:
+    api:
+      key: "${DD_API_KEY}"
+      site: "datadoghq.com"
+
+# Option 4: Console (development)
+exporters:
+  logging:
+    loglevel: debug
+
+# Application code never changes:
+from opentelemetry import trace
+tracer = trace.get_tracer("my-app")
+# Same tracer, different backend, zero code changes</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Vendor neutrality is a strategic decision. OTel ensures you can evaluate and switch backends without application-level refactoring. Start with Jaeger (free), migrate to managed services as scale grows.</div>
+<div class="callout hood"><span>Under the hood</span>OTel exporters are pluggable modules. The SDK uses a pull-based architecture: your code calls tracer APIs, the SDK batches spans, and the exporter serializes them to the target format (OTLP, Jaeger Thrift, Zipkin JSON).</div>
+</article>
+<article class="topic-card">
+<h3><span class="tnum">TBD1</span>Anomaly Detection on Traffic Patterns</h3>
+<p><strong>What &amp; why.</strong> Anomaly detection identifies unusual patterns in LLM traffic: sudden token spikes (prompt injection), unexpected error surges (provider outage), or unusual latency patterns. Statistical methods (Z-score, IQR) detect anomalies without labeled training data.</p>
+<pre class="code"><code>import numpy as np
+from collections import deque
+
+class AnomalyDetector:
+    def __init__(self, window_size=100, threshold=3.0):
+        self.window = deque(maxlen=window_size)
+        self.threshold = threshold
+
+    def update(self, value):
+        self.window.append(value)
+        if len(self.window) &lt; 20:
+            return {"anomaly": False}
+        values = np.array(self.window)
+        z_score = (value - np.mean(values)) / np.std(values)
+        return {"anomaly": abs(z_score) &gt; self.threshold,
+                "z_score": float(z_score)}
+
+detectors = {
+    "token_rate": AnomalyDetector(window_size=60, threshold=3.0),
+    "error_rate": AnomalyDetector(window_size=60, threshold=2.5),
+    "latency_p95": AnomalyDetector(window_size=60, threshold=2.0),
+}
+
+def monitor_tick(metrics):
+    alerts = []
+    for metric, value in metrics.items():
+        if metric in detectors:
+            result = detectors[metric].update(value)
+            if result["anomaly"]:
+                alerts.append({"metric": metric, "z_score": result["z_score"]})
+    return alerts</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Anomaly detection catches issues that threshold-based alerts miss. A gradual 10% latency increase triggers a Z-score alert before a static threshold.</div>
+<div class="callout hood"><span>Under the hood</span>Z-score assumes approximately normal distribution. For skewed metrics, use IQR-based detection instead.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV Â· Expert<small>Tier 4 â€” Telemetry economics, cardinality, chaos, compliance, build vs buy</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Economics of Telemetry: Volume vs Insight</h3>
+<p><strong>What &amp; why.</strong> More telemetry is not always better. Every additional span, attribute, and log line has a cost: collector processing, network bandwidth, storage, and query performance. The economics of telemetry require balancing insight granularity against operational cost, finding the point of diminishing returns.</p>
+<pre class="code"><code>def telemetry_cost_model(
+    requests_per_day: int,
+    spans_per_request: int,
+    avg_span_size_bytes: int,
+    sampling_rate: float,
+    retention_days: int,
+    storage_cost_per_gb: float = 0.023,
+):
+    daily_spans = requests_per_day * spans_per_request
+    sampled_spans = daily_spans * sampling_rate
+    daily_bytes = sampled_spans * avg_span_size_bytes
+    daily_gb = daily_bytes / (1024**3)
+    monthly_cost = daily_gb * retention_days * storage_cost_per_gb
+
+    # Collector cost (estimated CPU)
+    collector_cpu_millis = sampled_spans * 0.01  # 0.01ms per span
+    collector_cost_monthly = collector_cpu_millis / 1000 * 730 * 0.04
+
+    total = monthly_cost + collector_cost_monthly
+    cost_per_request = total / (requests_per_day * 30)
+
+    return {
+        "daily_spans": daily_spans,
+        "sampled_spans": sampled_spans,
+        "storage_monthly_usd": monthly_cost,
+        "collector_monthly_usd": collector_cost_monthly,
+        "total_monthly_usd": total,
+        "cost_per_request": cost_per_request,
+    }
+
+# Example: 10K requests/day, 5 spans/request, 2KB/span, 10% sampling
+result = telemetry_cost_model(10000, 5, 2048, 0.10, 7)
+print(f"Monthly cost: ${result['total_monthly_usd']:.2f}")
+print(f"Per request: ${result['cost_per_request']:.6f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Telemetry cost models prevent surprise bills. A system generating 1M requests/day with 10 spans each at full fidelity costs ~$600/month in storage alone. Sampling at 10% reduces this to $60.</div>
+<div class="callout hood"><span>Under the hood</span>The cost model ignores network egress (which varies by cloud provider) and query costs (which depend on dashboard complexity). Include these for accurate total-cost-of-ownership estimates.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Cardinality Explosions: War Stories</h3>
+<p><strong>What &amp; why.</strong> High-cardinality attributes (user_id, session_id, prompt_hash) create millions of unique time series, overwhelming metric backends and causing storage/query explosions. A single attribute with 100K unique values combined with 50 metric names produces 5 million time series â€” enough to crash Prometheus.</p>
+<pre class="code"><code># BAD: high-cardinality attribute
+# user_id has millions of values - creates millions of time series
+llm_request_counter.labels(
+    model="gpt-4o",
+    user_id="user-12345",  # HIGH CARDINALITY - AVOID
+    prompt_hash="abc123",  # HIGH CARDINALITY - AVOID
+)
+
+# GOOD: low-cardinality attribute with high-cardinality as attribute
+llm_request_counter.labels(
+    model="gpt-4o",
+    user_tier="enterprise",  # LOW CARDINALITY - 3-5 values
+    feature="summarize",     # LOW CARDINALITY - 10-20 values
+)
+
+# Store high-cardinality data as span attributes, not metrics
+span.set_attribute("user_id", "user-12345")  # OK in traces
+span.set_attribute("prompt_hash", "abc123")  # OK in traces
+
+# Rule of thumb: metrics for dashboards (low cardinality)
+#             traces for debugging (high cardinality)
+CARDINALITY_GUIDE = {
+    "safe_for_metrics": ["model", "feature", "status", "tier"],
+    "use_in_traces_only": ["user_id", "session_id", "prompt_hash",
+                           "request_id", "trace_id"],
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cardinality explosions are the most common cause of observability infrastructure failures. Learn from others' war stories: never put user_id or session_id as a metric label.</div>
+<div class="callout hood"><span>Under the hood</span>Prometheus stores every unique label combination as a separate time series. 100 models x 20 features x 1M users = 2 billion time series. This exceeds most Prometheus deployments' capacity.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Trace-Driven Auto-Optimization Loops</h3>
+<p><strong>What &amp; why.</span> Use trace data to automatically optimize LLM system behavior: route slow queries to faster models, cache frequent prompts, adjust timeouts based on observed latency distributions, and trigger prompt optimization when quality scores drop. This creates a self-improving system that gets faster and cheaper over time.</p>
+<pre class="code"><code>class AutoOptimizer:
+    def __init__(self, traces, config):
+        self.traces = traces
+        self.config = config
+
+    def analyze_and_optimize(self):
+        optimizations = []
+
+        # 1. Route slow queries to faster model
+        slow_queries = self._find_slow_queries(threshold_ms=5000)
+        if slow_queries:
+            optimizations.append({
+                "type": "routing",
+                "action": "redirect_to_fast_model",
+                "queries": slow_queries,
+                "estimated_savings_ms": sum(
+                    q["latency_ms"] for q in slow_queries
+                ) * 0.6,
+            })
+
+        # 2. Cache frequent prompts
+        frequent = self._find_frequent_prompts(min_count=10)
+        for prompt_pattern in frequent:
+            optimizations.append({
+                "type": "caching",
+                "action": "add_to_cache",
+                "pattern": prompt_pattern["pattern"],
+                "estimated_savings_calls": prompt_pattern["count"],
+            })
+
+        # 3. Adjust timeouts based on P99
+        p99_latency = self._calculate_p99_latency()
+        if p99_latency &gt; self.config.current_timeout * 0.8:
+            new_timeout = p99_latency * 1.5
+            optimizations.append({
+                "type": "timeout",
+                "action": "increase_timeout",
+                "from": self.config.current_timeout,
+                "to": new_timeout,
+            })
+
+        return optimizations
+
+    def _find_slow_queries(self, threshold_ms):
+        return [t for t in self.traces
+                if t["latency_ms"] &gt; threshold_ms]
+
+    def _find_frequent_prompts(self, min_count):
+        from collections import Counter
+        patterns = Counter(
+            t["prompt_pattern"] for t in self.traces
+        )
+        return [{"pattern": p, "count": c}
+                for p, c in patterns.items() if c &gt;= min_count]
+
+    def _calculate_p99_latency(self):
+        latencies = sorted(t["latency_ms"] for t in self.traces)
+        return latencies[int(len(latencies) * 0.99)]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Auto-optimization transforms observability from reactive (debugging) to proactive (improving). Each optimization is logged and its impact measured, creating a virtuous cycle.</div>
+<div class="callout hood"><span>Under the hood</span>Auto-optimization requires guardrails: never auto-optimize without human approval for high-risk changes (model routing), but do auto-optimize low-risk changes (caching, timeout adjustments).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Chaos Observability: Verifying Failover Paths</h3>
+<p><strong>What &amp; why.</strong> Chaos observability combines chaos engineering (injecting failures) with observability (measuring the system's response). By deliberately failing components â€” killing a model provider, introducing latency, corrupting responses â€” and observing the trace data, you verify that fallback mechanisms, circuit breakers, and retry logic actually work.</p>
+<pre class="code"><code>import random, time
+
+class ChaosInjector:
+    def __init__(self):
+        self.scenarios = {
+            "provider_timeout": self._inject_timeout,
+            "provider_error": self._inject_error,
+            "high_latency": self._inject_latency,
+            "partial_response": self._inject_partial,
+        }
+
+    def _inject_timeout(self, call_fn, *args, **kwargs):
+        time.sleep(10)  # simulate timeout
+        raise TimeoutError("Simulated provider timeout")
+
+    def _inject_error(self, call_fn, *args, **kwargs):
+        raise Exception("Simulated provider 500 error")
+
+    def _inject_latency(self, call_fn, *args, **kwargs):
+        time.sleep(2)  # add 2s latency
+        return call_fn(*args, **kwargs)
+
+    def _inject_partial(self, call_fn, *args, **kwargs):
+        return None  # simulate empty response
+
+    def run_chaos_test(self, scenario, system_fn, expected_fallback):
+        injector = self.scenarios[scenario]
+        start = time.perf_counter()
+        try:
+            result = injector(system_fn)
+            latency = (time.perf_counter() - start) * 1000
+            fallback_triggered = result == expected_fallback
+            return {
+                "scenario": scenario,
+                "fallback_triggered": fallback_triggered,
+                "latency_ms": latency,
+                "passed": fallback_triggered,
+            }
+        except Exception as e:
+            latency = (time.perf_counter() - start) * 1000
+            return {
+                "scenario": scenario,
+                "error": str(e),
+                "latency_ms": latency,
+                "passed": False,
+            }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Chaos observability is the only way to verify failover paths work. Unverified fallbacks are assumptions, not guarantees. Monthly chaos drills with trace verification provide evidence of resilience.</div>
+<div class="callout hood"><span>Under the hood</span>Chaos experiments must be bounded: set timeouts, rate limits, and blast radius to prevent cascading failures. Start with synthetic traffic, then graduate to canary traffic.</div>
+</article>
+<article class="topic-card">
+<h3><span class="tnum">TBD2</span>Session Replay: Reconstructing Agent Runs</h3>
+<p><strong>What &amp; why.</strong> Session replay reconstructs the full execution of an agent run from trace data: what the agent saw, what it decided, what tools it called, and what it returned. This enables debugging by replaying the exact sequence of events.</p>
+<pre class="code"><code>def reconstruct_agent_run(trace_id, spans):
+    run = {"trace_id": trace_id, "events": [], "total_tokens": 0}
+    for span in sorted(spans, key=lambda s: s["start_time"]):
+        event = {"type": span["name"],
+                 "duration_ms": (span["end_time"] - span["start_time"]) / 1e6}
+        if "llm" in span["name"].lower():
+            event["model"] = span["attributes"].get("gen_ai.model")
+            event["tokens"] = span["attributes"].get("gen_ai.tokens", 0)
+            run["total_tokens"] += event["tokens"]
+        elif "tool" in span["name"].lower():
+            event["tool_name"] = span["attributes"].get("tool.name")
+        run["events"].append(event)
+    return run
+
+def print_replay(run):
+    print(f"Agent Run: {run['trace_id']}, Tokens: {run['total_tokens']}")
+    for i, event in enumerate(run["events"], 1):
+        print(f"  {i}. [{event['type']}] {event['duration_ms']:.0f}ms")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Session replay is the ultimate debugging tool for agent systems. Instead of raw trace JSON, you see the decision sequence in human-readable form.</div>
+<div class="callout hood"><span>Under the hood</span>Enrich spans with agent-specific attributes for meaningful replays beyond raw span data.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">TBD3</span>Privacy Redaction in Collector Pipelines</h3>
+<p><strong>What &amp; why.</strong> PII redaction at the collector level ensures sensitive data never reaches your trace backend. The collector applies regex, NER, or policy-based redaction to span attributes before export, providing defense-in-depth.</p>
+<pre class="code"><code># otel-collector-config.yaml with redaction
+processors:
+  attributes:
+    actions:
+      - key: email
+        action: update
+        value: "[REDACTED]"
+      - key: user.id
+        action: hash
+  transform:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["prompt_preview"],
+                ReplaceAllString(attributes["prompt_preview"],
+                "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+                "[REDACTED_EMAIL]"))
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [attributes, transform, batch]
+      exporters: [otlp]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Collector-level redaction is a compliance requirement for GDPR, HIPAA, and SOC 2.</div>
+<div class="callout hood"><span>Under the hood</span>The OTel Collector transform processor uses OTTL for inline attribute manipulation before data reaches any backend.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">TBD4</span>Vendor-Neutral Export: Avoiding Lock-in</h3>
+<p><strong>What &amp; why.</strong> OTel's exporter abstraction means you can send traces to any backend by changing a single configuration line. This prevents vendor lock-in and enables migration without touching application code.</p>
+<pre class="code"><code># Switching backends requires only config changes
+# Option 1: Jaeger (self-hosted)
+exporters:
+  otlp:
+    endpoint: "jaeger:4317"
+
+# Option 2: Grafana Cloud
+exporters:
+  otlp:
+    endpoint: "tempo.grafana.net:443"
+    headers:
+      Authorization: "Bearer "
+
+# Option 3: Datadog
+exporters:
+  datadog:
+    api:
+      key: ""
+      site: "datadoghq.com"
+
+# Application code never changes
+from opentelemetry import trace
+tracer = trace.get_tracer("my-app")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Vendor neutrality is a strategic decision. Start with Jaeger (free), migrate to managed services as scale grows.</div>
+<div class="callout hood"><span>Under the hood</span>OTel exporters are pluggable modules. The SDK batches spans and the exporter serializes them to the target format.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V Â· Real-Time Projects &amp; Use Cases<small>Tier 5 â€” build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Full-Stack Traced RAG Application with Langfuse</h3>
+<p>Build a RAG application with complete observability: every retrieval, generation, and post-processing step is traced with OTel and Langfuse. The app includes a real-time dashboard showing latency waterfalls, token consumption, and quality scores per request.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Set up Langfuse project with API keys and configure the Python SDK decorator integration</li><li>Build a document ingestion pipeline with traced chunking, embedding, and storage steps</li><li>Implement a RAG query handler with @observe decorators on retrieval, generation, and post-processing</li><li>Add PII masking to the Langfuse integration using the mask parameter</li><li>Implement streaming with TTFT and TBT metrics recorded on each span</li><li>Build a request-level dashboard showing latency waterfall, token breakdown, and cost per query</li><li>Add user feedback capture (thumbs up/down) linked to traces via Langfuse scores</li><li>Create an alert rule for queries with quality score below 0.7, linking to the full trace</li></ol>
+<pre class="code"><code>from langfuse import Langfuse
+from langfuse.decorators import observe, langfuse_context
+import time
+
+langfuse = Langfuse()
+
+@observe(as_type="generation")
+def llm_generate(messages, model="gpt-4o"):
+    response = client.chat.completions.create(
+        model=model, messages=messages, stream=True
+    )
+    ttft = None
+    full_content = []
+    for chunk in response:
+        if chunk.choices[0].delta.content:
+            if ttft is None:
+                ttft = time.perf_counter()
+            full_content.append(chunk.choices[0].delta.content)
+    return "".join(full_content)
+
+@observe()
+def rag_query(question: str) -&gt; dict:
+    with langfuse.trace(name="rag_pipeline") as trace:
+        docs = retrieve(question)
+        answer = llm_generate(messages=[
+            {"role": "system", "content": f"Context: {docs}"},
+            {"role": "user", "content": question},
+        ])
+        score = evaluate(answer, docs)
+        langfuse_context.score_current_trace(
+            name="quality", value=score
+        )
+        return {"answer": answer, "score": score}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Langfuse decorator-based tracing for RAG pipelines</li><li>Streaming observability with TTFT and TBT metrics</li><li>PII masking at the observability layer</li><li>Quality score attachment to production traces</li><li>Real-time dashboarding for LLM operations</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Cost-Attribution Dashboard per Feature</h3>
+<p>Build a cost-tracking system that attributes LLM spending to specific features, teams, and tenants. The dashboard shows real-time cost burn rate, per-feature breakdowns, budget alerts, and historical cost trends. Includes a Slack integration for budget threshold notifications.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Implement middleware that extracts feature_id and tenant_id from every request</li><li>Build a CostTracker class that aggregates token consumption and cost by feature and tenant</li><li>Record costs as OTel span attributes for trace-level drill-down</li><li>Create Prometheus metrics for cost per feature (gauge) and total cost (counter)</li><li>Build a Grafana dashboard with per-feature, per-tenant, and per-model cost views</li><li>Implement budget thresholds with Slack webhook alerts at 50%, 80%, and 100% of budget</li><li>Generate weekly cost reports with trend analysis and anomaly detection</li><li>Add a drill-down API: given a feature_id, return its cost breakdown by model and time period</li></ol>
+<pre class="code"><code>from prometheus_client import Gauge, Counter
+import requests
+
+cost_by_feature = Gauge(
+    "llm_cost_by_feature_usd",
+    "LLM cost by feature",
+    ["feature", "tenant", "model"]
+)
+
+total_cost_counter = Counter(
+    "llm_total_cost_usd",
+    "Total LLM cost"
+)
+
+BUDGET_THRESHOLDS = [0.50, 0.80, 1.00]
+SLACK_WEBHOOK = "https://hooks.slack.com/services/xxx"
+
+def check_budget(tenant: str, feature: str, current_cost: float,
+                 budget: float):
+    ratio = current_cost / budget
+    for threshold in BUDGET_THRESHOLDS:
+        if ratio &gt;= threshold:
+            requests.post(SLACK_WEBHOOK, json={
+                "text": f"Budget alert: {tenant}/{feature} "
+                        f"at {ratio*100:.0f}% "
+                        f"(${current_cost:.2f}/${budget:.2f})"
+            })
+            break</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Per-feature and per-tenant cost attribution</li><li>OTel span attributes for cost drill-down</li><li>Grafana dashboards for LLM cost visualization</li><li>Budget alerts with Slack integration</li><li>Weekly cost reports with trend analysis</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Incident Drill: Producing a Postmortem from Traces</h3>
+<p>Build an incident response system that automatically generates postmortem reports from trace data. When an incident is declared, the system collects all relevant traces, identifies the root cause span, computes blast radius (affected users and requests), and generates a structured postmortem document.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Build an incident declaration API that accepts a start time, end time, and affected service</li><li>Implement trace collection: query all traces within the incident window with ERROR status</li><li>Build root cause analysis: identify the earliest error span and trace the failure cascade</li><li>Compute blast radius: count affected users, requests, and total cost of failed requests</li><li>Extract latency anomalies: compare incident window latency distributions against baseline</li><li>Generate a structured postmortem: timeline, root cause, blast radius, contributing factors</li><li>Build a PostmortemViewer HTML page that visualizes the incident timeline from trace data</li><li>Implement a lessons-learned tracker linked to postmortem IDs</li></ol>
+<pre class="code"><code>from datetime import datetime
+from collections import defaultdict
+
+def generate_postmortem(incident_id, start_time, end_time, traces):
+    """Generate postmortem from incident trace data."""
+    error_traces = [t for t in traces if t["status"] == "ERROR"]
+    affected_users = set(t["user_id"] for t in error_traces)
+    total_cost = sum(t["cost_usd"] for t in error_traces)
+
+    # Find root cause: earliest error span
+    root_cause = min(
+        error_traces,
+        key=lambda t: t["start_time"]
+    )
+
+    # Build timeline
+    timeline = sorted(traces, key=lambda t: t["start_time"])
+    events = []
+    for t in timeline:
+        events.append({
+            "time": t["start_time"],
+            "type": t["span_name"],
+            "status": t["status"],
+            "model": t.get("model"),
+            "error": t.get("error_message"),
+        })
+
+    postmortem = {
+        "incident_id": incident_id,
+        "duration_minutes": (end_time - start_time).seconds / 60,
+        "root_cause": {
+            "span": root_cause["span_name"],
+            "error": root_cause.get("error_message"),
+            "model": root_cause.get("model"),
+        },
+        "blast_radius": {
+            "affected_users": len(affected_users),
+            "failed_requests": len(error_traces),
+            "cost_impact_usd": total_cost,
+        },
+        "timeline": events,
+        "status": "draft",
+    }
+    return postmortem</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Automated postmortem generation from trace data</li><li>Root cause analysis via span hierarchy traversal</li><li>Blast radius computation from trace metadata</li><li>Incident timeline visualization from distributed traces</li><li>Lessons-learned tracking linked to incidents</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Three Pillars</td><td>Traces, logs, metrics â€” complementary views of system behavior</td><td>tracer, logger, counter/histogram</td></tr>
+<tr><td>Span Hierarchy</td><td>Tree of spans: trace -> chain -> LLM -> tool</td><td>tracer.start_as_current_span("name")</td></tr>
+<tr><td>OpenTelemetry</td><td>Vendor-neutral standard for telemetry generation and export</td><td>TracerProvider, BatchSpanProcessor, OTLPSpanExporter</td></tr>
+<tr><td>Langfuse</td><td>LLM-specific observability with @observe decorators</td><td>@observe(as_type="generation")</td></tr>
+<tr><td>Token Tracking</td><td>Capture prompt/completion tokens and cost per call</td><td>response.usage.prompt_tokens, litellm.completion_cost()</td></tr>
+<tr><td>Latency Waterfall</td><td>Visual breakdown of time spent in each component</td><td>SpanTiming with start/end times</td></tr>
+<tr><td>Error Spans</td><td>Record exceptions on spans for searchable error tracking</td><td>span.record_exception(e), StatusCode.ERROR</td></tr>
+<tr><td>Session Grouping</td><td>Link multiple spans into a user journey via session_id</td><td>trace(session_id=session_id)</td></tr>
+<tr><td>Sampling</td><td>Head-based, tail-based, adaptive â€” what traces to keep</td><td>TraceIdRatioBased(0.1), tail_sampling config</td></tr>
+<tr><td>PII Masking</td><td>Redact sensitive data from traces before storage</td><td>mask_pii(), langfuse(mask=...)</td></tr>
+<tr><td>LangSmith</td><td>LangChain-native trace viewer for debugging workflows</td><td>LANGSMITH_TRACING=true</td></tr>
+<tr><td>Phoenix Arize</td><td>Embedding visualization and drift detection</td><td>px.launch_app(), analyze_embedding_drift()</td></tr>
+<tr><td>Manual Spans</td><td>Custom instrumentation for business logic</td><td>tracer.start_as_current_span("custom")</td></tr>
+<tr><td>TTFT / TBT</td><td>Time to First Token and Time Between Tokens for streaming</td><td>measure ttft from first chunk</td></tr>
+<tr><td>Async Context</td><td>Propagate OTel context across asyncio tasks</td><td>context.attach(ctx) in child tasks</td></tr>
+<tr><td>Semantic Conventions</td><td>Standardized GenAI attribute names (gen_ai.*)</td><td>GenAiAttributes.GEN_AI_REQUEST_MODEL</td></tr>
+<tr><td>Log Correlation</td><td>Link logs to traces via shared request_id</td><td>ContextVar for request_id, logging Filter</td></tr>
+<tr><td>RED Metrics</td><td>Rate, Errors, Duration â€” the three service health signals</td><td>Counter, Histogram from prometheus_client</td></tr>
+<tr><td>Cost Meters</td><td>Per-feature, per-tenant token and cost tracking</td><td>CostTracker.record(model, feature, tenant)</td></tr>
+<tr><td>Alerting</td><td>P95 spikes, error rate, budget burn rate alerts</td><td>Prometheus alerting rules with "for" duration</td></tr>
+<tr><td>Trace-Based Evals</td><td>Attach quality scores directly to trace spans</td><td>span.set_attribute("eval.score", score)</td></tr>
+<tr><td>Retention</td><td>Tiered storage: full, reduced, metadata-only, compliance</td><td>7d full, 30d reduced, 1y metadata, 7y audit</td></tr>
+<tr><td>OTel Collector</td><td>Central pipeline for processing, sampling, and exporting</td><td>otel-collector-config.yaml</td></tr>
+<tr><td>Distributed Tracing</td><td>Link spans across services via W3C context propagation</td><td>inject(headers), extract(request.headers)</td></tr>
+<tr><td>Cost Dashboards</td><td>OLAP rollups for multi-dimensional cost analysis</td><td>groupby(["model", "date"]).sum()</td></tr>
+<tr><td>SLO Burn Rate</td><td>Multi-window alerts for error budget consumption</td><td>burn_rate = error_rate / allowed_error_rate</td></tr>
+<tr><td>Anomaly Detection</td><td>Statistical detection of unusual traffic patterns</td><td>Z-score with sliding window</td></tr>
+<tr><td>Session Replay</td><td>Reconstruct agent runs from trace sequences</td><td>reconstruct_agent_run(trace_id)</td></tr>
+<tr><td>Privacy Redaction</td><td>Collector-level PII masking before export</td><td>OTTL transform processor</td></tr>
+<tr><td>Vendor Neutrality</td><td>OTel exporter abstraction for backend switching</td><td>Change exporter config, not code</td></tr>
+<tr><td>Telemetry Economics</td><td>Balance insight granularity against operational cost</td><td>cost_model(requests, spans, sampling, retention)</td></tr>
+<tr><td>Cardinality</td><td>Keep metric labels low-cardinality; use traces for high-cardinality</td><td>model=OK, user_id=traces only</td></tr>
+<tr><td>Auto-Optimization</td><td>Use trace data to automatically tune routing and caching</td><td>Analyze traces -&gt; apply optimizations</td></tr>
+<tr><td>Chaos Observability</td><td>Inject failures and verify response via traces</td><td>ChaosInjector.run_chaos_test()</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="evaluations.html">&larr; Evaluations</a><a href="mlops.html">MLOps &rarr;</a></footer>
+</body></html>

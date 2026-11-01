@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoRA &amp; QLoRA — Parameter-Efficient Adaptation — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / LoRA &amp; QLoRA — Parameter-Efficient Adaptation</span><span class="spacer"></span>
+<a class="navlink" href="fine-tuning.html">&larr; Fine-Tuning</a> <a class="navlink" href="vectordb.html">Vector Databases &rarr;</a></nav>
+<header class="hero"><div class="mono">LQ</div><div><h1>LoRA &amp; QLoRA — Parameter-Efficient Adaptation</h1>
+<p class="tagline">Tune billions of parameters on a single GPU through low-rank decomposition and 4-bit quantization</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>LoRA and QLoRA make fine-tuning accessible by reducing the number of trainable parameters and the memory footprint respectively. This chapter covers the theory of low-rank adaptation, practical configuration, quantization techniques, and production deployment patterns.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Why LoRA works, low-rank decomposition, QLoRA basics</td><td>Can configure and run a LoRA/QLoRA fine-tune on consumer hardware</td></tr>
+<tr><td>Tier 2</td><td>Target selection, adapter management, evaluation</td><td>Can tune hyperparameters, merge adapters, and measure quality deltas</td></tr>
+<tr><td>Tier 3</td><td>Math derivation, quantization internals, distributed training</td><td>Can debug NaNs, profile VRAM, and launch multi-GPU LoRA jobs</td></tr>
+<tr><td>Tier 4</td><td>Theory extensions, security, production deployment</td><td>Can architect multi-tenant adapter serving with compliance controls</td></tr>
+<tr><td>Tier 5</td><td>QLoRA Mistral-7B, multi-persona chatbot, VRAM benchmark lab</td><td>Shipped artifacts with benchmark reports</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 &mdash; why LoRA and QLoRA</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Why Full Fine-Tuning Is Expensive</h3>
+<p><strong>What &amp; why.</strong> Full fine-tuning updates every parameter, requiring optimizer states that consume 8-16 bytes per parameter. A 7B model needs ~112GB just for AdamW states in fp32, exceeding even high-end consumer GPUs.</p>
+<pre class="code"><code># Memory breakdown for full FT (7B model, AdamW, fp32)
+# Model weights:   7B * 4 bytes =  28 GB
+# Gradients:       7B * 4 bytes =  28 GB
+# AdamW m state:   7B * 4 bytes =  28 GB
+# AdamW v state:   7B * 4 bytes =  28 GB
+# Total:                        ~112 GB
+
+# With bf16 mixed precision: ~84 GB
+# Still requires multi-GPU or cloud A100/H100</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>When evaluating infrastructure costs for a fine-tuning project; this math determines whether you need cloud GPUs or can use local hardware.</div>
+<div class="callout hood"><span>Under the hood</span>The optimizer states (AdamW's first and second moment estimates) dominate memory; they are the target LoRA eliminates by freezing most parameters.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Low-Rank A*B Decomposition</h3>
+<p><strong>What &amp; why.</strong> LoRA assumes weight updates have low intrinsic rank. Instead of updating a full d x d weight matrix, it learns two small matrices A (d x r) and B (r x d) where r is much smaller than d, capturing the essential adaptation with far fewer parameters.</p>
+<pre class="code"><code>import torch
+
+class LoRALinear(torch.nn.Module):
+    def __init__(self, in_f, out_f, r=16, alpha=32):
+        super().__init__()
+        self.weight = torch.nn.Parameter(
+            torch.randn(out_f, in_f), requires_grad=False  # frozen
+        )
+        self.A = torch.nn.Parameter(torch.randn(in_f, r) * 0.01)
+        self.B = torch.nn.Parameter(torch.zeros(r, out_f))
+        self.scaling = alpha / r
+
+    def forward(self, x):
+        return x @ self.weight.T + (x @ self.A @ self.B.T) * self.scaling
+
+# Full update: d^2 params; LoRA: 2*d*r params
+# d=4096, r=16: 16M vs 131K (128x fewer)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why LoRA works: the adapter learns a low-rank approximation of the full weight update, sufficient for most task adaptations.</div>
+<div class="callout hood"><span>Under the hood</span>Research shows that pretrained model weight updates during fine-tuning have low intrinsic dimensionality; LoRA exploits this structural property.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Target Weight Matrices</h3>
+<p><strong>What &amp; why.</strong> LoRA is applied to specific weight matrices in the model. The attention projection layers (query, key, value, output) are the primary targets, with MLP layers as optional secondary targets for higher-capacity adaptation.</p>
+<pre class="code"><code># LLaMA / Mistral / Qwen target patterns:
+# Minimal:  ["q_proj", "v_proj"]
+# Standard: ["q_proj", "k_proj", "v_proj", "o_proj"]
+# Full:     ["q_proj", "k_proj", "v_proj", "o_proj",
+#            "gate_proj", "up_proj", "down_proj"]
+
+# GPT-2 / GPT-NeoX:
+#   ["c_attn"] or ["c_attn", "c_proj"]
+
+# Impact on trainable params (7B model, r=16):
+# q,v only:      ~1.7M (0.05%)
+# all attention:  ~3.4M (0.11%)
+# full:           ~13.6M (0.45%)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Configuring LoRA for any architecture; the right target modules determine what the adapter can modify.</div>
+<div class="callout hood"><span>Under the hood</span>Attention layers control what information flows through the model; adapting them gives LoRA direct control over the model's reasoning pathways.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Rank r Meaning and Defaults</h3>
+<p><strong>What &amp; why.</strong> Rank r determines the adapter's capacity. Higher rank = more parameters = more adaptation ability, but also more memory and risk of overfitting. r=8 to r=32 covers most use cases.</p>
+<pre class="code"><code>from peft import LoraConfig
+
+# Rank selection guide
+# r=8:   Simple tasks (classification, basic formatting)
+# r=16:  General purpose (chat, summarization) -- RECOMMENDED
+# r=32:  Complex domain adaptation (legal, medical)
+# r=64:  Maximum adaptation (style transfer, complex reasoning)
+
+config = LoraConfig(r=16, lora_alpha=32,
+                    target_modules=["q_proj", "v_proj"],
+                    lora_dropout=0.05)
+
+# Trainable param count scales linearly with r
+# r=16: ~3.4M; r=32: ~6.8M (2x more)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every LoRA configuration; r=16 is the community consensus default, starting point before ablation.</div>
+<div class="callout hood"><span>Under the hood</span>The rank controls the dimensionality of the subspace the adapter operates in; task complexity determines how much capacity is needed.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Alpha Scaling Explained</h3>
+<p><strong>What &amp; why.</strong> Alpha is a scaling factor that controls the magnitude of the LoRA adapter's output relative to the frozen base weights. The effective scaling is alpha/r, so doubling alpha doubles the adapter's influence.</p>
+<pre class="code"><code># Effective scaling = alpha / r
+# alpha=32, r=16 -> scaling = 2.0 (adapter output doubled)
+# alpha=16, r=16 -> scaling = 1.0 (adapter output unchanged)
+# alpha=64, r=16 -> scaling = 4.0 (adapter output quadrupled)
+
+# Convention: alpha = 2 * r (scaling factor of 2)
+# Actual adapter output:
+# output = base_output + (alpha / r) * (dropout(x) @ A @ B)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fine-tuning where the model seems under-adapted (increase alpha) or over-adapted (decrease alpha) relative to the base model's capabilities.</div>
+<div class="callout hood"><span>Under the hood</span>Alpha acts as a learning rate multiplier for the adapter; higher alpha amplifies the adapter's signal, which can improve convergence speed but risks instability.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>PEFT LoraConfig Minimal Example</h3>
+<p><strong>What &amp; why.</strong> PEFT (Parameter-Efficient Fine-Tuning) is the HuggingFace library that manages LoRA adapters. A minimal LoraConfig and get_peft_model call is all you need to convert any model for LoRA training.</p>
+<pre class="code"><code>from peft import LoraConfig, get_peft_model, TaskType
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained(
+    "Qwen/Qwen2.5-3B-Instruct",
+    torch_dtype="auto", device_map="auto"
+)
+
+lora_config = LoraConfig(
+    task_type=TaskType.CAUSAL_LM,
+    r=16, lora_alpha=32,
+    target_modules=["q_proj", "v_proj"],
+    lora_dropout=0.05, bias="none"
+)
+
+model = get_peft_model(model, lora_config)
+model.print_trainable_parameters()
+# trainable params: 3,407,872 || all: 3,000,000,000 || 0.11%</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The starting point for any LoRA fine-tune; this 10-line setup converts any HuggingFace model to LoRA-trainable.</div>
+<div class="callout hood"><span>Under the hood</span>get_peft_model wraps the model's target modules with LoRA adapter layers while freezing all other parameters via requires_grad=False.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>QLoRA: NF4, Double Quant, Paged Optimizers</h3>
+<p><strong>What &amp; why.</strong> QLoRA quantizes the frozen base model to 4-bit NF4 (Normal Float 4), applies double quantization to compression constants, and uses paged optimizers to handle memory spikes. This enables fine-tuning 7B-13B models on a single 24GB GPU.</p>
+<pre class="code"><code>import torch
+from transformers import BitsAndBytesConfig, AutoModelForCausalLM
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_compute_dtype=torch.bfloat16
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    "mistralai/Mistral-7B-Instruct-v0.3",
+    quantization_config=bnb_config,
+    device_map="auto"
+)
+
+# 7B model in ~4GB VRAM (base) + ~1GB LoRA overhead
+# Total: ~5GB VRAM vs ~84GB for full FT in bf16</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fine-tuning 7B-13B models on consumer GPUs (RTX 3090, RTX 4090) where full precision is impossible.</div>
+<div class="callout hood"><span>Under the hood</span>NF4 uses information-theoretically optimal quantization for normally-distributed weights, achieving better quality than standard INT4.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>bitsandbytes 4-bit Load Snippet</h3>
+<p><strong>What &amp; why.</strong> BitsAndBytes provides the quantized loading and dequantization for QLoRA. The 4-bit model loads into minimal VRAM, with weights dequantized to bf16 on-the-fly during the forward pass.</p>
+<pre class="code"><code>from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_compute_dtype="bfloat16"
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    "mistralai/Mistral-7B-Instruct-v0.3",
+    quantization_config=bnb_config,
+    device_map="auto"
+)
+
+lora_config = LoraConfig(
+    r=16, lora_alpha=32,
+    target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+    lora_dropout=0.05, task_type="CAUSAL_LM"
+)
+model = get_peft_model(model, lora_config)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The standard QLoRA setup pattern; this two-step load-then-LoRA approach is used in most consumer-GPU fine-tuning projects.</div>
+<div class="callout hood"><span>Under the hood</span>BitsAndBytes dequantizes NF4 weights to bf16 in the forward pass kernel, so computation happens in higher precision while storage is 4-bit.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Consumer GPU Feasibility: 7B / 13B</h3>
+<p><strong>What &amp; why.</strong> QLoRA makes it possible to fine-tune models on consumer hardware. The key constraint is VRAM: a 24GB GPU handles 7B with QLoRA easily and 13B with careful configuration.</p>
+<pre class="code"><code># Consumer GPU VRAM budgets:
+# RTX 3060 12GB:  QLoRA 3B, maybe 7B at r=8, batch_size=1
+# RTX 3090 24GB:  QLoRA 7B comfortably, 13B tight
+# RTX 4090 24GB:  QLoRA 7B easy, 13B with grad accumulation
+# A6000 48GB:     QLoRA 13B easy, 30B possible
+# A100 80GB:      Full FT 7B, QLoRA 30B+, LoRA 65B
+
+# QLoRA 7B (r=16) memory estimate:
+# Quantized base:  ~4 GB
+# LoRA params:     ~20 MB
+# Optimizer state: ~40 MB
+# Gradients:       ~20 MB
+# Activations:     ~2-8 GB (depends on seq_length)
+# Total:           ~7-13 GB</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hardware procurement decisions; knowing your GPU's capacity determines which models you can fine-tune locally.</div>
+<div class="callout hood"><span>Under the hood</span>The activation memory is the hidden variable; it scales with batch size, sequence length, and model depth, often dominating the memory budget.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Intermediate<small>Tier 2 &mdash; practical LoRA configuration and evaluation</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Choosing target_modules</h3>
+<p><strong>What &amp; why.</strong> Which layers you adapt determines what the model can learn. Attention layers control information flow; MLP layers control knowledge storage. The right choice depends on your task's demands.</p>
+<pre class="code"><code># Target module strategies:
+targets_minimal = ["q_proj", "v_proj"]           # fast, low VRAM
+targets_standard = ["q_proj", "k_proj", "v_proj", "o_proj"]  # balanced
+targets_full = [
+    "q_proj", "k_proj", "v_proj", "o_proj",
+    "gate_proj", "up_proj", "down_proj"
+]  # maximum capacity
+
+# Start minimal, expand if quality insufficient
+# MLP layers store factual knowledge; adapting them enables
+# domain knowledge injection but needs more regularization</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Tuning LoRA capacity for your specific task; start with q_proj+v_proj and expand if quality is insufficient.</div>
+<div class="callout hood"><span>Under the hood</span>MLP layers store factual knowledge; adapting them enables domain knowledge injection but requires more careful regularization to avoid forgetting.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Rank vs Quality Tradeoffs</h3>
+<p><strong>What &amp; why.</strong> Higher rank increases capacity but also VRAM usage and overfitting risk. The relationship is not linear: doubling rank from 16 to 32 rarely doubles quality. Profiling across ranks reveals the sweet spot.</p>
+<pre class="code"><code>import json
+
+results = []
+for r in [4, 8, 16, 32, 64]:
+    config = LoraConfig(r=r, lora_alpha=2*r,
+                        target_modules=["q_proj","v_proj","k_proj","o_proj"])
+    model = get_peft_model(base_model, config)
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    score = train_and_eval(model, eval_data)
+    results.append({"rank": r, "params": trainable, "score": score})
+
+# Typical findings:
+# r=4:  good for simple tasks, underfits complex ones
+# r=16: best cost/quality ratio for most tasks
+# r=32: marginal gains, worth it for high-stakes tasks
+# r=64: diminishing returns, overfitting risk</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hyperparameter search; the rank-quality curve helps justify the chosen rank in model documentation.</div>
+<div class="callout hood"><span>Under the hood</span>The intrinsic dimensionality of task-specific updates is typically 10-50 for most fine-tuning tasks, explaining why r=16-32 suffices.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>LoRA Learning Rates</h3>
+<p><strong>What &amp; why.</strong> LoRA adapters require higher learning rates than full fine-tuning because the gradients are scaled down by the small adapter matrices. Typical LoRA LR is 1e-4 to 3e-4, compared to 1e-5 to 5e-5 for full FT.</p>
+<pre class="code"><code>from transformers import TrainingArguments
+
+args = TrainingArguments(
+    output_dir="./lora_output",
+    learning_rate=2e-4,           # 10x higher than full FT
+    lr_scheduler_type="cosine",
+    warmup_ratio=0.1,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4,
+    num_train_epochs=3, bf16=True
+)
+
+# Why higher LR works:
+# LoRA gradients are small (few params, small matrices)
+# Higher LR compensates for reduced gradient magnitude
+# The alpha/r scaling already dampens adapter output</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every LoRA training run; getting the learning rate right is the single most impactful hyperparameter choice.</div>
+<div class="callout hood"><span>Under the hood</span>The effective learning rate for the model's output is LR * alpha/r; this compound scaling explains why LoRA can use higher raw learning rates safely.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>rsLoRA and DoRA Variants</h3>
+<p><strong>What &amp; why.</strong> rsLoRA (rank-stabilized LoRA) adjusts the scaling factor to alpha/sqrt(r) instead of alpha/r, providing more stable training at higher ranks. DoRA (Weight-Decomposed Low-Rank Adaptation) decomposes weights into magnitude and direction for better adaptation.</p>
+<pre class="code"><code># rsLoRA: scaling = alpha / sqrt(r)
+# At r=16, alpha=32: scaling = 32/sqrt(16) = 8.0 (vs 2.0 standard)
+# More stable at high ranks, prevents over-damping
+
+from peft import LoraConfig
+config = LoraConfig(
+    r=32, lora_alpha=32,
+    target_modules=["q_proj", "v_proj"],
+    use_rslora=True           # if supported in PEFT version
+)
+
+# DoRA: decompose weight W = m * (W + BA) / ||W + BA||
+config_dora = LoraConfig(
+    r=16, lora_alpha=32,
+    use_dora=True             # weight-decomposed LoRA
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>When standard LoRA underperforms at high ranks; rsLoRA and DoRA can unlock better quality from the same parameter budget.</div>
+<div class="callout hood"><span>Under the hood</span>rsLoRA prevents the "rank collapse" phenomenon where high-rank adapters underperform low-rank ones due to over-damping from alpha/r scaling.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Adapter Safetensors Anatomy</h3>
+<p><strong>What &amp; why.</strong> LoRA adapters are saved as safetensors files alongside an adapter_config.json. Understanding the file structure is essential for loading, merging, and sharing adapters.</p>
+<pre class="code"><code>import json
+config = json.load(open("./adapter/adapter_config.json"))
+print(json.dumps(config, indent=2))
+# {
+#   "r": 16,
+#   "lora_alpha": 32,
+#   "target_modules": ["q_proj", "v_proj"],
+#   "lora_dropout": 0.05,
+#   "base_model_name_or_path": "Qwen/Qwen2.5-3B-Instruct",
+#   "task_type": "CAUSAL_LM",
+#   "peft_type": "LORA"
+# }
+
+# safetensors contains per-layer A and B weight matrices:
+# base_model.model.layers.N.self_attn.q_proj.lora_A.default.weight
+# base_model.model.layers.N.self_attn.q_proj.lora_B.default.weight
+# Typically 10-50MB for r=16 on a 7B model</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Sharing adapters, debugging loading issues, and understanding what gets published to HF Hub.</div>
+<div class="callout hood"><span>Under the hood</span>Safetensors is a safe, fast format that avoids arbitrary code execution; adapter files are typically small because they store only the low-rank matrices.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Load Adapter at Inference</h3>
+<p><strong>What &amp; why.</strong> Loading a LoRA adapter onto a base model is the standard inference pattern. The base model loads once; adapters are loaded on top, with the forward pass adding the adapter output to the frozen base output.</p>
+<pre class="code"><code>from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+base = AutoModelForCausalLM.from_pretrained(
+    "Qwen/Qwen2.5-3B-Instruct",
+    torch_dtype="auto", device_map="auto"
+)
+
+model = PeftModel.from_pretrained(base, "./my-lora-adapter")
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-3B-Instruct")
+
+inputs = tokenizer("Explain LoRA in simple terms:", return_tensors="pt")
+output = model.generate(**inputs, max_new_tokens=200)
+print(tokenizer.decode(output[0], skip_special_tokens=True))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Serving fine-tuned models; the adapter loads in seconds while the base model is cached in VRAM.</div>
+<div class="callout hood"><span>Under the hood</span>PeftModel wraps the base model and intercepts the forward pass for target modules, adding the LoRA output (A @ B) to the base output.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Multi-Adapter: Set Adapter Swap</h3>
+<p><strong>What &amp; why.</strong> Multiple adapters can be loaded simultaneously and swapped at inference time without reloading the base model. This enables serving multiple fine-tuned personas or tasks from a single GPU.</p>
+<pre class="code"><code>from peft import PeftModel
+
+model = PeftModel.from_pretrained(base_model, "./adapter-task-a",
+                                   adapter_name="task_a")
+model.load_adapter("./adapter-task-b", adapter_name="task_b")
+model.load_adapter("./adapter-task-c", adapter_name="task_c")
+
+print(model.peft_config.keys())  # dict_keys(['task_a', 'task_b', 'task_c'])
+
+# Swap at inference time (no reload needed)
+model.set_adapter("task_b")
+output_b = model.generate(**inputs, max_new_tokens=200)
+
+model.set_adapter("task_c")
+output_c = model.generate(**inputs, max_new_tokens=200)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-tenant serving where each customer or persona gets a dedicated adapter; base model loaded once, adapters swapped per-request.</div>
+<div class="callout hood"><span>Under the hood</span>Adapter weights are small enough (10-50MB) to fit in CPU RAM; swapping involves a memory copy to GPU, taking milliseconds.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Merge into Base Weights</h3>
+<p><strong>What &amp; why.</strong> For production deployment, merging the adapter into the base model eliminates PEFT overhead and produces a standard model file. This simplifies serving infrastructure and reduces inference latency.</p>
+<pre class="code"><code>from peft import PeftModel
+
+model = PeftModel.from_pretrained(base_model, "./my-lora-adapter")
+merged = model.merge_and_unload()
+
+# Save as standalone model
+merged.save_pretrained("./merged_model")
+tokenizer.save_pretrained("./merged_model")
+
+# Verify: merged model produces same output as adapter model
+import torch
+with torch.no_grad():
+    out_adapter = model.generate(**inputs, max_new_tokens=50)
+    out_merged = merged.generate(**inputs, max_new_tokens=50)
+    assert torch.equal(out_adapter, out_merged)
+
+# Convert merged model to GGUF for llama.cpp deployment
+# python convert_hf_to_gguf.py ./merged_model --outfile model.gguf</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production deployment where you want a single model file; merges adapter overhead into base weights permanently.</div>
+<div class="callout hood"><span>Under the hood</span>Merging is a simple matrix addition: W_merged = W_base + (alpha/r) * B @ A for each adapted layer, producing bit-identical inference.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Evaluate Deltas vs Base</h3>
+<p><strong>What &amp; why.</strong> After fine-tuning, you must verify the adapter improved the target task without degrading general capabilities. Comparing base, adapter, and merged model outputs reveals the actual delta.</p>
+<pre class="code"><code>from peft import PeftModel
+import evaluate
+
+rouge = evaluate.load("rouge")
+base_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-3B-Instruct")
+adapter_model = PeftModel.from_pretrained(base_model, "./lora-checkpoint")
+merged_model = adapter_model.merge_and_unload()
+
+for name, model in [("base", base_model), ("adapter", adapter_model),
+                     ("merged", merged_model)]:
+    preds = [generate(model, ex["prompt"]) for ex in eval_data]
+    scores = rouge.compute(predictions=preds,
+                           references=eval_data["references"])
+    print(f"{name}: ROUGE-L = {scores['rougeL']:.3f}")
+
+# Expected: adapter ~ merged > base on target task
+# Flag if base > adapter on any general capability</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pre-deployment validation; the three-way comparison confirms the adapter provides a real improvement.</div>
+<div class="callout hood"><span>Under the hood</span>Adapter and merged should produce identical outputs; any discrepancy indicates a merging bug or floating-point precision issue.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Advanced<small>Tier 3 &mdash; internals, math, and distributed training</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>dW = B*A Scaling Derivation</h3>
+<p><strong>What &amp; why.</strong> The LoRA forward pass computes h = Wx + (alpha/r) * BAx. Understanding this derivation shows why LoRA is mathematically equivalent to a low-rank weight update and why the scaling factor matters.</p>
+<pre class="code"><code># Standard forward: h = W * x
+# LoRA forward:    h = W * x + (alpha/r) * B @ A @ x
+# Effective weight update: dW = (alpha/r) * B @ A
+# This is a rank-r approximation of the full weight update dW_full
+#
+# Why low-rank works:
+# Fine-tuning updates have been shown to lie in a
+# low-dimensional subspace (intrinsic dimensionality ~10-100)
+# A rank-r decomposition captures this subspace efficiently</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why LoRA works theoretically; essential for making informed decisions about rank and alpha.</div>
+<div class="callout hood"><span>Under the hood</span>The Aghajanyan et al. (2020) paper showed pretrained models have low intrinsic dimensionality, providing the theoretical foundation for LoRA.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Init A Gaussian, B Zeros: Why</h3>
+<p><strong>What &amp; why.</strong> LoRA initializes A with random Gaussian values and B with zeros so the initial adapter output is exactly zero. This means training starts from the base model's behavior and only diverges as gradients update the adapter.</p>
+<pre class="code"><code># Initialization: A ~ N(0, sigma^2), B = 0
+# At step 0: B @ A = 0 @ A = 0
+# So: h = W @ x + alpha/r * 0 = W @ x (identical to base model)
+
+import torch
+A = torch.randn(4096, 16) * 0.01  # small random init
+B = torch.zeros(16, 4096)          # zero init
+print((B @ A).abs().max())  # tensor(0.)
+
+# Benefits:
+# 1. Safe starting point: no random perturbation of base model
+# 2. Gradual adaptation: model starts from known-good behavior
+# 3. Stability: prevents initial gradient explosions</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding adapter initialization; this choice is critical for training stability and convergence.</div>
+<div class="callout hood"><span>Under the hood</span>The zero initialization of B creates a "residual connection" pattern where the adapter adds to (rather than replaces) the base model's output.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Gradient Flow Through Frozen Base</h3>
+<p><strong>What &amp; why.</strong> In LoRA, gradients flow through the frozen base model to reach the adapter parameters but never update the base weights. This means activations are computed normally but only the adapter receives learning signal.</p>
+<pre class="code"><code># Gradient flow diagram:
+# Input x -> [Frozen W] -> h_base    (no grad)
+# Input x -> [A (trainable)] -> [B (trainable)] -> h_adapt (grad here)
+# Output = h_base + (alpha/r) * h_adapt
+
+# The frozen base still participates in forward computation
+# Gradients flow through: loss -> h_adapt -> B -> A
+# But NOT through: h_base -> W (requires_grad=False)
+
+# Implication: base model activations consume memory for
+# gradient computation even though they aren't updated
+# This is why activations (not weights) often dominate VRAM</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why LoRA still requires significant VRAM despite freezing most weights; activation memory is the bottleneck.</div>
+<div class="callout hood"><span>Under the hood</span>Frozen weights still need forward activations stored for backpropagation through the adapter; gradient checkpointing reduces this at the cost of recomputation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>NF4 Quantile Quantization Detail</h3>
+<p><strong>What &amp; why.</strong> NF4 (NormalFloat4) is an information-theoretically optimal 4-bit quantization scheme for normally-distributed weights. It uses 16 quantization levels spaced according to the normal distribution's quantiles.</p>
+<pre class="code"><code># NF4 quantization levels (precomputed for standard normal):
+# [-1.0, -0.6962, -0.5251, -0.3949, -0.2844,
+#  -0.1848, -0.0911, 0.0, 0.0796, 0.1609,
+#  0.2461, 0.3379, 0.4407, 0.5626, 0.7230, 1.0]
+
+# Why NF4 beats INT4:
+# INT4: uniform quantization levels (equal spacing)
+# NF4: quantization levels follow the weight distribution
+# Result: ~0.5 bits less quantization error than INT4
+
+# Process:
+# 1. Absmax normalize weights to [-1, 1]
+# 2. Map each weight to nearest NF4 level
+# 3. Store 4-bit indices
+# 4. Dequantize: index -> level * absmax_for_block</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why QLoRA produces better quality than naive INT4 quantization; NF4 is a key innovation.</div>
+<div class="callout hood"><span>Under the hood</span>NF4 assumes weights are approximately normally distributed (true for pretrained models) and optimizes quantization levels accordingly.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>BF16 Compute, 4-bit Storage</h3>
+<p><strong>What &amp; why.</strong> QLoRA stores weights in 4-bit for memory efficiency but dequantizes to bf16 for computation. This separation means the model uses minimal storage while maintaining numerical precision during forward/backward passes.</p>
+<pre class="code"><code># QLoRA memory model:
+# Storage: 4-bit NF4 (4 bits per param)
+# Compute: bf16 (16 bits per param, temporary)
+# Optimizer states: fp32 (only for LoRA params)
+
+# 7B model breakdown:
+# Storage: 7B * 0.516 bytes = 3.6 GB (NF4 + double quant)
+# Compute: ~1-2 layers * 2 bytes = 1-2 GB (bf16, layer-by-layer)
+# Total: ~8.5 GB peak (with gradient checkpointing)
+
+# This is why QLoRA fits in 24GB:
+# 3.6 GB storage + 2 GB compute + 1 GB LoRA + 2 GB activations</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding QLoRA's memory model; the storage/compute separation is the key insight enabling consumer-GPU fine-tuning.</div>
+<div class="callout hood"><span>Under the hood</span>Dequantization happens in the CUDA kernel just before matrix multiplication; the overhead is minimal (~5% compute time).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Paged Optimizers and Unified Memory</h3>
+<p><strong>What &amp; why.</strong> Paged optimizers use CUDA unified memory to handle VRAM spikes during gradient checkpointing and long sequences. When GPU memory is full, optimizer states spill to CPU RAM and are paged back as needed.</p>
+<pre class="code"><code># Paged optimizer concept:
+# Normal optimizer: states locked in VRAM
+# Paged optimizer: states in unified memory (CPU+GPU shared)
+# When VRAM pressure high: states page to CPU
+# When GPU needs states: pages transfer back
+
+# Enable in QLoRA config
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_compute_dtype=torch.bfloat16
+)
+
+# Use with 8-bit paged AdamW
+# Optimizer states automatically use paged memory when VRAM is constrained</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Training on long sequences where activation memory spikes can cause OOM; paged optimizers prevent crashes at the cost of CPU-GPU transfers.</div>
+<div class="callout hood"><span>Under the hood</span>CUDA unified memory (cudaMallocManaged) provides a virtual memory layer that transparently moves pages between CPU and GPU on demand.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Blockwise K-bit Quantization</h3>
+<p><strong>What &amp; why.</strong> Blockwise quantization divides weight tensors into small blocks (typically 64 elements) and quantizes each block independently with its own scaling factor. This reduces quantization error compared to per-tensor quantization.</p>
+<pre class="code"><code># Blockwise quantization:
+# Weight tensor: [4096, 4096] = 16M elements
+# Block size: 64
+# Number of blocks: 16M / 64 = 262,144 blocks
+# Each block: 64 elements -> 64 4-bit indices + 1 fp32 scale
+# Overhead: ~0.5% extra memory
+
+# Benefit: local precision
+# Per-tensor: one scale for 16M elements (coarse)
+# Per-block: one scale for 64 elements (fine-grained)
+# Result: ~1-2 dB lower quantization error
+
+# BitsAndBytes applies this automatically in 4-bit mode
+# Block size is fixed at 64</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding why QLoRA's quantization quality is high; blockwise quantization is a key component of NF4's effectiveness.</div>
+<div class="callout hood"><span>Under the hood</span>The block size of 64 balances quantization precision against scale factor overhead; smaller blocks improve quality but increase storage.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Double Quantization Savings Math</h3>
+<p><strong>What &amp; why.</strong> Double quantization quantizes the quantization constants themselves, further reducing memory. The per-block fp32 scales are quantized to 8-bit, saving ~0.37 bits per parameter.</p>
+<pre class="code"><code># Single quantization:
+# 4-bit weights: 0.5 bytes/param
+# fp32 scales (1 per 64 elements): 4/64 = 0.0625 bytes/param
+# Total: 0.5625 bytes/param
+
+# Double quantization:
+# 4-bit weights: 0.5 bytes/param
+# 8-bit quantized scales: 0.015625 bytes/param
+# Total: ~0.516 bytes/param
+
+# Savings: 0.046 bytes/param
+# 7B params: 7B * 0.046 = 322 MB saved
+# 70B params: 70B * 0.046 = 3.2 GB saved
+
+# bnb_4bit_use_double_quant=True enables this
+# Marginal for 7B, significant for 70B+</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Large model fine-tuning where every megabyte counts; double quantization is always worth enabling.</div>
+<div class="callout hood"><span>Under the hood</span>Double quantization exploits the fact that block scales are also approximately normally distributed, so they too benefit from quantization.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Very Advanced / Expert<small>Tier 4 &mdash; extensions, security, and production</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Theory: SVF and Beyond</h3>
+<p><strong>What &amp; why.</strong> Singular Value Fine-tuning (SVF) and related methods generalize LoRA by learning in the singular value decomposition space of weight matrices. These approaches can achieve better quality at the same parameter count.</p>
+<pre class="code"><code># PEFT generalization landscape:
+# LoRA:   W' = W + BA (low-rank additive)
+# DoRA:   W' = m * (W + BA) / ||W + BA|| (magnitude-direction)
+# rsLoRA: scaling = alpha/sqrt(r) (rank-stabilized)
+# SVF:    decompose W = U S V^T, learn delta on S (diagonal)
+# AdaLoRA: adaptive rank allocation per layer
+
+# SVF concept:
+# SVD: W = U * diag(s) * V^T
+# Instead of adding BA, modify the singular values s
+# Fewer parameters than LoRA (d params vs 2*d*r)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Research and cutting-edge applications where standard LoRA doesn't achieve sufficient quality per parameter.</div>
+<div class="callout hood"><span>Under the hood</span>All PEFT methods approximate weight updates in different subspaces; LoRA uses random projections, SVF uses the SVD basis, and DoRA decomposes magnitude from direction.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>LoRA for Vision, Audio, and Embedding Heads</h3>
+<p><strong>What &amp; why.</strong> LoRA generalizes beyond language models to vision transformers (ViT), audio models (Whisper), and embedding models. The same low-rank principle applies to any weight matrix in any architecture.</p>
+<pre class="code"><code># Vision LoRA (ViT)
+from peft import LoraConfig
+vit_config = LoraConfig(
+    r=16, lora_alpha=32,
+    target_modules=["q_proj", "v_proj"],
+    task_type="FEATURE_EXTRACTION"
+)
+
+# Audio LoRA (Whisper)
+whisper_config = LoraConfig(
+    r=8, lora_alpha=16,
+    target_modules=["q_proj", "v_proj", "out_proj"]
+)
+
+# Embedding LoRA (Sentence Transformers)
+embed_config = LoraConfig(
+    r=4, lora_alpha=8,
+    target_modules=["q_proj", "v_proj"]
+)
+
+# Principle: any d x d weight matrix can be decomposed
+# into low-rank A * B for efficient adaptation</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multimodal projects where you need to fine-tune vision, audio, or embedding models with limited compute.</div>
+<div class="callout hood"><span>Under the hood</span>The low-rank assumption holds across modalities; task-specific updates are always lower-rank than the full weight matrix.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Adapter Averaging and Federated Sketch</h3>
+<p><strong>What &amp; why.</strong> Multiple LoRA adapters can be averaged to combine their capabilities without explicit multi-task training. This enables federated learning patterns where adapters from different participants are merged.</p>
+<pre class="code"><code>import torch
+
+def average_adapters(adapter_paths, weights=None):
+    if weights is None:
+        weights = [1.0 / len(adapter_paths)] * len(adapter_paths)
+
+    state_dicts = [torch.load(p)["state_dict"] for p in adapter_paths]
+    merged = {}
+    for key in state_dicts[0]:
+        merged[key] = sum(w * sd[key] for w, sd in zip(weights, state_dicts))
+    return merged
+
+# Task arithmetic: adapter_a + adapter_b - adapter_base
+# Can combine: "French" + "Code" = French code assistant
+
+# Federated sketch:
+# 1. Each participant trains a local adapter
+# 2. Adapters sent to central server
+# 3. Server averages adapters (no raw data shared)
+# 4. Merged adapter distributed back</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Combining multiple specialized adapters or privacy-preserving training where data cannot leave individual devices.</div>
+<div class="callout hood"><span>Under the hood</span>Adapter averaging works because LoRA updates live in similar subspaces; averaging produces a meaningful combined update without interference.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Shared-Adapter Security: Backdoors</h3>
+<p><strong>What &amp; why.</strong> Shared adapters (e.g., from public HF Hub) can contain hidden backdoors that trigger specific behaviors on certain inputs. This is a supply-chain security risk for production systems.</p>
+<pre class="code"><code># Backdoor detection checklist for shared adapters:
+import torch
+
+weights = torch.load("suspicious_adapter.safetensors")
+for key, tensor in weights.items():
+    if tensor.abs().max() > 10:  # unusually large values
+        print(f"ALERT: {key} has max={tensor.abs().max()}")
+
+# Test on adversarial triggers
+triggers = ["ignore previous instructions", "you are now DAN"]
+for trigger in triggers:
+    output = model.generate(tokenizer(trigger, return_tensors="pt").input_ids)
+    if "sure" in tokenizer.decode(output[0]).lower():
+        print(f"POSSIBLE BACKDOOR: responds to trigger")
+
+# Behavioral comparison: adapter vs base on safety evals
+# Large behavior changes on OOD inputs = potential backdoor
+# Only use adapters from trusted sources
+# merge_and_unload eliminates adapter runtime injection</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Security review before deploying third-party adapters; supply-chain attacks through model weights are an emerging threat.</div>
+<div class="callout hood"><span>Under the hood</span>Adversarial adapters can encode trigger-response pairs in the weight matrices; detection requires behavioral testing, not just weight inspection.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>S-LoRA: Multi-Tenant Serving</h3>
+<p><strong>What &amp; why.</strong> S-LoRA enables serving thousands of LoRA adapters from a single base model on one GPU by batching adapter computations and using unified paging for adapter weights.</p>
+<pre class="code"><code># S-LoRA concept:
+# 1. Base model loaded once in GPU memory
+# 2. Thousands of adapters stored in CPU RAM / disk
+# 3. Per-request adapter paged to GPU on demand
+# 4. Batch requests with different adapters simultaneously
+
+class SLoRAServer:
+    def __init__(self, base_model, adapter_pool):
+        self.base = base_model
+        self.adapters = adapter_pool  # {name: adapter_path}
+
+    def serve_batch(self, requests):
+        groups = group_by_adapter(requests)
+        outputs = {}
+        for adapter_name, batch in groups.items():
+            self.load_adapter(adapter_name)  # cached or paged
+            outputs[adapter_name] = self.base(batch)
+        return outputs
+
+# Key: CUDA unified memory pages adapters in/out as needed
+# Latency: ~10ms for adapter swap (CPU -> GPU transfer)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-tenant LLM serving where each customer has a custom adapter; serves thousands of adapters from a single GPU.</div>
+<div class="callout hood"><span>Under the hood</span>S-LoRA uses custom CUDA kernels for batched adapter computation and unified memory for transparent CPU-GPU adapter paging.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Quality-per-VRAM Benchmarking</h3>
+<p><strong>What &amp; why.</strong> Comparing configurations by quality-per-VRAM reveals the most efficient setup. A configuration that achieves 95% of the quality at 30% of the VRAM is often the right production choice.</p>
+<pre class="code"><code>import time, torch
+
+def benchmark_config(model_fn, eval_fn, config_name):
+    torch.cuda.reset_peak_memory_stats()
+    model = model_fn()
+    start = time.time()
+    quality = eval_fn(model)
+    elapsed = time.time() - start
+    peak_vram = torch.cuda.max_memory_allocated() / 1e9
+
+    return {
+        "config": config_name,
+        "quality": quality,
+        "vram_gb": peak_vram,
+        "quality_per_vram": quality / peak_vram,
+        "time_s": elapsed
+    }
+
+# Compare:
+# | Config      | Quality | VRAM  | Q/V   |
+# |-------------|---------|-------|-------|
+# | Full FT     | 0.94    | 84 GB | 0.011 |
+# | LoRA r=16   | 0.92    | 14 GB | 0.066 |
+# | QLoRA r=16  | 0.91    | 8 GB  | 0.114 |</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Architecture selection; this data drives the decision between full FT and various PEFT configurations.</div>
+<div class="callout hood"><span>Under the hood</span>Quality-per-VRAM is the true cost metric; it normalizes quality gains against infrastructure cost.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Production Rollout Playbook</h3>
+<p><strong>What &amp; why.</strong> Moving a LoRA adapter from experiment to production requires model validation, A/B testing, monitoring, and rollback capability. This playbook defines the gates between stages.</p>
+<pre class="code"><code># Production rollout stages:
+# 1. Lab validation
+#    - Eval on held-out test set (accuracy, latency)
+#    - Safety eval (refusal rate, harmful content)
+#    - Behavioral comparison vs base model
+
+# 2. Shadow deployment
+#    - Run adapter model alongside base model
+#    - Log both outputs, compare with human evaluation
+
+# 3. Canary release (5% traffic)
+#    - Route 5% of requests to adapter model
+#    - Monitor error rates, latency, user feedback
+#    - Automatic rollback if error rate > threshold
+
+# 4. Gradual rollout (5% -> 25% -> 50% -> 100%)
+#    - Increase traffic share over days/weeks
+
+# Rollback triggers:
+# - Error rate increase > 2x baseline
+# - P99 latency increase > 50%
+# - Safety refusal rate drops below threshold</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Deploying fine-tuned models to production; this checklist prevents incidents from untested adapters reaching users.</div>
+<div class="callout hood"><span>Under the hood</span>Canary deployments detect quality regressions before full exposure; adapter models are ideal for canary because swapping is instant.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Base + Adapter License Compliance</h3>
+<p><strong>What &amp; why.</strong> Merging a fine-tuned adapter into a base model creates a derivative work. The base model's license terms apply to the merged model, and you must comply with both the base license and any data usage restrictions.</p>
+<pre class="code"><code># License compliance checklist:
+# 1. Check base model license
+#    - Llama 3: Meta license (commercial OK, 700M MAU limit)
+#    - Qwen: Apache 2.0 (permissive commercial)
+#    - Mistral: Apache 2.0 (permissive commercial)
+
+# 2. Training data license
+#    - Data must be compatible with output model license
+#    - GPL data + Apache model = potential conflict
+
+# 3. Derivative work obligations
+#    - Some licenses require sharing derivative source
+#    - Apache 2.0 requires retaining copyright notices
+
+# 4. Publishing considerations
+#    - HF Hub model card must state base model and license
+#    - Include license file in repo</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Publishing or deploying any fine-tuned model; license violations can result in legal action and loss of commercial rights.</div>
+<div class="callout hood"><span>Under the hood</span>License compliance for merged models is straightforward; adapter-only deployment may have different obligations depending on jurisdiction.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Real-Time Projects &amp; Use Cases<small>Tier 5 &mdash; build to remember</small></h2>
+
+<article class="proj-card">
+<h3>QLoRA Mistral-7B on 24GB GPU</h3>
+<p>Fine-tune Mistral-7B-Instruct using QLoRA on a single 24GB GPU (RTX 3090/4090) for domain-specific question answering.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Load Mistral-7B-Instruct in 4-bit NF4 with double quantization and paged optimizer</li>
+<li>Add LoRA adapters (r=16, alpha=32) to q_proj, k_proj, v_proj, o_proj</li>
+<li>Prepare 3000 domain Q&A pairs in chat JSONL format</li>
+<li>Configure SFTTrainer with packing, gradient checkpointing, and bf16</li>
+<li>Train for 3 epochs with learning_rate=2e-4 and cosine schedule</li>
+<li>Profile VRAM at each stage; verify peak &lt; 24GB</li>
+<li>Evaluate on held-out set; compare ROUGE and human ratings vs base</li>
+<li>Export merged model to GGUF Q4_K_M; benchmark inference on CPU</li>
+</ol>
+<pre class="code"><code>from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model
+from trl import SFTTrainer, SFTConfig
+
+bnb = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
+                         bnb_4bit_use_double_quant=True,
+                         bnb_4bit_compute_dtype="bfloat16")
+model = AutoModelForCausalLM.from_pretrained(
+    "mistralai/Mistral-7B-Instruct-v0.3",
+    quantization_config=bnb, device_map="auto")
+
+lora = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05,
+                  target_modules=["q_proj","k_proj","v_proj","o_proj"])
+model = get_peft_model(model, lora)
+
+args = SFTConfig(output_dir="./mistral-qlora", num_train_epochs=3,
+                 learning_rate=2e-4, per_device_train_batch_size=2,
+                 gradient_accumulation_steps=8, packing=True,
+                 gradient_checkpointing=True, bf16=True,
+                 max_seq_length=2048)
+trainer = SFTTrainer(model=model, args=args, train_dataset=ds,
+                     tokenizer=tokenizer, formatting_func=fmt)
+trainer.train()</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>QLoRA setup with NF4 quantization on consumer hardware</li>
+<li>VRAM profiling and optimization for tight memory budgets</li>
+<li>GGUF export for local inference without Python dependency</li>
+<li>End-to-end fine-tune from data prep to deployed model</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Multi-Persona Chatbot: Runtime Adapter Switching</h3>
+<p>Build a chatbot that switches between multiple personas (support agent, creative writer, code assistant) by loading different LoRA adapters at runtime without reloading the base model.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Train 3 separate LoRA adapters on the same base model (Qwen2.5-3B)</li>
+<li>Each adapter trained on a different persona's conversation data</li>
+<li>Build a FastAPI server that loads the base model once</li>
+<li>Implement adapter loading: load_adapter() for each persona on startup</li>
+<li>Per-request: set_adapter() to switch, generate response, log adapter used</li>
+<li>Measure adapter swap latency (target: &lt;10ms)</li>
+<li>Build a demo UI that selects persona via dropdown</li>
+<li>Add adapter health checks and automatic fallback to base model</li>
+</ol>
+<pre class="code"><code>from fastapi import FastAPI, Request
+from peft import PeftModel
+
+app = FastAPI()
+base_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-3B-Instruct")
+model = PeftModel.from_pretrained(base_model, "./adapter-support",
+                                   adapter_name="support")
+model.load_adapter("./adapter-writer", adapter_name="writer")
+model.load_adapter("./adapter-code", adapter_name="code")
+
+@app.post("/chat")
+async def chat(request: Request):
+    data = await request.json()
+    persona = data.get("persona", "support")
+    message = data["message"]
+
+    model.set_adapter(persona)  # swap in &lt;10ms
+    inputs = tokenizer(message, return_tensors="pt")
+    output = model.generate(**inputs, max_new_tokens=200)
+    return {"response": tokenizer.decode(output[0])}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Multi-adapter management with set_adapter()</li>
+<li>Runtime adapter swapping without model reload</li>
+<li>FastAPI serving pattern for adapter-based models</li>
+<li>Adapter lifecycle management (load, swap, unload)</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>VRAM Benchmark Lab Report</h3>
+<p>Create a comprehensive benchmark comparing LoRA, QLoRA, and full FT across model sizes, ranks, and batch sizes, producing a chart-ready report.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Define test matrix: models (1.5B, 3B, 7B) x methods (full FT, LoRA, QLoRA) x ranks (8, 16, 32)</li>
+<li>For each combination: measure peak VRAM, tokens/second, final eval score</li>
+<li>Use synthetic dataset to ensure fair comparison across all runs</li>
+<li>Record: model load time, training time per epoch, peak VRAM, quality metric</li>
+<li>Generate comparison tables (markdown) and bar charts (matplotlib)</li>
+<li>Calculate quality-per-VRAM and quality-per-second metrics</li>
+<li>Identify the Pareto-optimal configurations for each GPU tier</li>
+<li>Write report with recommendations for 12GB, 24GB, 48GB, 80GB GPUs</li>
+</ol>
+<pre class="code"><code>import torch, time, json
+
+results = []
+for model_size in ["1.5B", "3B", "7B"]:
+    for method in ["full_ft", "lora", "qlora"]:
+        for rank in [8, 16, 32]:
+            torch.cuda.reset_peak_memory_stats()
+            start = time.time()
+
+            model, train_args = build_config(model_size, method, rank)
+            trainer = train(model, train_args)
+            score = evaluate(trainer.model, eval_data)
+
+            elapsed = time.time() - start
+            peak_vram = torch.cuda.max_memory_allocated() / 1e9
+
+            results.append({
+                "model": model_size, "method": method, "rank": rank,
+                "vram_gb": round(peak_vram, 2),
+                "time_min": round(elapsed / 60, 1),
+                "score": round(score, 4),
+                "quality_per_vram": round(score / peak_vram, 4)
+            })
+
+json.dump(results, open("benchmark_results.json", "w"), indent=2)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Systematic benchmarking methodology for ML systems</li>
+<li>VRAM profiling and memory optimization analysis</li>
+<li>Data-driven configuration selection for production</li>
+<li>Technical report writing with empirical evidence</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>LoRA decomposition</td><td>dW = B * A (low-rank approximation)</td><td>alpha/r * B @ A</td></tr>
+<tr><td>Rank r</td><td>Adapter capacity; 16 is default sweet spot</td><td>LoraConfig(r=16)</td></tr>
+<tr><td>Alpha scaling</td><td>alpha/r controls adapter magnitude; default 2*r</td><td>lora_alpha=32</td></tr>
+<tr><td>Target modules</td><td>q_proj+v_proj minimal; add k,o,mlp for more capacity</td><td>target_modules=[...]</td></tr>
+<tr><td>PEFT get_peft_model</td><td>Wraps model with LoRA adapters</td><td>get_peft_model(model, config)</td></tr>
+<tr><td>QLoRA NF4</td><td>4-bit NormalFloat quantization for base weights</td><td>bnb_4bit_quant_type="nf4"</td></tr>
+<tr><td>Double quant</td><td>Quantizes the quantization scales; saves ~0.37 bits/param</td><td>bnb_4bit_use_double_quant=True</td></tr>
+<tr><td>Paged optimizer</td><td>CUDA unified memory for optimizer state spillover</td><td>Automatic in BitsAndBytes</td></tr>
+<tr><td>LoRA LR</td><td>10-100x higher than full FT (1e-4 to 3e-4)</td><td>learning_rate=2e-4</td></tr>
+<tr><td>rsLoRA</td><td>Rank-stabilized: scaling = alpha/sqrt(r)</td><td>use_rslora=True</td></tr>
+<tr><td>DoRA</td><td>Decomposes weights into magnitude + direction</td><td>use_dora=True</td></tr>
+<tr><td>merge_and_unload</td><td>Fold adapter into base weights permanently</td><td>model.merge_and_unload()</td></tr>
+<tr><td>set_adapter</td><td>Swap adapters at inference without reload</td><td>model.set_adapter("name")</td></tr>
+<tr><td>Adapter file</td><td>safetensors + adapter_config.json</td><td>adapter_model.safetensors</td></tr>
+<tr><td>Gradient checkpointing</td><td>Trade compute for memory (~30% savings)</td><td>gradient_checkpointing=True</td></tr>
+<tr><td>Grad accumulation</td><td>Simulate larger batches without VRAM increase</td><td>gradient_accumulation_steps=8</td></tr>
+<tr><td>NaN debugging</td><td>Reduce LR, check grads, use bf16 over fp16</td><td>set_detect_anomaly(True)</td></tr>
+<tr><td>Backdoor detection</td><td>Test shared adapters with adversarial triggers</td><td>Compare base vs adapter on safety evals</td></tr>
+<tr><td>S-LoRA</td><td>Serve thousands of adapters from one GPU</td><td>Batch adapter computation + unified memory</td></tr>
+<tr><td>License compliance</td><td>Base model license applies to merged output</td><td>Check Apache/Llama/Qwen license terms</td></tr>
+<tr><td>Consumer GPU 7B</td><td>QLoRA fits in ~8GB VRAM on 24GB GPU</td><td>RTX 3090/4090 feasible</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="fine-tuning.html">&larr; Fine-Tuning</a><a href="vectordb.html">Vector Databases &rarr;</a></footer>
+</body></html>

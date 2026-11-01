@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Next.js — Fullstack React Framework — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Next.js — Fullstack React Framework</span><span class="spacer"></span>
+<a class="navlink" href="reactjs.html">&larr; ReactJS</a> <a class="navlink" href="graphics-engineering.html">Graphics Engineering &rarr;</a></nav>
+<header class="hero"><div class="mono">NX</div><div><h1>Next.js — Fullstack React Framework</h1>
+<p class="tagline">Build production-grade fullstack applications with App Router, Server Components, server actions, ISR, streaming, and edge deployment.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Next.js is the leading React framework for production applications, adding server rendering, file-based routing, API routes, and optimization built-in. This chapter covers the App Router (Next.js 14/15) from basics through advanced caching, streaming, and deployment.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Rendering modes, routing, layouts, navigation, images, metadata, API routes</td><td>You can scaffold and run a multi-page Next.js app</td></tr>
+<tr><td>Tier 2</td><td>Server vs client components, RSC fetch, server actions, streaming, middleware</td><td>You can build data-driven apps with server-first architecture</td></tr>
+<tr><td>Tier 3</td><td>Caching layers, ISR, parallel routes, intercepting routes, auth, Prisma, forms</td><td>You can implement advanced routing and data patterns</td></tr>
+<tr><td>Tier 4</td><td>Edge runtime, PPR, Docker, i18n, SEO, testing, monorepo</td><td>You can deploy and optimize Next.js for production</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready fullstack Next.js projects</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Rendering modes, routing, layouts, navigation, images, metadata</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>App Router Conventions: Layout, Page, Loading, Error</h3>
+<p><strong>What &amp; why.</strong> The App Router uses file-system conventions where layout.tsx wraps pages, page.tsx defines routes, loading.tsx shows Suspense fallbacks, and error.tsx catches runtime errors. This eliminates boilerplate routing configuration.</p>
+<pre class="code"><code>// app/layout.tsx — root layout wrapping all pages
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    &lt;html lang="en"&gt;
+      &lt;body&gt;
+        &lt;nav&gt;Navigation&lt;/nav&gt;
+        {children}
+        &lt;footer&gt;Footer&lt;/footer&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  );
+}
+
+// app/page.tsx — home route at /
+export default function HomePage() {
+  return &lt;h1&gt;Welcome to Next.js&lt;/h1&gt;;
+}
+
+// app/dashboard/loading.tsx — shown while dashboard loads
+export default function DashboardLoading() {
+  return &lt;div className="skeleton"&gt;Loading dashboard...&lt;/div&gt;;
+}
+
+// app/dashboard/error.tsx — catches errors in dashboard
+'use client';
+export default function DashboardError({ error, reset }: { error: Error; reset: () =&gt; void }) {
+  return (
+    &lt;div&gt;
+      &lt;p&gt;Error: {error.message}&lt;/p&gt;
+      &lt;button onClick={reset}&gt;Try again&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every Next.js app uses these conventions. Layouts persist across navigations, loading states provide instant feedback, and error boundaries isolate failures.</div>
+<div class="callout hood"><span>Under the hood</span>The App Router uses React Server Components by default. Layouts are cached and only re-render when params change. loading.tsx wraps the nearest page in a Suspense boundary.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Server-Side Rendering (SSR) Concept</h3>
+<p><strong>What &amp; why.</strong> SSR renders React components on the server, sending fully formed HTML to the browser. This improves initial load time, SEO, and works without JavaScript for the first paint. Next.js App Router components are server-rendered by default.</p>
+<pre class="code"><code>// Server Component (default) — rendered on the server
+// Sends HTML, not JavaScript, to the browser
+async function ProductPage({ params }) {
+  const product = await fetchProduct(params.id);  // Direct DB/API call on server
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;{product.name}&lt;/h1&gt;
+      &lt;p&gt;{product.description}&lt;/p&gt;
+      &lt;p&gt;Price: ${product.price}&lt;/p&gt;
+    &lt;/div&gt;
+  );
+}
+
+// Dynamic route: SSR at request time (not build time)
+// app/products/[id]/page.tsx
+export default async function ProductPage({ params }) {
+  const { id } = await params;
+  const res = await fetch(`https://api.example.com/products/${id}`, {
+    cache: 'no-store',  // Always fresh data = SSR
+  });
+  const product = await res.json();
+  return &lt;h1&gt;{product.name}&lt;/h1&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SSR is used for pages with dynamic, user-specific content: dashboards, search results, and authenticated views that must be fresh on every request.</div>
+<div class="callout hood"><span>Under the hood</span>Next.js streams server-rendered HTML to the browser. The RSC payload is sent alongside HTML for hydration. Server Components send no JavaScript to the client, reducing bundle size.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Static Site Generation (SSG) Concept</h3>
+<p><strong>What &amp; why.</strong> SSG pre-renders pages at build time, producing static HTML that can be served from a CDN with zero server computation. This gives the fastest possible load times for content that doesn't change per-request.</p>
+<pre class="code"><code>// Static page — built at build time, served from CDN
+async function AboutPage() {
+  const team = await fetchTeamMembers();  // Called at build time only
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;About Us&lt;/h1&gt;
+      {team.map(member =&gt; (
+        &lt;div key={member.id}&gt;
+          &lt;h3&gt;{member.name}&lt;/h3&gt;
+          &lt;p&gt;{member.role}&lt;/p&gt;
+        &lt;/div&gt;
+      ))}
+    &lt;/div&gt;
+  );
+}
+
+// SSG with dynamic params via generateStaticParams
+export async function generateStaticParams() {
+  const posts = await db.post.findMany({ select: { slug: true } });
+  return posts.map(p =&gt; ({ slug: p.slug }));
+}
+
+export default async function BlogPost({ params }) {
+  const { slug } = await params;
+  const post = await fetchPost(slug);
+  return &lt;article&gt;&lt;h1&gt;{post.title}&lt;/h1&gt;&lt;/article&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SSG is ideal for marketing pages, documentation, blog posts, and any content that can be pre-rendered and cached at the edge.</div>
+<div class="callout hood"><span>Under the hood</span>During build, Next.js calls the component, collects the HTML, and writes it to the .next/static directory. At runtime, the pre-built HTML is served directly without running any server-side code.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>create-next-app and Project Structure</h3>
+<p><strong>What &amp; why.</strong> create-next-app scaffolds a Next.js project with TypeScript, ESLint, Tailwind CSS, and App Router. Understanding the project structure is essential for organizing your codebase.</p>
+<pre class="code"><code>npx create-next-app@latest my-app \
+  --typescript --tailwind --eslint --app --src-dir \
+  --import-alias "@/*"
+
+my-app/
+  src/
+    app/
+      layout.tsx        # Root layout
+      page.tsx          # Home page (/)
+      about/page.tsx    # /about
+      dashboard/
+        layout.tsx      # Nested layout
+        page.tsx        # /dashboard
+        loading.tsx     # Loading state
+        error.tsx       # Error boundary
+    components/         # Shared React components
+    lib/                # Utilities, DB clients
+  public/               # Static assets
+  next.config.ts        # Next.js config
+  tailwind.config.ts    # Tailwind config
+  tsconfig.json         # TypeScript config</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every Next.js project starts with create-next-app. The src/ directory keeps app code separate from config.</div>
+<div class="callout hood"><span>Under the hood</span>create-next-app uses Turbopack by default for dev (5x faster than webpack). --app enables App Router. --src-dir creates a src/ directory.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Link Component and Navigation</h3>
+<p><strong>What &amp; why.</strong> Next.js Link handles client-side navigation with prefetching, scroll management, and history updates. It preloads pages in the background for instant navigation.</p>
+<pre class="code"><code>import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+function Navbar() {
+  return (
+    &lt;nav&gt;
+      &lt;Link href="/"&gt;Home&lt;/Link&gt;
+      &lt;Link href="/dashboard" prefetch={true}&gt;Dashboard&lt;/Link&gt;
+      &lt;Link href="/settings" prefetch={false}&gt;Settings&lt;/Link&gt;
+      &lt;Link href={`/users/${userId}`}&gt;Profile&lt;/Link&gt;
+      &lt;Link href="/page#section-id"&gt;Jump to section&lt;/Link&gt;
+    &lt;/nav&gt;
+  );
+}
+
+function SearchButton() {
+  const router = useRouter();
+  return &lt;button onClick={() =&gt; router.push('/search?q=nextjs')}&gt;Search&lt;/button&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every internal navigation uses Link or router.push. Prefetching eliminates loading delays.</div>
+<div class="callout hood"><span>Under the hood</span>Link prefetches the RSC payload when entering the viewport. The cached data is stored in the Router Cache (30 seconds).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Image Optimization</h3>
+<p><strong>What &amp; why.</strong> next/image automatically optimizes images: resizing, WebP/AVIF conversion, lazy loading, and CLS prevention with aspect ratio preservation.</p>
+<pre class="code"><code>import Image from 'next/image';
+import heroImg from '@/public/hero.png';
+
+// Static image with priority (above-the-fold)
+&lt;Image src={heroImg} alt="Hero banner" priority /&gt;
+
+// Remote image with responsive sizes
+&lt;Image
+  src="https://example.com/photo.jpg"
+  alt="User photo"
+  width={400} height={300}
+  sizes="(max-width: 768px) 100vw, 50vw"
+  placeholder="blur"
+/&gt;
+
+// Fill mode (parent container sizes the image)
+&lt;div style={{ position: 'relative', width: '100%', height: '400px' }}&gt;
+  &lt;Image src="/banner.jpg" alt="Banner" fill sizes="100vw"
+    style={{ objectFit: 'cover' }} /&gt;
+&lt;/div&gt;
+
+// Remote images require config in next.config.ts
+// images: { remotePatterns: [{ protocol: 'https', hostname: 'example.com' }] }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every image in Next.js should use next/image for CLS prevention, modern formats, and lazy loading.</div>
+<div class="callout hood"><span>Under the hood</span>The component generates a base64 placeholder, loads lazily via IntersectionObserver, and uses srcset for responsive sizing. The optimization server resizes on-demand and caches results.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>CSS Modules and Tailwind CSS</h3>
+<p><strong>What &amp; why.</strong> Next.js supports CSS Modules (scoped by default) and Tailwind CSS (utility-first). Both ship zero JavaScript runtime.</p>
+<pre class="code"><code>/* CSS Modules: Button.module.css */
+.primary { background: #0066ff; color: white; padding: 0.5rem 1rem; }
+.loading { opacity: 0.6; pointer-events: none; }
+
+import styles from './Button.module.css';
+import clsx from 'clsx';
+
+export function Button({ variant = 'primary', loading, children, onClick }) {
+  return (
+    &lt;button
+      className={clsx(styles.primary, loading &amp;&amp; styles.loading)}
+      disabled={loading}
+      onClick={onClick}
+    &gt;
+      {loading ? 'Loading...' : children}
+    &lt;/button&gt;
+  );
+}
+
+// Tailwind CSS
+export function ButtonTailwind({ children }) {
+  return (
+    &lt;button className="px-4 py-2 bg-blue-600 text-white rounded
+      hover:bg-blue-700 transition-colors"&gt;
+      {children}
+    &lt;/button&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>CSS Modules for design systems. Tailwind for rapid prototyping. Both are zero-config with create-next-app.</div>
+<div class="callout hood"><span>Under the hood</span>CSS Modules generate unique class names at build time. Tailwind scans source files and generates only used CSS.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Metadata and SEO Basics</h3>
+<p><strong>What &amp; why.</strong> The Metadata API generates SEO-friendly head tags from layout and page files. Critical for discoverability and social sharing.</p>
+<pre class="code"><code>import type { Metadata } from 'next';
+
+// Static metadata in layout (applies to all pages)
+export const metadata: Metadata = {
+  title: { default: 'My App', template: '%s | My App' },
+  description: 'A Next.js application',
+  openGraph: { type: 'website', locale: 'en_US', siteName: 'My App' },
+};
+
+// Page-level metadata
+export const metadata: Metadata = {
+  title: 'About Us',
+  description: 'Learn about our company.',
+};
+
+// Dynamic metadata with generateMetadata
+export async function generateMetadata({ params }): Promise&lt;Metadata&gt; {
+  const product = await fetchProduct(params.id);
+  return {
+    title: product.name,
+    description: product.description,
+    openGraph: { title: product.name, images: [{ url: product.image }] },
+  };
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every page should have unique metadata. The template system ensures consistent title formatting.</div>
+<div class="callout hood"><span>Under the hood</span>Metadata from nested layouts and pages is merged. Page metadata overrides layout metadata. Rendered as &lt;head&gt; tags during SSR/SSG.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Route Handlers (Simple API Routes)</h3>
+<p><strong>What &amp; why.</strong> Route handlers handle HTTP methods and return standard Response objects, supporting streaming, cookies, and headers.</p>
+<pre class="code"><code>// app/api/users/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const page = parseInt(searchParams.get('page') ?? '1');
+  const users = await db.user.findMany({ skip: (page - 1) * 10, take: 10 });
+  return NextResponse.json({ users, page });
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const user = await db.user.create({ data: body });
+  return NextResponse.json(user, { status: 201 });
+}
+
+// app/api/users/[id]/route.ts
+export async function GET(request, { params }: { params: { id: string } }) {
+  const user = await db.user.findUnique({ where: { id: params.id } });
+  if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  return NextResponse.json(user);
+}
+
+// Streaming response
+export async function GET() {
+  const stream = new ReadableStream({
+    async start(controller) {
+      for (let i = 0; i &lt; 10; i++) {
+        controller.enqueue(new TextEncoder().encode(`data: ${i}\n\n`));
+        await new Promise(r =&gt; setTimeout(r, 100));
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } });
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Route handlers handle authentication, database queries, external API calls, and webhook processing.</div>
+<div class="callout hood"><span>Under the hood</span>Route handlers run on Node.js by default (configurable to Edge). They use standard Web APIs (Request, Response).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Dynamic Route Segments and Params</h3>
+<p><strong>What &amp; why.</strong> Dynamic routes use bracket syntax ([slug]) to capture URL segments. params are passed as async props to page and layout components in Next.js 15.</p>
+<pre class="code"><code>// app/products/[id]/page.tsx
+interface Props {
+  params: Promise&lt;{ id: string }&gt;;
+  searchParams: Promise&lt;{ color?: string; size?: string }&gt;;
+}
+
+export default async function ProductPage({ params, searchParams }: Props) {
+  const { id } = await params;
+  const { color, size } = await searchParams;
+  const product = await fetchProduct(id);
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;{product.name}&lt;/h1&gt;
+      {color &amp;&amp; &lt;p&gt;Color: {color}&lt;/p&gt;}
+      {size &amp;&amp; &lt;p&gt;Size: {size}&lt;/p&gt;}
+    &lt;/div&gt;
+  );
+}
+
+// Catch-all routes: app/docs/[...slug]/page.tsx
+// /docs/a/b/c → params: { slug: ['a', 'b', 'c'] }
+
+// Optional catch-all: app/shop/[[...slug]]/page.tsx
+// /shop → params: { slug: undefined }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Product pages, blog posts, documentation, and user profiles all use dynamic routes.</div>
+<div class="callout hood"><span>Under the hood</span>In Next.js 15, params and searchParams are Promises. The URL is parsed at request time and passed as structured props.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Next.js Project Structure Best Practices</h3>
+<p><strong>What &amp; why.</strong> Proper project structure scales with your application. Organizing by feature, separating concerns, and following conventions prevents code sprawl.</p>
+<pre class="code"><code>// Feature-based structure
+src/
+  app/
+    (auth)/                    # Route group: auth pages
+      login/page.tsx
+      register/page.tsx
+    (dashboard)/               # Route group: dashboard
+      layout.tsx               # Shared dashboard layout
+      page.tsx
+      settings/page.tsx
+    api/
+      auth/[...nextauth]/route.ts
+      users/route.ts
+      users/[id]/route.ts
+  components/
+    ui/                        # Generic UI components
+      Button.tsx
+      Modal.tsx
+    features/                  # Feature-specific components
+      auth/LoginForm.tsx
+      dashboard/StatsCard.tsx
+  lib/
+    db.ts                      # Database client singleton
+    auth.ts                    # Auth configuration
+    utils.ts                   # Shared utilities
+  hooks/
+    useDebounce.ts
+    useWebSocket.ts
+  types/
+    index.ts                   # Shared TypeScript types</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Feature-based structure works for apps of any size. Route groups organize without URL segments.</div>
+<div class="callout hood"><span>Under the hood</span>The app/ directory maps to URLs. Components in app/ that don't export default aren't routes. lib/ and hooks/ are convention for shared code.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Server components, fetch caching, server actions, streaming</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Server vs Client Components (use-client)</h3>
+<p><strong>What &amp; why.</strong> Server Components run on the server and send only their rendered tree. Client Components ('use client') run in the browser and support interactivity. This split reduces client JavaScript.</p>
+<pre class="code"><code>// Server Component (default) — runs on the server
+async function ProductList() {
+  const products = await db.product.findMany();  // Direct DB access
+  return (
+    &lt;ul&gt;
+      {products.map(p =&gt; &lt;li key={p.id}&gt;{p.name} — ${p.price}&lt;/li&gt;)}
+    &lt;/ul&gt;
+  );
+}
+
+// Client Component — runs in the browser
+'use client';
+import { useState } from 'react';
+
+function AddToCartButton({ productId }: { productId: string }) {
+  const [quantity, setQuantity] = useState(1);
+  return (
+    &lt;div&gt;
+      &lt;button onClick={() =&gt; setQuantity(q =&gt; Math.max(1, q - 1))}&gt;-&lt;/button&gt;
+      &lt;span&gt;{quantity}&lt;/span&gt;
+      &lt;button onClick={() =&gt; setQuantity(q =&gt; q + 1)}&gt;+&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}
+
+// Composition: server renders client component
+export default async function ProductPage({ params }) {
+  const product = await db.product.findUnique({ where: { id: params.id } });
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;{product.name}&lt;/h1&gt;
+      &lt;AddToCartButton productId={product.id} /&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Server Components for data fetching and layout. Client Components for forms, modals, and interactive elements.</div>
+<div class="callout hood"><span>Under the hood</span>Server Components are serialized as RSC payload. Client Components receive the server tree plus their own hydration. Server-only code never reaches the client bundle.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>RSC Fetch Caching</h3>
+<p><strong>What &amp; why.</strong> Server Components cache fetch requests by default. Caching options control data freshness vs performance trade-offs.</p>
+<pre class="code"><code>// Default: cached until manually revalidated
+async function CachedProducts() {
+  const res = await fetch('https://api.example.com/products');
+  return &lt;ProductList data={await res.json()} /&gt;;
+}
+
+// No cache: always fresh
+async function RealtimePrices() {
+  const res = await fetch('https://api.example.com/prices', { cache: 'no-store' });
+  return &lt;PriceTicker data={await res.json()} /&gt;;
+}
+
+// Time-based revalidation
+async function SemiFreshProducts() {
+  const res = await fetch('https://api.example.com/products', {
+    next: { revalidate: 60 },
+  });
+  return &lt;ProductList data={await res.json()} /&gt;;
+}
+
+// Tag-based revalidation
+async function TaggedProducts() {
+  const res = await fetch('https://api.example.com/products', {
+    next: { tags: ['products'] },
+  });
+  return &lt;ProductList data={await res.json()} /&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Static content uses default caching. Dashboard data uses time-based. User data uses no-store. Product catalogs use tag-based.</div>
+<div class="callout hood"><span>Under the hood</span>Next.js maintains Data Cache (persistent) and Router Cache (in-memory). Fetch responses are stored with their cache key. Revalidation triggers background regeneration.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Server Actions for Mutations</h3>
+<p><strong>What &amp; why.</strong> Server Actions are async functions running on the server, callable from any component. They replace manual API routes for form submissions and mutations.</p>
+<pre class="code"><code>// app/actions.ts
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+
+export async function createPost(formData: FormData) {
+  const title = formData.get('title') as string;
+  const content = formData.get('content') as string;
+  await db.post.create({ data: { title, content } });
+  revalidatePath('/posts');
+  redirect('/posts');
+}
+
+export async function deletePost(postId: string) {
+  await db.post.delete({ where: { id: postId } });
+  revalidatePath('/posts');
+}
+
+// Client Component calling Server Action
+'use client';
+function PostForm() {
+  return (
+    &lt;form action={createPost}&gt;
+      &lt;input name="title" required /&gt;
+      &lt;textarea name="content" required /&gt;
+      &lt;button type="submit"&gt;Create Post&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Server Actions replace API routes for mutations: form submissions, CRUD operations, and state transitions.</div>
+<div class="callout hood"><span>Under the hood</span>Server Actions compile to HTTP POST endpoints. revalidatePath clears cached pages to reflect mutations.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Suspense Skeletons and Streaming</h3>
+<p><strong>What &amp; why.</strong> Suspense with loading.tsx enables streaming SSR: the shell renders immediately while slow data streams in progressively. Skeletons provide instant visual feedback.</p>
+<pre class="code"><code>// app/dashboard/loading.tsx — streaming skeleton
+export default function DashboardSkeleton() {
+  return (
+    &lt;div className="dashboard"&gt;
+      &lt;div className="stat-card skeleton"&gt;
+        &lt;div className="skeleton-line w-24" /&gt;
+        &lt;div className="skeleton-line w-16 h-8" /&gt;
+      &lt;/div&gt;
+      &lt;div className="chart-area skeleton"&gt;
+        &lt;div className="skeleton-line w-full h-48" /&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}
+
+// Nested Suspense for independent loading
+export default async function DashboardPage() {
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;Dashboard&lt;/h1&gt;
+      &lt;Suspense fallback={&lt;StatsSkeleton /&gt;}&gt;
+        &lt;StatsPanel /&gt;
+      &lt;/Suspense&gt;
+      &lt;Suspense fallback={&lt;ChartSkeleton /&gt;}&gt;
+        &lt;AnalyticsChart /&gt;
+      &lt;/Suspense&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Skeleton loading improves perceived performance. Each Suspense boundary loads independently.</div>
+<div class="callout hood"><span>Under the hood</span>Next.js streams HTML chunks. The shell is sent first. When suspended components resolve, their HTML is streamed and injected into the DOM.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>error.tsx and not-found.tsx</h3>
+<p><strong>What &amp; why.</strong> error.tsx catches runtime errors with a reset function. not-found.tsx handles 404 errors. Both isolate failures to their route segment.</p>
+<pre class="code"><code>// app/dashboard/error.tsx — must be a Client Component
+'use client';
+export default function DashboardError({ error, reset }) {
+  return (
+    &lt;div&gt;
+      &lt;h2&gt;Something went wrong&lt;/h2&gt;
+      &lt;p&gt;{error.message}&lt;/p&gt;
+      {error.digest &amp;&amp; &lt;p&gt;Digest: {error.digest}&lt;/p&gt;}
+      &lt;button onClick={reset}&gt;Try again&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}
+
+// app/not-found.tsx — global 404 page
+export default function NotFound() {
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;404 — Page Not Found&lt;/h1&gt;
+      &lt;a href="/"&gt;Go Home&lt;/a&gt;
+    &lt;/div&gt;
+  );
+}
+
+// Triggering not-found
+import { notFound } from 'next/navigation';
+async function ProductPage({ params }) {
+  const product = await db.product.findUnique({ where: { id: params.id } });
+  if (!product) notFound();
+  return &lt;h1&gt;{product.name}&lt;/h1&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>error.tsx at each segment catches errors independently. not-found.tsx is triggered by notFound().</div>
+<div class="callout hood"><span>Under the hood</span>error.tsx wraps the page in an error boundary. It must be a Client Component. The digest contains a hashed error identifier for logging.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Environment Variables: Server vs Public</h3>
+<p><strong>What &amp; why.</strong> Next.js distinguishes server-only env vars from public env vars (NEXT_PUBLIC_ prefix), preventing secrets from leaking to the browser.</p>
+<pre class="code"><code># .env.local — server-only (NOT in bundle)
+DATABASE_URL=postgresql://user:pass@localhost/db
+API_SECRET_KEY=super-secret-key
+
+# .env.local — public (NEXT_PUBLIC_ prefix)
+NEXT_PUBLIC_API_URL=https://api.example.com
+
+// Server Component (server-only)
+async function Dashboard() {
+  const db = new Database(process.env.DATABASE_URL);  // OK
+  return &lt;div&gt;Data loaded&lt;/div&gt;;
+}
+
+// Client Component (public only)
+'use client';
+function ApiStatus() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;  // OK
+  return &lt;p&gt;API: {apiUrl}&lt;/p&gt;;
+}
+
+// NEVER in client: process.env.API_SECRET_KEY → undefined in browser</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every Next.js app uses env vars for database URLs, API keys, and configuration.</div>
+<div class="callout hood"><span>Under the hood</span>Server-only vars are inlined at build time for server bundles. NEXT_PUBLIC_ vars are inlined into client bundles. Others are stripped from client bundles.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Middleware</h3>
+<p><strong>What &amp; why.</strong> Middleware runs before request completion, enabling auth checks, redirects, rewrites, and header manipulation.</p>
+<pre class="code"><code>// middleware.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  const token = request.cookies.get('auth-token');
+  if (request.nextUrl.pathname.startsWith('/dashboard') &amp;&amp; !token) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  const response = NextResponse.next();
+  response.headers.set('x-request-id', crypto.randomUUID());
+  return response;
+}
+
+export const config = {
+  matcher: ['/dashboard/:path*', '/admin/:path*', '/api/:path*'],
+};
+
+// Rewrite pattern
+export function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/api/internal')) {
+    return NextResponse.rewrite(
+      new URL(request.nextUrl.pathname.replace('/api/internal', '/api'), request.url)
+    );
+  }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Auth gating, A/B testing, geolocation redirects, and API proxying.</div>
+<div class="callout hood"><span>Under the hood</span>Middleware runs on Edge Runtime by default (limited APIs). Keep it minimal for cold start performance.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Caching layers, ISR, parallel routes, auth, Prisma, forms</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Four Cache Layers: Data, Full Route, Router, Memoization</h3>
+<p><strong>What &amp; why.</strong> Next.js has four cache layers, each serving a different purpose. Understanding when each applies prevents stale data bugs.</p>
+<pre class="code"><code>// 1. Data Cache — persists fetch responses across deployments
+fetch(url, { cache: 'force-cache' })      // Cache forever
+fetch(url, { cache: 'no-store' })          // Never cache
+fetch(url, { next: { revalidate: 3600 } }) // Revalidate hourly
+
+// 2. Full Route Cache — caches rendered HTML/RSC at build time
+export const dynamic = 'force-dynamic';  // Disable full route cache
+
+// 3. Router Cache — client-side cache for navigations
+// In-memory, per-session, 30 seconds for static pages
+// Clear with router.refresh()
+
+// 4. Memoization — within a single render pass
+// React memoizes fetch calls with same URL+options</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Data Cache for API responses. Full Route Cache for static pages. Router Cache for navigation speed.</div>
+<div class="callout hood"><span>Under the hood</span>Data Cache is on disk. Full Route Cache is pre-rendered HTML. Router Cache is a browser Map. Memoization is per-render.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>revalidatePath and revalidateTag</h3>
+<p><strong>What &amp; why.</strong> On-demand revalidation invalidates cached pages immediately after mutations, rather than waiting for time-based revalidation.</p>
+<pre class="code"><code>// app/actions.ts
+'use server';
+import { revalidatePath, revalidateTag } from 'next/cache';
+
+export async function updateProduct(id: string, data: FormData) {
+  await db.product.update({ where: { id }, data: { name: data.get('name') } });
+  revalidatePath(`/products/${id}`);
+  revalidateTag('products');
+}
+
+export async function createPost(data: FormData) {
+  await db.post.create({ data: { title: data.get('title') } });
+  revalidatePath('/blog');
+  revalidatePath('/blog', 'layout');
+}
+
+// Usage with fetch tags
+async function ProductPage({ params }) {
+  const res = await fetch(`/api/products/${params.id}`, {
+    next: { tags: [`product-${params.id}`] },
+  });
+  return &lt;ProductDetail data={await res.json()} /&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>After any database mutation, call revalidatePath or revalidateTag.</div>
+<div class="callout hood"><span>Under the hood</span>revalidatePath marks routes for regeneration on next request. revalidateTag marks all tagged fetches for cache invalidation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>ISR (Incremental Static Regeneration)</h3>
+<p><strong>What &amp; why.</strong> ISR combines static generation with dynamic data. Pages are pre-rendered and revalidated on-demand or at intervals.</p>
+<pre class="code"><code>// Time-based ISR: revalidate every 60 seconds
+async function ProductPage({ params }) {
+  const res = await fetch(`/api/products/${params.id}`, {
+    next: { revalidate: 60 },
+  });
+  return &lt;ProductDetail data={await res.json()} /&gt;;
+}
+
+// On-demand ISR via revalidateTag
+async function BlogPost({ params }) {
+  const res = await fetch(`/api/posts/${params.slug}`, {
+    next: { tags: ['blog'] },
+  });
+  return &lt;article&gt;{/* post */}&lt;/article&gt;;
+}
+
+// Trigger from Server Action
+'use server';
+import { revalidateTag } from 'next/cache';
+export async function publishPost(postId: string) {
+  await db.post.update({ where: { id: postId }, data: { published: true } });
+  revalidateTag('blog');
+}
+
+// Combine with generateStaticParams
+export async function generateStaticParams() {
+  const posts = await db.post.findMany({ select: { slug: true } });
+  return posts.map(p =&gt; ({ slug: p.slug }));
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Product pages (ISR 60s + on-demand), blog posts (on-demand after publish), dashboards (time-based refresh).</div>
+<div class="callout hood"><span>Under the hood</span>ISR serves cached version immediately. On revalidation, Next.js regenerates in background. Stale version continues serving if regeneration fails.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Parallel Routes (@slot) and Intercepting Routes</h3>
+<p><strong>What &amp; why.</strong> Parallel routes render multiple pages simultaneously using @slot syntax. Intercepting routes show a route as an overlay on another route.</p>
+<pre class="code"><code>// Parallel routes: render multiple segments simultaneously
+// app/layout.tsx
+export default function Layout({ children, analytics, notifications }) {
+  return (
+    &lt;div&gt;
+      &lt;main&gt;{children}&lt;/main&gt;
+      &lt;aside&gt;{analytics}&lt;/aside&gt;
+      &lt;aside&gt;{notifications}&lt;/aside&gt;
+    &lt;/div&gt;
+  );
+}
+
+// app/@analytics/page.tsx
+export default async function AnalyticsPanel() {
+  const data = await fetchAnalytics();
+  return &lt;AnalyticsChart data={data} /&gt;;
+}
+
+// Intercepting routes: modal pattern
+// app/(feed)/page.tsx — feed
+export default function Feed() {
+  return posts.map(p =&gt; &lt;Link href={`/photo/${p.id}`}&gt;{p.title}&lt;/Link&gt;);
+}
+
+// app/(.)photo/[id]/page.tsx — intercepts /photo/[id]
+export default async function PhotoModal({ params }) {
+  const photo = await db.photo.findUnique({ where: { id: params.id } });
+  return &lt;Modal&gt;&lt;img src={photo.url} /&gt;&lt;/Modal&gt;;
+}
+// Navigation from / renders modal; direct visit renders full page</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Parallel routes for dashboards with independent panels. Intercepting routes for image galleries and quick-view modals.</div>
+<div class="callout hood"><span>Under the hood</span>Parallel routes use useSelectedLayoutSegment. Intercepting routes use (.) prefix. Route groups are invisible in URLs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Route Groups and Auth Pattern</h3>
+<p><strong>What &amp; why.</strong> Route groups (parenthesized folders) organize without affecting URLs. Combined with layouts, they enable auth-gated sections.</p>
+<pre class="code"><code>// Route groups: organize without URL segments
+// app/(auth)/login/page.tsx    → /login
+// app/(auth)/register/page.tsx → /register
+// app/(dashboard)/layout.tsx   → shared layout
+// app/(dashboard)/page.tsx     → /
+
+// Auth.js integration
+// app/(auth)/layout.tsx
+export default function AuthLayout({ children }) {
+  return &lt;div className="auth-page"&gt;{children}&lt;/div&gt;;
+}
+
+// app/(dashboard)/layout.tsx
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+
+export default async function DashboardLayout({ children }) {
+  const session = await auth();
+  if (!session) redirect('/login');
+  return (
+    &lt;div className="dashboard-layout"&gt;
+      &lt;Sidebar user={session.user} /&gt;
+      &lt;main&gt;{children}&lt;/main&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Route groups separate auth pages from dashboard pages. Auth checks in layout.tsx protect all child routes.</div>
+<div class="callout hood"><span>Under the hood</span>Route groups create virtual segments. Multiple root layouts are supported per group.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Prisma Integration</h3>
+<p><strong>What &amp; why.</strong> Prisma is the standard TypeScript ORM for Next.js, providing type-safe queries, automatic migrations, and a client that works in Server Components.</p>
+<pre class="code"><code>// lib/prisma.ts — singleton client
+import { PrismaClient } from '@prisma/client';
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+// prisma/schema.prisma
+// model User {
+//   id        String   @id @default(cuid())
+//   email     String   @unique
+//   name      String?
+//   posts     Post[]
+//   createdAt DateTime @default(now())
+// }
+//
+// model Post {
+//   id        String   @id @default(cuid())
+//   title     String
+//   author    User     @relation(fields: [authorId], references: [id])
+//   authorId  String
+// }
+
+// Server Component
+async function UserList() {
+  const users = await prisma.user.findMany({
+    include: { posts: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  return users.map(u =&gt; (
+    &lt;div key={u.id}&gt;
+      &lt;h3&gt;{u.name}&lt;/h3&gt;
+      &lt;p&gt;{u.posts.length} posts&lt;/p&gt;
+    &lt;/div&gt;
+  ));
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Prisma is the most popular ORM for Next.js. The singleton prevents connection exhaustion with hot reloading.</div>
+<div class="callout hood"><span>Under the hood</span>Prisma generates a TypeScript client from your schema. Queries are type-safe at compile time. The singleton is critical for development.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>useActionState and useFormStatus (React 19)</h3>
+<p><strong>What &amp; why.</strong> React 19 introduces useActionState for form state with Server Actions and useFormStatus for pending state in form children.</p>
+<pre class="code"><code>// app/actions.ts
+'use server';
+export async function subscribe(prevState: any, formData: FormData) {
+  const email = formData.get('email') as string;
+  if (!email.includes('@')) return { success: false, error: 'Invalid email' };
+  await db.subscriber.create({ data: { email } });
+  return { success: true, error: null };
+}
+
+// app/subscribe/page.tsx
+'use client';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
+import { subscribe } from '../actions';
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return &lt;button type="submit" disabled={pending}&gt;
+    {pending ? 'Subscribing...' : 'Subscribe'}
+  &lt;/button&gt;;
+}
+
+export default function SubscribePage() {
+  const [state, formAction, isPending] = useActionState(subscribe, {
+    success: false, error: null,
+  });
+  return (
+    &lt;form action={formAction}&gt;
+      &lt;input name="email" type="email" required /&gt;
+      &lt;SubmitButton /&gt;
+      {state.error &amp;&amp; &lt;p className="error"&gt;{state.error}&lt;/p&gt;}
+      {state.success &amp;&amp; &lt;p className="success"&gt;Subscribed!&lt;/p&gt;}
+    &lt;/form&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>useActionState replaces useState for Server Action forms. useFormStatus provides pending state without prop drilling.</div>
+<div class="callout hood"><span>Under the hood</span>useActionState wraps a Server Action, returning [state, formAction, isPending]. useFormStatus reads form status via React context.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>next/font Optimization</h3>
+<p><strong>What &amp; why.</strong> next/font auto-optimizes fonts: self-hosts Google/local fonts, removes external requests, and applies size-adjust to reduce CLS.</p>
+<pre class="code"><code>// app/layout.tsx
+import { Inter, Roboto_Mono } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const mono = Roboto_Mono({ subsets: ['latin'], variable: '--font-mono' });
+
+export default function Layout({ children }) {
+  return (
+    &lt;html className={`${inter.variable} ${mono.variable}`}&gt;
+      &lt;body className={inter.className}&gt;{children}&lt;/body&gt;
+    &lt;/html&gt;
+  );
+}
+
+// Local font
+import localFont from 'next/font/local';
+const myFont = localFont({ src: './fonts/MyFont.woff2', display: 'swap' });</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every Next.js app should use next/font instead of raw @font-face or CDN links. Eliminates FOUT and CLS from fonts.</div>
+<div class="callout hood"><span>Under the hood</span>next/font downloads fonts at build time and self-hosts them. Applies size-adjust to match fallback metrics. Generates font-family declarations with hash-based filenames for caching.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>next/headers: Cookies, Headers, and Draft Mode</h3>
+<p><strong>What &amp; why.</strong> next/headers provides server-only access to request headers, cookies, and draft mode — essential for auth checks and preview content.</p>
+<pre class="code"><code>// app/dashboard/page.tsx (Server Component)
+import { cookies, headers, draftMode } from 'next/headers';
+
+export default async function Dashboard() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('session')?.value;
+  const headerStore = await headers();
+  const userAgent = headerStore.get('user-agent');
+  const { isEnabled } = await draftMode();
+
+  if (!token) redirect('/login');
+
+  return (
+    &lt;div&gt;
+      &lt;p&gt;UA: {userAgent}&lt;/p&gt;
+      {isEnabled &amp;&amp; &lt;span className="badge"&gt;Draft Mode&lt;/span&gt;}
+    &lt;/div&gt;
+  );
+}
+
+// Route Handler
+import { cookies } from 'next/headers';
+export async function GET() {
+  const cookieStore = await cookies();
+  return Response.json({ theme: cookieStore.get('theme')?.value });
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Auth checks in Server Components, reading preferences, preview/draft mode toggling, and forwarding headers to external APIs.</div>
+<div class="callout hood"><span>Under the hood</span>These functions are async in Next.js 15 (previously sync). They read from the incoming request in server-only scope. draftMode sets a cookie that enables preview rendering.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Redirects, Rewrites, and Headers in next.config</h3>
+<p><strong>What &amp; why.</strong> next.config.ts supports declarative redirects (301/302), rewrites (proxy), and custom response headers — handled at the edge before hitting your code.</p>
+<pre class="code"><code>// next.config.ts
+const config = {
+  async redirects() {
+    return [
+      { source: '/old-blog/:slug', destination: '/blog/:slug', permanent: true },
+      { source: '/docs/:path*', destination: 'https://external.docs.com/:path*',
+        permanent: false },
+    ];
+  },
+  async rewrites() {
+    return [
+      { source: '/api-proxy/:path*', destination: 'https://api.example.com/:path*' },
+      { source: '/legacy/:path*', destination: '/v2/:path*' },
+    ];
+  },
+  async headers() {
+    return [
+      { source: '/api/:path*', headers: [
+        { key: 'Cache-Control', value: 's-maxage=60, stale-while-revalidate=300' },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+      ]},
+    ];
+  },
+};
+module.exports = config;</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>URL migrations (old paths to new), API proxying to hide external URLs, security headers, and caching strategies.</div>
+<div class="callout hood"><span>Under the hood</span>Redirects and rewrites run in the routing layer before middleware. Rewrites act as reverse proxies — the browser URL stays unchanged. Headers are merged with middleware-set headers.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>next/script for Third-Party Script Loading</h3>
+<p><strong>What &amp; why.</strong> next/script optimizes third-party script loading with strategy-based placement (afterInteractive, beforeInteractive, lazyOnload, worker) to avoid blocking rendering.</p>
+<pre class="code"><code>// app/layout.tsx
+import Script from 'next/script';
+
+export default function Layout({ children }) {
+  return (
+    &lt;html&gt;
+      &lt;head&gt;
+        {/* Loads after page is interactive — analytics, chat widgets */}
+        &lt;Script src="https://analytics.example.com/script.js"
+          strategy="afterAnalytics" /&gt;
+        {/* Lazy load when browser is idle */}
+        &lt;Script src="https://widget.example.com/embed.js"
+          strategy="lazyOnload" /&gt;
+      </head>
+      &lt;body&gt;{children}&lt;/body&gt;
+    &lt;/html&gt;
+  );
+}
+
+// Event callbacks
+&lt;Script src="..." strategy="afterInteractive"
+  onLoad={() =&gt; console.log('Script loaded')} /&gt;</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Google Analytics, Stripe.js, chat widgets, ad pixels, or any third-party script that must not block initial paint.</div>
+<div class="callout hood"><span>Under the hood</span>afterInteractive injects after hydration. beforeInteractive loads before any JS. lazyOnload waits for browser idle via requestIdleCallback. worker runs in a Web Worker.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Edge, Docker, i18n, SEO, testing, deployment</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Edge vs Node.js Runtime</h3>
+<p><strong>What &amp; why.</strong> Next.js supports Node.js (full API) and Edge (limited but faster cold starts, closer to users). Choose per route.</p>
+<pre class="code"><code>// Edge runtime: fast cold starts, deployed to CDN
+export const runtime = 'edge';
+export async function GET(request) {
+  const country = request.geo?.country ?? 'US';
+  return Response.json({ country, latency: 'low' });
+}
+
+// Node.js runtime: full API (fs, crypto, child_process)
+export const runtime = 'nodejs';  // Default
+export async function GET() {
+  const data = await fs.readFile('./data.json', 'utf-8');
+  return Response.json(JSON.parse(data));
+}
+
+// Per-route in layout
+export const runtime = 'edge';  // All routes under this layout</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Edge for auth middleware, geolocation, A/B testing. Node.js for file processing and database-heavy routes.</div>
+<div class="callout hood"><span>Under the hood</span>Edge uses V8 isolates (~10ms cold start) vs Node.js (~250ms). Edge supports Web APIs but not Node.js modules.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Partial Prerendering (PPR)</h3>
+<p><strong>What &amp; why.</strong> PPR combines static and dynamic rendering in a single page. The static shell is served instantly; dynamic holes stream in as data becomes available.</p>
+<pre class="code"><code>// next.config.ts
+const config = { experimental: { ppr: true } };
+
+// app/dashboard/page.tsx with PPR
+export default function Dashboard() {
+  return (
+    &lt;div&gt;
+      {/* Static: rendered at build, served from CDN */}
+      &lt;h1&gt;Dashboard&lt;/h1&gt;
+      &lt;nav&gt;Navigation (static)&lt;/nav&gt;
+
+      {/* Dynamic: streams at request time */}
+      &lt;Suspense fallback={&lt;Skeleton /&gt;}&gt;
+        &lt;LiveMetrics /&gt;
+      &lt;/Suspense&gt;
+
+      &lt;StaticFooter /&gt;
+    &lt;/div&gt;
+  );
+}
+// HTML split into static shell (CDN) + dynamic holes (RSC streaming)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pages with mixed static/dynamic: dashboards, e-commerce, content sites with dynamic comments.</div>
+<div class="callout hood"><span>Under the hood</span>PPR generates static HTML with streaming boundaries. Static shell from edge cache. Dynamic holes receive RSC payloads.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Standalone Docker Self-Host</h3>
+<p><strong>What &amp; why.</strong> Standalone output produces a self-contained Docker image without needing node_modules, reducing size from ~1GB to ~200MB.</p>
+<pre class="code"><code>// next.config.ts
+const config = { output: 'standalone' };
+
+// Dockerfile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY . .
+RUN npm ci &amp;&amp; npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+EXPOSE 3000
+CMD ["node", "server.js"]
+
+# Build: docker build -t myapp .
+# Run: docker run -p 3000:3000 myapp</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Self-hosted Next.js in Docker or Kubernetes. Recommended for container deployments.</div>
+<div class="callout hood"><span>Under the hood</span>Standalone copies only actually imported files. Unused node_modules are excluded. server.js is a minimal HTTP server.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>i18n Routing</h3>
+<p><strong>What &amp; why.</strong> Next.js i18n supports locale-prefixed URLs (/en/about, /fr/about) with automatic detection. Combined with next-intl for full internationalization.</p>
+<pre class="code"><code>// next.config.ts
+const config = {
+  i18n: { locales: ['en', 'fr', 'de', 'zh'], defaultLocale: 'en' },
+};
+
+// app/[locale]/layout.tsx
+import { NextIntlClientProvider } from 'next-intl';
+export default async function LocaleLayout({ children, params }) {
+  const { locale } = await params;
+  const messages = await getMessages(locale);
+  return (
+    &lt;NextIntlClientProvider locale={locale} messages={messages}&gt;
+      {children}
+    &lt;/NextIntlClientProvider&gt;
+  );
+}
+
+// app/[locale]/page.tsx
+import { useTranslations } from 'next-intl';
+export default function HomePage() {
+  const t = useTranslations('HomePage');
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;{t('title')}&lt;/h1&gt;
+      &lt;p&gt;{t('description')}&lt;/p&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multilingual websites and international SaaS. Locale prefix enables SEO per language.</div>
+<div class="callout hood"><span>Under the hood</span>Locale detection uses Accept-Language header or cookie. next-intl provides message loading, date/number formatting, and pluralization.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>JSON-LD, Sitemap, and Robots SEO</h3>
+<p><strong>What &amp; why.</strong> Structured data (JSON-LD), sitemaps, and robots.txt are critical for search engine optimization.</p>
+<pre class="code"><code>// app/layout.tsx — JSON-LD
+export default function Layout({ children }) {
+  return (
+    &lt;html&gt;
+      &lt;head&gt;
+        &lt;script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          '@context': 'https://schema.org', '@type': 'Organization',
+          name: 'My Company', url: 'https://mycompany.com',
+        })}} /&gt;
+      &lt;/head&gt;
+      &lt;body&gt;{children}&lt;/body&gt;
+    &lt;/html&gt;
+  );
+}
+
+// app/sitemap.ts — dynamic sitemap
+import { MetadataRoute } from 'next';
+export default async function sitemap(): Promise&lt;MetadataRoute.Sitemap&gt; {
+  const posts = await db.post.findMany({ where: { published: true } });
+  return [
+    { url: 'https://myapp.com', lastModified: new Date(), priority: 1.0 },
+    ...posts.map(p =&gt; ({ url: `https://myapp.com/blog/${p.slug}`,
+      lastModified: p.updatedAt, priority: 0.8 })),
+  ];
+}
+
+// app/robots.ts
+export default function robots() {
+  return { rules: [{ userAgent: '*', allow: '/', disallow: ['/admin'] }],
+    sitemap: 'https://myapp.com/sitemap.xml' };
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every public website needs sitemap, robots.txt, and structured data for Google rich results.</div>
+<div class="callout hood"><span>Under the hood</span>sitemap.ts and robots.ts are served at /sitemap.xml and /robots.txt. JSON-LD is injected as a script tag for search engines.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>generateMetadata Dynamic</h3>
+<p><strong>What &amp; why.</strong> generateMetadata enables dynamic, data-driven metadata per page, running on the server to fetch data for titles, descriptions, and OpenGraph tags.</p>
+<pre class="code"><code>// app/blog/[slug]/page.tsx
+import type { Metadata } from 'next';
+
+export async function generateMetadata({ params }): Promise&lt;Metadata&gt; {
+  const { slug } = await params;
+  const post = await db.post.findUnique({ where: { slug } });
+  if (!post) return { title: 'Post Not Found' };
+  return {
+    title: post.title,
+    description: post.excerpt,
+    openGraph: {
+      title: post.title, description: post.excerpt, type: 'article',
+      publishedTime: post.publishedAt.toISOString(),
+      images: [{ url: post.coverImage, width: 1200, height: 630 }],
+    },
+    twitter: { card: 'summary_large_image', title: post.title, images: [post.coverImage] },
+  };
+}
+
+export default async function BlogPost({ params }) {
+  const { slug } = await params;
+  const post = await db.post.findUnique({ where: { slug } });
+  return &lt;article&gt;&lt;h1&gt;{post.title}&lt;/h1&gt;&lt;/article&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every data-driven page needs dynamic metadata from database records.</div>
+<div class="callout hood"><span>Under the hood</span>generateMetadata runs on the server, can fetch async data, and merges with parent layout metadata.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Custom Server Caveat and Lighthouse</h3>
+<p><strong>What &amp; why.</strong> Custom servers (Express, Fastify) disable Next.js optimizations. Lighthouse validates Core Web Vitals affecting SEO ranking.</p>
+<pre class="code"><code>// CAUTION: custom server disables many optimizations
+// RECOMMENDED: use next start instead
+// package.json
+{ "start": "next start -p 3000", "build": "next build" }
+
+// Lighthouse CI integration
+// lighthouserc.json
+{
+  "ci": {
+    "assert": {
+      "assertions": {
+        "categories:performance": ["error", { "minScore": 0.9 }],
+        "categories:accessibility": ["error", { "minScore": 0.9 }],
+        "categories:seo": ["error", { "minScore": 0.9 }]
+      }
+    }
+  }
+}
+// Run: npx lhci autorun --config=lighthouserc.json</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Avoid custom servers. Use middleware and route handlers instead. Lighthouse in CI catches regressions.</div>
+<div class="callout hood"><span>Under the hood</span>Custom servers bypass Next.js's built-in server. Lighthouse audits a real Chrome browser rendering for actual user experience metrics.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Playwright E2E Testing</h3>
+<p><strong>What &amp; why.</strong> Playwright provides reliable end-to-end testing with automatic waiting, multi-browser support, and trace recording for Next.js apps.</p>
+<pre class="code"><code>// tests/home.spec.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('Home page', () =&gt; {
+  test('renders heading and navigation', async ({ page }) =&gt; {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Welcome');
+    await expect(page.getByRole('navigation')).toBeVisible();
+  });
+
+  test('navigates to dashboard', async ({ page }) =&gt; {
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Dashboard' }).click();
+    await expect(page).toHaveURL('/dashboard');
+  });
+
+  test('submits contact form', async ({ page }) =&gt; {
+    await page.goto('/contact');
+    await page.getByLabel('Name').fill('Charlie');
+    await page.getByLabel('Email').fill('charlie@test.com');
+    await page.getByRole('button', { name: 'Send' }).click();
+    await expect(page.getByText('Message sent')).toBeVisible();
+  });
+});
+
+// playwright.config.ts
+export default defineConfig({
+  webServer: { command: 'npm run dev', port: 3000 },
+  use: { baseURL: 'http://localhost:3000' },
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' } },
+    { name: 'firefox', use: { browserName: 'firefox' } },
+  ],
+});</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>E2E tests cover critical user flows. Run on every PR to catch integration regressions.</div>
+<div class="callout hood"><span>Under the hood</span>Playwright uses DevTools Protocol to control real browsers. It waits automatically. Trace recording captures screenshots and network for debugging.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Bundle Analysis and Turborepo Monorepo</h3>
+<p><strong>What &amp; why.</strong> Bundle analysis visualizes what JavaScript is included. Turborepo manages monorepos with shared packages, incremental builds, and caching.</p>
+<pre class="code"><code>// Bundle analysis
+// npm install @next/bundle-analyzer
+// next.config.ts
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+module.exports = withBundleAnalyzer({});
+
+// Run: ANALYZE=true next build
+
+// Turborepo monorepo
+// turbo.json
+{
+  "tasks": {
+    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "dist/**"] },
+    "dev": { "persistent": true, "cache": false },
+    "lint": { "dependsOn": ["^build"] }
+  }
+}
+
+// packages/ui/src/Button.tsx — shared component
+// apps/web/package.json — Next.js web app
+// apps/mobile/package.json — React Native app
+// packages/config/package.json — shared configs
+
+// turbo build --filter=web — build only web app</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Bundle analysis catches accidentally included libraries. Turborepo manages monorepos for teams sharing code.</div>
+<div class="callout hood"><span>Under the hood</span>@next/bundle-analyzer uses webpack-bundle-analyzer treemaps. Turborepo hashes inputs for each task, serving cached results when unchanged.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>MDX Blog with ISR and View Counts</h3>
+<p>Build a blog platform using MDX for content, ISR for performance, and view counts tracked in a database.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Set up Next.js with Prisma (SQLite dev, PostgreSQL prod) and MDX via next-mdx-remote</li>
+<li>Define Post model with slug, title, content (MDX), tags, publishedAt, viewCount, readingTime</li>
+<li>Create blog layout with route groups: (blog)/layout.tsx for sidebar, (blog)/[slug]/page.tsx for posts</li>
+<li>Implement generateStaticParams for known slugs with dynamicParams = true for draft preview</li>
+<li>Build ISR with revalidate: 3600 and on-demand revalidation via revalidateTag('posts') on publish</li>
+<li>Create view count API route that increments atomically and server action for like/unlike</li>
+<li>Add generateMetadata for each post with OpenGraph images and Twitter cards</li>
+<li>Build tag filtering page with searchParams, cursor-based pagination, and Suspense skeletons</li></ol>
+<pre class="code"><code>// app/blog/[slug]/page.tsx
+import { MDXRemote } from 'next-mdx-remote/rsc';
+
+export async function generateMetadata({ params }) {
+  const { slug } = await params;
+  const post = await prisma.post.findUnique({ where: { slug } });
+  return { title: post.title, description: post.excerpt,
+    openGraph: { title: post.title, type: 'article', publishedTime: post.publishedAt } };
+}
+
+export default async function BlogPost({ params }) {
+  const { slug } = await params;
+  const post = await prisma.post.findUnique({ where: { slug } });
+  await prisma.post.update({ where: { slug }, data: { viewCount: { increment: 1 } } });
+  return (
+    &lt;article&gt;
+      &lt;h1&gt;{post.title}&lt;/h1&gt;
+      &lt;time&gt;{post.publishedAt.toLocaleDateString()}&lt;/time&gt;
+      &lt;MDXRemote source={post.content} /&gt;
+    &lt;/article&gt;
+  );
+}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>MDX content authoring with React components in markdown</li><li>ISR with time-based and on-demand revalidation</li><li>Prisma schema design and atomic counters</li><li>Dynamic metadata generation for SEO</li><li>Cursor-based pagination and tag filtering</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>SaaS Starter: Auth + Billing Dashboard</h3>
+<p>Build a SaaS starter with Auth.js authentication, Stripe billing, team management, and usage analytics dashboard.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Set up Next.js with Auth.js (GitHub + Google), Prisma, and Stripe SDK</li>
+<li>Define schema: User, Account, Team, Subscription, UsageEvent with relations</li>
+<li>Build auth pages in (auth)/ route group with login, register, and callback handling</li>
+<li>Create dashboard layout with auth check in (dashboard)/layout.tsx — redirect if unauthenticated</li>
+<li>Implement Stripe checkout session via Server Action and webhook handler for subscription events</li>
+<li>Build usage tracking: middleware counts API calls per team, stores in UsageEvent, enforces limits</li>
+<li>Create settings pages: profile, team management, billing with subscription tier display</li>
+<li>Add Suspense-based dashboard with loading skeletons and server-fetched metrics</li></ol>
+<pre class="code"><code>// middleware.ts — auth + usage gating
+import { auth } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+
+export default auth((req) =&gt; {
+  if (!req.auth &amp;&amp; req.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/login', req.url));
+  }
+  if (req.nextUrl.pathname.startsWith('/api/')) {
+    const usage = getUsageFromHeaders(req.headers);
+    if (usage &gt; TEAM_LIMIT) {
+      return NextResponse.json({ error: 'Usage limit exceeded' }, { status: 429 });
+    }
+  }
+  return NextResponse.next();
+});</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Auth.js session management with multiple providers</li><li>Stripe integration: checkout, webhooks, subscription lifecycle</li><li>Team-based multi-tenancy with RBAC</li><li>Usage tracking and rate limiting per tier</li><li>Middleware-based auth and usage gating</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>AI Chatbot with Streaming Route Handler</h3>
+<p>Build a chat interface streaming AI responses via Next.js Route Handler with conversation persistence and token tracking.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Set up Next.js with Prisma (Conversation, Message models) and OpenAI SDK v1</li>
+<li>Build chat layout with sidebar for conversation history loaded via Server Component</li>
+<li>Create Route Handler at /api/chat that streams tokens via ReadableStream</li>
+<li>Implement client-side streaming: fetch with ReadableStream to process SSE tokens progressively</li>
+<li>Add conversation management: create, rename, delete via Server Actions with revalidatePath</li>
+<li>Implement model selector (GPT-4, GPT-3.5, Claude) with saved preference per user</li>
+<li>Build token counting: track input/output per conversation for usage dashboard</li>
+<li>Add error handling: rate limit retry, streaming abort on navigation</li></ol>
+<pre class="code"><code>// app/api/chat/route.ts
+import OpenAI from 'openai';
+const openai = new OpenAI();
+
+export async function POST(request: Request) {
+  const { messages, model = 'gpt-4' } = await request.json();
+  const stream = await openai.chat.completions.create({ model, messages, stream: true });
+
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      for await (const chunk of stream) {
+        const token = chunk.choices[0]?.delta?.content ?? '';
+        if (token) controller.enqueue(encoder.encode(`0:${JSON.stringify(token)}\n`));
+      }
+      controller.close();
+    },
+  });
+
+  return new Response(readable, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Streaming Route Handler with ReadableStream</li><li>Client-side SSE consumption</li><li>OpenAI SDK v1 streaming integration</li><li>Server Actions for conversation CRUD</li><li>Token tracking and usage analytics</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>App Router</td><td>File-system routing with layouts, pages, loading, error</td><td>app/layout.tsx, app/page.tsx</td></tr>
+<tr><td>Layout</td><td>Persistent wrapper that doesn't re-mount on navigation</td><td>export default function Layout({ children })</td></tr>
+<tr><td>SSR</td><td>Server renders HTML at request time for dynamic content</td><td>fetch(url, { cache: 'no-store' })</td></tr>
+<tr><td>SSG</td><td>Pre-rendered at build time, served from CDN</td><td>generateStaticParams()</td></tr>
+<tr><td>Link</td><td>Client-side navigation with prefetching</td><td>&lt;Link href="/path" prefetch&gt;</td></tr>
+<tr><td>Image</td><td>Optimized images with lazy loading and format conversion</td><td>&lt;Image src={...} alt="..." fill /&gt;</td></tr>
+<tr><td>Metadata</td><td>SEO head tags from layout and page files</td><td>export const metadata: Metadata = {}</td></tr>
+<tr><td>Route Handler</td><td>API routes using Web Request/Response</td><td>export async function GET(req)</td></tr>
+<tr><td>Server Component</td><td>Renders on server, zero client JS</td><td>(default, no 'use client')</td></tr>
+<tr><td>Client Component</td><td>Renders in browser, supports hooks</td><td>'use client' directive</td></tr>
+<tr><td>Server Action</td><td>Server-side mutations callable from client</td><td>'use server' + revalidatePath</td></tr>
+<tr><td>Fetch caching</td><td>Control data freshness per request</td><td>cache: 'no-store', next: { revalidate }</td></tr>
+<tr><td>Suspense</td><td>Streaming loading states per component</td><td>&lt;Suspense fallback={...}&gt;</td></tr>
+<tr><td>Middleware</td><td>Run before request: auth, redirects, headers</td><td>export function middleware(req)</td></tr>
+<tr><td>ISR</td><td>Static pages revalidated on-demand or by timer</td><td>next: { revalidate: 60 }</td></tr>
+<tr><td>revalidatePath</td><td>Clear cached pages after mutations</td><td>revalidatePath('/posts')</td></tr>
+<tr><td>revalidateTag</td><td>Clear pages by fetch tag</td><td>revalidateTag('products')</td></tr>
+<tr><td>Parallel Routes</td><td>Render multiple segments simultaneously</td><td>@analytics slot in layout</td></tr>
+<tr><td>Intercepting Routes</td><td>Show route as overlay on another route</td><td>(.)slug folder convention</td></tr>
+<tr><td>Route Groups</td><td>Organize routes without URL segments</td><td>(auth)/login/page.tsx -&gt; /login</td></tr>
+<tr><td>Prisma</td><td>Type-safe ORM with auto-generated client</td><td>prisma.user.findMany()</td></tr>
+<tr><td>Edge Runtime</td><td>Fast cold starts, limited API</td><td>export const runtime = 'edge'</td></tr>
+<tr><td>Standalone</td><td>Self-contained Docker output</td><td>output: 'standalone'</td></tr>
+<tr><td>i18n</td><td>Locale-prefixed routing</td><td>app/[locale]/page.tsx</td></tr>
+<tr><td>JSON-LD</td><td>Structured data for search engines</td><td>&lt;script type="application/ld+json"&gt;</td></tr>
+<tr><td>Playwright</td><td>E2E testing with real browsers</td><td>test('name', async ({ page }) =&gt; {})</td></tr>
+<tr><td>Turborepo</td><td>Monorepo build caching and task orchestration</td><td>turbo build --filter=web</td></tr>
+<tr><td>useActionState</td><td>React 19 form state with Server Actions</td><td>useActionState(action, initial)</td></tr>
+<tr><td>useFormStatus</td><td>React 19 pending state for form submit buttons</td><td>const { pending } = useFormStatus()</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="reactjs.html">&larr; ReactJS</a><a href="graphics-engineering.html">Graphics Engineering &rarr;</a></footer>
+</body></html>

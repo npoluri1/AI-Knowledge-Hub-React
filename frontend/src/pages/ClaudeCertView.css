@@ -367,3 +367,48 @@
   .ccg-toc-open { display: block; }
   .ccg-content { max-height: none; }
 }
+
+/* multi-file reader tabs (CertMarkdownReader) */
+.cmr { margin-bottom: 8px; }
+.cmr-head { border-bottom: 1px solid rgba(137, 180, 250, 0.2); padding-bottom: 14px; }
+.cmr-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 6px;
+}
+.cmr-tab {
+  background: #181825;
+  border: 1px solid #313244;
+  color: #a6adc8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.cmr-tab:hover { border-color: #89b4fa66; color: #cdd6f4; }
+.cmr-tab-active {
+  background: #89b4fa1f;
+  border-color: #89b4fa;
+  color: #89b4fa;
+}
+.cmr-tab-count {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  background: #313244;
+  color: #6c7086;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.cmr-tab-active .cmr-tab-count { background: #89b4fa22; color: #89b4fa; }
+.cmr-meta { margin-top: 6px; }
+.cmr-footer {
+  margin-top: 12px;
+  text-align: center;
+  color: #6c7086;
+  font-size: 0.74rem;
+}

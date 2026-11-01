@@ -1,0 +1,130 @@
+.sbd-reader {
+  min-height: calc(100vh - 150px);
+}
+
+.sbd-reader-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.sbd-reader-back,
+.sbd-reader-original {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sbd-reader-back:hover,
+.sbd-reader-original:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+
+.sbd-reader-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.sbd-reader-status {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.sbd-reader-frame {
+  position: relative;
+  min-height: calc(100vh - 230px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+}
+
+.sbd-reader-frame iframe {
+  display: block;
+  width: 100%;
+  height: calc(100vh - 190px);
+  min-height: 760px;
+  border: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sbd-reader-frame.is-loaded iframe {
+  opacity: 1;
+}
+
+.sbd-reader-loading,
+.sbd-reader-error {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  padding: 30px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.sbd-reader-loading {
+  flex-direction: row;
+}
+
+.sbd-reader-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: sbd-reader-spin 0.8s linear infinite;
+}
+
+.sbd-reader-error strong {
+  color: var(--accent-red);
+}
+
+.sbd-reader-error p {
+  max-width: 48ch;
+  margin: 0;
+}
+
+@keyframes sbd-reader-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .sbd-reader-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sbd-reader-actions {
+    justify-content: space-between;
+  }
+
+  .sbd-reader-status {
+    font-size: 11px;
+  }
+
+  .sbd-reader-frame iframe {
+    height: calc(100vh - 250px);
+    min-height: 640px;
+  }
+}

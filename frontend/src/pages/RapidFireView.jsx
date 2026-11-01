@@ -5,7 +5,9 @@ import {
   RAPID_FIRE_REPO_URL,
   RAPID_FIRE_SOURCE_URL,
 } from '../data/rapidFireData'
+import FetchButton from '../components/FetchButton'
 import './RapidFireView.css'
+import { useLang } from '../i18n'
 
 const SOURCE_BASE = 'https://karthikreddy-7.github.io/ai-engineering-playbook/docs/'
 
@@ -215,31 +217,33 @@ function renderBlocks(blocks, baseHref) {
 }
 
 function DeckCard({ deck, count, onOpen }) {
+  const { t } = useLang()
   return (
     <div className="rf-deck-card-wrap">
       <button className="rf-deck-card" style={{ '--rf-accent': deck.color }} onClick={() => onOpen(deck.id)}>
         <span className="rf-deck-icon">{deck.icon}</span>
-        <span className="rf-deck-main"><strong>{deck.title}</strong><small>{deck.treatment} · {count} cards</small></span>
+        <span className="rf-deck-main"><strong>{deck.title}</strong><small>{deck.treatment} · {count} {t('cards')}</small></span>
         <span className="rf-deck-arrow">→</span>
       </button>
       <div className="rf-deck-links">
-        <SourceLink href={deck.href}>Rapid Fire deck ↗</SourceLink>
-        {deck.treatmentHref && <SourceLink href={deck.treatmentHref}>{deck.treatment} full treatment ↗</SourceLink>}
+        <SourceLink href={deck.href}>{t('Rapid Fire deck')} ↗</SourceLink>
+        {deck.treatmentHref && <SourceLink href={deck.treatmentHref}>{deck.treatment} {t('full treatment')} ↗</SourceLink>}
       </div>
     </div>
   )
 }
 
 function Flashcard({ card, index, revealed, onToggle, baseHref }) {
+  const { t } = useLang()
   return (
     <article className={`rf-card ${revealed ? 'is-revealed' : ''}`}>
       <button className="rf-question" onClick={onToggle} aria-expanded={revealed}>
         <span className="rf-card-index">{String(index + 1).padStart(2, '0')}</span>
         <span className="rf-question-copy">{renderInlineMarkdown(card.question, baseHref)}</span>
-        <span className="rf-reveal-label">{revealed ? 'Hide' : 'Reveal'} <span>{revealed ? '↑' : '↓'}</span></span>
+        <span className="rf-reveal-label">{revealed ? t('Hide') : t('Reveal')} <span>{revealed ? '↑' : '↓'}</span></span>
       </button>
       <div className="rf-answer" aria-hidden={!revealed}>
-        <div className="rf-answer-label">Answer</div>
+        <div className="rf-answer-label">{t('Answer')}</div>
         <p>{renderInlineMarkdown(card.answer, baseHref)}</p>
       </div>
     </article>
@@ -247,6 +251,7 @@ function Flashcard({ card, index, revealed, onToggle, baseHref }) {
 }
 
 function Hub({ onOpen }) {
+  const { t } = useLang()
   const index = useMemo(parseIndex, [])
   const [query, setQuery] = useState('')
   const counts = useMemo(() => Object.fromEntries(DECKS.map(deck => [deck.id, countCards(deck)])), [])
@@ -254,36 +259,40 @@ function Hub({ onOpen }) {
 
   return (
     <div className="rapid-fire-page">
-      <Link to="/" className="back-link">← Back to Home</Link>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
       <section className="rf-hero">
-        <div className="rf-eyebrow"><span className="rf-live-dot" /> RETRIEVAL PRACTICE · PLAYBOOK 11</div>
-        <h1>⚡ Rapid Fire</h1>
+        <div className="rf-eyebrow"><span className="rf-live-dot" /> {t('Retrieval Practice')} · PLAYBOOK 11</div>
+        <div className="page-header-row">
+          <h1>⚡ {t('Rapid Fire')}</h1>
+          <FetchButton onFetch={() => setQuery('')} label="Fetch Latest" staticMode />
+        </div>
         <p className="rf-hero-subtitle">{index.description}</p>
-        <div className="rf-hero-actions"><button className="rf-primary-button" onClick={() => onOpen('llm-fundamentals')}>Start with LLM Fundamentals <span>→</span></button><SourceLink className="rf-source-button" href={RAPID_FIRE_SOURCE_URL}>Open canonical page ↗</SourceLink></div>
-        <div className="rf-stat-row"><span><b>10</b> decks</span><span><b>{Object.values(counts).reduce((sum, count) => sum + count, 0)}</b> flashcards</span><span><b>3-line</b> answers</span><span><b>100%</b> source-linked</span></div>
+        <div className="rf-hero-actions"><button className="rf-primary-button" onClick={() => onOpen('llm-fundamentals')}>{t('Start with LLM Fundamentals')} <span>→</span></button><SourceLink className="rf-source-button" href={RAPID_FIRE_SOURCE_URL}>{t('Open canonical page')} ↗</SourceLink></div>
+        <div className="rf-stat-row"><span><b>10</b> {t('decks')}</span><span><b>{Object.values(counts).reduce((sum, count) => sum + count, 0)}</b> {t('flashcards')}</span><span><b>3-line</b> {t('answers')}</span><span><b>100%</b> {t('source-linked')}</span></div>
       </section>
 
-      <div className="rf-source-bar"><span>📌 Canonical source</span><SourceLink href={RAPID_FIRE_SOURCE_URL}>{RAPID_FIRE_SOURCE_URL}</SourceLink><SourceLink href={RAPID_FIRE_REPO_URL} className="rf-repo-link">View Markdown repository ↗</SourceLink></div>
+      <div className="rf-source-bar"><span>📌 {t('Canonical source')}</span><SourceLink href={RAPID_FIRE_SOURCE_URL}>{RAPID_FIRE_SOURCE_URL}</SourceLink><SourceLink href={RAPID_FIRE_REPO_URL} className="rf-repo-link">{t('View Markdown repository')} ↗</SourceLink></div>
 
       <section className="rf-intro-grid">
         <div className="rf-panel rf-how-to">
-          <div className="rf-panel-kicker">THE METHOD</div><h2>How to use these decks</h2>
-          <div className="rf-inline-note"><strong>Prerequisites</strong><p>{renderInlineMarkdown(index.prerequisite, RAPID_FIRE_SOURCE_URL)}</p></div>
+          <div className="rf-panel-kicker">{t('THE METHOD')}</div><h2>How to use these decks</h2>
+          <div className="rf-inline-note"><strong>{t('Prerequisites')}</strong><p>{renderInlineMarkdown(index.prerequisite, RAPID_FIRE_SOURCE_URL)}</p></div>
           <div className="rf-panel-lead rf-usage-lead">{renderBlocks(index.usageBlocks.slice(0, 1), RAPID_FIRE_SOURCE_URL)}</div>
           {renderBlocks(index.usageBlocks.slice(1), RAPID_FIRE_SOURCE_URL)}
         </div>
-        <div className="rf-panel rf-warning-panel"><div className="rf-panel-kicker">⚠ COMMON MISCONCEPTION</div><h2>Recognition is not recall</h2><p>{index.warning}</p></div>
+        <div className="rf-panel rf-warning-panel"><div className="rf-panel-kicker">⚠ {t('COMMON MISCONCEPTION')}</div><h2>Recognition is not recall</h2><p>{index.warning}</p></div>
       </section>
 
-      <section className="rf-decks-section"><div className="rf-section-heading"><div><div className="rf-panel-kicker">THE LIBRARY</div><h2>The decks</h2></div><label className="rf-search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a deck…" /></label></div><div className="rf-deck-grid">{visibleDecks.map(deck => <DeckCard key={deck.id} deck={deck} count={counts[deck.id]} onOpen={onOpen} />)}</div></section>
+      <section className="rf-decks-section"><div className="rf-section-heading"><div><div className="rf-panel-kicker">{t('THE LIBRARY')}</div><h2>The decks</h2></div><label className="rf-search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a deck…" /></label></div><div className="rf-deck-grid">{visibleDecks.map(deck => <DeckCard key={deck.id} deck={deck} count={counts[deck.id]} onOpen={onOpen} />)}</div></section>
 
-      <section className="rf-connections rf-panel"><div className="rf-panel-kicker">WHERE THIS CONNECTS</div><h2>Recall + structure</h2><div className="rf-connection-list">{index.connections.map((connection, i) => <p key={i}>↗ {renderInlineMarkdown(connection, RAPID_FIRE_SOURCE_URL)}</p>)}</div></section>
-      <footer className="rf-footer">Rapid Fire · AI Engineering Playbook · <SourceLink href={RAPID_FIRE_SOURCE_URL}>Original reference ↗</SourceLink></footer>
+      <section className="rf-connections rf-panel"><div className="rf-panel-kicker">{t('WHERE THIS CONNECTS')}</div><h2>Recall + structure</h2><div className="rf-connection-list">{index.connections.map((connection, i) => <p key={i}>↗ {renderInlineMarkdown(connection, RAPID_FIRE_SOURCE_URL)}</p>)}</div></section>
+      <footer className="rf-footer">Rapid Fire · AI Engineering Playbook · <SourceLink href={RAPID_FIRE_SOURCE_URL}>{t('Original reference')} ↗</SourceLink></footer>
     </div>
   )
 }
 
 function DeckView({ deck }) {
+  const { t } = useLang()
   const data = useMemo(() => parseMarkdown(RAPID_FIRE_MARKDOWN[deck.file], deck), [deck])
   const [query, setQuery] = useState('')
   const [revealed, setRevealed] = useState(new Set())
@@ -298,14 +307,14 @@ function DeckView({ deck }) {
 
   return (
     <div className="rapid-fire-page rf-deck-view" style={{ '--rf-accent': deck.color }}>
-      <Link to="/rapid-fire" className="back-link">← All Rapid Fire decks</Link>
-      <section className="rf-deck-hero"><div className="rf-deck-breadcrumb">RAPID FIRE / {deck.treatment.toUpperCase()}</div><h1><span>{deck.icon}</span> {data.title.replace('Rapid Fire: ', '')}</h1><p>{data.description}</p><div className="rf-deck-hero-meta"><span>{allCards.length} cards</span><span>Question → 3-line answer</span><SourceLink href={deck.href}>Full treatment ↗</SourceLink></div></section>
-      <div className="rf-source-bar rf-source-bar-small"><span>📌 Source</span><SourceLink href={RAPID_FIRE_SOURCE_URL}>{RAPID_FIRE_SOURCE_URL}</SourceLink><SourceLink href={deck.href}>Open this deck on original site ↗</SourceLink></div>
-      <div className="rf-prerequisite"><span>Prerequisite</span><p>{renderInlineMarkdown(data.prerequisite, deck.href)}</p></div>
-      <div className="rf-instructions"><strong>How to use this deck</strong><div className="rf-instruction-content">{renderBlocks(data.usageBlocks, deck.href)}</div></div>
+      <Link to="/rapid-fire" className="back-link">← {t('All Rapid Fire decks')}</Link>
+      <section className="rf-deck-hero"><div className="rf-deck-breadcrumb">RAPID FIRE / {deck.treatment.toUpperCase()}</div><h1><span>{deck.icon}</span> {data.title.replace('Rapid Fire: ', '')}</h1><p>{data.description}</p><div className="rf-deck-hero-meta"><span>{allCards.length} {t('cards')}</span><span>{t('Question')} → {t('3-line answer')}</span><SourceLink href={deck.href}>{t('Full treatment')} ↗</SourceLink></div></section>
+      <div className="rf-source-bar rf-source-bar-small"><span>📌 {t('Source')}</span><SourceLink href={RAPID_FIRE_SOURCE_URL}>{RAPID_FIRE_SOURCE_URL}</SourceLink><SourceLink href={deck.href}>{t('Open this deck on original site')} ↗</SourceLink></div>
+      <div className="rf-prerequisite"><span>{t('Prerequisite')}</span><p>{renderInlineMarkdown(data.prerequisite, deck.href)}</p></div>
+      <div className="rf-instructions"><strong>{t('How to use this deck')}</strong><div className="rf-instruction-content">{renderBlocks(data.usageBlocks, deck.href)}</div></div>
 
-      <div className="rf-deck-layout"><aside className="rf-toc"><div className="rf-toc-title">Contents <span>{data.sections.length}</span></div>{data.sections.map(section => <button key={section.title} className={activeSection === section.title ? 'active' : ''} onClick={() => { setActiveSection(section.title); document.getElementById(`rf-section-${slugify(section.title)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}><span>{section.cards.length}</span>{section.title}</button>)}</aside><main className="rf-card-content"><div className="rf-toolbar"><label className="rf-search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search questions and answers…" /></label><button className="rf-tool-button" onClick={revealAll}>{isAllRevealed ? 'Hide all' : 'Reveal all'}</button></div>{visibleSections.length === 0 && <div className="rf-empty">No cards match “{query}”.</div>}{visibleSections.map(section => <section key={section.title} id={`rf-section-${slugify(section.title)}`} className="rf-card-section"><div className="rf-card-section-header"><span>{section.cards.length}</span><h2>{section.title}</h2></div>{section.cards.map((card, i) => <Flashcard key={card.question} card={card} index={i} revealed={revealed.has(card.question)} onToggle={() => toggle(card.question)} baseHref={deck.href} />)}</section>)}{data.footer && <div className="rf-full-treatment">{renderInlineMarkdown(data.footer, deck.href)}</div>}</main></div>
-      <footer className="rf-footer">{data.title} · <SourceLink href={deck.href}>Original deck ↗</SourceLink> · <SourceLink href={RAPID_FIRE_SOURCE_URL}>Rapid Fire index ↗</SourceLink></footer>
+      <div className="rf-deck-layout"><aside className="rf-toc"><div className="rf-toc-title">{t('Contents')} <span>{data.sections.length}</span></div>{data.sections.map(section => <button key={section.title} className={activeSection === section.title ? 'active' : ''} onClick={() => { setActiveSection(section.title); document.getElementById(`rf-section-${slugify(section.title)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}><span>{section.cards.length}</span>{section.title}</button>)}</aside><main className="rf-card-content"><div className="rf-toolbar"><label className="rf-search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search questions and answers…" /></label><button className="rf-tool-button" onClick={revealAll}>{isAllRevealed ? t('Hide all') : t('Reveal all')}</button></div>{visibleSections.length === 0 && <div className="rf-empty">No cards match “{query}”.</div>}{visibleSections.map(section => <section key={section.title} id={`rf-section-${slugify(section.title)}`} className="rf-card-section"><div className="rf-card-section-header"><span>{section.cards.length}</span><h2>{section.title}</h2></div>{section.cards.map((card, i) => <Flashcard key={card.question} card={card} index={i} revealed={revealed.has(card.question)} onToggle={() => toggle(card.question)} baseHref={deck.href} />)}</section>)}{data.footer && <div className="rf-full-treatment">{renderInlineMarkdown(data.footer, deck.href)}</div>}</main></div>
+      <footer className="rf-footer">{data.title} · <SourceLink href={deck.href}>{t('Original deck')} ↗</SourceLink> · <SourceLink href={RAPID_FIRE_SOURCE_URL}>{t('Rapid Fire index')} ↗</SourceLink></footer>
     </div>
   )
 }

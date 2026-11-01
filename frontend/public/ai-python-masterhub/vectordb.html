@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vector Databases — ANN Search at Scale — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Vector Databases — ANN Search at Scale</span><span class="spacer"></span>
+<a class="navlink" href="lora-qlora.html">&larr; LoRA &amp; QLoRA</a> <a class="navlink" href="rag.html">RAG &rarr;</a></nav>
+<header class="hero"><div class="mono">VD</div><div><h1>Vector Databases — ANN Search at Scale</h1>
+<p class="tagline">Storing, indexing, and retrieving high-dimensional embeddings for similarity search at millions of vectors</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Vector databases enable sub-second similarity search across millions of high-dimensional embeddings. This chapter covers the fundamental concepts of approximate nearest neighbor search, major vector database engines, advanced indexing strategies, and production deployment patterns.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Why vector DBs exist, CRUD basics, distance metrics, top engines</td><td>Can set up a vector DB and run insert/query operations</td></tr>
+<tr><td>Tier 2</td><td>HNSW, IVF, PQ internals, multi-tenancy, schema design</td><td>Can design schemas and tune index parameters for recall/latency</td></tr>
+<tr><td>Tier 3</td><td>Sharding, hybrid search, sparse-dense vectors, GDPR compliance</td><td>Can architect production systems with hybrid search and compliance</td></tr>
+<tr><td>Tier 4</td><td>Memory hierarchy, capacity planning, engine selection, anti-patterns</td><td>Can select engines, plan capacity, and avoid common pitfalls</td></tr>
+<tr><td>Tier 5</td><td>Hybrid product search, million-doc archive, pgvector RAG backend</td><td>Shipped projects with benchmark data</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 &mdash; core concepts and basic operations</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Why Exact Nearest Neighbor Fails at Scale</h3>
+<p><strong>What &amp; why.</strong> Brute-force exact NN search compares a query against every vector in the dataset. At 1 million vectors of dimension 768, each query requires 768M multiplications. At 100M vectors, queries take seconds to minutes, which is unacceptable for real-time applications.</p>
+<pre class="code"><code># Brute-force complexity:
+# n vectors, d dimensions
+# Per query: O(n * d) multiplications + O(n) comparisons
+#
+# Example: 1M vectors, dim=768
+# Multiplications: 1M * 768 = 768M per query
+# At ~1 GFLOP/s (single thread): ~0.77 seconds per query
+#
+# Example: 100M vectors, dim=768
+# Multiplications: 100M * 768 = 76.8B per query
+# At ~1 GFLOP/s: ~77 seconds per query
+#
+# Vector databases solve this with ANN indexes that achieve
+# sub-linear query time (typically O(log n) or O(n^0.5))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Justification for choosing a vector database over naive numpy search when dataset size exceeds ~100K vectors.</div>
+<div class="callout hood"><span>Under the hood</span>ANN algorithms trade exactness for speed, typically achieving 95-99% recall with 100-1000x speedup over brute force.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Vector Database Value Proposition</h3>
+<p><strong>What &amp; why.</strong> Vector databases combine ANN indexing with operational features: persistence, metadata filtering, horizontal scaling, backups, and ACID-like guarantees. They are the infrastructure layer between your embedding model and your application.</p>
+<pre class="code"><code># Vector DB vs numpy/FAISS:
+# | Feature            | numpy/FAISS | Vector DB     |
+# |--------------------|-------------|---------------|
+# | Persistence        | Manual      | Built-in      |
+# | Metadata filtering | No          | Yes           |
+# | Horizontal scaling | No          | Yes (shards)  |
+# | Backup/restore     | Manual      | Snapshots     |
+# | Multi-tenancy      | No          | Yes           |
+# | Real-time insert   | Reindex     | Automatic     |
+# | CRUD operations    | No          | Full CRUD     |
+# | Access control     | No          | Yes           |
+#
+# Use vector DB when: dataset &gt; 100K vectors, need filtering,
+# need persistence, need multi-user access, need backups</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Architecture decisions where teams debate between FAISS and a vector database; this table clarifies when each is appropriate.</div>
+<div class="callout hood"><span>Under the hood</span>Vector databases are specialized OLAP systems optimized for high-dimensional similarity search with operational guarantees.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Collections, Points, and Payloads</h3>
+<p><strong>What &amp; why.</strong> The core abstractions across vector databases: a collection is a group of vectors (like a table), a point is a single vector with metadata, and a payload is the metadata dictionary attached to each point.</p>
+<pre class="code"><code># Conceptual model (Qdrant-style terminology):
+# Collection = table of vectors
+# Point = row = {id, vector, payload}
+# Payload = metadata = {"title": "...", "category": "...", "date": "..."}
+
+# Example: a document collection
+collection = {
+    "name": "documents",
+    "vectors": {
+        "size": 768,          # embedding dimension
+        "distance": "Cosine"  # similarity metric
+    }
+}
+
+point = {
+    "id": 1,
+    "vector": [0.12, -0.45, 0.78, ...],  # 768 floats
+    "payload": {
+        "title": "Introduction to RAG",
+        "category": "tutorial",
+        "author": "Jane Doe",
+        "date": "2024-06-15"
+    }
+}
+
+# Different engines use different terminology:
+# Pinecone: index, vector, metadata
+# Chroma: collection, embedding, metadata
+# Weaviate: class, object, properties
+# pgvector: table, row, JSONB columns</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Schema design for any vector database; understanding these three abstractions maps directly to all engines.</div>
+<div class="callout hood"><span>Under the hood</span>Payloads are stored separately from vectors to keep the ANN index compact; metadata filtering happens in a post-filter or pre-filter step.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Chroma Quickstart: Add and Query</h3>
+<p><strong>What &amp; why.</strong> Chroma is a lightweight, embedded vector database ideal for prototyping. It runs in-process with zero configuration, making it the fastest path from notebook to working vector search.</p>
+<pre class="code"><code>import chromadb
+
+# Create an in-memory client
+client = chromadb.Client()
+
+# Create a collection (auto-generates embeddings if needed)
+collection = client.create_collection(
+    name="documents",
+    metadata={"hnsw:space": "cosine"}
+)
+
+# Add documents
+collection.add(
+    documents=["RAG combines retrieval with generation",
+               "LoRA reduces trainable parameters via low-rank adapters",
+               "Vector databases enable fast similarity search"],
+    metadatas=[
+        {"topic": "rag"}, {"topic": "fine-tuning"}, {"topic": "vector-db"}
+    ],
+    ids=["doc1", "doc2", "doc3"]
+)
+
+# Query
+results = collection.query(
+    query_texts=["How does parameter-efficient tuning work?"],
+    n_results=2
+)
+print(results["documents"])
+# [['LoRA reduces trainable parameters...', 'RAG combines...']]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Prototyping RAG pipelines, building proofs of concept, and small-scale applications with &lt;100K documents.</div>
+<div class="callout hood"><span>Under the hood</span>Chroma uses HNSW index internally and handles embedding generation via a default sentence-transformers model if no embeddings are provided.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Distance Metrics Configuration</h3>
+<p><strong>What &amp; why.</strong> The distance metric determines how similarity is computed. Cosine similarity measures angular distance (best for text), Euclidean measures spatial distance (best for images), and dot product measures alignment (best for normalized vectors).</p>
+<pre class="code"><code># Distance metrics:
+# Cosine: sim = 1 - (A . B) / (||A|| * ||B||)
+#   Range: [-1, 1], best for: text embeddings (normalized)
+#   1 = identical, 0 = orthogonal, -1 = opposite
+
+# Euclidean (L2): dist = ||A - B||^2
+#   Range: [0, inf), best for: image embeddings
+#   0 = identical, larger = more different
+
+# Dot Product: sim = A . B
+#   Range: (-inf, inf), best for: normalized vectors
+#   Higher = more similar (if vectors are normalized)
+
+# Configuration by engine:
+# Chroma:    metadata={"hnsw:space": "cosine"}
+# Qdrant:    distance=Distance.COSINE
+# Pinecone:  metric="cosine"
+# pgvector:  operator: vector_cosine_ops (or vector_l2_ops)
+
+# Rule of thumb: use cosine for text, L2 for images
+# Most embedding models are trained with cosine similarity</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choosing the right metric for your embedding model; mismatched metrics degrade search quality significantly.</div>
+<div class="callout hood"><span>Under the hood</span>The metric choice affects index optimization: cosine allows pre-normalization (reducing comparison cost), while L2 requires full vector comparison.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Metadata Where Filters</h3>
+<p><strong>What &amp; why.</strong> Metadata filtering restricts search to vectors matching certain conditions before or after ANN search. Pre-filtering eliminates non-matching vectors from the index; post-filtering applies conditions after retrieval.</p>
+<pre class="code"><code># Chroma metadata filtering
+results = collection.query(
+    query_texts=["RAG pipeline"],
+    n_results=5,
+    where={"topic": "rag"}  # exact match
+)
+
+# Compound filters
+results = collection.query(
+    query_texts=["optimization"],
+    n_results=5,
+    where={
+        "$and": [
+            {"topic": {"$in": ["fine-tuning", "optimization"]}},
+            {"date": {"$gte": "2024-01-01"}},
+            {"author": "Jane Doe"}
+        ]
+    }
+)
+
+# Qdrant filtering
+from qdrant_client.models import Filter, FieldCondition, MatchValue
+results = client.search(
+    collection_name="documents",
+    query_vector=query_embedding,
+    query_filter=Filter(must=[
+        FieldCondition(key="topic", match=MatchValue(value="rag"))
+    ]),
+    limit=5
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-tenant search, date-range queries, category filtering, and any application where metadata narrows the search scope.</div>
+<div class="callout hood"><span>Under the hood</span>Pre-filtering (remove vectors before ANN) is faster but reduces recall; post-filtering preserves recall but may return fewer results than requested.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Upsert and Delete Lifecycle</h3>
+<p><strong>What &amp; why.</strong> Vector databases support upsert (insert or update) and delete operations, enabling real-time data management. Understanding the lifecycle prevents stale data issues and index bloat.</p>
+<pre class="code"><code># Chroma upsert and delete
+# Upsert: insert if new, update if exists
+collection.upsert(
+    ids=["doc1", "doc4"],
+    documents=["Updated content for doc1", "New document"],
+    metadatas=[{"topic": "updated"}, {"topic": "new"}]
+)
+
+# Delete by ID
+collection.delete(ids=["doc2"])
+
+# Delete by filter
+collection.delete(where={"topic": "old-topic"})
+
+# Qdrant upsert/delete
+from qdrant_client.models import PointStruct
+client.upsert(
+    collection_name="documents",
+    points=[
+        PointStruct(id=1, vector=emb1, payload={"title": "Updated"}),
+        PointStruct(id=5, vector=emb5, payload={"title": "New"})
+    ]
+)
+client.delete(
+    collection_name="documents",
+    points_selector=[1, 2, 3]  # or Filter condition
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any production system where documents are added, updated, or removed over time; upsert prevents duplicates on re-indexing.</div>
+<div class="callout hood"><span>Under the hood</span>Deletes typically mark vectors as tombstones; the ANN index is not immediately rebuilt, so deleted vectors may still appear in search until compacted.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>pgvector Extension Basics</h3>
+<p><strong>What &amp; why.</strong> pgvector adds vector search to PostgreSQL, enabling you to use a familiar database for both relational data and vector search. It avoids a separate vector DB for small-to-medium workloads.</p>
+<pre class="code"><code>-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Create table with vector column
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    content TEXT NOT NULL,
+    embedding vector(768) NOT NULL,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Insert with pre-computed embedding
+INSERT INTO documents (content, embedding, metadata)
+VALUES ('RAG combines retrieval with generation',
+        '[0.12, -0.45, 0.78, ...]'::vector,
+        '{"topic": "rag"}'::jsonb);
+
+-- Create HNSW index for fast search
+CREATE INDEX ON documents
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 200);
+
+-- Query with cosine similarity
+SELECT content, metadata,
+       1 - (embedding &lt;=&gt; '[0.12, -0.45, ...]'::vector) AS similarity
+FROM documents
+ORDER BY embedding &lt;=&gt; '[0.12, -0.45, ...]'::vector
+LIMIT 5;</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Teams already running PostgreSQL who want vector search without adding infrastructure; ideal for &lt;10M vectors.</div>
+<div class="callout hood"><span>Under the hood</span>pgvector supports IVFFlat and HNSW indexes; HNSW is recommended for most use cases due to better recall-latency tradeoffs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Pinecone Serverless: Create and Query</h3>
+<p><strong>What &amp; why.</strong> Pinecone is a fully managed vector database with serverless pricing. It handles infrastructure, scaling, and maintenance, letting you focus on application logic rather than database operations.</p>
+<pre class="code"><code>from pinecone import Pinecone, ServerlessSpec
+
+pc = Pinecone(api_key="YOUR_API_KEY")
+
+# Create index
+pc.create_index(
+    name="documents",
+    dimension=768,
+    metric="cosine",
+    spec=ServerlessSpec(cloud="aws", region="us-east-1")
+)
+
+# Get index connection
+index = pc.Index("documents")
+
+# Upsert vectors
+index.upsert(vectors=[
+    {"id": "doc1", "values": embedding1,
+     "metadata": {"topic": "rag", "date": "2024-06-15"}},
+    {"id": "doc2", "values": embedding2,
+     "metadata": {"topic": "fine-tuning", "date": "2024-07-01"}}
+])
+
+# Query with metadata filter
+results = index.query(
+    vector=query_embedding,
+    top_k=5,
+    filter={"topic": {"$eq": "rag"}},
+    include_metadata=True
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production applications requiring managed infrastructure; Pinecone handles scaling, backups, and operations automatically.</div>
+<div class="callout hood"><span>Under the hood</span>Pinecone serverless separates compute and storage; it scales to zero when idle and spins up on query, reducing cost for variable workloads.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>FAISS Flat Index and Top-k Thresholds</h3>
+<p><strong>What &amp; why.</strong> FAISS (Facebook AI Similarity Search) is a library, not a database. It provides high-performance ANN search in memory without persistence or metadata filtering. Flat indexes provide exact search; useful for baselines and small datasets.</p>
+<pre class="code"><code>import faiss
+import numpy as np
+
+# Create flat (exact) index
+dimension = 768
+index = faiss.IndexFlatIP(dimension)  # inner product (use with normalized vectors)
+
+# Add vectors (must be float32)
+vectors = np.random.randn(100000, dimension).astype("float32")
+faiss.normalize_L2(vectors)  # normalize for cosine similarity
+index.add(vectors)
+
+# Search
+query = np.random.randn(1, dimension).astype("float32")
+faiss.normalize_L2(query)
+distances, indices = index.search(query, k=10)
+
+# top_k threshold: return results only above similarity threshold
+# FAISS returns top-k by default; post-filter for threshold
+for dist, idx in zip(distances[0], indices[0]):
+    if dist &gt; 0.7:  # similarity threshold
+        print(f"Vector {idx}: similarity={dist:.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Benchmarking ANN algorithms, prototyping search without database overhead, and as a component in custom vector search pipelines.</div>
+<div class="callout hood"><span>Under the hood</span>FAISS flat index uses brute-force search; it is the gold standard for recall (100%) but has O(n*d) query complexity.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Intermediate<small>Tier 2 &mdash; index internals and schema design</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>HNSW Graph Intuition: M, efConstruction, efSearch</h3>
+<p><strong>What &amp; why.</strong> HNSW (Hierarchical Navigable Small World) builds a multi-layer graph where vectors are nodes connected to nearby neighbors. Search starts at the top (sparse) layer and descends to the bottom (dense) layer for precise results.</p>
+<pre class="code"><code># HNSW parameters:
+# M: max connections per node (higher = better recall, more memory)
+# efConstruction: build-time beam width (higher = better graph quality)
+# efSearch: query-time beam width (higher = better recall, slower)
+
+# Typical values:
+# | Quality   | M    | efConstruction | efSearch |
+# |-----------|------|----------------|----------|
+# | Fast      | 8    | 100            | 32       |
+# | Balanced  | 16   | 200            | 64       |
+# | Accurate  | 32   | 400            | 128      |
+
+# Qdrant config
+from qdrant_client.models import VectorParams, Distance
+client.create_collection(
+    collection_name="docs",
+    vectors_config=VectorParams(size=768, distance=Distance.COSINE),
+    hnsw_config={"m": 16, "ef_construct": 200, "full_scan_threshold": 10000}
+)
+
+# efSearch is set at query time
+# Higher efSearch = higher recall but slower queries</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Tuning HNSW indexes for your recall/latency requirements; these three parameters control the core tradeoff.</div>
+<div class="callout hood"><span>Under the hood</span>HNSW achieves O(log n) search complexity by navigating a skip-list-like hierarchy; each layer provides a coarser approximation of the vector space.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>IVF: Centroids and nprobe</h3>
+<p><strong>What &amp; why.</strong> IVF (Inverted File Index) partitions vectors into clusters (Voronoi cells) using k-means. Search only examines the nprobe nearest clusters, reducing the search space proportionally.</p>
+<pre class="code"><code># IVF parameters:
+# nlist: number of clusters (centroids)
+# nprobe: clusters to search per query
+
+# Rule of thumb: nlist = sqrt(n) to 4*sqrt(n)
+# nprobe = 1 to nlist (higher = better recall, slower)
+
+# For 1M vectors:
+# nlist = 1024 (sqrt(1M) ≈ 1000)
+# nprobe = 16 to 128
+
+# FAISS IVF example
+import faiss
+dimension = 768
+nlist = 1024
+quantizer = faiss.IndexFlatIP(dimension)
+index = faiss.IndexIVFFlat(quantizer, dimension, nlist,
+                           faiss.METRIC_INNER_PRODUCT)
+index.train(vectors)  # k-means training
+index.add(vectors)
+index.nprobe = 32  # search 32 clusters
+
+# IVF + PQ (Product Quantization) for memory efficiency
+# index = faiss.IndexIVFPQ(quantizer, dimension, nlist, 32, 8)
+# 32 sub-quantizers, 8 bits each = 32 bytes per vector (vs 3072)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Large datasets where HNSW memory overhead is too high; IVF uses less memory but has lower recall at equal speed.</div>
+<div class="callout hood"><span>Under the hood</span>IVF is a coarse quantizer: it assigns vectors to clusters at index time, then search only compares against vectors in the nearest clusters.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>PQ: Product Quantization Compression</h3>
+<p><strong>What &amp; why.</strong> Product Quantization compresses high-dimensional vectors by splitting them into sub-vectors and quantizing each independently. A 768-dim float32 vector (3072 bytes) can be compressed to 32-64 bytes with minimal quality loss.</p>
+<pre class="code"><code># PQ concept:
+# 768-dim vector -> 32 sub-vectors of 24 dims each
+# Each sub-vector quantized to 8-bit (256 centroids)
+# Storage: 32 bytes per vector (vs 3072 bytes for float32)
+# Compression ratio: ~96x
+
+# PQ accuracy vs storage:
+# | Sub-quantizers | Bits | Storage | Recall@10 |
+# |----------------|------|---------|-----------|
+# | 16             | 8    | 16 B    | ~0.92     |
+# | 32             | 8    | 32 B    | ~0.96     |
+# | 64             | 8    | 64 B    | ~0.98     |
+# | 32             | 16   | 64 B    | ~0.99     |
+
+# FAISS PQ index
+index = faiss.IndexIVFPQ(quantizer, 768, nlist=1024,
+                         m=32,     # sub-quantizers
+                         nbits=8)  # bits per sub-quantizer
+
+# Qdrant: quantization config
+from qdrant_client.models import VectorParams, ScalarQuantization
+vectors_config = VectorParams(
+    size=768, distance=Distance.COSINE,
+    quantization_config=ScalarQuantization(
+        type="int8", scalar={"type": "int8"}
+    )
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Large-scale deployments (100M+ vectors) where memory cost is the primary constraint; PQ reduces storage by 10-100x.</div>
+<div class="callout hood"><span>Under the hood</span>PQ uses the triangle inequality to prune comparisons; only sub-quantizer centroid distances are computed, avoiding full vector comparison.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Recall-Latency Benchmark Script</h3>
+<p><strong>What &amp; why.</strong> Measuring recall vs latency for different index configurations reveals the optimal operating point. A benchmark script systematically varies parameters and plots the Pareto frontier.</p>
+<pre class="code"><code>import time, faiss, numpy as np
+
+def benchmark_recall_latency(index, queries, ground_truth, k=10):
+    """Measure recall@k and average query latency."""
+    start = time.time()
+    distances, indices = index.search(queries, k)
+    latency = (time.time() - start) / len(queries) * 1000  # ms
+
+    # Recall@k: fraction of ground-truth neighbors found
+    recall = 0
+    for i in range(len(queries)):
+        found = set(indices[i].tolist())
+        expected = set(ground_truth[i].tolist())
+        recall += len(found & expected) / k
+    recall /= len(queries)
+
+    return {"recall": recall, "latency_ms": latency}
+
+# Ground truth from flat index
+flat_index = faiss.IndexFlatIP(dimension)
+flat_index.add(vectors)
+_, ground_truth = flat_index.search(queries, k=10)
+
+# Benchmark HNSW at different efSearch values
+for ef in [16, 32, 64, 128, 256]:
+    hnsw_index.hnsw.efSearch = ef
+    result = benchmark_recall_latency(hnsw_index, queries, ground_truth)
+    print(f"ef={ef}: recall={result['recall']:.3f}, "
+          f"latency={result['latency_ms']:.2f}ms")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Selecting index parameters for production; this benchmark provides the data to choose between speed and accuracy.</div>
+<div class="callout hood"><span>Under the hood</span>The Pareto frontier shows the best recall achievable at each latency budget; the optimal point depends on application requirements.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Namespaces and Multi-Tenancy</h3>
+<p><strong>What &amp; why.</strong> Namespaces partition a single vector database instance into isolated logical collections. Each tenant's data lives in a namespace, sharing the same index infrastructure but with query-time isolation.</p>
+<pre class="code"><code># Pinecone namespaces
+index = pc.Index("documents")
+
+# Upsert with namespace
+index.upsert(vectors=[
+    {"id": "doc1", "values": emb, "metadata": {"tenant": "org_a"}}
+], namespace="org_a")
+
+index.upsert(vectors=[
+    {"id": "doc1", "values": emb, "metadata": {"tenant": "org_b"}}
+], namespace="org_b")
+
+# Query is automatically scoped to namespace
+results = index.query(vector=query, top_k=5, namespace="org_a")
+
+# Qdrant: use payload filtering for multi-tenancy
+# or create separate collections per tenant (stronger isolation)
+
+# Chroma: separate collections per tenant
+client.create_collection("tenant_a_docs")
+client.create_collection("tenant_b_docs")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SaaS applications where multiple customers share a single vector database but need data isolation.</div>
+<div class="callout hood"><span>Under the hood</span>Namespaces share the underlying ANN index, so memory overhead is minimal; isolation is enforced at query time, not storage time.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Payload Index for Hybrid Filter+Search</h3>
+<p><strong>What &amp; why.</strong> Payload indexes accelerate metadata filtering by creating secondary indexes on payload fields. Without indexing, filters require scanning all vectors; with indexing, the database can pre-filter efficiently.</p>
+<pre class="code"><code># Qdrant: create payload index
+client.create_payload_index(
+    collection_name="documents",
+    field_name="topic",
+    field_schema="keyword"  # exact match index
+)
+
+client.create_payload_index(
+    collection_name="documents",
+    field_name="date",
+    field_schema="datetime"  # range query index
+)
+
+client.create_payload_index(
+    collection_name="documents",
+    field_name="price",
+    field_schema="float"  # numeric range index
+)
+
+# Now filtering is efficient (indexed, not scanned)
+results = client.search(
+    collection_name="documents",
+    query_vector=query_emb,
+    query_filter=Filter(must=[
+        FieldCondition(key="topic", match=MatchValue(value="rag")),
+        FieldCondition(key="date", range=Range(gte="2024-01-01"))
+    ]),
+    limit=10
+)
+
+# Index types: keyword (exact), integer, float, text (full-text)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any query with metadata filters; payload indexes are the difference between O(1) filter and O(n) filter.</div>
+<div class="callout hood"><span>Under the hood</span>Payload indexes use B-trees for numerics and hash tables for keywords; they enable pre-filtering (exclude before ANN) rather than post-filtering.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Consistency and Durability Guarantees</h3>
+<p><strong>What &amp; why.</strong> Vector databases vary in their consistency models. Some offer eventual consistency (inserts may not be immediately searchable), while others provide strong consistency. Durability guarantees determine data loss risk on failure.</p>
+<pre class="code"><code># Consistency models across engines:
+# | Engine      | Consistency          | Durability      |
+# |-------------|----------------------|-----------------|
+# | Pinecone    | Strong (synchronous) | Managed backups |
+# | Qdrant      | Configurable         | WAL + snapshots |
+# | Weaviate    | Eventual (default)   | LSM-tree        |
+# | Chroma      | Strong (embedded)    | Optional persist|
+# | pgvector    | Strong (ACID)        | PostgreSQL WAL  |
+# | Milvus      | Strong (session)     | WAL + snapshots |
+
+# Qdrant: WAL for durability
+# Write-Ahead Log ensures data survives process crashes
+# Configurable consistency level per request:
+# results = client.search(
+#     collection_name="docs",
+#     query_vector=emb,
+#     consistency_model="majority"  # read from majority of replicas
+# )</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choosing a vector database for production workloads where data loss or stale reads have business impact.</div>
+<div class="callout hood"><span>Under the hood</span>WAL (Write-Ahead Log) is the standard durability mechanism; writes are logged before being applied to the index, enabling recovery after crashes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Snapshots, Backup, and Export</h3>
+<p><strong>What &amp; why.</strong> Snappoints capture the state of a vector database at a point in time for backup and disaster recovery. Export functionality enables migration between engines or environments.</p>
+<pre class="code"><code># Qdrant: create snapshot
+snapshot_info = client.create_snapshot(collection_name="documents")
+print(snapshot_info.name)  # "documents/2024-06-15-snapshot.tar"
+
+# List snapshots
+snapshots = client.list_snapshots(collection_name="documents")
+
+# Restore from snapshot
+client.create_collection("documents_restored")
+client.upload_snapshot(
+    collection_name="documents_restored",
+    snapshot=snapshot_info.name
+)
+
+# Pinecone: backup is automatic (managed service)
+# Chroma: persistent client stores to disk
+client = chromadb.PersistentClient(path="./chroma_data")
+
+# FAISS: save/load index
+faiss.write_index(index, "index.faiss")
+index = faiss.read_index("index.faiss")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Disaster recovery planning, environment promotion (staging to production), and data migration between vector databases.</div>
+<div class="callout hood"><span>Under the hood</span>Snapshots capture the ANN index + metadata + payload indexes; they are point-in-time copies that can be restored without rebuilding the index.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Bulk Import Optimizations</h3>
+<p><strong>What &amp; why.</strong> Bulk importing millions of vectors requires batching, parallel processing, and index tuning. Naive single-vector insertion is 100-1000x slower than optimized bulk loading.</p>
+<pre class="code"><code># Bulk import strategy:
+# 1. Batch inserts (100-1000 vectors per API call)
+# 2. Disable indexing during import, build index after
+# 3. Use multiple parallel workers
+
+import asyncio
+from qdrant_client.models import PointStruct
+
+async def bulk_insert(client, collection, vectors, batch_size=500):
+    """Insert vectors in parallel batches."""
+    tasks = []
+    for i in range(0, len(vectors), batch_size):
+        batch = vectors[i:i+batch_size]
+        points = [
+            PointStruct(id=v["id"], vector=v["embedding"],
+                       payload=v["metadata"])
+            for v in batch
+        ]
+        tasks.append(client.upsert(
+            collection_name=collection,
+            points=points
+        ))
+    await asyncio.gather(*tasks)
+
+# For 1M vectors: ~5-15 minutes with optimized bulk import
+# vs ~24-48 hours with single-vector insertion</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Initial data loading, re-indexing after schema changes, and data migration between environments.</div>
+<div class="callout hood"><span>Under the hood</span>Batch inserts amortize network overhead; disabling indexing during bulk load avoids rebuilding the index after each insert.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>E-commerce Catalog Schema Design</h3>
+<p><strong>What &amp; why.</strong> A well-designed schema for product search balances vector similarity with metadata filtering. Products need embeddings (from text or images), structured attributes, and inventory status.</p>
+<pre class="code"><code># E-commerce product schema (Qdrant-style)
+# Collection: products
+# Vector: product embedding (768-dim, from title+description)
+
+# Payload schema:
+# {
+#   "id": "SKU-12345",
+#   "title": "Wireless Noise-Canceling Headphones",
+#   "category": "electronics/audio/headphones",
+#   "price": 299.99,
+#   "brand": "AudioTech",
+#   "in_stock": true,
+#   "rating": 4.5,
+#   "tags": ["wireless", "bluetooth", "noise-canceling"],
+#   "created_at": "2024-01-15"
+# }
+
+# Payload indexes (critical for filtering performance):
+# - category: keyword (exact match, hierarchical)
+# - price: float (range queries)
+# - brand: keyword (exact match)
+# - in_stock: bool (filter availability)
+# - rating: float (range queries)
+# - tags: keyword (multi-match)
+
+# Typical query: "Find wireless headphones under $300 in stock"
+# Vector search + metadata filter
+# Recall depends on: embedding quality + filter efficiency</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Designing vector search for e-commerce, real estate, job boards, or any application combining similarity search with structured filtering.</div>
+<div class="callout hood"><span>Under the hood</span>The embedding should encode semantic similarity (title + description), while metadata handles hard constraints (price, availability, category).</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Advanced<small>Tier 3 &mdash; production systems and compliance</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Sharding and Replication Topology</h3>
+<p><strong>What &amp; why.</strong> Sharding distributes vectors across multiple nodes for horizontal scaling. Replication copies data across nodes for fault tolerance. Together they enable billion-vector deployments with high availability.</p>
+<pre class="code"><code># Sharding strategies:
+# Hash-based: vector_id % num_shards (uniform distribution)
+# Range-based: shard by ID range or metadata
+# Geographic: shard by region for latency
+
+# Qdrant sharding config
+from qdrant_client.models import (
+    VectorParams, Distance, ShardStorageImplementation
+)
+client.create_collection(
+    collection_name="products",
+    vectors_config=VectorParams(size=768, distance=Distance.COSINE),
+    shard_number=4,            # 4 shards
+    replication_factor=2,      # 2 copies per shard
+    on_disk_payload=True       # store payload on disk
+)
+
+# Replication topology:
+# Shard 1: [Primary, Replica-A]
+# Shard 2: [Primary, Replica-B]
+# Shard 3: [Primary, Replica-A]
+# Shard 4: [Primary, Replica-B]
+# Reads can go to any replica; writes go to primary</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Scaling beyond single-node capacity (typically &gt;10M vectors) and ensuring high availability for production workloads.</div>
+<div class="callout hood"><span>Under the hood</span>Consistent hashing distributes vectors evenly; replication provides read scaling and fault tolerance but increases write amplification.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Scalar, Binary, and Product Quantization Comparisons</h3>
+<p><strong>What &amp; why.</strong> Quantization reduces vector precision to save memory and speed up search. The three main approaches differ in compression ratio and quality tradeoff.</p>
+<pre class="code"><code># Quantization comparison:
+# | Method | Compression | Quality Loss | Use Case         |
+# |--------|-------------|--------------|------------------|
+# | Scalar | 2-4x (fp16) | Minimal      | Default choice   |
+# | Binary | 32-64x      | Moderate     | Extreme scale    |
+# | PQ     | 10-100x     | Low-Moderate | Memory-limited   |
+
+# Scalar quantization (int8): 768 dims * 1 byte = 768 bytes
+# Binary quantization: 768 dims * 1 bit = 96 bytes
+# PQ (32 subquantizers): 32 bytes
+
+# Qdrant scalar quantization config
+from qdrant_client.models import VectorParams, ScalarQuantization
+vectors_config = VectorParams(
+    size=768,
+    distance=Distance.COSINE,
+    quantization_config=ScalarQuantization(
+        type="int8",
+        scalar={"type": "int8", "always_ram": True}
+    )
+)
+
+# Binary quantization for extreme scale
+# Best for high-dimensional embeddings (1024+ dims)
+# Hamming distance is extremely fast (bitwise XOR + popcount)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Memory optimization for large-scale deployments; the choice depends on dataset size and quality requirements.</div>
+<div class="callout hood"><span>Under the hood</span>Scalar quantization maps float32 to int8 using min-max scaling; PQ learns a codebook from training data; binary uses sign of each dimension.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Filtered-HNSW: Pre vs Post Filtering</h3>
+<p><strong>What &amp; why.</strong> When combining HNSW search with metadata filters, pre-filtering (exclude before ANN) and post-filtering (filter after ANN) have different performance characteristics and recall implications.</p>
+<pre class="code"><code># Pre-filtering:
+# 1. Apply metadata filter to get candidate set
+# 2. Run ANN search only on candidates
+# Pros: guaranteed recall on filtered set
+# Cons: small candidate sets degrade ANN performance
+
+# Post-filtering:
+# 1. Run ANN search on all vectors
+# 2. Apply metadata filter to results
+# Pros: ANN quality unaffected
+# Cons: may return fewer than top_k results
+
+# Qdrant: configurable per query
+# full_scan_threshold: below this count, use pre-filter
+# above: use post-filter with ANN
+
+# Optimal strategy: adaptive
+# Small filter selectivity (&lt;10% of data): pre-filter
+# Large filter selectivity (&gt;50% of data): post-filter
+# Middle range: hybrid (ANN + filter in parallel)
+
+# From Qdrant docs:
+results = client.search(
+    collection_name="products",
+    query_vector=emb,
+    query_filter=Filter(must=[...]),
+    limit=10,
+    with_payload=True,
+    score_threshold=0.5  # minimum similarity
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Queries that combine semantic search with hard filters; the filtering strategy determines both speed and recall.</div>
+<div class="callout hood"><span>Under the hood</span>Payload indexes enable fast pre-filtering; without them, pre-filtering requires scanning all payloads, negating the ANN speed advantage.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>RRF Hybrid Fusion Implementation</h3>
+<p><strong>What &amp; why.</span>Reciprocal Rank Fusion (RRF) combines results from multiple search engines (vector + keyword) into a single ranking. It is the standard method for hybrid search.</p>
+<pre class="code"><code>def reciprocal_rank_fusion(result_lists, k=60):
+    """
+    Combine multiple ranked lists using RRF.
+    RRF_score = sum(1 / (k + rank_i)) across all lists.
+    k=60 is the standard constant from the original paper.
+    """
+    scores = {}
+    for results in result_lists:
+        for rank, doc_id in enumerate(results):
+            if doc_id not in scores:
+                scores[doc_id] = 0
+            scores[doc_id] += 1 / (k + rank + 1)
+
+    return sorted(scores.items(), key=lambda x: -x[1])
+
+# Usage: combine vector search + BM25 keyword search
+vector_results = ["doc3", "doc1", "doc5", "doc2"]  # ranked by cosine
+keyword_results = ["doc1", "doc2", "doc4", "doc3"]  # ranked by BM25
+
+fused = reciprocal_rank_fusion([vector_results, keyword_results])
+# [('doc1', 0.0328), ('doc3', 0.0323), ('doc2', 0.0323), ...]
+
+# Hybrid search: combine vector + keyword for better recall
+# Vector captures semantic similarity; keyword captures exact matches</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hybrid search systems where neither vector nor keyword search alone achieves sufficient recall; RRF is the simplest fusion method.</div>
+<div class="callout hood"><span>Under the hood</span>RRF normalizes rankings across different scoring scales (cosine vs BM25) into a unified score; k=60 dampens the effect of top-ranked vs bottom-ranked differences.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Sparse-Dense: BGE-M3 and SPLADE Dual Vectors</h3>
+<p><strong>What &amp; why.</strong> Dual-vector approaches combine sparse (lexical) and dense (semantic) representations in a single model. BGE-M3 and SPLADE produce both vector types, enabling unified search without separate sparse and dense indexes.</p>
+<pre class="code"><code># BGE-M3: produces both dense and sparse vectors
+from FlagEmbedding import BGEM3FlagModel
+
+model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=True)
+
+# Encode text -> both sparse and dense vectors
+output = model.encode(
+    ["How does RAG work?"],
+    return_dense=True,
+    return_sparse=True
+)
+
+dense_emb = output["dense_vecs"]   # shape: [1, 1024]
+sparse_emb = output["lexical_weights"]  # {token: weight} dict
+
+# SPLADE: sparse lexical expansion model
+# Produces sparse vectors where dimensions = vocabulary tokens
+# Each dimension weight = expanded term importance
+
+# Unified search: both dense and sparse in one index
+# Qdrant supports sparse vectors natively
+from qdrant_client.models import VectorParams, SparseVectorParams
+client.create_collection(
+    collection_name="hybrid_docs",
+    vectors_config={"dense": VectorParams(size=1024, distance=COSINE)},
+    sparse_vectors_config={"sparse": SparseVectorParams()}
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hybrid search where you want semantic understanding (dense) and keyword precision (sparse) from a single encoding pass.</div>
+<div class="callout hood"><span>Under the hood</span>Sparse vectors act like learned BM25: they expand query terms with semantically related tokens, bridging the vocabulary mismatch problem.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Rerank After ANN</h3>
+<p><strong>What &amp; why.</strong> A reranker (cross-encoder) re-scores the top-k ANN results using more expensive pairwise comparison. This two-stage approach (fast ANN + slow reranker) achieves better precision than ANN alone.</p>
+<pre class="code"><code>from sentence_transformers import CrossEncoder
+
+# Stage 1: ANN search (fast, approximate)
+ann_results = collection.query(query_texts=[query], n_results=20)
+
+# Stage 2: Rerank with cross-encoder (slow, precise)
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+pairs = [(query, doc) for doc in ann_results["documents"][0]]
+scores = reranker.predict(pairs)
+
+# Sort by reranker score
+ranked = sorted(zip(ann_results["documents"][0], scores),
+                key=lambda x: -x[1])
+
+# Top-5 after reranking
+top_5 = ranked[:5]
+
+# Reranking improves recall@5 by 5-15% over ANN alone
+# Cost: adds ~50-200ms per query (cross-encoder is slower)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>High-precision search where the final 5-10 results matter; common in RAG pipelines where retrieval quality directly impacts generation quality.</div>
+<div class="callout hood"><span>Under the hood</span>Cross-encoders attend to the full query-document pair, capturing fine-grained relevance that bi-encoders (ANN embeddings) miss.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>TTL and GDPR Deletes</h3>
+<p><strong>What &amp; why.</strong> GDPR and similar regulations require the ability to delete user data on request. Vector databases must support not just ANN search but also data lifecycle management including time-to-live and compliant deletion.</p>
+<pre class="code"><code># TTL: automatic expiration
+# Qdrant: set payload field with expiration
+from datetime import datetime, timedelta
+client.upsert(
+    collection_name="user_embeddings",
+    points=[PointStruct(
+        id=user_id,
+        vector=embedding,
+        payload={
+            "user_id": user_id,
+            "expires_at": (datetime.now() + timedelta(days=365)).isoformat()
+        }
+    )]
+)
+
+# Periodic cleanup job
+def cleanup_expired(client, collection):
+    """Delete points past their expiration date."""
+    expired = client.scroll(
+        collection_name=collection,
+        scroll_filter=Filter(must=[
+            FieldCondition(
+                key="expires_at",
+                range=Range(lt=datetime.now().isoformat())
+            )
+        ]),
+        limit=100
+    )
+    if expired[0]:
+        ids = [p.id for p in expired[0]]
+        client.delete(collection_name=collection,
+                     points_selector=ids)
+
+# GDPR right to erasure: delete by user_id
+client.delete(
+    collection_name="user_embeddings",
+    points_selector=Filter(must=[
+        FieldCondition(key="user_id", match=MatchValue(value=uid))
+    ])
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any production system handling EU user data; GDPR requires deletion within 30 days of request.</div>
+<div class="callout hood"><span>Under the hood</span>TTL cleanup is typically a background job; tombstoned vectors are removed during the next index compaction cycle.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Multi-Region Reads</h3>
+<p><strong>What &amp; why.</strong> For global applications, replicas in multiple regions reduce read latency. Replication ensures each region has local data; conflict resolution handles writes from different regions.</p>
+<pre class="code"><code># Multi-region architecture:
+# Region US-East: Primary + Replica
+# Region EU-West: Replica (read-only)
+# Region APAC: Replica (read-only)
+
+# Write path: writes go to US-East primary
+# Read path: reads served from nearest replica
+# Consistency: eventual (replication lag ~100ms-1s)
+
+# Pinecone: multi-region with pod-based indexes
+# Create index with replicas
+index = pc.create_index(
+    name="global-products",
+    dimension=768,
+    metric="cosine",
+    spec=PodSpec(
+        environment="us-east-1-aws",
+        pod_type="p1.x1",
+        pods=3,
+        replicas=2  # 2 replicas per pod
+    )
+)
+
+# For strong consistency: read from primary only
+# For low latency: read from nearest replica
+# Trade-off: consistency vs latency vs cost</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Global applications where read latency matters more than strict consistency; most search workloads tolerate eventual consistency.</div>
+<div class="callout hood"><span>Under the hood</span>Vector database replication is log-based: the primary's WAL is streamed to replicas, which replay it to maintain a copy of the index.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Per-Million-Vectors Cost Model</h3>
+<p><strong>What &amp; why.</strong> Understanding the cost per million vectors across different engines and configurations enables accurate budgeting and comparison. Costs include storage, compute, and network transfer.</p>
+<pre class="code"><code># Cost model: per million vectors, dim=768, float32
+# Storage: 768 * 4 bytes = 3072 bytes/vector
+# 1M vectors: ~3 GB (raw) + index overhead
+
+# | Engine    | Storage $/mo | Compute $/mo | Total $/mo | Notes           |
+# |-----------|-------------|-------------|-----------|-----------------|
+# | Pinecone  | $70         | $70         | $140      | Serverless      |
+# | Qdrant    | $30 (disk)  | $60 (CPU)   | $90       | Self-hosted     |
+# | Weaviate  | $30 (disk)  | $60 (CPU)   | $90       | Self-hosted     |
+# | pgvector  | $20 (RDS)   | $50 (RDS)   | $70       | PostgreSQL      |
+# | Milvus    | $25 (disk)  | $50 (CPU)   | $75       | Self-hosted     |
+# | FAISS     | $0 (local)  | $0 (local)  | $0        | No infra cost   |
+#
+# With quantization (int8): storage halved
+# With PQ (32 bytes): storage reduced ~100x
+# Cloud storage: ~$0.02/GB/month</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Budget planning and engine comparison; this model shows that quantization and index choice directly impact cost.</div>
+<div class="callout hood"><span>Under the hood</span>Self-hosted solutions have lower direct cost but higher operational cost (maintenance, monitoring, scaling); managed services trade cost for convenience.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Engine Migration and Reindex Playbook</h3>
+<p><strong>What &amp; why.</strong> Migrating between vector databases requires exporting data, re-embedding if needed, and rebuilding indexes. A structured playbook prevents data loss and minimizes downtime.</p>
+<pre class="code"><code># Migration playbook:
+# Phase 1: Export from source
+# - Export all vectors + metadata to Parquet/JSONL
+# - Verify record counts match
+
+# Phase 2: Transform (if needed)
+# - Re-embed if target requires different dimensions
+# - Convert metadata schema to target format
+
+# Phase 3: Import to target
+# - Bulk import with batch operations
+# - Build index after import (not during)
+
+# Phase 4: Validation
+# - Compare query results between source and target
+# - Run recall benchmark: source vs target
+# - Verify metadata filtering equivalence
+
+# Phase 5: Cutover
+# - Update application connection strings
+# - Monitor error rates for 24 hours
+# - Keep source running as fallback for 7 days
+
+# Example: Chroma to Qdrant migration
+# Export
+data = client.get_collection("docs").get(include=["documents","metadatas","embeddings"])
+
+# Import to Qdrant
+for i in range(0, len(data["ids"]), 500):
+    batch = [PointStruct(id=data["ids"][j],
+                         vector=data["embeddings"][j],
+                         payload=data["metadatas"][j])
+             for j in range(i, min(i+500, len(data["ids"])))]
+    qdrant_client.upsert(collection_name="docs", points=batch)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Evaluating or switching vector database vendors; this playbook covers the full migration lifecycle.</div>
+<div class="callout hood"><span>Under the hood</span>The biggest risk is embedding mismatch: if you re-embed during migration, the new embeddings may rank results differently, requiring re-tuned parameters.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Very Advanced / Expert<small>Tier 4 &mdash; capacity planning and engine internals</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>mmap and Memory Hierarchy Effects</h3>
+<p><strong>What &amp; why.</strong> Memory-mapped I/O (mmap) allows the OS to page vector index data between disk and RAM on demand. This enables indexes larger than physical RAM but introduces latency variability from page faults.</p>
+<pre class="code"><code># Memory hierarchy for vector search:
+# L1/L2 Cache: ~1-10 ns (hot vectors)
+# RAM: ~100 ns (warm vectors)
+# SSD (mmap): ~10-100 us (cold vectors)
+# HDD (mmap): ~5-10 ms (frozen vectors)
+
+# Qdrant: on_disk_payload option
+client.create_collection(
+    collection_name="large_index",
+    vectors_config=VectorParams(size=768, distance=Distance.COSINE),
+    on_disk_payload=True,    # metadata on disk
+    on_disk_vectors=True     # vectors on disk (mmap)
+)
+
+# Impact on query latency:
+# All-RAM: p50=2ms, p99=5ms
+# Partial mmap: p50=5ms, p99=50ms (page faults)
+# Mostly mmap: p50=20ms, p99=200ms
+
+# Tuning: mlock important vectors in RAM
+# Use SSD for cold storage, RAM for hot indexes</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost optimization for large datasets where keeping all vectors in RAM is expensive; mmap trades latency for memory.</div>
+<div class="callout hood"><span>Under the hood</span>mmap avoids explicit I/O calls; the OS kernel handles page faults, bringing data from disk to RAM transparently; random access patterns cause the most page faults.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Graph Traversal Complexity</h3>
+<p><strong>What &amp; why.</strong> HNSW search traverses the graph from the entry point, visiting O(log n) nodes in expectation. Understanding the traversal complexity helps explain why HNSW is both fast and scalable.</p>
+<pre class="code"><code># HNSW search complexity:
+# - Each layer: visit up to efSearch nodes
+# - Number of layers: O(log n)
+# - Total comparisons: O(log n * efSearch * d)
+# - For n=1M, efSearch=64, d=768:
+#   log2(1M) ≈ 20 layers
+#   20 * 64 * 768 ≈ 1M comparisons
+#   vs brute force: 1M * 768 = 768M comparisons
+#   Speedup: ~768x
+
+# Empirical measurements:
+# n=1M, d=768, HNSW M=16, ef=64:
+# Query time: ~1-5ms (vs ~750ms brute force)
+# Recall@10: ~97-99%
+# Memory: ~1.5GB (vectors + graph edges)
+
+# Graph construction complexity:
+# O(n * log n * M * d) for inserting n vectors
+# Build time for 1M vectors: ~5-30 minutes (depends on M, efConstruction)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Capacity planning and performance prediction; knowing the complexity helps estimate query time for larger datasets.</div>
+<div class="callout hood"><span>Under the hood</span>HNSW's graph structure is a skip-list generalization to high dimensions; each layer provides a navigation shortcut to the dense bottom layer.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Streaming Deletes, Tombstones, and Incremental Clustering</h3>
+<p><strong>What &amp; why.</strong> Deletes in vector databases are typically soft (tombstone markers) rather than immediate physical removal. Tombstones accumulate over time, degrading performance until a compaction/merge operation reclaims space.</p>
+<pre class="code"><code># Delete lifecycle:
+# 1. Logical delete: mark vector as tombstone (instant)
+# 2. Query-time: tombstones filtered out (no result returned)
+# 3. Compaction: tombstones physically removed (background)
+# 4. Rebuild: ANN index reconstructed (minutes to hours)
+
+# Impact on performance:
+# - High delete rate: tombstone accumulation degrades recall
+# - HNSW: deleted nodes still traversed (wasted work)
+# - IVF: cluster centroids not updated (uneven distribution)
+
+# Mitigation strategies:
+# 1. Periodic compaction (schedule during low-traffic)
+# 2. Soft-delete TTL (auto-expire tombstones after 24h)
+# 3. Rebuild index when tombstone ratio exceeds threshold
+
+# Qdrant: optimize endpoint triggers compaction
+client.optimize(
+    collection_name="docs",
+    indexing_threshold=20000  # optimize when &gt;20K pending operations
+)
+
+# Monitor tombstone ratio
+info = client.get_collection("docs")
+print(f"Points: {info.points_count}, "
+      f"Indexed: {info.indexed_vectors_count}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production systems with high write churn; tombstone management prevents gradual performance degradation.</div>
+<div class="callout hood"><span>Under the hood</span>Compaction merges segments and rebuilds local indexes; it is the vector database equivalent of database VACUUM in PostgreSQL.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Custom Distance Plugins</h3>
+<p><strong>What &amp; why.</strong> Some vector databases support custom distance functions for specialized use cases. This enables domain-specific similarity measures beyond standard cosine, L2, and dot product.</p>
+<pre class="code"><code># Custom distance use cases:
+# - Manhattan distance for sparse feature vectors
+# - Hamming distance for binary embeddings
+# - Weighted cosine for domain-specific feature importance
+# - Angular distance for directional similarity
+
+# Qdrant: custom distance via gRPC
+# (Limited to built-in metrics: cosine, dot, L1, L2, Manhattan)
+
+# FAISS: custom metric via IndexFlat with METRIC_INNER_PRODUCT
+import faiss
+# Custom: pre-transform vectors then use standard metric
+# Example: normalize for cosine = L2 after normalization
+
+# pgvector: custom operators via C extension
+# CREATE FUNCTION my_distance(vector, vector) ...
+# CREATE OPERATOR <=> (FUNCTION=my_distance)
+
+# Workaround for unsupported metrics:
+# 1. Compute custom distance in application code
+# 2. Use ANN with approximate metric (cosine for angular)
+# 3. Re-rank top-k with exact custom distance</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Specialized applications where standard distance metrics don't capture domain-specific similarity correctly.</div>
+<div class="callout hood"><span>Under the hood</span>Most ANN indexes are optimized for specific metrics; custom metrics often lose index-level optimizations and revert to slower search modes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>DiskANN and pgvector Partitioning Futures</h3>
+<p><strong>What &amp; why.</strong> DiskANN provides disk-based ANN search with GPU acceleration, enabling billion-vector indexes without proportional RAM. pgvector's upcoming partitioning features will enable automatic range-based partitioning for time-series vector data.</p>
+<pre class="code"><code># DiskANN: Microsoft's disk-based ANN index
+# - Vamana graph stored on SSD
+# - BFS-based search with IO-aware traversal
+# - GPU-accelerated graph construction
+# - Supports 1B+ vectors on single server with SSD
+
+# Key innovation: IO-efficient graph traversal
+# Traditional HNSW: random access to RAM (fast)
+# DiskANN: sequential IO to SSD (also fast for SSDs)
+# Uses beam search with IO prefetching
+
+# pgvector 0.7+ partitioning (upcoming):
+# CREATE TABLE documents (
+#     id SERIAL,
+#     embedding vector(768),
+#     created_at TIMESTAMP
+# ) PARTITION BY RANGE (created_at);
+
+# CREATE TABLE documents_2024_01 PARTITION OF documents
+#     FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
+
+# Partition pruning: queries on date range only scan relevant partitions</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Planning for scale beyond current capabilities; DiskANN and pgvector partitioning enable next-generation vector search.</div>
+<div class="callout hood"><span>Under the hood</span>DiskANN exploits SSD sequential read speed (500MB/s) by prefetching graph neighbors; this makes disk-based search competitive with RAM-based HNSW for large datasets.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Blue-Green Embedding Version Reindex</h3>
+<p><strong>What &amp; why.</strong> When you change your embedding model, existing vectors become incompatible with new embeddings. Blue-green reindexing maintains two indexes (old + new) during transition, ensuring zero downtime.</p>
+<pre class="code"><code># Blue-green reindex strategy:
+# 1. Build new index with updated embeddings
+# 2. Dual-write: new documents go to both indexes
+# 3. Dual-read: queries go to both, results merged
+# 4. Cutover: switch reads to new index only
+# 5. Cleanup: delete old index
+
+# Implementation with Qdrant
+# Step 1: Create new collection
+client.create_collection(
+    collection_name="docs_v2",
+    vectors_config=VectorParams(size=1024, distance=Distance.COSINE)
+)
+
+# Step 2: Re-embed and import existing data
+for batch in scroll_all("docs"):
+    new_embeddings = new_model.encode(batch["documents"])
+    client.upsert("docs_v2", points=[
+        PointStruct(id=p.id, vector=emb, payload=p.payload)
+        for p, emb in zip(batch, new_embeddings)
+    ])
+
+# Step 3: Dual-write for new documents
+def upsert_dual(document):
+    old_emb = old_model.encode(document)
+    new_emb = new_model.encode(document)
+    client.upsert("docs_v1", ...)
+    client.upsert("docs_v2", ...)
+
+# Step 4: Dual-read during transition
+results_v1 = client.search("docs_v1", old_emb, limit=10)
+results_v2 = client.search("docs_v2", new_emb, limit=10)
+merged = rrf_merge(results_v1, results_v2)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Embedding model upgrades; without blue-green, you face either downtime or degraded search during the reindex period.</div>
+<div class="callout hood"><span>Under the hood</span>Blue-green is a standard deployment pattern applied to vector indexes; the key challenge is keeping dual indexes consistent during the transition window.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Row-Level Security and Encryption at Rest</h3>
+<p><strong>What &amp; why.</strong> For sensitive data, vector databases must support row-level access control (who can see which vectors) and encryption at rest (protecting data on disk). pgvector inherits PostgreSQL's security model natively.</p>
+<pre class="code"><code># pgvector: row-level security via PostgreSQL RLS
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see their own tenant's documents
+CREATE POLICY tenant_isolation ON documents
+    USING (tenant_id = current_setting('app.current_tenant'));
+
+-- Application sets tenant context per request
+SET app.current_tenant = 'org_abc';
+
+-- Now queries are automatically filtered
+SELECT content, embedding &lt;=&gt; query_emb AS distance
+FROM documents
+ORDER BY distance LIMIT 10;
+-- Returns only org_abc's documents
+
+# Encryption at rest:
+# PostgreSQL: pgcrypto extension
+# ALTER TABLE documents ALTER COLUMN embedding
+#   SET ENCRYPTION KEY 'key_id';
+
+# Qdrant: encryption via TLS + disk encryption (LUKS/FileVault)
+# Pinecone: encryption at rest (managed)
+
+# Key management:
+# - Never store encryption keys in application code
+# - Use cloud KMS (AWS KMS, GCP KMS, Azure Key Vault)
+# - Rotate keys on schedule</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-tenant SaaS applications where data isolation and security are contractual or regulatory requirements.</div>
+<div class="callout hood"><span>Under the hood</span>pgvector inherits PostgreSQL's RLS and encryption capabilities; dedicated vector databases typically require external solutions for row-level security.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>ann-benchmarks Methodology Rigor</h3>
+<p><strong>What &amp; why.</strong> ann-benchmarks is the standard benchmark for comparing ANN algorithms. Understanding its methodology prevents drawing incorrect conclusions from poorly designed evaluations.</p>
+<pre class="code"><code># ann-benchmarks methodology:
+# 1. Dataset: standard datasets (SIFT1M, GIST1M, deep1B)
+# 2. Build: train index on full dataset
+# 3. Query: 10K queries, measure recall@10 and QPS
+# 4. Plot: recall vs QPS curve (Pareto frontier)
+
+# Common pitfalls:
+# - Not reporting build time (some indexes take hours to build)
+# - Ignoring memory usage (recall/QPS ignores cost)
+# - Using default parameters (unfair comparison)
+# - Small datasets (algorithms behave differently at scale)
+# - Missing error bars (single run vs average)
+
+# Fair comparison framework:
+def fair_benchmark(indexes, queries, ground_truth, k=10):
+    results = []
+    for name, index in indexes.items():
+        # Warmup
+        index.search(queries[:100], k)
+        # Benchmark
+        start = time.time()
+        for _ in range(3):  # 3 runs for averaging
+            dists, idxs = index.search(queries, k)
+        elapsed = (time.time() - start) / 3
+
+        recall = compute_recall(idxs, ground_truth)
+        qps = len(queries) / elapsed
+        mem = get_memory_usage(index)
+
+        results.append({
+            "name": name, "recall": recall, "qps": qps,
+            "memory_mb": mem, "build_time_s": index.build_time
+        })
+    return results</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Evaluating and comparing vector search engines; ann-benchmarks provides standardized methodology.</div>
+<div class="callout hood"><span>Under the hood</span>ann-benchmarks uses a offline evaluation protocol: build index once, query many times; this differs from production where incremental updates and filtering matter.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>Capacity Planning: QPS, Latency, Fanout Formulas</h3>
+<p><strong>What &amp; why.</strong> Capacity planning determines how many vector DB instances you need based on query throughput (QPS), latency requirements, and data size. The formulas relate hardware resources to expected performance.</p>
+<pre class="code"><code># Capacity planning formulas:
+# 
+# Required QPS = daily_queries / (86400 * peak_factor)
+# Peak factor: typically 3-5x average
+#
+# Per-node capacity:
+# QPS_per_node = 1 / (query_latency_s * (1 + queue_depth))
+# Example: 5ms latency, no queue: 200 QPS per node
+#
+# Nodes needed = Required_QPS / QPS_per_node
+#
+# Storage needed:
+# Storage_GB = num_vectors * dim * bytes_per_element * overhead
+# Overhead: 1.3-2.0x (index + metadata + WAL)
+#
+# Example calculation:
+# - 10M vectors, dim=768, 1000 QPS, p99 &lt; 100ms
+# - Per-node: ~150 QPS at 5ms p50
+# - Nodes: ceil(1000 / 150) = 7 nodes
+# - Storage: 10M * 768 * 4 * 1.5 / 1e9 = 46 GB
+# - Replication: 7 * 2 = 14 nodes total</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Infrastructure planning for production vector search; prevents under-provisioning (downtime) or over-provisioning (wasted cost).</div>
+<div class="callout hood"><span>Under the hood</span>Query latency depends on: dataset size, index type, efSearch/nprobe, hardware (CPU, RAM, SSD), and concurrent load; benchmarks on your data are essential.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>Engine Selection Matrix</h3>
+<p><strong>What &amp; why.</strong> Choosing the right vector database depends on dataset size, latency requirements, filtering needs, operational expertise, and budget. The selection matrix maps requirements to engine recommendations.</p>
+<pre class="code"><code># Engine selection matrix:
+# | Requirement              | Recommended    | Avoid         |
+# |--------------------------|----------------|---------------|
+# | Prototyping (&lt;100K)      | Chroma, FAISS  | Milvus        |
+# | Production 1-10M vectors | pgvector, Qdrant| Chroma       |
+# | Production 10-100M       | Qdrant, Pinecone| pgvector     |
+# | Billion+ vectors         | Milvus, Pinecone| Chroma       |
+# | Strong SQL integration   | pgvector       | Pinecone      |
+# | Managed (no ops)         | Pinecone       | Milvus, Qdrant|
+# | Multi-tenancy            | Qdrant, Pinecone| FAISS        |
+# | Hybrid search            | Qdrant, Weaviate| FAISS        |
+# | Budget-conscious         | pgvector, Qdrant| Pinecone     |
+# | Custom metrics           | FAISS          | Pinecone      |
+# | Edge/embedded            | Chroma, SQLite-VSS| Milvus    |
+#
+# Decision factors in order:
+# 1. Dataset size (eliminates options)
+# 2. Operational preference (managed vs self-hosted)
+# 3. Feature requirements (filtering, hybrid, multi-tenant)
+# 4. Cost constraints</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Architecture decision records; this matrix provides a systematic framework for engine selection.</div>
+<div class="callout hood"><span>Under the hood</span>No single engine wins across all dimensions; the right choice depends on your specific combination of requirements and constraints.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Real-Time Projects &amp; Use Cases<small>Tier 5 &mdash; build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Hybrid Product Search with Filters and Reranker</h3>
+<p>Build a product search system that combines vector similarity search with keyword matching, metadata filtering, and cross-encoder reranking for an e-commerce catalog.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Design product schema in Qdrant: title+description embedding (768-dim) + metadata (category, price, brand, rating)</li>
+<li>Create payload indexes on category (keyword), price (float), brand (keyword), in_stock (bool)</li>
+<li>Implement hybrid search: vector search + BM25 keyword search, fused with RRF (k=60)</li>
+<li>Add metadata filters: category hierarchy, price range, availability</li>
+<li>Integrate cross-encoder reranker (ms-marco-MiniLM-L-6-v2) on top-20 results</li>
+<li>Build FastAPI endpoint with query parsing, filter extraction, and response formatting</li>
+<li>Evaluate: compare vector-only vs hybrid vs hybrid+reranker on 500 test queries</li>
+<li>Deploy with monitoring: track p95 latency, filter usage, reranker impact</li>
+</ol>
+<pre class="code"><code>from qdrant_client import QdrantClient
+from sentence_transformers import CrossEncoder
+
+client = QdrantClient("localhost", port=6333)
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+def hybrid_search(query, category=None, max_price=None, top_k=5):
+    # Vector search
+    emb = encode(query)
+    vector_results = client.search(
+        collection_name="products",
+        query_vector=emb,
+        query_filter=build_filter(category, max_price),
+        limit=20
+    )
+
+    # Keyword search (simulated BM25)
+    keyword_results = bm25_search(query, category, max_price, limit=20)
+
+    # RRF fusion
+    fused = reciprocal_rank_fusion(
+        [vector_results, keyword_results], k=60
+    )[:20]
+
+    # Rerank
+    pairs = [(query, r.payload["title"]) for r in fused]
+    scores = reranker.predict(pairs)
+    ranked = sorted(zip(fused, scores), key=lambda x: -x[1])
+
+    return ranked[:top_k]</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Hybrid search architecture with RRF fusion</li>
+<li>Metadata filtering with payload indexes for fast pre-filtering</li>
+<li>Cross-encoder reranking for precision improvement</li>
+<li>End-to-end search system from schema to deployment</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Million-Document News Archive with Qdrant Snapshots</h3>
+<p>Build a news article search system with 1M+ articles, supporting full-text search, date-range filtering, and snapshot-based backup and restore.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Collect 1M news articles with metadata (title, body, date, source, category)</li>
+<li>Generate embeddings with sentence-transformers (all-MiniLM-L6-v2, 384-dim)</li>
+<li>Create Qdrant collection with HNSW index (M=16, ef_construct=200)</li>
+<li>Bulk import in 500-vector batches; measure total import time</li>
+<li>Create payload indexes on date (datetime), source (keyword), category (keyword)</li>
+<li>Implement query pipeline: vector search + date range filter + source filter</li>
+<li>Create snapshot backup; test restore procedure</li>
+<li>Evaluate: measure recall@10 vs brute force, p95 latency, storage size</li>
+</ol>
+<pre class="code"><code>from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    VectorParams, Distance, Filter, FieldCondition,
+    Range, MatchValue
+)
+
+client = QdrantClient("localhost", port=6333)
+
+# Create collection
+client.create_collection(
+    collection_name="news_archive",
+    vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+    hnsw_config={"m": 16, "ef_construct": 200}
+)
+
+# Index metadata
+client.create_payload_index("news_archive", "date", "datetime")
+client.create_payload_index("news_archive", "source", "keyword")
+client.create_payload_index("news_archive", "category", "keyword")
+
+# Query: articles about AI from 2024, excluding tabloids
+results = client.search(
+    collection_name="news_archive",
+    query_vector=query_emb,
+    query_filter=Filter(must=[
+        FieldCondition(key="date", range=Range(
+            gte="2024-01-01", lt="2025-01-01")),
+        FieldCondition(key="category", match=MatchValue(value="technology"))
+    ], must_not=[
+        FieldCondition(key="source", match=MatchValue(value="tabloid"))
+    ]),
+    limit=10
+)
+
+# Backup
+client.create_snapshot(collection_name="news_archive")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Large-scale vector data ingestion with performance measurement</li>
+<li>Payload indexing for fast metadata filtering</li>
+<li>Snapshot-based backup and disaster recovery</li>
+<li>Recall and latency benchmarking against ground truth</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>pgvector RAG Backend with Tenant Isolation</h3>
+<p>Build a RAG backend using pgvector with row-level security for multi-tenant document retrieval, combining vector search with PostgreSQL's full-text search.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Set up PostgreSQL with pgvector extension; create documents table with vector column and tenant_id</li>
+<li>Enable row-level security: CREATE POLICY for tenant_id = current_setting('app.tenant')</li>
+<li>Create HNSW index on embedding column; create GIN index for full-text search</li>
+<li>Implement hybrid query: vector cosine search UNION full-text search with ts_rank</li>
+<li>Build FastAPI endpoints: document upload (embed + insert), search (hybrid), admin (tenant management)</li>
+<li>Add connection pooling (asyncpg) and query caching (Redis) for performance</li>
+<li>Evaluate: compare pgvector-only vs hybrid vs hybrid+reranker on tenant-scoped queries</li>
+<li>Deploy with per-tenant query logging and usage metrics</li>
+</ol>
+<pre class="code"><code>-- Schema
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    embedding vector(384) NOT NULL,
+    fts tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX ON documents USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX ON documents USING GIN (fts);
+
+-- Row-level security
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON documents
+    USING (tenant_id = current_setting('app.tenant'));
+
+-- Hybrid search function
+CREATE OR REPLACE FUNCTION hybrid_search(
+    p_tenant TEXT, p_query TEXT, p_embedding vector(384),
+    p_limit INT DEFAULT 10
+) RETURNS TABLE(id INT, content TEXT, score FLOAT) AS $$
+BEGIN
+    SET LOCAL app.tenant = p_tenant;
+    RETURN QUERY
+    SELECT d.id, d.content,
+           GREATEST(
+               1 - (d.embedding &lt;=&gt; p_embedding),
+               ts_rank_cd(d.fts, plainto_tsquery('english', p_query))
+           ) AS score
+    FROM documents d
+    WHERE d.tenant_id = p_tenant
+    ORDER BY score DESC
+    LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>pgvector setup with HNSW and GIN indexes for hybrid search</li>
+<li>Row-level security for multi-tenant data isolation</li>
+<li>Combining vector similarity with PostgreSQL full-text search</li>
+<li>Production RAG backend with connection pooling and caching</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>ANN vs exact NN</td><td>Sub-linear search trading small recall loss for 100-1000x speedup</td><td>O(log n) vs O(n*d)</td></tr>
+<tr><td>Collections/Points</td><td>Collection = table, Point = vector + payload, Payload = metadata</td><td>Qdrant: PointStruct(id, vector, payload)</td></tr>
+<tr><td>Chroma quickstart</td><td>Embedded vector DB, zero config, in-process</td><td>chromadb.Client()</td></tr>
+<tr><td>Distance metrics</td><td>Cosine (text), L2 (images), dot product (normalized)</td><td>Distance.COSINE / cosine_ops</td></tr>
+<tr><td>Metadata filtering</td><td>Pre-filter or post-filter with indexed payload fields</td><td>where={"topic": "rag"}</td></tr>
+<tr><td>Upsert/delete</td><td>Insert or update; tombstone delete with background compaction</td><td>collection.upsert(ids, documents)</td></tr>
+<tr><td>pgvector</td><td>PostgreSQL extension for vector search with ACID guarantees</td><td>CREATE INDEX USING hnsw</td></tr>
+<tr><td>Pinecone</td><td>Fully managed serverless vector DB</td><td>index.query(vector, top_k)</td></tr>
+<tr><td>HNSW parameters</td><td>M (connections), efConstruction (build), efSearch (query)</td><td>hnsw_config={"m": 16, "ef_construct": 200}</td></tr>
+<tr><td>IVF nprobe</td><td>Clusters to search; higher = better recall, slower</td><td>index.nprobe = 32</td></tr>
+<tr><td>PQ compression</td><td>10-100x compression via sub-vector quantization</td><td>faiss.IndexIVFPQ(m=32, nbits=8)</td></tr>
+<tr><td>Recall benchmark</td><td>Measure recall@k vs QPS for index parameter tuning</td><td>ground_truth from flat index</td></tr>
+<tr><td>Multi-tenancy</td><td>Namespaces (Pinecone) or collections (Chroma/Qdrant) per tenant</td><td>namespace="tenant_a"</td></tr>
+<tr><td>Payload indexes</td><td>Secondary indexes on metadata for fast filter queries</td><td>create_payload_index(field, type)</td></tr>
+<tr><td>Snapshots</td><td>Point-in-time backup of index + metadata</td><td>client.create_snapshot()</td></tr>
+<tr><td>Bulk import</td><td>Batch inserts 100-1000 vectors; 100-1000x faster than single</td><td>upsert(points=batch)</td></tr>
+<tr><td>HNSW complexity</td><td>O(log n * efSearch * d) per query</td><td>~1-5ms for 1M vectors</td></tr>
+<tr><td>RRF fusion</td><td>Combine ranked lists: score = sum(1/(k+rank))</td><td>k=60 standard constant</td></tr>
+<tr><td>Sparse-dense</td><td>BGE-M3/SPLADE produce both vector types in one model</td><td>return_dense=True, return_sparse=True</td></tr>
+<tr><td>Reranking</td><td>Cross-encoder re-scores top-k for +5-15% recall improvement</td><td>CrossEncoder("ms-marco-MiniLM")</td></tr>
+<tr><td>GDPR deletes</td><td>TTL auto-expire + user_id-based deletion</td><td>delete(points_selector=Filter(...))</td></tr>
+<tr><td>Blue-green reindex</td><td>Dual indexes during embedding model migration</td><td>Dual-write + dual-read + cutover</td></tr>
+<tr><td>Engine selection</td><td>Size, ops preference, features, budget in that order</td><td>See selection matrix in card 40</td></tr>
+<tr><td>mmap effects</td><td>Disk-backed index: fast for hot data, slower for cold</td><td>on_disk_vectors=True</td></tr>
+<tr><td>Capacity formula</td><td>Nodes = QPS_required / QPS_per_node</td><td>QPS = 1 / latency_s</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="lora-qlora.html">&larr; LoRA &amp; QLoRA</a><a href="rag.html">RAG &rarr;</a></footer>
+</body></html>

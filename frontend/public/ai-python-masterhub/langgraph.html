@@ -1,0 +1,2049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LangGraph — Stateful Agent Graphs — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / LangGraph — Stateful Agent Graphs</span><span class="spacer"></span>
+<a class="navlink" href="langchain.html">&larr; LangChain</a> <a class="navlink" href="ai-graphs.html">AI Graphs &rarr;</a></nav>
+<header class="hero"><div class="mono">LG</div><div><h1>LangGraph — Stateful Agent Graphs</h1>
+<p class="tagline">Build stateful, cyclic, and multi-actor agent applications as explicit graphs with checkpointing, human-in-the-loop, and production-grade persistence.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>LangGraph extends LangChain with graph-based control flow: explicit state, cyclic execution, conditional routing, persistence, and human oversight. This chapter progresses from basic graph construction through production deployment patterns.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>StateGraph, TypedDict, nodes, edges, conditional routing, compile and invoke</td><td>You can build and run a simple stateful graph</td></tr>
+<tr><td>Tier 2</td><td>Annotated reducers, parallel fan-out, Send API, Command, checkpointer, HITL</td><td>You can build graphs with complex state and human oversight</td></tr>
+<tr><td>Tier 3</td><td>Production persistence, time-travel, prebuilt agents, supervisor patterns, streaming</td><td>You can build production multi-agent systems with observability</td></tr>
+<tr><td>Tier 4</td><td>Durable execution, BaseStore, internal models, debugging, deployment, testing, migration</td><td>You can operate LangGraph in production with governance</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready LangGraph applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Graph primitives, state, nodes, edges, compilation</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Why Graphs for LLM Applications</h3>
+<p><strong>What &amp; why.</strong> Linear chains break down when an application requires loops (retry on failure), branching (route by classifier output), or multiple coordinated actors. Graphs model these patterns explicitly: nodes are computation units, edges define execution order, and state is a first-class object flowing through the graph. LangGraph turns these conceptual graphs into executable, checkpointable, and debuggable runtimes.</p>
+<pre class="code"><code># A linear chain cannot express "retry if the tool fails"
+# A graph makes this explicit and inspectable
+
+# Conceptual comparison:
+# Chain:    A -> B -> C          (one path, no loops)
+# Graph:    A -> B --retry--> A  (cycle on failure)
+#           A -> C               (success path)
+
+from langgraph.graph import StateGraph, END
+from typing import TypedDict
+
+class AppState(TypedDict):
+    input: str
+    output: str
+    attempts: int
+
+def process(state: AppState) -> dict:
+    return {"output": f"Processed: {state['input']}", "attempts": state.get("attempts", 0) + 1}
+
+graph = StateGraph(AppState)
+graph.add_node("process", process)
+graph.add_edge("__start__", "process")
+graph.add_edge("process", "__end__")
+app = graph.compile()
+result = app.invoke({"input": "hello", "attempts": 0})
+print(result["output"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Graphs are the standard pattern for any LLM application beyond simple prompt-response: customer support routers, multi-step research agents, code generation pipelines with self-correction, and approval workflows.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph compiles your graph definition into an optimized execution plan using a Pregel-like model. Nodes execute sequentially or in parallel based on topology, and the runtime manages state serialization, checkpointing, and error recovery automatically.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>StateGraph and TypedDict State</h3>
+<p><strong>What &amp; why.</strong> StateGraph is the primary entry point for building graphs. You define a TypedDict to represent the graph state schema: every field is accessible to every node, and nodes return dictionaries of partial updates. TypedDict provides static type checking for state fields, catching misspellings and type mismatches at development time rather than runtime.</p>
+<pre class="code"><code>from typing import TypedDict
+from langgraph.graph import StateGraph
+
+class GraphState(TypedDict):
+    question: str
+    context: str
+    answer: str
+    iterations: int
+
+# StateGraph enforces the TypedDict schema
+graph = StateGraph(GraphState)
+
+# Every node receives the full state and returns a partial update
+def retrieve(state: GraphState) -> dict:
+    return {"context": f"Retrieved docs for: {state['question']}"}
+
+def answer(state: GraphState) -> dict:
+    return {"answer": f"Based on {state['context']}", "iterations": state.get("iterations", 0) + 1}
+
+graph.add_node("retrieve", retrieve)
+graph.add_node("answer", answer)
+graph.add_edge("__start__", "retrieve")
+graph.add_edge("retrieve", "answer")
+graph.add_edge("answer", "__end__")
+
+app = graph.compile()
+result = app.invoke({"question": "What is LangGraph?", "context": "", "answer": "", "iterations": 0})
+print(result["answer"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every LangGraph application starts with StateGraph. The TypedDict approach makes state visible and testable, unlike opaque context objects. It is the single most important pattern in the framework.</div>
+<div class="callout hood"><span>Under the hood</span>StateGraph validates that your TypedDict has no mutable default values and that all node return types are compatible with the state schema. The compiled graph stores a flattened version of state for efficient serialization to checkpoints.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Nodes as Functions</h3>
+<p><strong>What &amp; why.</strong> Nodes are the computational units of a graph. Each node is a Python function that receives the current state and returns a dictionary of partial state updates. The runtime merges these updates into the shared state. Nodes can call LLMs, execute tools, transform data, or perform any computation. Keeping nodes as pure functions makes them easy to test in isolation.</p>
+<pre class="code"><code>from typing import TypedDict
+from langgraph.graph import StateGraph
+from langchain_openai import ChatOpenAI
+
+class ChatState(TypedDict):
+    messages: list
+    next_action: str
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def chatbot(state: ChatState) -> dict:
+    response = model.invoke(state["messages"])
+    return {"messages": state["messages"] + [response]}
+
+def classifier(state: ChatState) -> dict:
+    last = state["messages"][-1].content
+    action = "respond" if "question" in last.lower() else "end"
+    return {"next_action": action}
+
+graph = StateGraph(ChatState)
+graph.add_node("chatbot", chatbot)
+graph.add_node("classifier", classifier)
+graph.add_edge("__start__", "chatbot")
+graph.add_edge("chatbot", "classifier")
+
+app = graph.compile()
+result = app.invoke({"messages": [{"role": "user", "content": "Hello"}], "next_action": ""})
+print(result["next_action"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Node-as-function is the universal pattern. LLM calls, tool executions, data transforms, validations, and external API calls are all nodes. This uniformity makes graph logic easy to reason about and debug.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph wraps your function in a RunnableNode that handles state extraction, partial update merging, error propagation, and checkpoint serialization. The original function signature is preserved for testing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>add_node and add_edge</h3>
+<p><strong>What &amp; why.</strong> add_node registers a function with a string name. add_edge defines a directed edge between two named nodes. Together they compose the graph topology. Nodes can be referenced by name in multiple edges, and edges can connect any two registered nodes. The graph must be a directed acyclic graph (DAG) at compile time unless cycles are intentional and properly bounded.</p>
+<pre class="code"><code>from typing import TypedDict
+from langgraph.graph import StateGraph, END
+
+class PipelineState(TypedDict):
+    data: str
+    enriched: str
+    result: str
+
+def fetch(state: PipelineState) -> dict:
+    return {"data": "raw data"}
+
+def enrich(state: PipelineState) -> dict:
+    return {"enriched": f"enriched({state['data']})"}
+
+def transform(state: PipelineState) -> dict:
+    return {"result": f"final({state['enriched']})"}
+
+def validate(state: PipelineState) -> dict:
+    return state  # pass-through node
+
+graph = StateGraph(PipelineState)
+graph.add_node("fetch", fetch)
+graph.add_node("enrich", enrich)
+graph.add_node("transform", transform)
+graph.add_node("validate", validate)
+
+graph.add_edge("__start__", "fetch")
+graph.add_edge("fetch", "enrich")
+graph.add_edge("enrich", "transform")
+graph.add_edge("transform", "validate")
+graph.add_edge("validate", END)
+
+app = graph.compile()
+print(app.invoke({"data": "", "enriched": "", "result": ""}))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>add_node and add_edge are called in the graph-building phase, typically in a dedicated build function. The pattern is: create StateGraph, add all nodes, wire edges, then compile.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph validates the graph topology at compile time: it checks for unreachable nodes, missing start/end edges, and (for non-cyclic graphs) verifies acyclicity. Invalid graphs raise GraphValidationError with specific node references.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>START and END Constants</h3>
+<p><strong>What &amp; why.</strong> LangGraph defines two special constants: START (the entry point, aliased as "__start__") and END (the terminal point). Every graph must have at least one edge from START and one edge to END. These constants make the graph's entry and exit points explicit, eliminating ambiguity about where execution begins and terminates.</p>
+<pre class="code"><code>from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class SimpleState(TypedDict):
+    value: int
+
+def increment(state: SimpleState) -> dict:
+    return {"value": state["value"] + 1}
+
+graph = StateGraph(SimpleState)
+graph.add_node("increment", increment)
+
+# START and END are explicit constants
+graph.add_edge(START, "increment")
+graph.add_edge("increment", END)
+
+app = graph.compile()
+print(app.invoke({"value": 0}))  # {'value': 1}
+
+# You can use the string "__start__" or "__end__" too
+# But START/END constants are preferred for readability
+graph2 = StateGraph(SimpleState)
+graph2.add_node("inc", increment)
+graph2.add_edge("__start__", "inc")
+graph2.add_edge("inc", "__end__")
+app2 = graph2.compile()
+print(app2.invoke({"value": 10}))  # {'value': 11}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>START and END appear in every graph definition. Using the constants instead of strings prevents typos and makes the graph structure immediately clear to readers.</div>
+<div class="callout hood"><span>Under the hood</span>START and END are sentinel values that LangGraph's runtime uses to identify the initial state projection and the termination condition. The compiled graph maps them to internal scheduler hooks.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Conditional Edges with Branch Functions</h3>
+<p><strong>What &amp; why.</strong> Conditional edges route execution dynamically based on state. You provide a function that inspects the state and returns a string naming the next node. This enables branching logic: classifier routes to different nodes, retry loops, or early termination. The routing function is pure and deterministic given the same state.</p>
+<pre class="code"><code>from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class RouteState(TypedDict):
+    input: str
+    category: str
+    result: str
+
+def classify(state: RouteState) -> dict:
+    cat = "greeting" if "hello" in state["input"].lower() else "question"
+    return {"category": cat}
+
+def handle_greeting(state: RouteState) -> dict:
+    return {"result": "Hello! How can I help?"}
+
+def handle_question(state: RouteState) -> dict:
+    return {"result": f"Answering: {state['input']}"}
+
+def route_after_classify(state: RouteState) -> str:
+    if state["category"] == "greeting":
+        return "greeting"
+    return "question"
+
+graph = StateGraph(RouteState)
+graph.add_node("classify", classify)
+graph.add_node("greeting", handle_greeting)
+graph.add_node("question", handle_question)
+
+graph.add_edge(START, "classify")
+graph.add_conditional_edges("classify", route_after_classify, {"greeting": "greeting", "question": "question"})
+graph.add_edge("greeting", END)
+graph.add_edge("question", END)
+
+app = graph.compile()
+print(app.invoke({"input": "hello there", "category": "", "result": ""}))
+print(app.invoke({"input": "what is recursion?", "category": "", "result": ""}))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Conditional edges are the core mechanism for agent routing, error handling loops, human-in-the-loop branching, and any decision point in your graph. Most graphs have at least one conditional edge.</div>
+<div class="callout hood"><span>Under the hood</span>The routing function's return value is looked up in the path_map dictionary. If no path_map is provided, the return value must exactly match a node name. LangGraph validates that all possible return values have corresponding edges at compile time.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>compile and invoke</h3>
+<p><strong>What &amp; why.</strong> The compile() method validates and optimizes the graph definition into an executable Runnable. invoke() runs the graph synchronously with an initial state dict and returns the final state. Compilation catches errors early: missing edges, invalid routing, unreachable nodes. The compiled graph is reusable and thread-safe.</p>
+<pre class="code"><code>from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class EchoState(TypedDict):
+    input: str
+    output: str
+
+def echo(state: EchoState) -> dict:
+    return {"output": f"Echo: {state['input']}"}
+
+# Build
+graph = StateGraph(EchoState)
+graph.add_node("echo", echo)
+graph.add_edge(START, "echo")
+graph.add_edge("echo", END)
+
+# Compile (validates graph, optimizes execution)
+app = graph.compile()
+
+# Invoke (runs the graph)
+result = app.invoke({"input": "hello", "output": ""})
+print(result)  # {'input': 'hello', 'output': 'Echo: hello'}
+
+# The compiled app can be invoked many times
+for word in ["alpha", "beta", "gamma"]:
+    print(app.invoke({"input": word, "output": ""})["output"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>compile is called once during application setup. invoke is called per request. The separation ensures graph validation happens at startup, not on every user request, catching configuration errors before they reach production.</div>
+<div class="callout hood"><span>Under the hood</span>compile() performs topological analysis, builds an adjacency matrix, validates routing completeness, and creates an optimized execution scheduler. The returned CompiledGraph implements the Runnable interface, making it composable with LangChain LCEL chains.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Streaming Updates</h3>
+<p><strong>What &amp; why.</strong> The stream() method yields state updates as each node completes, enabling real-time progress reporting and token-by-token display. Unlike invoke() which waits for full completion, stream() gives you incremental visibility into the graph's execution. This is critical for user-facing applications where perceived responsiveness matters.</p>
+<pre class="code"><code>from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class StreamState(TypedDict):
+    step: str
+    progress: list
+
+def step_a(state: StreamState) -> dict:
+    return {"step": "a", "progress": state.get("progress", []) + ["a done"]}
+
+def step_b(state: StreamState) -> dict:
+    return {"step": "b", "progress": state.get("progress", []) + ["b done"]}
+
+def step_c(state: StreamState) -> dict:
+    return {"step": "c", "progress": state.get("progress", []) + ["c done"]}
+
+graph = StateGraph(StreamState)
+graph.add_node("a", step_a)
+graph.add_node("b", step_b)
+graph.add_node("c", step_c)
+graph.add_edge(START, "a")
+graph.add_edge("a", "b")
+graph.add_edge("b", "c")
+graph.add_edge("c", END)
+
+app = graph.compile()
+
+# stream() yields updates per node
+for event in app.stream({"step": "", "progress": []}):
+    for node_name, update in event.items():
+        print(f"Node '{node_name}' produced: {update}")
+
+# Final state
+final = app.invoke({"step": "", "progress": []})
+print("Final:", final["progress"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Streaming is essential for chat interfaces where users expect to see responses appear incrementally. It also enables progress bars for long-running multi-step pipelines and real-time monitoring dashboards.</div>
+<div class="callout hood"><span>Under the hood</span>stream() wraps the Pregel execution loop to emit intermediate state snapshots after each super-step. Each yield contains a dictionary keyed by node name with the partial state update from that node's execution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Mermaid Visualization with get_graph</h3>
+<p><strong>What &amp; why.</strong> Compiled graphs can render themselves as Mermaid diagrams using get_graph(). This produces a visual representation of nodes, edges, and conditional routes, invaluable for documentation, debugging, and team communication. The diagram reflects the actual compiled topology, not the source code, catching wiring errors visually.</p>
+<pre class="code"><code>from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class VizState(TypedDict):
+    query: str
+    response: str
+
+def retrieve(state: VizState) -> dict:
+    return {"response": f"Docs for {state['query']}"}
+
+def generate(state: VizState) -> dict:
+    return {"response": f"Answer about {state['query']}"}
+
+graph = StateGraph(VizState)
+graph.add_node("retrieve", retrieve)
+graph.add_node("generate", generate)
+graph.add_edge(START, "retrieve")
+graph.add_edge("retrieve", "generate")
+graph.add_edge("generate", END)
+
+app = graph.compile()
+
+# Render as Mermaid diagram string
+mermaid = app.get_graph().draw_mermaid()
+print(mermaid)
+
+# Render as PNG (requires graphviz)
+# app.get_graph().draw_mermaid_png(output_file_path="graph.png")
+
+# Get graph structure programmatically
+graph_data = app.get_graph()
+print(f"Nodes: {list(graph_data.nodes)}")
+print(f"Edges: {list(graph_data.edges)}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Mermaid diagrams are embedded in documentation, used in architecture reviews, and displayed in debugging tools. LangGraph Studio uses this visualization for interactive graph inspection.</div>
+<div class="callout hood"><span>Under the hood</span>get_graph() returns a GraphRepresentation object that traverses the compiled adjacency structure and emits Mermaid syntax. Conditional edges appear as labeled decision points. The draw_mermaid_png method requires the graphviz Python package.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Simple Chatbot Graph</h3>
+<p><strong>What &amp; why.</strong> The canonical first LangGraph application is a chatbot: a single node that calls an LLM, with state holding the message list. This demonstrates the minimal viable graph and introduces the message accumulation pattern where each node appends to a shared messages list rather than replacing it.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+from langgraph.graph import StateGraph, START, END
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, AIMessage
+
+class ChatState(TypedDict):
+    messages: list
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def chatbot(state: ChatState) -> dict:
+    response = model.invoke(state["messages"])
+    return {"messages": state["messages"] + [response]}
+
+graph = StateGraph(ChatState)
+graph.add_node("chatbot", chatbot)
+graph.add_edge(START, "chatbot")
+graph.add_edge("chatbot", END)
+
+app = graph.compile()
+
+# Multi-turn conversation
+state = {"messages": [HumanMessage(content="Hi, I'm building a LangGraph app")]}
+result = app.invoke(state)
+print(result["messages"][-1].content)
+
+# Add follow-up
+result = app.invoke({"messages": result["messages"] + [HumanMessage(content="What state management does it use?")]})
+print(result["messages"][-1].content)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This minimal chatbot is the starting point for every LangGraph application. From here you add tool nodes, routing logic, memory persistence, and human-in-the-loop controls.</div>
+<div class="callout hood"><span>Under the hood</span>The messages list grows with each invocation. Without a reducer (covered in Tier 2), each node must manually concatenate new messages to the existing list. This pattern is simple but has O(n) growth per turn.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>recursion_limit Guard</h3>
+<p><strong>What &amp; why.</strong> LangGraph defaults to 25 recursion steps to prevent infinite loops in cyclic graphs. The recursion_limit config parameter sets the maximum number of node executions before raising GraphRecursionError. This is a safety net for graphs with conditional cycles: retry loops, reflection patterns, or agent loops that might not terminate.</p>
+<pre class="code"><code>from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class RetryState(TypedDict):
+    value: int
+    attempts: int
+
+def process(state: RetryState) -> dict:
+    return {"attempts": state["attempts"] + 1}
+
+def should_continue(state: RetryState) -> str:
+    if state["attempts"] < 3:
+        return "process"
+    return END
+
+graph = StateGraph(RetryState)
+graph.add_node("process", process)
+graph.add_edge(START, "process")
+graph.add_conditional_edges("process", should_continue, {"process": "process", END: END})
+
+app = graph.compile()
+
+# Default recursion_limit is 25
+result = app.invoke({"value": 0, "attempts": 0})
+print(f"Completed in {result['attempts']} attempts")
+
+# Set a lower limit for safety
+try:
+    result = app.invoke(
+        {"value": 0, "attempts": 0},
+        config={"recursion_limit": 2}
+    )
+except Exception as e:
+    print(f"Hit limit: {type(e).__name__}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every graph with cycles must set an appropriate recursion_limit. For agent loops, set it to max_iterations + 1. For simple retries, set it to max_retries + 1. This prevents runaway costs from infinite LLM calls.</div>
+<div class="callout hood"><span>Under the hood</span>The recursion counter increments after each node execution in the Pregel loop. When it exceeds recursion_limit, the runtime raises GraphRecursionError with the current state, allowing cleanup and logging before failure.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>When LangGraph vs Plain Chains</h3>
+<p><strong>What &amp; why.</strong> Use plain LangChain chains (LCEL) when your pipeline is linear: prompt | model | parser. Use LangGraph when you need cycles (retry loops), conditional routing (classifier-based paths), multiple coordinated actors (subgraphs), human-in-the-loop interrupts, or persistent checkpointing. LangGraph adds complexity; only use it when the features justify the overhead.</p>
+<pre class="code"><code># Plain chain: linear, simple, sufficient
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+simple_chain = (
+    ChatPromptTemplate.from_template("Answer: {question}")
+    | ChatOpenAI(model="gpt-4o")
+    | (lambda x: x.content)
+)
+# Result: simple_chain.invoke({"question": "hi"})
+
+# LangGraph: needed when you have cycles, routing, or state persistence
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class AgentState(TypedDict):
+    question: str
+    answer: str
+    attempts: int
+
+def try_answer(state: AgentState) -> dict:
+    return {"answer": "draft answer", "attempts": state["attempts"] + 1}
+
+def is_good(state: AgentState) -> str:
+    return END if state["attempts"] >= 2 else "try_answer"
+
+graph = StateGraph(AgentState)
+graph.add_node("try_answer", try_answer)
+graph.add_edge(START, "try_answer")
+graph.add_conditional_edges("try_answer", is_good, {"try_answer": "try_answer", END: END})
+agent = graph.compile()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This decision point comes up in every project. Simple RAG? Chains. Self-correcting RAG with retry and human approval? LangGraph. The threshold is: do you need a loop or a branch?</div>
+<div class="callout hood"><span>Under the hood</span>LangChain LCEL chains are DAGs compiled into a RunnableSequence. LangGraph extends this with cycle support, checkpointing, streaming per-node, and state management. The execution model is fundamentally different: LCEL is a pipeline, LangGraph is a state machine.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Reducers, parallelism, dynamic dispatch, HITL</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Annotated Reducers with operator.add</h3>
+<p><strong>What &amp; why.</strong> By default, state fields are overwritten by each node. Annotated reducers change this behavior: Annotated[list, operator.add] means list fields accumulate via concatenation rather than replacement. This is essential for message histories, log streams, and any state that grows over multiple node executions without manual list management.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+
+class LogState(TypedDict):
+    logs: Annotated[list, operator.add]
+    current_step: str
+
+def step_one(state: LogState) -> dict:
+    return {"logs": ["step one executed"], "current_step": "one"}
+
+def step_two(state: LogState) -> dict:
+    return {"logs": ["step two executed"], "current_step": "two"}
+
+def step_three(state: LogState) -> dict:
+    return {"logs": ["step three executed"], "current_step": "three"}
+
+graph = StateGraph(LogState)
+graph.add_node("step_one", step_one)
+graph.add_node("step_two", step_two)
+graph.add_node("step_three", step_three)
+graph.add_edge(START, "step_one")
+graph.add_edge("step_one", "step_two")
+graph.add_edge("step_two", "step_three")
+graph.add_edge("step_three", END)
+
+app = graph.compile()
+result = app.invoke({"logs": [], "current_step": ""})
+print(result["logs"])
+# ['step one executed', 'step two executed', 'step three executed']
+print(result["current_step"])  # 'three' (overwritten, no reducer)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Annotated reducers are critical for any state that accumulates: conversation messages, tool call histories, error logs, intermediate results. Without them, you must manually concatenate in every node return.</div>
+<div class="callout hood"><span>Under the hood</span>When a node returns a partial update for a field with a reducer, LangGraph calls the reducer function with the existing value and the new value. For operator.add on lists, this is list concatenation. For sets, you could use a union reducer.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Messages State and add_messages</h3>
+<p><strong>What &amp; why.</strong> LangGraph provides a pre-built MessagesState TypedDict with a messages field using the add_messages reducer. This handles message accumulation, deduplication by ID, and merging automatically. It is the standard state type for chat applications and replaces manual message list management.</p>
+<pre class="code"><code>from langgraph.graph import StateGraph, START, END, MessagesState
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, AIMessage
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def chatbot(state: MessagesState) -> dict:
+    response = model.invoke(state["messages"])
+    return {"messages": [response]}
+
+graph = StateGraph(MessagesState)
+graph.add_node("chatbot", chatbot)
+graph.add_edge(START, "chatbot")
+graph.add_edge("chatbot", END)
+
+app = graph.compile()
+
+# Messages accumulate automatically via add_messages reducer
+result = app.invoke({"messages": [HumanMessage(content="Hi")]})
+print(len(result["messages"]))  # 2 (human + ai)
+
+# Second turn: pass full message history
+result = app.invoke({"messages": result["messages"] + [HumanMessage(content="Follow up")]})
+print(len(result["messages"]))  # 3 (human + ai + human)
+print(result["messages"][-1].content)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MessagesState is the standard starting point for chat-based LangGraph applications. It eliminates the most common bug: accidentally overwriting the message history instead of appending to it.</div>
+<div class="callout hood"><span>Under the hood</span>add_messages merges new messages by ID. If a returned message has the same ID as an existing message, it updates rather than duplicates. This enables node functions to modify existing messages (e.g., tool call results) without creating duplicates.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Pydantic State Schemas</h3>
+<p><strong>What &amp; why.</strong> Instead of TypedDict, you can use Pydantic BaseModel for state schemas. Pydantic provides runtime validation, default values, and richer type constraints. This is useful when state must conform to strict schemas for API contracts, when you need computed fields, or when integrating with systems that expect validated data.</p>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from langgraph.graph import StateGraph, START, END
+
+class AnalysisState(BaseModel):
+    query: str = Field(description="The user query")
+    result: str = Field(default="", description="Analysis result")
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    tags: list[str] = Field(default_factory=list)
+
+def analyze(state: AnalysisState) -> dict:
+    return {
+        "result": f"Analyzed: {state.query}",
+        "confidence": 0.85,
+        "tags": ["analysis", "complete"],
+    }
+
+def summarize(state: AnalysisState) -> dict:
+    return {"result": f"Summary ({state.confidence}): {state.result}"}
+
+graph = StateGraph(AnalysisState)
+graph.add_node("analyze", analyze)
+graph.add_node("summarize", summarize)
+graph.add_edge(START, "analyze")
+graph.add_edge("analyze", "summarize")
+graph.add_edge("summarize", END)
+
+app = graph.compile()
+result = app.invoke({"query": "analyze market trends"})
+print(result["confidence"], result["tags"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pydantic schemas are preferred when state fields have constraints (ranges, required patterns), when integrating with FastAPI request/response models, or when you need automatic documentation of the state shape.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph detects Pydantic models and uses model_validate for state construction. Validation errors are raised before node execution, catching invalid state transitions at the boundary rather than deep in node logic.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Parallel Fan-Out and Fan-In Joins</h3>
+<p><strong>What &amp; why.</strong> When multiple edges leave a node, LangGraph executes the successor nodes in parallel (fan-out). When multiple edges converge on a single node (fan-in join), that node waits for all predecessors to complete before executing. This enables concurrent LLM calls, parallel tool execution, and aggregation patterns without explicit threading.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+from concurrent.futures import ThreadPoolExecutor
+
+class ParallelState(TypedDict):
+    topic: str
+    summaries: Annotated[list, operator.add]
+    combined: str
+
+def research_news(state: ParallelState) -> dict:
+    return {"summaries": [f"News on {state['topic']}: breakthrough in AI"]}
+
+def research_papers(state: ParallelState) -> dict:
+    return {"summaries": [f"Papers on {state['topic']}: 3 new papers"]}
+
+def research_social(state: ParallelState) -> dict:
+    return {"summaries": [f"Social on {state['topic']}: trending discussions"]}
+
+def combine(state: ParallelState) -> dict:
+    return {"combined": " | ".join(state["summaries"])}
+
+graph = StateGraph(ParallelState)
+graph.add_node("research_news", research_news)
+graph.add_node("research_papers", research_papers)
+graph.add_node("research_social", research_social)
+graph.add_node("combine", combine)
+
+# Fan-out: three nodes run in parallel
+graph.add_edge(START, "research_news")
+graph.add_edge(START, "research_papers")
+graph.add_edge(START, "research_social")
+
+# Fan-in: combine waits for all three
+graph.add_edge("research_news", "combine")
+graph.add_edge("research_papers", "combine")
+graph.add_edge("research_social", "combine")
+graph.add_edge("combine", END)
+
+app = graph.compile()
+result = app.invoke({"topic": "LangGraph", "summaries": [], "combined": ""})
+print(result["combined"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fan-out/fan-in is the standard pattern for parallel data enrichment: querying multiple APIs simultaneously, running multiple analysis perspectives, or generating drafts from multiple viewpoints before synthesis.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph identifies fan-out by examining edge topology: when a node has multiple outgoing edges to independent nodes, it schedules them in the same super-step for concurrent execution. The join node is scheduled only when all incoming edges have completed.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Send API for Map-Reduce Dynamic Dispatch</h3>
+<p><strong>What &amp; why.</strong> The Send function enables dynamic fan-out: instead of static edges, a node can emit multiple Send messages to the same node with different inputs. This is the map-reduce pattern for LangGraph: one node maps inputs, multiple parallel invocations process them, and a join node reduces results. The number of parallel tasks is determined at runtime, not compile time.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+from langgraph.constants import Send
+
+class MapReduceState(TypedDict):
+    documents: list[str]
+    summaries: Annotated[list, operator.add]
+    final_summary: str
+
+def distribute(state: MapReduceState) -> list[Send]:
+    return [
+        Send("summarize", {"doc": doc, "doc_index": i})
+        for i, doc in enumerate(state["documents"])
+    ]
+
+def summarize(state: dict) -> dict:
+    return {"summaries": [f"Summary #{state['doc_index']}: {state['doc'][:20]}..."]}
+
+def aggregate(state: MapReduceState) -> dict:
+    return {"final_summary": " | ".join(state["summaries"])}
+
+graph = StateGraph(MapReduceState)
+graph.add_node("summarize", summarize)
+graph.add_node("aggregate", aggregate)
+graph.add_conditional_edges(START, distribute, ["summarize"])
+graph.add_edge("summarize", "aggregate")
+graph.add_edge("aggregate", END)
+
+app = graph.compile()
+result = app.invoke({
+    "documents": ["Doc one about AI", "Doc two about ML", "Doc three about NLP"],
+    "summaries": [],
+    "final_summary": "",
+})
+print(result["final_summary"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Send is essential for processing variable-length lists: summarizing N documents, analyzing N data points, or generating N variations. The parallelism count scales with input size without code changes.</div>
+<div class="callout hood"><span>Under the hood</span>Send creates a dynamic message that the Pregel runtime routes to the named node. Each Send creates an independent state instance for the target node. The join node (aggregate) collects all results via the reducer before executing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Command goto + update Pattern</h3>
+<p><strong>What &amp; why.</strong> The Command object combines a goto (next node) with a state update in a single return value from a node. This replaces the need for separate conditional edges when the routing decision and state mutation are tightly coupled. Commands are especially useful in agent loops where the node decides both what to do next and updates scratchpad state.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+from langgraph.types import Command
+
+class AgentState(TypedDict):
+    messages: Annotated[list, operator.add]
+    next_tool: str
+    tool_result: str
+
+def decide(state: AgentState) -> Command:
+    last_msg = state["messages"][-1].content if state["messages"] else ""
+    if "search" in last_msg.lower():
+        return Command(goto="search_tool", update={"next_tool": "search"})
+    return Command(goto="respond", update={"next_tool": "none"})
+
+def search_tool(state: AgentState) -> dict:
+    return {"messages": [{"role": "assistant", "content": "Search results found"}], "tool_result": "results"}
+
+def respond(state: AgentState) -> dict:
+    return {"messages": [{"role": "assistant", "content": "Here is my response"}]}
+
+graph = StateGraph(AgentState)
+graph.add_node("decide", decide)
+graph.add_node("search_tool", search_tool)
+graph.add_node("respond", respond)
+graph.add_edge(START, "decide")
+graph.add_edge("search_tool", END)
+graph.add_edge("respond", END)
+
+app = graph.compile()
+result = app.invoke({"messages": [{"role": "user", "content": "search for LangGraph"}], "next_tool": "", "tool_result": ""})
+print(result["next_tool"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Command is the preferred pattern in ReAct-style agent loops where the reasoning node both updates the scratchpad and chooses the next action. It keeps routing logic inside the node rather than externalizing it to conditional edges.</div>
+<div class="callout hood"><span>Under the hood</span>Command is a typed return value that the runtime inspects after node execution. If a node returns a Command, the runtime applies the state update and follows the goto target instead of following static edges. This gives nodes direct control over execution flow.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>MemorySaver Checkpointer</h3>
+<p><strong>What &amp; why.</strong> MemorySaver is an in-memory checkpointer that saves graph state after every node execution. It enables conversation persistence across invocations using thread_id, time-travel debugging, and state resumption after interrupts. It is the simplest checkpointer for development and testing.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def chatbot(state: MessagesState) -> dict:
+    response = model.invoke(state["messages"])
+    return {"messages": [response]}
+
+graph = StateGraph(MessagesState)
+graph.add_node("chatbot", chatbot)
+graph.add_edge(START, "chatbot")
+graph.add_edge("chatbot", END)
+
+# Attach checkpointer
+memory = MemorySaver()
+app = graph.compile(checkpointer=memory)
+
+# Use thread_id for conversation persistence
+config = {"configurable": {"thread_id": "user-123"}}
+result = app.invoke({"messages": [HumanMessage(content="My name is Alice")]}, config)
+print(result["messages"][-1].content)
+
+# Same thread continues the conversation
+result = app.invoke({"messages": [HumanMessage(content="What's my name?")]}, config)
+print(result["messages"][-1].content)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MemorySaver is the standard checkpointer for development. It requires zero setup and works identically to production checkpointers. Switch to SqliteSaver or PostgresSaver for deployment.</div>
+<div class="callout hood"><span>Under the hood</span>MemorySaver stores checkpoints in a Python dictionary keyed by (thread_id, checkpoint_id). Each checkpoint captures the full state snapshot, metadata, and parent checkpoint ID, forming a version tree that enables time-travel.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>thread_id Conversations</h3>
+<p><strong>What &amp; why.</strong> The thread_id in the config's configurable dict identifies a conversation session. Each unique thread_id gets its own checkpoint history, enabling concurrent multi-user conversations on the same compiled graph. The checkpointer loads the latest state for a thread_id at the start of each invocation and saves state after each node execution.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def chatbot(state: MessagesState) -> dict:
+    response = model.invoke(state["messages"])
+    return {"messages": [response]}
+
+graph = StateGraph(MessagesState)
+graph.add_node("chatbot", chatbot)
+graph.add_edge(START, "chatbot")
+graph.add_edge("chatbot", END)
+app = graph.compile(checkpointer=MemorySaver())
+
+# Multiple concurrent users
+for user_id, greeting in [("alice", "Hi, I like cats"), ("bob", "Hi, I like dogs")]:
+    config = {"configurable": {"thread_id": user_id}}
+    result = app.invoke({"messages": [HumanMessage(content=greeting)]}, config)
+    print(f"{user_id}: {result['messages'][-1].content[:40]}...")
+
+# Each user's history is independent
+alice_config = {"configurable": {"thread_id": "alice"}}
+result = app.invoke({"messages": [HumanMessage(content="What do I like?")]}, alice_config)
+print(result["messages"][-1].content)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>thread_id is the session identifier in every production LangGraph deployment. It maps to user sessions, support tickets, or any logical conversation unit. The same graph instance handles thousands of concurrent threads.</div>
+<div class="callout hood"><span>Under the hood</span>The checkpointer maintains a separate state history per thread_id. On invoke, it loads the most recent checkpoint for that thread and injects it as the starting state. After each node execution, it saves the updated state as a new checkpoint linked to the previous one.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>interrupt human-in-the-loop (approve)</h3>
+<p><strong>What &amp; why.</strong> The interrupt() function pauses graph execution at a specific point and returns control to the caller with the current state. This enables human-in-the-loop patterns: a node calls interrupt() before a sensitive action (sending an email, making a payment), and the graph suspends until a human approves or rejects via Command(resume=...).</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import interrupt
+
+class ApprovalState(TypedDict):
+    messages: Annotated[list, operator.add]
+    action: str
+    approved: bool
+
+def propose_action(state: ApprovalState) -> dict:
+    return {"messages": [{"role": "assistant", "content": "Proposing: send email to customer"}], "action": "send_email"}
+
+def human_review(state: ApprovalState) -> dict:
+    # Pauses execution and returns state to caller
+    review = interrupt("Approve sending email?")
+    return {"approved": review == "approve", "messages": [{"role": "assistant", "content": f"Decision: {review}"}]}
+
+def execute(state: ApprovalState) -> dict:
+    if state.get("approved"):
+        return {"messages": [{"role": "assistant", "content": "Email sent successfully"}]}
+    return {"messages": [{"role": "assistant", "content": "Action cancelled by user"}]}
+
+graph = StateGraph(ApprovalState)
+graph.add_node("propose", propose_action)
+graph.add_node("review", human_review)
+graph.add_node("execute", execute)
+graph.add_edge(START, "propose")
+graph.add_edge("propose", "review")
+graph.add_edge("review", "execute")
+graph.add_edge("execute", END)
+
+memory = MemorySaver()
+app = graph.compile(checkpointer=memory)
+config = {"configurable": {"thread_id": "approval-1"}}
+
+# First invoke: pauses at interrupt
+result = app.invoke({"messages": [], "action": "", "approved": False}, config)
+print("Suspended:", result["messages"][-1]["content"])
+
+# Resume with approval
+result = app.invoke(Command(resume="approve"), config)
+print("Resumed:", result["messages"][-1]["content"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>HITL is mandatory for any agent that performs real-world actions: sending messages, modifying databases, triggering workflows, or spending money. It provides a safety gate between LLM decisions and irreversible consequences.</div>
+<div class="callout hood"><span>Under the hood</span>interrupt() stores the current checkpoint and raises an Interrupt exception that the runtime catches. The graph state is serialized and persisted. When resume is called with the same thread_id, the graph loads the checkpoint and injects the resume value into the interrupt call site.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>resume with None Input</h3>
+<p><strong>What &amp; why.</strong> After an interrupt, resume the graph by invoking with Command(resume=value). The value can be any type: a string approval, a dict of user inputs, or None to indicate the human declined to act. The None case is important for timeouts and skip patterns where the human chose not to intervene.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import interrupt, Command
+
+class ReviewState(TypedDict):
+    proposal: str
+    decision: str
+    outcome: Annotated[list, operator.add]
+
+def submit_proposal(state: ReviewState) -> dict:
+    return {"proposal": "Deploy v2.1 to production"}
+
+def human_gate(state: ReviewState) -> dict:
+    decision = interrupt("Review deployment proposal")
+    if decision is None:
+        return {"decision": "skipped", "outcome": ["Deployment skipped - no response"]}
+    return {"decision": decision, "outcome": [f"Deployment {decision}"]}
+
+graph = StateGraph(ReviewState)
+graph.add_node("submit", submit_proposal)
+graph.add_node("gate", human_gate)
+graph.add_edge(START, "submit")
+graph.add_edge("submit", "gate")
+graph.add_edge("gate", END)
+
+app = graph.compile(checkpointer=MemorySaver())
+config = {"configurable": {"thread_id": "deploy-review"}}
+
+# Invoke and get interrupt
+app.invoke({"proposal": "", "decision": "", "outcome": []}, config)
+
+# Resume with None (human chose not to act)
+result = app.invoke(Command(resume=None), config)
+print(result["outcome"])  # ['Deployment skipped - no response']</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>None-resume enables timeout handling: if a human doesn't respond within SLA, the system resumes with None and follows the skip path. It also supports escalation patterns where the reviewer delegates by passing.</div>
+<div class="callout hood"><span>Under the hood</span>The resume value is injected as the return value of the interrupt() call. The node function then branches on whether it is None, a string, or a structured value. This makes the decision logic explicit and testable within the node.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Subgraphs and Composition</h3>
+<p><strong>What &amp; why.</strong> Subgraphs allow you to compose graphs hierarchically: a parent graph's node can be an entire compiled child graph. This enables modular design where complex subsystems (a tool-use agent, a retrieval pipeline) are developed and tested independently, then composed into larger workflows. State is shared between parent and child via schema compatibility.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+
+class ChildState(TypedDict):
+    input: str
+    processed: str
+    logs: Annotated[list, operator.add]
+
+class ParentState(TypedDict):
+    query: str
+    result: str
+    logs: Annotated[list, operator.add]
+
+def child_step_a(state: ChildState) -> dict:
+    return {"processed": f"step_a({state['input']})", "logs": ["child: step_a"]}
+
+def child_step_b(state: ChildState) -> dict:
+    return {"processed": f"step_b({state['processed']})", "logs": ["child: step_b"]}
+
+# Build child graph
+child_builder = StateGraph(ChildState)
+child_builder.add_node("step_a", child_step_a)
+child_builder.add_node("step_b", child_step_b)
+child_builder.add_edge(START, "step_a")
+child_builder.add_edge("step_a", "step_b")
+child_builder.add_edge("step_b", END)
+child_app = child_builder.compile()
+
+# Parent graph uses child as a node
+def run_child(state: ParentState) -> dict:
+    child_result = child_app.invoke({"input": state["query"], "processed": "", "logs": []})
+    return {"result": child_result["processed"], "logs": child_result["logs"]}
+
+parent_builder = StateGraph(ParentState)
+parent_builder.add_node("run_child", run_child)
+parent_builder.add_edge(START, "run_child")
+parent_builder.add_edge("run_child", END)
+parent_app = parent_builder.compile()
+
+result = parent_app.invoke({"query": "hello", "result": "", "logs": []})
+print(result["result"])  # step_b(step_a(hello))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Subgraphs are the standard pattern for complex multi-agent systems: the supervisor is the parent graph, and each agent is a child graph. They enable independent testing, reuse across projects, and clear ownership boundaries.</div>
+<div class="callout hood"><span>Under the hood</span>When a parent node invokes a child graph, the child runs its own Pregel loop with its own state. The parent node function acts as the bridge: it extracts inputs from parent state, calls the child, and maps outputs back to parent state.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>config Passing with RunnableConfig</h3>
+<p><strong>What &amp; why.</strong> RunnableConfig carries runtime configuration through the graph: thread_id for checkpointing, callbacks for observability, tags for filtering, and custom configurable values for node-level parameterization. Every node can access config via the second argument or the config parameter of invoke/stream, enabling per-request behavior customization without changing graph structure.</p>
+<pre class="code"><code>from typing import TypedDict, Optional
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.runnables import RunnableConfig
+
+class ConfigState(TypedDict):
+    input: str
+    output: str
+    model_used: str
+
+def call_model(state: ConfigState, config: RunnableConfig) -> dict:
+    model_name = config.get("configurable", {}).get("model", "gpt-4o")
+    temperature = config.get("configurable", {}).get("temperature", 0)
+    # In practice: use model_name to select the LLM
+    return {"output": f"Response from {model_name}", "model_used": model_name}
+
+graph = StateGraph(ConfigState)
+graph.add_node("call_model", call_model)
+graph.add_edge(START, "call_model")
+graph.add_edge("call_model", END)
+app = graph.compile(checkpointer=MemorySaver())
+
+# Different configs for different behavior
+config_a = {"configurable": {"thread_id": "user-1", "model": "gpt-4o", "temperature": 0}}
+config_b = {"configurable": {"thread_id": "user-2", "model": "claude-sonnet-4-20250514", "temperature": 0.7}}
+
+result_a = app.invoke({"input": "hello", "output": "", "model_used": ""}, config_a)
+result_b = app.invoke({"input": "hello", "output": "", "model_used": ""}, config_b)
+print(result_a["model_used"], result_b["model_used"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>RunnableConfig is how you inject per-request parameters without modifying graph structure: model selection, temperature, API keys, user context, feature flags, and observability metadata all flow through config.</div>
+<div class="callout hood"><span>Under the hood</span>RunnableConfig is propagated automatically through LangChain Runnable invocations. The configurable dict is the extensible namespace for application-specific config. LangGraph reserves thread_id, checkpoint_id, and checkpoint_ns for its own use.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Persistence, time-travel, prebuilt agents, multi-agent, streaming</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>SqliteSaver and PostgresSaver Production Persistence</h3>
+<p><strong>What &amp; why.</strong> MemorySaver is for development only. SqliteSaver stores checkpoints in a SQLite database, suitable for single-server production. PostgresSaver stores checkpoints in PostgreSQL with full ACID compliance, supporting concurrent access, durability, and point-in-time recovery. Both implement the same BaseCheckpointSaver interface, making migration a one-line change.</p>
+<pre class="code"><code>import sqlite3
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+# SQLite for single-server production
+conn = sqlite3.connect("checkpoints.db", check_same_thread=False)
+sqlite_saver = SqliteSaver(conn)
+
+# Use the same API as MemorySaver
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def chatbot(state: MessagesState) -> dict:
+    response = model.invoke(state["messages"])
+    return {"messages": [response]}
+
+graph = StateGraph(MessagesState)
+graph.add_node("chatbot", chatbot)
+graph.add_edge(START, "chatbot")
+graph.add_edge("chatbot", END)
+app = graph.compile(checkpointer=sqlite_saver)
+
+config = {"configurable": {"thread_id": "prod-001"}}
+result = app.invoke({"messages": [HumanMessage(content="Hello")]}, config)
+print("Saved to SQLite")
+
+# For PostgreSQL:
+# from langgraph.checkpoint.postgres import PostgresSaver
+# postgres_saver = PostgresSaver.from_conn_string("postgresql://user:pass@localhost/db")
+# app = graph.compile(checkpointer=postgres_saver)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SqliteSaver is ideal for single-server deployments, CLI tools, and embedded applications. PostgresSaver is the standard for cloud deployments where durability, concurrent access, and horizontal scaling are required.</div>
+<div class="callout hood"><span>Under the hood</span>Both implement BaseCheckpointSaver with put() and get() methods. PostgresSaver uses PostgreSQL's JSONB columns for flexible state storage and supports async operations. Checkpoints are stored as versioned snapshots with parent references for traversal.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Time-Travel Replay and Checkpoint History</h3>
+<p><strong>What &amp; why.</strong> With a checkpointer attached, LangGraph saves a checkpoint after every node execution. You can list all checkpoints for a thread, inspect state at any point, and replay from a specific checkpoint by invoking with a checkpoint_id in the config. This enables debugging, A/B testing node logic, and recovering from errors without re-running the entire graph.</p>
+<pre class="code"><code>from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import StateGraph, START, END
+
+class SimpleState(TypedDict):
+    value: int
+    history: list
+
+def step_a(state: SimpleState) -> dict:
+    return {"value": state["value"] + 1, "history": state.get("history", []) + ["a"]}
+
+def step_b(state: SimpleState) -> dict:
+    return {"value": state["value"] * 2, "history": state.get("history", []) + ["b"]}
+
+graph = StateGraph(SimpleState)
+graph.add_node("step_a", step_a)
+graph.add_node("step_b", step_b)
+graph.add_edge(START, "step_a")
+graph.add_edge("step_a", "step_b")
+graph.add_edge("step_b", END)
+
+memory = MemorySaver()
+app = graph.compile(checkpointer=memory)
+config = {"configurable": {"thread_id": "debug-1"}}
+
+result = app.invoke({"value": 0, "history": []}, config)
+
+# List all checkpoints
+checkpoints = list(memory.list({"configurable": {"thread_id": "debug-1"}}))
+for cp in checkpoints:
+    print(f"Checkpoint {cp.config['configurable']['checkpoint_id']}: {cp.metadata}")
+
+# Replay from the first checkpoint
+first_cp = checkpoints[-1]
+replay_config = {
+    "configurable": {
+        "thread_id": "debug-1",
+        "checkpoint_id": first_cp.config["configurable"]["checkpoint_id"],
+    }
+}
+replay_result = app.invoke({"value": 10, "history": []}, replay_config)
+print("Replayed:", replay_result)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Time-travel is invaluable for debugging agent behavior: reproduce a bug by replaying from the exact state where it occurred, test alternative node implementations against the same input, and audit the full decision history for compliance.</div>
+<div class="callout hood"><span>Under the hood</span>Each checkpoint stores the full state snapshot, a unique checkpoint_id, the parent checkpoint_id, and metadata (timestamp, step number). The checkpoint tree forms a version DAG that supports branching: you can fork a thread at any point.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>update_state for Corrections</h3>
+<p><strong>What &amp; why.</strong> update_state modifies a checkpoint's state without re-executing nodes. This enables manual corrections: fix a hallucinated tool result, override a classifier's decision, or inject context the model missed. The update creates a new checkpoint branch, preserving the original state for comparison.</p>
+<pre class="code"><code>from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langchain_core.messages import HumanMessage, AIMessage
+
+class ReviewState(TypedDict):
+    messages: list
+    draft: str
+
+def write_draft(state: ReviewState) -> dict:
+    return {"draft": f"Draft about: {state['messages'][-1].content}"}
+
+def review(state: ReviewState) -> dict:
+    return {"draft": f"Reviewed: {state['draft']}"}
+
+graph = StateGraph(ReviewState)
+graph.add_node("write", write_draft)
+graph.add_node("review", review)
+graph.add_edge(START, "write")
+graph.add_edge("write", "review")
+graph.add_edge("review", END)
+
+memory = MemorySaver()
+app = graph.compile(checkpointer=memory)
+config = {"configurable": {"thread_id": "correction-1"}}
+
+result = app.invoke({"messages": [HumanMessage(content="Write about AI")], "draft": ""}, config)
+print("Original:", result["draft"])
+
+# Correct the draft manually
+app.update_state(config, {"draft": "Corrected: AI transforms industries"})
+result = app.invoke(None, config)
+print("After update:", result["draft"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>update_state is used for human corrections in HITL workflows, fixing errors without full re-execution, and implementing undo/redo patterns. It is the state-level equivalent of a database UPDATE.</div>
+<div class="callout hood"><span>Under the hood</span>update_state creates a new checkpoint that patches the previous state with the provided values. It does not execute any nodes. The new checkpoint is linked to the parent, forming a branch in the checkpoint tree that can be inspected and traversed.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Multiple Schemas: Input, Output, Private State</h3>
+<p><strong>What &amp; why.</strong> A graph can have separate input and output TypedDicts, with private state fields that are internal to nodes but not exposed to callers. This is achieved by defining an internal state that embeds the input and output schemas. It hides implementation details and provides clean API boundaries.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+
+class InputSchema(TypedDict):
+    question: str
+
+class OutputSchema(TypedDict):
+    answer: str
+
+class InternalState(TypedDict):
+    question: str
+    answer: str
+    reasoning: str  # private, not in output
+    steps: Annotated[list, operator.add]  # private, not in output
+
+def research(state: InternalState) -> dict:
+    return {"reasoning": f"Analyzing: {state['question']}", "steps": ["research"]}
+
+def answer_node(state: InternalState) -> dict:
+    return {"answer": f"Answer based on: {state['reasoning']}", "steps": ["answer"]}
+
+graph = StateGraph(InternalState)
+graph.add_node("research", research)
+graph.add_node("answer", answer_node)
+graph.add_edge(START, "research")
+graph.add_edge("research", "answer")
+graph.add_edge("answer", END)
+
+app = graph.compile()
+
+# Input matches InputSchema, output includes only output fields
+result = app.invoke({"question": "What is LangGraph?", "answer": "", "reasoning": "", "steps": []})
+print(result["answer"])  # visible
+print(result.get("reasoning"))  # exists internally but caller may not use it</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Schema separation is critical for API design: internal reasoning traces, debug logs, and intermediate computations stay hidden from callers while remaining accessible to nodes. This prevents information leakage in multi-tenant systems.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph uses the full internal state schema for execution but the caller only provides and receives the fields they specify. The type system ensures input compatibility at compile time. Private fields are initialized to defaults if not provided.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Error Handling and Node-Level Retries</h3>
+<p><strong>What &amp; why.</strong> LangGraph catches exceptions at node boundaries and can retry failed nodes with exponential backoff. The retry policy is configured per-node or globally. Errors are captured in the checkpoint metadata, enabling inspection of failure modes without losing the graph's state. This is essential for unreliable external API calls.</p>
+<pre class="code"><code>import random
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langgraph.retry import RetryPolicy
+
+class FetchState(TypedDict):
+    url: str
+    data: str
+    attempts: int
+
+def unreliable_fetch(state: FetchState) -> dict:
+    # Simulate flaky API
+    if random.random() < 0.7:
+        raise ConnectionError("API temporarily unavailable")
+    return {"data": f"Data from {state['url']}", "attempts": state.get("attempts", 0) + 1}
+
+def process(state: FetchState) -> dict:
+    return {"data": f"Processed: {state['data']}"}
+
+graph = StateGraph(FetchState)
+graph.add_node("fetch", unreliable_fetch, retry=RetryPolicy(max_attempts=5, backoff_factor=0.5))
+graph.add_node("process", process)
+graph.add_edge(START, "fetch")
+graph.add_edge("fetch", "process")
+graph.add_edge("process", END)
+
+app = graph.compile()
+result = app.invoke({"url": "https://api.example.com", "data": "", "attempts": 0})
+print(f"Fetched after {result['attempts']} attempts: {result['data'][:40]}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Retry policies are essential for any node calling external APIs: LLM providers, databases, HTTP services. Configure retries with backoff for transient failures (rate limits, network blips) and let permanent errors propagate.</div>
+<div class="callout hood"><span>Under the hood</span>The RetryPolicy wraps node execution in a try/except loop with exponential backoff and jitter. Failed attempts are logged to the checkpoint metadata. After max_attempts, the exception propagates to the graph runtime for error handling.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>ToolNode Prebuilt</h3>
+<p><strong>What &amp; why.</strong> ToolNode is a prebuilt LangGraph node that executes tool calls from the LLM's response. It takes the AIMessage with tool_calls, looks up the corresponding tools by name, invokes them, and returns ToolMessage results. This eliminates boilerplate for the common pattern: LLM decides tool, runtime executes tool, results go back to LLM.</p>
+<pre class="code"><code>from langgraph.prebuilt import ToolNode
+from langchain_core.tools import tool
+from langchain_core.messages import AIMessage
+
+@tool
+def get_weather(city: str) -> str:
+    """Get current weather for a city."""
+    return f"Sunny, 25C in {city}"
+
+@tool
+def get_time(timezone: str) -> str:
+    """Get current time in a timezone."""
+    return f"14:30 UTC in {timezone}"
+
+# ToolNode automatically routes tool calls to the right tool
+tool_node = ToolNode(tools=[get_weather, get_time])
+
+# Simulate LLM response with tool calls
+ai_msg = AIMessage(
+    content="",
+    tool_calls=[
+        {"name": "get_weather", "args": {"city": "Tokyo"}, "id": "call_1"},
+        {"name": "get_time", "args": {"timezone": "JST"}, "id": "call_2"},
+    ]
+)
+
+result = tool_node.invoke({"messages": [ai_msg]})
+for msg in result["messages"]:
+    print(f"{msg.name}: {msg.content}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ToolNode is the standard tool execution node in ReAct agents, supervisor patterns, and any graph where the LLM decides which tools to call. It handles parallel tool calls, errors, and tool-not-found cases automatically.</div>
+<div class="callout hood"><span>Under the hood</span>ToolNode extracts tool_calls from AIMessage, matches each to a registered tool by name, invokes tools in parallel using asyncio.gather for async tools, wraps results in ToolMessage objects, and handles ToolNodeError for missing tools.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>create_react_agent Prebuilt Anatomy</h3>
+<p><strong>What &amp; why.</strong> create_react_agent is a factory function that builds a complete ReAct (Reason + Act) agent graph: a chatbot node that calls the LLM, a ToolNode that executes tools, and conditional routing that loops when tools are called and exits when the LLM responds directly. It handles message management, tool binding, and loop control automatically.</p>
+<pre class="code"><code>from langgraph.prebuilt import create_react_agent
+from langchain_openai import ChatOpenAI
+from langchain_core.tools import tool
+
+@tool
+def search(query: str) -> str:
+    """Search the web for information."""
+    return f"Results for: {query}"
+
+@tool
+def calculator(expression: str) -> str:
+    """Evaluate a math expression."""
+    return str(eval(expression))
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# Creates: START -> chatbot -> [tools | END]
+# chatbot: calls LLM with bound tools
+# tools: ToolNode that executes tool calls
+# routing: if tool_calls -> tools, else -> END
+agent = create_react_agent(model, [search, calculator])
+
+result = agent.invoke({"messages": [{"role": "user", "content": "What is 2+2?"}]})
+for msg in result["messages"]:
+    role = msg.__class__.__name__
+    print(f"{role}: {msg.content[:80]}")
+
+# The generated graph structure:
+# graph = agent.get_graph()
+# print(graph.draw_mermaid())</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>create_react_agent is the fastest way to build a functional tool-using agent. Use it for prototypes, simple automations, and as the agent node inside supervisor or hierarchical multi-agent graphs.</div>
+<div class="callout hood"><span>Under the hood</span>create_react_agent builds a StateGraph with a chatbot node (LLM invocation with tool binding), a ToolNode, and a should_continue conditional edge that checks for tool_calls in the last AIMessage. It uses MessagesState with the add_messages reducer.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Supervisor Multi-Agent Handoffs</h3>
+<p><strong>What &amp; why.</strong> The supervisor pattern assigns a coordinator LLM that inspects each task and routes it to the most appropriate specialist agent. The supervisor decides which agent handles the next step, passes context, and collects results. Each agent is an independent graph (subgraph) that the supervisor invokes as needed.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import create_react_agent
+from langchain_openai import ChatOpenAI
+
+class SupervisorState(TypedDict):
+    messages: Annotated[list, operator.add]
+    next_agent: str
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# Create specialist agents
+researcher = create_react_agent(model, [], prompt="You are a research specialist.")
+writer = create_react_agent(model, [], prompt="You are a writing specialist.")
+
+def supervisor(state: SupervisorState) -> dict:
+    last = state["messages"][-1].content if state["messages"] else ""
+    if "research" in last.lower():
+        return {"next_agent": "researcher"}
+    return {"next_agent": "writer"}
+
+def route_supervisor(state: SupervisorState) -> str:
+    return state["next_agent"]
+
+def run_researcher(state: SupervisorState) -> dict:
+    result = researcher.invoke({"messages": state["messages"]})
+    return {"messages": result["messages"]}
+
+def run_writer(state: SupervisorState) -> dict:
+    result = writer.invoke({"messages": state["messages"]})
+    return {"messages": result["messages"]}
+
+graph = StateGraph(SupervisorState)
+graph.add_node("supervisor", supervisor)
+graph.add_node("researcher", run_researcher)
+graph.add_node("writer", run_writer)
+graph.add_edge(START, "supervisor")
+graph.add_conditional_edges("supervisor", route_supervisor, {"researcher": "researcher", "writer": "writer"})
+graph.add_edge("researcher", END)
+graph.add_edge("writer", END)
+
+app = graph.compile()
+result = app.invoke({"messages": [{"role": "user", "content": "Research LangGraph architecture"}], "next_agent": ""})
+print(f"Routed to: {result['next_agent']}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The supervisor pattern is the standard for multi-agent systems where tasks require different expertise: research agents, coding agents, QA agents, and deployment agents coordinated by a single orchestrator.</div>
+<div class="callout hood"><span>Under the hood</span>The supervisor is itself an LLM call that outputs a routing decision. Each specialist agent is a subgraph with its own tools and prompts. The supervisor's output is validated against available agent names to prevent misrouting.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Hierarchical Teams</h3>
+<p><strong>What &amp; why.</strong> Hierarchical teams extend the supervisor pattern with multiple levels: a top-level supervisor delegates to mid-level supervisors, each managing their own team of specialist agents. This mirrors organizational structures and scales to complex workflows where a single supervisor cannot manage all specialists effectively.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+
+class TeamState(TypedDict):
+    task: str
+    result: str
+    team: str
+    logs: Annotated[list, operator.add]
+
+def top_supervisor(state: TeamState) -> dict:
+    team = "backend" if "api" in state["task"].lower() else "frontend"
+    return {"team": team, "logs": [f"Top supervisor routed to {team}"]}
+
+def backend_supervisor(state: TeamState) -> dict:
+    return {"result": f"Backend team handled: {state['task']}", "logs": state.get("logs", []) + ["backend completed"]}
+
+def frontend_supervisor(state: TeamState) -> dict:
+    return {"result": f"Frontend team handled: {state['task']}", "logs": state.get("logs", []) + ["frontend completed"]}
+
+def route_top(state: TeamState) -> str:
+    return state["team"]
+
+def route_team(state: TeamState) -> str:
+    return "backend" if state["team"] == "backend" else "frontend"
+
+graph = StateGraph(TeamState)
+graph.add_node("top_supervisor", top_supervisor)
+graph.add_node("backend", backend_supervisor)
+graph.add_node("frontend", frontend_supervisor)
+graph.add_edge(START, "top_supervisor")
+graph.add_conditional_edges("top_supervisor", route_top, {"backend": "backend", "frontend": "frontend"})
+graph.add_edge("backend", END)
+graph.add_edge("frontend", END)
+
+app = graph.compile()
+result = app.invoke({"task": "Build a new API endpoint", "result": "", "team": "", "logs": []})
+print(result["result"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hierarchical teams are used in enterprise automation: a CEO-level agent delegates to department heads, who delegate to team leads, who coordinate specialists. Each level has domain expertise and can make autonomous decisions within scope.</div>
+<div class="callout hood"><span>Under the hood</span>Hierarchical graphs are composed of nested subgraphs. Each supervisor is a node in the parent graph that invokes its team subgraph. State flows down through the hierarchy via the shared state dict, and results flow back up.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Plan-and-Execute Graph</h3>
+<p><strong>What &amp; why.</strong> Plan-and-execute separates reasoning into two phases: a planner node creates a list of steps, and an executor node processes them sequentially. The planner uses a powerful model for strategy, while the executor can use a faster, cheaper model for individual steps. The graph loops: execute a step, re-evaluate the plan, adjust if needed.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+
+class PlanExecute(TypedDict):
+    input: str
+    plan: list[str]
+    past_steps: Annotated[list[tuple[str, str]], operator.add]
+    response: str
+
+def planner(state: PlanExecute) -> dict:
+    return {"plan": ["Step 1: Research topic", "Step 2: Outline structure", "Step 3: Write draft"]}
+
+def executor(state: PlanExecute) -> dict:
+    step = state["plan"][0]
+    remaining = state["plan"][1:]
+    return {
+        "past_steps": [(step, f"Completed: {step}")],
+        "plan": remaining,
+    }
+
+def should_continue(state: PlanExecute) -> str:
+    return "executor" if state["plan"] else "responder"
+
+def responder(state: PlanExecute) -> dict:
+    summary = " | ".join([s for _, s in state["past_steps"]])
+    return {"response": f"Done: {summary}"}
+
+graph = StateGraph(PlanExecute)
+graph.add_node("planner", planner)
+graph.add_node("executor", executor)
+graph.add_node("responder", responder)
+graph.add_edge(START, "planner")
+graph.add_edge("planner", "executor")
+graph.add_conditional_edges("executor", should_continue, {"executor": "executor", "responder": "responder"})
+graph.add_edge("responder", END)
+
+app = graph.compile()
+result = app.invoke({"input": "Write a report on AI graphs", "plan": [], "past_steps": [], "response": ""})
+print(result["response"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Plan-and-execute is ideal for complex multi-step tasks: research reports, data pipelines, migration plans. It provides visibility into the plan and allows mid-course correction between steps.</div>
+<div class="callout hood"><span>Under the hood</span>The plan is stored in state and mutated by the executor (remove completed step) and planner (add/modify steps on re-plan). The loop continues until the plan is empty or a stopping condition is met.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Reflection and Critic Loops</h3>
+<p><strong>What &amp; why.</strong> Reflection graphs add a critic node that evaluates the output of a generator node. If the critic finds issues, the graph loops back to the generator with feedback. This produces higher-quality outputs through iterative refinement: write, critique, revise, critique again, until quality thresholds are met.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+
+class ReflectState(TypedDict):
+    topic: str
+    draft: str
+    critique: str
+    revisions: Annotated[list[str], operator.add]
+    iteration: int
+
+def generate(state: ReflectState) -> dict:
+    iteration = state.get("iteration", 0) + 1
+    critique = state.get("critique", "")
+    if critique:
+        return {"draft": f"Revised draft v{iteration} addressing: {critique}", "revisions": [f"v{iteration}"], "iteration": iteration}
+    return {"draft": f"Initial draft on {state['topic']}", "revisions": ["v1"], "iteration": iteration}
+
+def critique(state: ReflectState) -> dict:
+    if state["iteration"] >= 3:
+        return {"critique": "APPROVED"}
+    return {"critique": f"Issue in iteration {state['iteration']}: needs more detail"}
+
+def should_continue(state: ReflectState) -> str:
+    return END if state.get("critique") == "APPROVED" else "generate"
+
+graph = StateGraph(ReflectState)
+graph.add_node("generate", generate)
+graph.add_node("critique", critique)
+graph.add_edge(START, "generate")
+graph.add_edge("generate", "critique")
+graph.add_conditional_edges("critique", should_continue, {"generate": "generate", END: END})
+
+app = graph.compile()
+result = app.invoke({"topic": "AI agents", "draft": "", "critique": "", "revisions": [], "iteration": 0})
+print(f"Final: {result['draft']} after {result['iteration']} iterations")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Reflection loops produce publication-quality content, validated code, and reviewed analyses. They are used in content generation, code review automation, and any domain where iterative improvement outperforms single-shot generation.</div>
+<div class="callout hood"><span>Under the hood</span>The critique node is typically an LLM call with a quality-focused prompt. The loop termination is controlled by either a max-iteration guard, an approval signal from the critic, or a quality score threshold. Each iteration adds a checkpoint for comparison.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Streaming Modes: Values, Updates, Messages, Tokens</h3>
+<p><strong>What &amp; why.</strong> LangGraph offers four streaming modes via the stream() method. stream_mode="values" yields the full state after each node. stream_mode="updates" yields only the delta from each node. stream_mode="messages" yields individual LLM tokens as they are generated. stream_mode="tokens" yields raw token objects. Choosing the right mode balances granularity with bandwidth.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+
+class StreamState(TypedDict):
+    query: str
+    steps: Annotated[list[str], operator.add]
+    result: str
+
+def process_a(state: StreamState) -> dict:
+    return {"steps": ["a complete"], "result": f"a({state['query']})"}
+
+def process_b(state: StreamState) -> dict:
+    return {"steps": ["b complete"], "result": f"b({state['result']})"}
+
+graph = StateGraph(StreamState)
+graph.add_node("a", process_a)
+graph.add_node("b", process_b)
+graph.add_edge(START, "a")
+graph.add_edge("a", "b")
+graph.add_edge("b", END)
+app = graph.compile()
+
+# Default: full state snapshots
+for event in app.stream({"query": "test", "steps": [], "result": ""}, stream_mode="values"):
+    print("values:", event)
+
+# Updates only (deltas)
+for event in app.stream({"query": "test", "steps": [], "result": ""}, stream_mode="updates"):
+    print("updates:", event)
+
+# Messages mode for LLM token streaming (with LLM nodes)
+# for msg, metadata in app.stream(input, stream_mode="messages"):
+#     print(msg.content, end="", flush=True)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>"values" is best for debugging (see full state), "updates" for progress monitoring (see what changed), "messages" for real-time chat display (token-by-token), and "tokens" for low-level token analysis and cost tracking.</div>
+<div class="callout hood"><span>Under the hood</span>The stream mode controls what the Pregel loop yields at each super-step. "values" yields a deep copy of the full state. "updates" yields only the partial dict returned by the node. "messages" intercepts the LLM's streaming iterator and yields individual AIMessageChunk objects.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Durable execution, internals, deployment, testing, security</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Durable Execution: At-Least-Once Semantics</h3>
+<p><strong>What &amp; why.</strong> LangGraph's durable execution guarantees that each node executes at least once per checkpoint. If a process crashes mid-execution, the runtime resumes from the last successful checkpoint and re-executes pending nodes. This at-least-once semantic means nodes must be idempotent: calling them twice with the same state should produce the same result.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+
+class DurableState(TypedDict):
+    items: list[str]
+    processed: Annotated[list[str], operator.add]
+    total_cost: float
+
+def process_item(state: DurableState) -> dict:
+    # Must be idempotent: same input produces same output
+    unprocessed = [i for i in state["items"] if i not in state.get("processed", [])]
+    results = [f"done({item})" for item in unprocessed]
+    return {"processed": results, "total_cost": sum(len(r) for r in results) * 0.01}
+
+graph = StateGraph(DurableState)
+graph.add_node("process", process_item)
+graph.add_edge(START, "process")
+graph.add_edge("process", END)
+
+# On crash recovery, process_item re-runs but idempotency
+# prevents duplicate processing
+app = graph.compile()  # with production checkpointer
+result = app.invoke({"items": ["a", "b", "c"], "processed": [], "total_cost": 0.0})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Durable execution is critical for long-running workflows: data pipelines, approval chains, and multi-day agent tasks. Without idempotency, crash recovery would duplicate side effects like sending emails or charging credit cards.</div>
+<div class="callout hood"><span>Under the hood</span>The checkpointer stores a pending writes list after each node execution. On recovery, the runtime compares the checkpoint's node versions with the current graph and re-executes only nodes whose state has changed. This is similar to event sourcing replay.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Pending Writes and Integrity Checks</h3>
+<p><strong>What &amp; why.</strong> After a node executes, its writes are recorded as "pending" until the next checkpoint is committed. If the process crashes between node execution and checkpoint commit, the pending writes are replayed on recovery. This two-phase commit pattern ensures state consistency: either all writes for a super-step are applied, or none are.</p>
+<pre class="code"><code># Pending writes lifecycle:
+# 1. Node executes, returns partial state update
+# 2. Update is recorded as pending write in checkpoint
+# 3. Runtime commits checkpoint (all pending writes become permanent)
+# 4. If crash occurs between 2 and 3, recovery replays pending writes
+
+from langgraph.checkpoint.memory import MemorySaver
+
+memory = MemorySaver()
+
+# Inspect checkpoint metadata for pending writes
+# In production, use PostgresSaver which stores this durably
+# checkpoint = memory.get(config)
+# print(checkpoint.metadata.get("writes", {}))
+# print(checkpoint.metadata.get("pending_sends", []))
+
+# Integrity: ensure checkpoint chain is unbroken
+# checkpoints = list(memory.list(config))
+# for cp in checkpoints:
+#     assert cp.metadata.get("source") in ("update", "input", "loop")
+
+print("Pending writes are managed by the checkpointer automatically")
+print("Use PostgresSaver for production durability guarantees")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding pending writes is important for production operations: monitoring checkpoint commit latency, diagnosing recovery behavior after crashes, and ensuring data integrity in high-throughput deployments.</div>
+<div class="callout hood"><span>Under the hood</span>The pending writes list is a journal of state mutations that haven't been committed to the permanent checkpoint yet. The Pregel runtime commits all pending writes atomically when a super-step completes. This is similar to WAL (Write-Ahead Logging) in databases.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>Cross-Thread Memory with BaseStore</h3>
+<p><strong>What &amp; why.</strong> While checkpointer state is per-thread, BaseStore provides cross-thread shared memory: a key-value store accessible from any thread. This enables global knowledge accumulation, shared user profiles, learned preferences, and cross-session context. The store is separate from checkpoint state and persists independently.</p>
+<pre class="code"><code>from langgraph.store.memory import InMemoryStore
+from langgraph.graph import StateGraph, START, END
+
+# Cross-thread shared store
+store = InMemoryStore()
+
+class AgentState(dict):
+    pass
+
+def learn_preference(state: dict) -> dict:
+    # Write to shared store (persists across all threads)
+    store.put(("user", "alice"), "preferences", {"language": "python", "style": "concise"})
+    return {"output": "Learned preference"}
+
+def recall_preference(state: dict) -> dict:
+    # Read from shared store
+    prefs = store.get(("user", "alice"), "preferences")
+    return {"output": f"Preferences: {prefs.value if prefs else 'none'}"}
+
+graph = StateGraph(AgentState)
+graph.add_node("learn", learn_preference)
+graph.add_node("recall", recall_preference)
+graph.add_edge(START, "learn")
+graph.add_edge("learn", "recall")
+graph.add_edge("recall", END)
+
+app = graph.compile()
+# Pass store via config
+from langchain_core.runnables import RunnableConfig
+config = RunnableConfig(configurable={"store": store})
+result = app.invoke({}, config)
+print(result["output"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cross-thread memory is used for user profiles that persist across sessions, shared team knowledge bases, learned agent behaviors, and global configuration that evolves at runtime.</div>
+<div class="callout hood"><span>Under the hood</span>BaseStore is an abstract interface with get/put/search/delete methods. InMemoryStore is for development. In production, use RedisStore or PostgresStore for durable cross-thread memory. The store namespace uses tuples for hierarchical key organization.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>Functional vs Pregel Execution Model</h3>
+<p><strong>What &amp; why.</strong> LangGraph's execution is Pregel-inspired: the graph is divided into super-steps where all nodes in a step execute, then barriers synchronize before the next step. The functional API (v0.2+) provides a decorator-based alternative where each function is a standalone unit with explicit state passing. Understanding both models helps choose the right abstraction for different problem domains.</p>
+<pre class="code"><code># Pregel model (graph-based):
+# Super-step 1: nodes A, B execute in parallel
+# Barrier: synchronize
+# Super-step 2: node C executes (fan-in from A, B)
+# Each super-step produces a checkpoint
+
+# Functional API (decorator-based):
+from langgraph.func import entrypoint, task
+
+@task
+def process_data(data: str) -> str:
+    return f"processed: {data}"
+
+@task
+def summarize(processed: str) -> str:
+    return f"summary of {processed}"
+
+@entrypoint
+def pipeline(raw_data: str) -> str:
+    processed = process_data(raw_data).result()
+    return summarize(processed).result()
+
+# The functional API compiles to the same Pregel runtime
+# result = pipeline.invoke("raw input")
+# result = pipeline.invoke("raw input", config={"configurable": {"thread_id": "1"}})
+
+print("Pregel: graph topology defines super-steps")
+print("Functional: decorators define execution units with explicit .result() calls")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pregel (graph API) is best for complex topologies with fan-out/fan-in and conditional routing. Functional API is best for linear pipelines and when you prefer Python-native control flow over graph declarations.</div>
+<div class="callout hood"><span>Under the hood</span>Both APIs compile to the same Pregel runtime internally. The functional API generates a graph under the hood: each @entrypoint becomes a linear graph, and @task calls within it become nodes. Checkpointing and streaming work identically.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">41</span>Debugging with LangGraph Studio</h3>
+<p><strong>What &amp; why.</strong> LangGraph Studio is a local development tool that provides a visual interface for debugging graph execution. It renders the graph topology, shows real-time state at each node, enables stepping through execution, and supports time-travel to any checkpoint. It connects to a local LangGraph server for interactive debugging.</p>
+<pre class="code"><code># Install and run LangGraph Studio locally
+# pip install langgraph-cli
+# langgraph dev
+
+# Studio features:
+# 1. Visual graph rendering with node status
+# 2. Real-time state inspection at each checkpoint
+# 3. Step-through execution (pause, resume, skip)
+# 4. Time-travel: click any checkpoint to replay from there
+# 5. Input/output inspection per node
+# 6. Error highlighting with stack traces
+# 7. Streaming visualization (token-by-token display)
+
+# Configuration for Studio (langgraph.json):
+import json
+
+config = {
+    "dependencies": ["."],
+    "graphs": {
+        "agent": "./agent.py:graph"
+    },
+    "env": ".env"
+}
+
+# Save as langgraph.json for Studio discovery
+# langgraph dev reads this config automatically
+print(json.dumps(config, indent=2))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LangGraph Studio is the primary debugging tool during development. Use it to understand execution flow, inspect state at each step, diagnose routing decisions, and verify HITL interrupt behavior before deploying.</div>
+<div class="callout hood"><span>Under the hood</span>Studio connects to a local LangGraph server that loads your graph, attaches a MemorySaver, and exposes REST endpoints for invoke, stream, and checkpoint operations. The Studio UI consumes these endpoints and renders the interactive visualization.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">42</span>Deployment: LangGraph Server and Platform</h3>
+<p><strong>What &amp; why.</strong> LangGraph Server provides a REST API for your compiled graphs, handling auth, checkpointing, streaming, and HITL out of the box. LangGraph Platform (managed) adds scaling, monitoring, and deployment management. Self-hosted server runs in Docker with PostgreSQL for persistence. Both use the same graph definition and configuration.</p>
+<pre class="code"><code># langgraph.json - deployment configuration
+import json
+
+config = {
+    "dependencies": ["./requirements.txt"],
+    "graphs": {
+        "agent": "./src/agent.py:graph",
+        "pipeline": "./src/pipeline.py:graph"
+    },
+    "env": "./.env",
+    "store": {
+        "profile": "default"
+    },
+    "auth": {
+        "path": "./src/auth.py:middleware"
+    }
+}
+
+# Docker deployment
+dockerfile = """
+FROM python:3.11-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+EXPOSE 2024
+CMD ["langgraph", "dev", "--host", "0.0.0.0", "--port", "2024"]
+"""
+
+# API endpoints after deployment:
+# POST /threads          - create thread
+# POST /threads/{id}/runs - invoke graph
+# GET  /threads/{id}/history - checkpoint history
+# POST /threads/{id}/runs/{run_id}/resume - HITL resume
+
+print(json.dumps(config, indent=2))</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LangGraph Server is the standard deployment target for production LangGraph applications. It provides the API layer that frontend applications, mobile apps, and other services use to interact with your graphs.</div>
+<div class="callout hood"><span>Under the hood</span>The server wraps your compiled graphs in a FastAPI application with middleware for auth, rate limiting, and observability. Checkpointing uses PostgreSQL by default. The server handles concurrent requests, thread management, and HITL lifecycle.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">43</span>Testing Graphs with Deterministic Fakes</h3>
+<p><strong>What &amp; why.</strong> Testing LangGraph graphs requires deterministic behavior: mock LLM responses, fake tool results, and controlled timing. The approach is to inject dependencies via config or node overrides, use MemorySaver for checkpoint testing, and assert on state at specific checkpoints. Each node can be tested independently, and integration tests run the full graph with mocked externals.</p>
+<pre class="code"><code>from typing import TypedDict
+from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import HumanMessage, AIMessage
+
+class TestState(TypedDict):
+    messages: list
+    result: str
+
+# Node function that accepts dependency injection
+def chatbot(state: TestState, *, model=None) -> dict:
+    model = model or _default_model()
+    response = model.invoke(state["messages"])
+    return {"messages": [response], "result": response.content}
+
+# Test individual node in isolation
+class FakeModel:
+    def invoke(self, messages):
+        return AIMessage(content="fake response for testing")
+
+def test_chatbot_node():
+    fake = FakeModel()
+    result = chatbot({"messages": [HumanMessage(content="test")], "result": ""}, model=fake)
+    assert result["result"] == "fake response for testing"
+    assert len(result["messages"]) == 1
+
+# Test full graph with checkpoint
+def test_full_graph():
+    graph = StateGraph(TestState)
+    graph.add_node("chatbot", chatbot)
+    graph.add_edge(START, "chatbot")
+    graph.add_edge("chatbot", END)
+    app = graph.compile(checkpointer=MemorySaver())
+
+    config = {"configurable": {"thread_id": "test-1"}}
+    result = app.invoke({"messages": [HumanMessage(content="test")], "result": ""}, config)
+    assert "result" in result
+
+# Run tests
+test_chatbot_node()
+test_full_graph()
+print("All tests passed")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Automated testing is essential for production confidence. Test nodes in isolation for fast feedback, test graph routing logic for correctness, and test HITL flows with simulated interrupts and resumes.</div>
+<div class="callout hood"><span>Under the hood</span>The recommended pattern is dependency injection via function parameters or config's configurable dict. Nodes that call external services should accept the client as a parameter, enabling test-time substitution with fakes or mocks.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">44</span>Latency Optimization and Parallelism Design</h3>
+<p><strong>What &amp; why.</strong> Graph latency is dominated by LLM calls. Optimize by parallelizing independent LLM invocations (fan-out), using faster models for routing decisions, streaming for perceived responsiveness, and caching for repeated inputs. Design graphs with critical path awareness: minimize the longest sequential chain of LLM calls.</p>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+
+class OptimizedState(TypedDict):
+    query: str
+    context: Annotated[list, operator.add]
+    answer: str
+
+def fast_route(state: OptimizedState) -> dict:
+    # Use small/fast model for routing (GPT-4o-mini)
+    return {"context": [f"Route decision for: {state['query']}"]}
+
+def parallel_retrieve_a(state: OptimizedState) -> dict:
+    return {"context": [f"Source A results for: {state['query']}"]}
+
+def parallel_retrieve_b(state: OptimizedState) -> dict:
+    return {"context": [f"Source B results for: {state['query']}"]}
+
+def synthesize(state: OptimizedState) -> dict:
+    return {"answer": f"Synthesized from {len(state['context'])} sources"}
+
+graph = StateGraph(OptimizedState)
+graph.add_node("route", fast_route)
+graph.add_node("retrieve_a", parallel_retrieve_a)
+graph.add_node("retrieve_b", parallel_retrieve_b)
+graph.add_node("synthesize", synthesize)
+
+graph.add_edge(START, "route")
+graph.add_edge("route", "retrieve_a")
+graph.add_edge("route", "retrieve_b")
+graph.add_edge("retrieve_a", "synthesize")
+graph.add_edge("retrieve_b", "synthesize")
+graph.add_edge("synthesize", END)
+
+# With fan-out, retrieve_a and retrieve_b run concurrently
+# Total latency: route + max(retrieve_a, retrieve_b) + synthesize
+app = graph.compile()
+result = app.invoke({"query": "AI trends", "context": [], "answer": ""})
+print(result["answer"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Latency optimization is critical for user-facing agents. Profile your graph to find the critical path, parallelize independent steps, and use streaming to show progress during long operations.</div>
+<div class="callout hood"><span>Under the hood</span>LangGraph automatically parallelizes independent nodes within a super-step using ThreadPoolExecutor. The fan-out pattern is the primary parallelism mechanism. For async graphs, use ainvoke() which uses asyncio.gather for concurrent execution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">45</span>Migration from Legacy AgentExecutor</h3>
+<p><strong>What &amp; why.</strong> LangChain's AgentExecutor is the legacy agent runner. Migrating to LangGraph provides: explicit state management, checkpointing, HITL, better debugging, and support for complex topologies. The migration is incremental: wrap existing tools, build the graph incrementally, and migrate features one at a time while keeping the application functional.</p>
+<pre class="code"><code># Legacy AgentExecutor (deprecated pattern):
+# from langchain.agents import create_tool_calling_agent, AgentExecutor
+# agent = create_tool_calling_agent(model, tools, prompt)
+# executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+# result = executor.invoke({"input": "search for X"})
+
+# Modern LangGraph equivalent:
+from langgraph.prebuilt import create_react_agent
+from langchain_openai import ChatOpenAI
+from langchain_core.tools import tool
+
+@tool
+def search(query: str) -> str:
+    """Search the web."""
+    return f"Results for: {query}"
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+# Direct replacement: create_react_agent is the modern AgentExecutor
+agent = create_react_agent(model, [search])
+result = agent.invoke({"messages": [{"role": "user", "content": "search for AI news"}]})
+print(result["messages"][-1].content)
+
+# Migration steps:
+# 1. Replace AgentExecutor with create_react_agent
+# 2. Add checkpointer for state persistence
+# 3. Add HITL interrupts for sensitive actions
+# 4. Add streaming for real-time display
+# 5. Add retry policies for resilience
+# 6. Replace callbacks with LangGraph streaming
+
+# Migration completed: all features available
+print("AgentExecutor migrated to LangGraph successfully")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any existing LangChain agent application should be migrated to LangGraph for better state management, debugging, and production features. The migration is incremental and can be done feature by feature.</div>
+<div class="callout hood"><span>Under the hood</span>AgentExecutor wraps agent logic in a while loop with tool execution. LangGraph replaces this with an explicit graph where the loop, tool execution, and termination conditions are all visible and configurable nodes and edges.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Customer Support Triage Bot with HITL Escalation</h3>
+<p>Build a customer support system that classifies incoming tickets, routes to the appropriate specialist, and escalates to a human when confidence is low or the customer requests it.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define a MessagesState with Annotated[list, operator.add] for conversation history and ticket metadata fields (category, priority, confidence)</li><li>Create a triage node that classifies the ticket into billing, technical, or general categories using an LLM with structured output</li><li>Add a confidence check node that evaluates the classifier's certainty and routes low-confidence tickets to human review via interrupt()</li><li>Build specialist subgraphs for each category (billing_agent, tech_agent, general_agent) using create_react_agent with category-specific tools</li><li>Implement a supervisor node that orchestrates the triage-to-specialist handoff and tracks resolution progress</li><li>Add a HITL approval gate before any external action (refunds, account changes) using interrupt() with Command(resume=...)</li><li>Configure PostgresSaver for production persistence and set recursion_limit to 25 for the agent loop</li><li>Add streaming support for real-time ticket status updates to the support dashboard</li></ol>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.prebuilt import create_react_agent
+from langgraph.types import interrupt, Command
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+
+class TicketState(TypedDict):
+    messages: Annotated[list, operator.add]
+    category: str
+    priority: str
+    confidence: float
+    resolution: str
+
+model = ChatOpenAI(model="gpt-4o", temperature=0)
+
+def triage(state: TicketState) -> dict:
+    last = state["messages"][-1].content
+    category = "billing" if "refund" in last.lower() else "technical" if "error" in last.lower() else "general"
+    return {"category": category, "confidence": 0.9, "priority": "medium"}
+
+def needs_human(state: TicketState) -> str:
+    if state["confidence"] &lt; 0.7:
+        return "escalate"
+    return state["category"]
+
+def escalate(state: TicketState) -> dict:
+    decision = interrupt("Human review needed for this ticket")
+    return {"resolution": f"Escalated and {decision}"}
+
+def handle_billing(state: TicketState) -> dict:
+    return {"resolution": "Billing issue resolved: refund processed"}
+
+def handle_technical(state: TicketState) -> dict:
+    return {"resolution": "Technical issue resolved: workaround provided"}
+
+def handle_general(state: TicketState) -> dict:
+    return {"resolution": "General inquiry answered"}
+
+graph = StateGraph(TicketState)
+graph.add_node("triage", triage)
+graph.add_node("escalate", escalate)
+graph.add_node("billing", handle_billing)
+graph.add_node("technical", handle_technical)
+graph.add_node("general", handle_general)
+graph.add_edge(START, "triage")
+graph.add_conditional_edges("triage", needs_human, {"escalate": "escalate", "billing": "billing", "technical": "technical", "general": "general"})
+graph.add_edge("escalate", END)
+graph.add_edge("billing", END)
+graph.add_edge("technical", END)
+graph.add_edge("general", END)
+
+app = graph.compile(checkpointer=MemorySaver())
+result = app.invoke({"messages": [HumanMessage(content="I need a refund for my order")], "category": "", "priority": "", "confidence": 0, "resolution": ""})
+print(result["resolution"])</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Multi-category routing with confidence-based escalation</li><li>HITL gates for sensitive customer actions</li><li>Specialist subgraphs with domain-specific tools</li><li>Production persistence with checkpoint history</li><li>Real-time streaming for support dashboards</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Research Team: Supervisor + Writer + Critic</h3>
+<p>Build a multi-agent research system where a supervisor coordinates a research agent, a writer agent, and a critic agent to produce high-quality research reports through iterative refinement.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define ResearchState with Annotated fields for messages, research notes, draft, critique, and iteration count</li><li>Create a research_agent subgraph using create_react_agent with search and paper_lookup tools</li><li>Create a writer_agent subgraph that takes research notes and produces structured draft sections</li><li>Create a critic_agent subgraph that evaluates the draft against quality criteria and provides specific feedback</li><li>Build a supervisor node that orchestrates the research-write-critique loop and tracks progress</li><li>Implement the loop with conditional routing: critic approval routes to END, rejection routes back to writer with feedback</li><li>Add a max_iterations guard (recursion_limit) to prevent infinite refinement loops</li><li>Stream intermediate results: research findings, draft versions, and critique comments in real time</li></ol>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+
+class ResearchState(TypedDict):
+    topic: str
+    research_notes: Annotated[list[str], operator.add]
+    draft: str
+    critique: str
+    iteration: int
+    final_report: str
+
+def research(state: ResearchState) -> dict:
+    return {"research_notes": [f"Finding 1 about {state['topic']}", f"Finding 2 about {state['topic']}"]}
+
+def write(state: ResearchState) -> dict:
+    notes = " ".join(state.get("research_notes", []))
+    iteration = state.get("iteration", 0) + 1
+    critique = state.get("critique", "")
+    if critique:
+        return {"draft": f"Revised draft v{iteration} incorporating: {critique}", "iteration": iteration}
+    return {"draft": f"Initial draft on {state['topic']} based on: {notes}", "iteration": iteration}
+
+def critique(state: ResearchState) -> dict:
+    if state.get("iteration", 0) >= 3:
+        return {"critique": "APPROVED", "final_report": state["draft"]}
+    return {"critique": "Needs more specific data points and citations"}
+
+def should_continue(state: ResearchState) -> str:
+    return END if state.get("critique") == "APPROVED" else "write"
+
+graph = StateGraph(ResearchState)
+graph.add_node("research", research)
+graph.add_node("write", write)
+graph.add_node("critique", critique)
+graph.add_edge(START, "research")
+graph.add_edge("research", "write")
+graph.add_edge("write", "critique")
+graph.add_conditional_edges("critique", should_continue, {"write": "write", END: END})
+
+app = graph.compile()
+result = app.invoke({"topic": "AI agent architectures", "research_notes": [], "draft": "", "critique": "", "iteration": 0, "final_report": ""})
+print(f"Iterations: {result['iteration']}, Report length: {len(result['final_report'])}")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Multi-agent supervisor orchestration</li><li>Iterative refinement with critic loops</li><li>Research agent with tool integration</li><li>Quality gates with max-iteration safeguards</li><li>Streaming intermediate agent outputs</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Resilient Data Pipeline Graph with Replay</h3>
+<p>Build a data processing pipeline that handles failures gracefully with automatic retries, supports time-travel debugging, and can replay from any checkpoint to recover from errors or test alternative processing logic.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define PipelineState with Annotated fields for source data, processed chunks, errors, and output</li><li>Create an extract node that reads data from multiple sources (simulated with sleep and occasional failures)</li><li>Add a RetryPolicy with max_attempts=3 and exponential backoff for the extract node</li><li>Create transform nodes for cleaning, enriching, and aggregating data with individual error handling</li><li>Implement a validate node that checks data quality and routes invalid records to an error correction path</li><li>Configure PostgresSaver for production persistence and enable checkpoint listing for debugging</li><li>Add a replay function that takes a checkpoint_id and re-runs the pipeline from that point with modified parameters</li><li>Build a monitoring node that logs processing metrics (record count, error rate, latency) at each stage</li></ol>
+<pre class="code"><code>from typing import TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.retry import RetryPolicy
+
+class PipelineState(TypedDict):
+    source_data: list[str]
+    cleaned: Annotated[list[str], operator.add]
+    enriched: Annotated[list[str], operator.add]
+    output: str
+    errors: Annotated[list[str], operator.add]
+    metrics: Annotated[list[str], operator.add]
+
+def extract(state: PipelineState) -> dict:
+    return {"cleaned": [f"clean({d})" for d in state["source_data"]], "metrics": ["extract complete"]}
+
+def enrich(state: PipelineState) -> dict:
+    return {"enriched": [f"enrich({c})" for c in state.get("cleaned", [])], "metrics": ["enrich complete"]}
+
+def aggregate(state: PipelineState) -> dict:
+    enriched = state.get("enriched", [])
+    return {"output": f"Aggregated {len(enriched)} records", "metrics": ["aggregate complete"]}
+
+def validate(state: PipelineState) -> dict:
+    return {"metrics": [f"validated {len(state.get('enriched', []))} records"]}
+
+graph = StateGraph(PipelineState)
+graph.add_node("extract", extract, retry=RetryPolicy(max_attempts=3))
+graph.add_node("enrich", enrich)
+graph.add_node("aggregate", aggregate)
+graph.add_node("validate", validate)
+graph.add_edge(START, "extract")
+graph.add_edge("extract", "enrich")
+graph.add_edge("enrich", "aggregate")
+graph.add_edge("aggregate", "validate")
+graph.add_edge("validate", END)
+
+memory = MemorySaver()
+app = graph.compile(checkpointer=memory)
+config = {"configurable": {"thread_id": "pipeline-001"}}
+result = app.invoke({"source_data": ["record1", "record2", "record3"], "cleaned": [], "enriched": [], "output": "", "errors": [], "metrics": []}, config)
+print(result["output"])
+
+# List checkpoints for debugging
+checkpoints = list(memory.list({"configurable": {"thread_id": "pipeline-001"}}))
+print(f"Checkpoints saved: {len(checkpoints)}")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Retry policies with exponential backoff for resilience</li><li>Checkpoint-based time-travel debugging</li><li>Annotated reducers for accumulating pipeline state</li><li>Node-level error handling and recovery</li><li>Pipeline metrics and observability</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>StateGraph</td><td>Primary graph builder with TypedDict state</td><td>StateGraph(MyState)</td></tr>
+<tr><td>TypedDict state</td><td>Static type-checked state schema</td><td>class MyState(TypedDict): field: type</td></tr>
+<tr><td>add_node / add_edge</td><td>Register functions and wire topology</td><td>graph.add_node("name", func)</td></tr>
+<tr><td>START / END</td><td>Entry and exit point constants</td><td>from langgraph.graph import START, END</td></tr>
+<tr><td>Conditional edges</td><td>Dynamic routing based on state</td><td>graph.add_conditional_edges(src, fn, map)</td></tr>
+<tr><td>compile / invoke</td><td>Validate graph and execute it</td><td>app = graph.compile(); app.invoke(state)</td></tr>
+<tr><td>stream()</td><td>Yield state updates per node</td><td>app.stream(state, stream_mode="updates")</td></tr>
+<tr><td>get_graph</td><td>Render Mermaid visualization</td><td>app.get_graph().draw_mermaid()</td></tr>
+<tr><td>recursion_limit</td><td>Guard against infinite loops</td><td>config={"recursion_limit": 25}</td></tr>
+<tr><td>Annotated reducers</td><td>Custom state merge behavior</td><td>Annotated[list, operator.add]</td></tr>
+<tr><td>MessagesState</td><td>Pre-built state with add_messages reducer</td><td>from langgraph.graph import MessagesState</td></tr>
+<tr><td>Fan-out / fan-in</td><td>Parallel execution and join barriers</td><td>Multiple edges to/from same node</td></tr>
+<tr><td>Send API</td><td>Dynamic parallel dispatch (map-reduce)</td><td>from langgraph.constants import Send</td></tr>
+<tr><td>Command</td><td>Combined goto + state update from node</td><td>Command(goto="node", update={})</td></tr>
+<tr><td>MemorySaver</td><td>In-memory checkpointer for development</td><td>from langgraph.checkpoint.memory import MemorySaver</td></tr>
+<tr><td>thread_id</td><td>Conversation session identifier</td><td>config={"configurable": {"thread_id": "1"}}</td></tr>
+<tr><td>interrupt()</td><td>Pause for human-in-the-loop</td><td>from langgraph.types import interrupt</td></tr>
+<tr><td>Command(resume=)</td><td>Resume after interrupt with value</td><td>app.invoke(Command(resume="approve"), config)</td></tr>
+<tr><td>Subgraphs</td><td>Composable graph modules</td><td>child_app.invoke(state) inside parent node</td></tr>
+<tr><td>RunnableConfig</td><td>Runtime config: thread_id, callbacks, custom</td><td>from langchain_core.runnables import RunnableConfig</td></tr>
+<tr><td>SqliteSaver / PostgresSaver</td><td>Production checkpointers</td><td>from langgraph.checkpoint.sqlite import SqliteSaver</td></tr>
+<tr><td>Time-travel replay</td><td>Replay from any checkpoint</td><td>app.invoke(None, checkpoint_config)</td></tr>
+<tr><td>update_state</td><td>Manual state correction without re-execution</td><td>app.update_state(config, {"field": "value"})</td></tr>
+<tr><td>ToolNode</td><td>Prebuilt tool execution node</td><td>from langgraph.prebuilt import ToolNode</td></tr>
+<tr><td>create_react_agent</td><td>Factory for ReAct agent graphs</td><td>from langgraph.prebuilt import create_react_agent</td></tr>
+<tr><td>Supervisor pattern</td><td>LLM coordinator routes to specialists</td><td>Supervisor node + conditional edges</td></tr>
+<tr><td>Plan-and-execute</td><td>Planner creates steps, executor runs them</td><td>Plan state + loop until empty</td></tr>
+<tr><td>Reflection loop</td><td>Generator + critic iterative refinement</td><td>Loop: generate -> critique -> generate</td></tr>
+<tr><td>Streaming modes</td><td>values, updates, messages, tokens</td><td>app.stream(state, stream_mode="messages")</td></tr>
+<tr><td>Durable execution</td><td>At-least-once with checkpoint recovery</td><td>Idempotent nodes + production checkpointer</td></tr>
+<tr><td>BaseStore</td><td>Cross-thread shared memory</td><td>from langgraph.store.memory import InMemoryStore</td></tr>
+<tr><td>RetryPolicy</td><td>Node-level retry with backoff</td><td>retry=RetryPolicy(max_attempts=3)</td></tr>
+<tr><td>LangGraph Server</td><td>REST API for deployed graphs</td><td>langgraph dev --host 0.0.0.0 --port 2024</td></tr>
+<tr><td>langgraph.json</td><td>Deployment configuration file</td><td>{"graphs": {"agent": "./agent.py:graph"}}</td></tr>
+<tr><td>Testing patterns</td><td>Deterministic fakes and node isolation</td><td>FakeModel + MemorySaver for tests</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="langchain.html">&larr; LangChain</a><a href="ai-graphs.html">AI Graphs &rarr;</a></footer>
+</body></html>

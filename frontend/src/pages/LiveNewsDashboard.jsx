@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import FetchButton from '../components/FetchButton'
+import { useLang } from '../i18n'
 import './LiveNewsDashboard.css'
 
 const CATEGORY_COLORS = {
@@ -37,6 +39,8 @@ const CATEGORY_COLORS = {
   'AI Agents': '#10b981',
   'Cybersecurity': '#ef4444',
   'Quantum Computing': '#6366f1',
+  'Quantum AI': '#818cf8',
+  'AGI & AI Futures': '#a855f7',
   'Robotics': '#f97316',
   'Space Technology': '#8b5cf6',
   'Healthcare AI': '#06b6d4',
@@ -87,6 +91,8 @@ const STATUS_BADGES = {
 }
 
 const CATEGORY_ICONS = {
+  'AI News by Country': '🌍',
+  'World Tech News': '🗞️',
   'Cloud AI Platforms': '☁️',
   'Serverless ML': '⚡',
   'Container Orchestration': '📦',
@@ -121,6 +127,8 @@ const CATEGORY_ICONS = {
   'AI Agents': '🤖',
   'Cybersecurity': '🔒',
   'Quantum Computing': '⚛️',
+  'Quantum AI': '⚛️',
+  'AGI & AI Futures': '🔮',
   'Robotics': '🦾',
   'Space Technology': '🚀',
   'Healthcare AI': '🏥',
@@ -160,11 +168,41 @@ const COUNTRY_FLAGS = {
   'Israel': '🇮🇱',
   'Canada': '🇨🇦',
   'Singapore': '🇸🇬',
+  'Germany': '🇩🇪',
+  'Switzerland': '🇨🇭',
+  'Norway': '🇳🇴',
+  'Taiwan': '🇹🇼',
+  'South Africa': '🇿🇦',
+  'Australia': '🇦🇺',
 }
 
-const COUNTRIES = ['All', 'Global', 'USA', 'China', 'UK', 'EU', 'India', 'Japan', 'South Korea', 'UAE', 'Israel', 'Canada', 'Singapore']
+// Flags for any country name in the catalog: explicit overrides first, then a
+// reverse lookup of English region names → ISO code → regional-indicator emoji.
+const COUNTRY_ALIASES = { USA: 'US', UK: 'GB', UAE: 'AE', 'South Korea': 'KR', Czechia: 'CZ', Russia: 'RU', Vietnam: 'VN', Taiwan: 'TW', 'Hong Kong': 'HK', Turkey: 'TR' }
+const REGION_CODE_BY_NAME = (() => {
+  const map = {}
+  try {
+    const dn = new Intl.DisplayNames(['en'], { type: 'region' })
+    for (let a = 65; a <= 90; a++) for (let b = 65; b <= 90; b++) {
+      const code = String.fromCharCode(a, b)
+      try { const name = dn.of(code); if (name && name !== code) map[name] = code } catch { /* not a region */ }
+    }
+  } catch { /* Intl.DisplayNames unavailable */ }
+  return map
+})()
+const flagFor = country => {
+  if (COUNTRY_FLAGS[country]) return COUNTRY_FLAGS[country]
+  if (country === 'Africa') return '🌍'
+  const code = COUNTRY_ALIASES[country] || REGION_CODE_BY_NAME[country]
+  return code ? code.replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0))) : '🏳️'
+}
+// Countries shown first in the tab strip; every other catalog country follows by source count.
+const PINNED_COUNTRIES = ['All', 'Global', 'USA', 'China', 'UK', 'EU', 'India', 'Japan']
 
 const TOC_BASE_CATEGORIES = [
+  'AI News by Country', 'World Tech News', 'AI & ML News', 'Quantum AI', 'Quantum Computing', 'Semiconductors',
+  'Robotics', 'AGI & AI Futures', 'AI Agents', 'Cybersecurity',
+  'AI Policy/Governance', 'News Aggregators', 'Newsletters',
   'Cloud AI Platforms', 'Serverless ML', 'Container Orchestration',
   'GPU Infrastructure', 'Model Hubs', 'Vector DB Cloud',
   'API Gateways', 'Message Queues', 'Streaming',
@@ -175,6 +213,30 @@ const TOC_BASE_CATEGORIES = [
   'Auth for AI', 'CDN & Edge AI', 'Databases',
   'Low-Code AI', 'AI IDEs', 'Prompt Management',
   'Evaluation', 'Cost Optimization', 'Compliance & Governance',
+]
+
+const QUICK_PRESETS = [
+  { label: '🌍 World AI sweep', categories: ['AI News by Country'] },
+  { label: '🗞️ World tech press', categories: ['World Tech News'] },
+  { label: '⚛️ Quantum', categories: ['Quantum AI', 'Quantum Computing'] },
+  { label: '🔧 Chips & Semis', categories: ['Semiconductors'] },
+  { label: '🤖 Robotics', categories: ['Robotics'] },
+  { label: '🔮 AGI & Future', categories: ['AGI & AI Futures'] },
+  { label: '🧠 AI News', categories: ['AI & ML News'] },
+  { label: '🗺️ World Tech', categories: ['News Aggregators', 'Developer News'] },
+]
+
+const FEATURED_TOPICS = [
+  { label: 'All Topics', category: 'All' },
+  { label: '🧠 Latest AI', category: 'AI & ML News' },
+  { label: '⚛️ Quantum AI', category: 'Quantum AI' },
+  { label: '🧮 Quantum Computing', category: 'Quantum Computing' },
+  { label: '🔧 Chips & Semis', category: 'Semiconductors' },
+  { label: '🤖 Robotics', category: 'Robotics' },
+  { label: '🔮 AGI & Future', category: 'AGI & AI Futures' },
+  { label: '🦾 AI Agents', category: 'AI Agents' },
+  { label: '🔒 Cybersecurity', category: 'Cybersecurity' },
+  { label: '📰 Aggregators', category: 'News Aggregators' },
 ]
 
 function formatDate(dateStr) {
@@ -205,13 +267,62 @@ function isLowQualityEntry(item) {
   if (!t || t.length < 4) return true
   if (!item.url) return true
   const lower = t.toLowerCase()
-  if (lower.split(' ').length <= 2 && !lower.includes('ai') && !lower.includes('ml') && !lower.includes('llm')) return true
+  if (lower.split(' ').length <= 1 && !lower.includes('ai') && !lower.includes('ml') && !lower.includes('llm')) return true
   if (/^(by |author|posted |published )/.test(lower)) return true
   if (/^(click|read more|learn more|see all|view all|home|index|about|contact|privacy|terms|faq|help|login|sign up|subscribe)$/i.test(t)) return true
   return false
 }
 
+function shade(hex, amt) {
+  if (!hex || !hex.startsWith('#')) hex = '#60a5fa'
+  const c = hex.replace('#', '')
+  const full = c.length === 3 ? c.split('').map(ch => ch + ch).join('') : c
+  const n = parseInt(full, 16)
+  let r = (n >> 16) & 255
+  let g = (n >> 8) & 255
+  let b = n & 255
+  const t = amt < 0 ? 0 : 255
+  const p = Math.abs(amt)
+  r = Math.round((t - r) * p + r)
+  g = Math.round((t - g) * p + g)
+  b = Math.round((t - b) * p + b)
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
+}
+
+function ArticleCover({ image, category, sourceName }) {
+  const [failed, setFailed] = useState(false)
+  const base = CATEGORY_COLORS[category] || '#60a5fa'
+  const style = {
+    '--cov1': shade(base, -0.55),
+    '--cov2': shade(base, 0.18),
+    '--cov3': shade(base, -0.78),
+  }
+  return (
+    <div className="lnd-article-cover" style={style}>
+      {image && !failed ? (
+        <img
+          className="lnd-article-cover-img"
+          src={image}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span className="lnd-article-cover-emoji" aria-hidden="true">
+          {CATEGORY_ICONS[category] || '🤖'}
+        </span>
+      )}
+      <span className="lnd-article-cover-shade" />
+      <span className="lnd-article-cover-chip">
+        {CATEGORY_ICONS[category] || '📰'} {sourceName}
+      </span>
+    </div>
+  )
+}
+
 export default function LiveNewsDashboard() {
+  const { t } = useLang();
   const [sources, setSources] = useState([])
   const [sourcesLoading, setSourcesLoading] = useState(true)
   const [selectedSources, setSelectedSources] = useState(new Set())
@@ -225,6 +336,7 @@ export default function LiveNewsDashboard() {
   const [activeCountry, setActiveCountry] = useState('All')
   const [activeCategory, setActiveCategory] = useState('All')
   const [activeTocItem, setActiveTocItem] = useState(null)
+  const [fetchProgress, setFetchProgress] = useState(null) // { done, total, articles }
   const [showContributeModal, setShowContributeModal] = useState(false)
   const [contributeUrl, setContributeUrl] = useState('')
   const [contributeMessage, setContributeMessage] = useState('')
@@ -307,10 +419,15 @@ export default function LiveNewsDashboard() {
         resultCounts[cat] = (resultCounts[cat] || 0) + quality
       }
     })
-    return TOC_BASE_CATEGORIES.map(item => ({
-      name: item,
-      count: resultCounts[item] || 0,
-    }))
+    // Prefer a stable curated ordering, then append any other categories that
+    // surfaced in the results (Quantum, AGI, Robotics, Semiconductors, etc.)
+    const extras = Object.keys(resultCounts)
+      .filter(cat => !TOC_BASE_CATEGORIES.includes(cat))
+      .sort()
+    const ordered = [...TOC_BASE_CATEGORIES, ...extras]
+    return ordered
+      .filter(name => resultCounts[name] > 0)
+      .map(name => ({ name, count: resultCounts[name] || 0 }))
   }, [results, sources])
 
   const activeTocItems = useMemo(
@@ -337,6 +454,25 @@ export default function LiveNewsDashboard() {
       counts[country] = (counts[country] || 0) + 1
     })
     return counts
+  }, [sources])
+
+  const countryList = useMemo(() => {
+    const rest = Object.keys(sourceCountsByCountry)
+      .filter(c => !PINNED_COUNTRIES.includes(c))
+      .sort((a, b) => (sourceCountsByCountry[b] - sourceCountsByCountry[a]) || a.localeCompare(b))
+    return [...PINNED_COUNTRIES.filter(c => c === 'All' || sourceCountsByCountry[c]), ...rest]
+  }, [sourceCountsByCountry])
+
+  const heroStats = useMemo(() => {
+    const countries = new Set(sources.map(s => s.country || 'Global'))
+    const categories = new Set(sources.map(s => s.category || 'Other'))
+    const rss = sources.filter(s => s.feedType === 'rss' || s.hasRss).length
+    return {
+      countries: countries.size,
+      categories: categories.size,
+      rss,
+      scraped: sources.length - rss,
+    }
   }, [sources])
 
   const visibleSources = useMemo(() => {
@@ -395,12 +531,27 @@ export default function LiveNewsDashboard() {
   }, [])
 
   // Client-side RSS fetcher: used as fallback when FastAPI backend is not running.
-  // Fetches RSS feeds through a CORS proxy and parses XML in the browser.
+  // Fetches RSS feeds through public CORS proxies and parses XML in the browser.
+  // Public proxies are unreliable, so we try several in order (fastest/most
+  // reliable first) and move on quickly when one fails.
   const CORS_PROXIES = [
-    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    url => `https://cors.eu.org/${url}`,
+    url => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
     url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
   ]
+
+  const unwrapProxyResponse = (text) => {
+    const s = text.trim()
+    if (s.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(s)
+        if (typeof parsed.contents === 'string') return parsed.contents
+      } catch { /* not JSON — treat as raw feed text */ }
+    }
+    return text
+  }
 
   const parseRssItems = (xmlText, limit = 10) => {
     const parser = new DOMParser()
@@ -416,6 +567,21 @@ export default function LiveNewsDashboard() {
         || ''
       const pubDate = item.querySelector('pubDate, published, updated, date')?.textContent?.trim() || ''
       const description = item.querySelector('description, summary, content')?.textContent?.trim() || ''
+
+      let image = ''
+      const enc = item.querySelector('enclosure')
+      if (enc && (enc.getAttribute('type') || '').startsWith('image') && enc.getAttribute('url')) {
+        image = enc.getAttribute('url')
+      }
+      if (!image) {
+        const mediaThumb = item.querySelector('thumbnail[url]')
+        if (mediaThumb) image = mediaThumb.getAttribute('url')
+      }
+      if (!image) {
+        const imgMatch = description.match(/<img[^>]+src=["']([^"']+)["']/i)
+        if (imgMatch) image = imgMatch[1]
+      }
+
       // Strip HTML tags then decode entities (e.g. &#8217; -> ')
       const stripped = description.replace(/<[^>]+>/g, '')
       const snippet = stripped.replace(/&#?\w+;/g, match => {
@@ -423,12 +589,17 @@ export default function LiveNewsDashboard() {
         el.innerHTML = match
         return el.textContent
       }).slice(0, 200)
-      return { title, url: link, date: pubDate, snippet }
+      return { title, url: link, date: pubDate, snippet, image }
     }).filter(item => item.title && item.url)
   }
 
   const fetchRssClientSide = async (selectedKeys, limit = 10) => {
-    const selectedSrcs = selectedKeys
+    const keys = Array.isArray(selectedKeys)
+      ? selectedKeys
+      : (selectedKeys instanceof Set
+          ? Array.from(selectedKeys)
+          : (typeof selectedKeys === 'string' ? selectedKeys.split(',').map(s => s.trim()).filter(Boolean) : []))
+    const selectedSrcs = keys
       .map(k => sources.find(s => s.key === k))
       .filter(s => s && (s.rss || s.hasRss || s.feedType === 'rss'))
     if (selectedSrcs.length === 0) {
@@ -449,11 +620,11 @@ export default function LiveNewsDashboard() {
           try {
             const proxyUrl = proxyFn(rssUrl)
             const controller = new AbortController()
-            const tid = setTimeout(() => controller.abort(), 8000)
+            const tid = setTimeout(() => controller.abort(), 20000)
             const res = await fetch(proxyUrl, { signal: controller.signal })
             clearTimeout(tid)
             if (!res.ok) throw new Error(`HTTP ${res.status}`)
-            const text = await res.text()
+            const text = unwrapProxyResponse(await res.text())
             const items = parseRssItems(text, limit)
             return { key: src.key, name: src.name, items, feedType: 'rss', status: 'OK' }
           } catch (e) {
@@ -475,58 +646,177 @@ export default function LiveNewsDashboard() {
     return { results, error }
   }
 
-  const fetchNews = useCallback(async () => {
-    if (selectedSources.size === 0) return
+  // Client-side per-article image enrichment: for articles whose feed had no
+  // image, fetch the article page and read its og:image tag (the publisher's
+  // own thumbnail for that exact story). Runs silently in the background with
+  // a small worker pool; proxy failures are ignored so the console stays clean.
+  const enrichMissingImages = async (resultsArr) => {
+    const jobs = []
+    resultsArr.forEach(r => (r.items || []).forEach(it => {
+      if (!it.image && /^https?:\/\//.test(it.url || '')) jobs.push(it)
+    }))
+    if (jobs.length === 0) return
+    const proxyPool = CORS_PROXIES.slice(0, 3)
+    const metaRe = /<meta[^>]+(?:property|name)=["'](?:og:image|og:image:url|og:image:secure_url|twitter:image|twitter:image:src)["'][^>]*>/gi
+    const htmlImgRe = /<img[^>]+src=["'](https?:\/\/[^"']+)["']/gi
+    const queue = [...jobs]
+    let done = 0
+    const worker = async () => {
+      while (queue.length) {
+        const item = queue.shift()
+        if (item.image) continue
+        for (const proxyFn of proxyPool) {
+          if (item.image) break
+          try {
+            const ctrl = new AbortController()
+            const tid = setTimeout(() => ctrl.abort(), 7000)
+            const res = await fetch(proxyFn(item.url), { signal: ctrl.signal })
+            clearTimeout(tid)
+            if (!res.ok) continue
+            const html = await res.text()
+            let img = ''
+            const metas = html.match(metaRe) || []
+            for (const m of metas) {
+              const c = m.match(/content=["']([^"']+)["']/i)
+              if (c && /^https?:\/\//.test(c[1])) { img = c[1]; break }
+            }
+            if (!img) {
+              const src = html.match(htmlImgRe)
+              if (src) img = src[1]
+            }
+            if (img) item.image = img
+          } catch { /* proxy killed/slow — try next, keep console clean */ }
+        }
+        done += 1
+      }
+    }
+    await Promise.all([worker(), worker(), worker(), worker()]).catch(() => {})
+    setResults(prev => prev.map(r => ({ ...r })))
+  }
+
+  const fetchNews = useCallback(async (overrideKeys = null) => {
+    // Normalize whatever came in to a flat array of source keys. Guards
+    // against strings, Sets, and stray arguments (e.g. a React event object
+    // passed by `onClick={fetchNews}`) so every selection path is safe.
+    const normalizeKeys = (input, fallback) => {
+      if (!input) return fallback
+      if (Array.isArray(input)) return input
+      if (input instanceof Set) return Array.from(input)
+      if (typeof input === 'string') return input.split(',').map(s => s.trim()).filter(Boolean)
+      return fallback
+    }
+    const selectedKeys = normalizeKeys(overrideKeys, Array.from(selectedSources))
+    if (!Array.isArray(selectedKeys) || selectedKeys.length === 0) return
     setLoading(true)
     setError(null)
     setResults([])
-    const srcStr = Array.from(selectedSources).join(',')
+    // Fetch through the FastAPI backend in small parallel batches. The server
+    // fetches feeds itself (no browser CORS), and batching means results stream
+    // into the page as each batch lands instead of one long all-or-nothing call.
+    // Public CORS proxies are only a last resort for batches the backend
+    // cannot serve (backend down / unreachable).
+    const BATCH = 12
+    const CONCURRENCY = 4
+    const batches = []
+    for (let i = 0; i < selectedKeys.length; i += BATCH) batches.push(selectedKeys.slice(i, i + BATCH))
+    const merged = []
+    const needClientSide = []
+    let progressDone = 0
+    setFetchProgress({ done: 0, total: selectedKeys.length, articles: 0 })
 
-    // 1) Try FastAPI backend first (3s timeout — fail fast if no backend)
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 3000)
-    let backendFailed = false
-    try {
-      const res = await fetch(`/api/news/fetch?sources=${encodeURIComponent(srcStr)}&limit=10`, {
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
-      if (res.ok) {
-        const rawText = await res.text()
-        if (rawText && rawText.trim()) {
-          const data = JSON.parse(rawText)
-          if (!data.error) {
-            if (data.truncated) {
-              setError(`Fetched first ${data.fetched_sources} of ${data.requested_sources} sources (capped). Deselect some to fetch in batches.`)
-            }
-            setResults(data.results || [])
-            setFetchedAt(data.fetched_at)
-            setTotalItems(data.total_items || 0)
-            setExpandedSources(new Set(data.results?.filter(r => r.items?.length > 0).map(r => r.key) || []))
-            setLoading(false)
-            return
-          }
+    const publish = () => {
+      const sorted = [...merged].sort((x, y) => (y.items?.length || 0) - (x.items?.length || 0))
+      setResults(sorted)
+      const articles = merged.reduce((sum, r) => sum + (r.items?.length || 0), 0)
+      setTotalItems(articles)
+      setFetchProgress({ done: progressDone, total: selectedKeys.length, articles })
+    }
+
+    const fetchBatch = async (keys) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const ctrl = new AbortController()
+        const tid = setTimeout(() => ctrl.abort(), 75000)
+        try {
+          const res = await fetch(`/api/news/fetch?sources=${encodeURIComponent(keys.join(','))}&limit=10`, { signal: ctrl.signal })
+          clearTimeout(tid)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const data = await res.json()
+          if (data.error && !(data.results || []).length) throw new Error(data.error)
+          return data.results || []
+        } catch (_e) {
+          clearTimeout(tid)
+          if (attempt === 0) await new Promise(r => setTimeout(r, 800))
         }
       }
-      backendFailed = true
-    } catch (_e) {
-      clearTimeout(timeoutId)
-      backendFailed = true
+      return null
     }
 
-    // 2) Backend unavailable or returned error — fall back to client-side RSS fetching
-    setFetchedAt(new Date().toLocaleTimeString())
-    try {
-      const { results, error } = await fetchRssClientSide(Array.from(selectedSources))
-      setResults(results)
-      setExpandedSources(new Set(results.filter(r => r.items?.length > 0).map(r => r.key)))
-      if (error) setError(error + ' (client-side RSS — some feeds may be blocked by CORS)')
-      else if (backendFailed) setError('Backend unavailable — fetched via client-side RSS instead.')
-    } catch (e) {
-      setError('Could not fetch news. Backend error and client-side RSS failed: ' + (e.message || e))
+    const queue = [...batches]
+    const worker = async () => {
+      while (queue.length) {
+        const keys = queue.shift()
+        const got = await fetchBatch(keys)
+        if (got) {
+          const seen = new Set(got.map(r => r.key))
+          merged.push(...got)
+          // Keys the server silently skipped still get a visible row.
+          keys.filter(k => !seen.has(k)).forEach(k => {
+            const src = sources.find(x => x.key === k)
+            merged.push({ key: k, name: src?.name || k, items: [], status: 'ERROR', error: 'No response from source' })
+          })
+        } else {
+          needClientSide.push(...keys)
+        }
+        progressDone += keys.length
+        publish()
+      }
     }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, batches.length) }, worker))
+    setFetchedAt(new Date().toLocaleTimeString())
+    setExpandedSources(new Set(merged.filter(r => r.items?.length > 0).map(r => r.key)))
+
+    if (needClientSide.length) {
+      try {
+        const { results: clientResults } = await fetchRssClientSide(needClientSide)
+        merged.push(...clientResults)
+        publish()
+        setExpandedSources(new Set(merged.filter(r => r.items?.length > 0).map(r => r.key)))
+        enrichMissingImages(merged)
+      } catch (_e) { /* keep what we have */ }
+    }
+
+    // Plain-language summary instead of a generic "CORS" error.
+    const failedRows = merged.filter(r => !(r.items?.length) && (r.error || (r.status && r.status !== 'OK')))
+    if (failedRows.length) {
+      const reasons = {}
+      failedRows.forEach(r => {
+        const raw = String(r.status && r.status !== 'ERROR' ? r.status : (r.error || 'unavailable'))
+        const label = /RATE|429/i.test(raw) ? 'rate-limited (retry in a few minutes)'
+          : /COOL/i.test(raw) ? 'cooling down after repeated failures'
+          : /TIMEOUT|timed out/i.test(raw) ? 'timed out'
+          : /403|FORBIDDEN|BLOCK/i.test(raw) ? 'blocked by the publisher'
+          : /DEAD|404|NO_FEED|NOT_XML/i.test(raw) ? 'feed moved or removed'
+          : 'temporarily unavailable'
+        reasons[label] = (reasons[label] || 0) + 1
+      })
+      const ok = merged.length - failedRows.length
+      setError(`${ok} of ${merged.length} sources delivered news. Skipped: ` +
+        Object.entries(reasons).map(([k, v]) => `${v} ${k}`).join(' · ') +
+        (needClientSide.length ? ' — backend unreachable for some batches, used browser fallback.' : ''))
+    }
+    setFetchProgress(null)
     setLoading(false)
   }, [selectedSources, sources])
+
+  const quickFetch = useCallback(async (cats) => {
+    const keys = sources
+      .filter(s => cats.includes(s.category) && s.isFetchable !== false)
+      .map(s => s.key)
+    if (keys.length === 0) return
+    setSelectedSources(new Set(keys))
+    setActiveCategory('All')
+    await fetchNews(keys)
+  }, [sources, fetchNews])
 
   const toggleExpand = useCallback((key) => {
     setExpandedSources(prev => {
@@ -593,16 +883,49 @@ export default function LiveNewsDashboard() {
   return (
     <div className="lnd-root">
       <div className="lnd-back-container">
-        <Link to="/" className="lnd-back-link">← Back to Home</Link>
+        <Link to="/" className="lnd-back-link">← {t('Back to Home')}</Link>
       </div>
 
       <div className="lnd-header">
         <div className="lnd-header-top">
           <div>
-            <h1 className="lnd-title">📡 Live AI News Dashboard</h1>
+            <div className="page-header-row">
+              <div className="lnd-title-wrap">
+                <h1 className="lnd-title">{t('📡 Live AI News Dashboard')}</h1>
+                <span className="lnd-live-pill"><span className="lnd-live-dot" />{t('LIVE')}</span>
+              </div>
+              <FetchButton onFetch={async () => {
+              if (selectedSources.size === 0) return 'Select news sources, then press Fetch again'
+              await fetchNews()
+              return 'News refreshed from live RSS feeds'
+            }} label={t('Fetch Latest')} />
+            </div>
             <p className="lnd-subtitle">
-              Fetch real-time news from {sources.length} AI sources via RSS feeds. Select sources, fetch, and browse.
+              Fetch real-time news from {sources.length} AI sources across {heroStats.countries} countries.
+              Track {heroStats.categories} topics — AI, Quantum (incl. Quantum AI), Robotics, AGI, Semiconductors &amp; chips, and more.
             </p>
+            <div className="lnd-hero-stats">
+              <div className="lnd-hero-stat">
+                <span className="lnd-hero-stat-value">{sources.length}</span>
+                <span className="lnd-hero-stat-label">{t('Sources')}</span>
+              </div>
+              <div className="lnd-hero-stat">
+                <span className="lnd-hero-stat-value">{heroStats.countries}</span>
+                <span className="lnd-hero-stat-label">{t('Countries')}</span>
+              </div>
+              <div className="lnd-hero-stat">
+                <span className="lnd-hero-stat-value">{heroStats.categories}</span>
+                <span className="lnd-hero-stat-label">{t('Topics')}</span>
+              </div>
+              <div className="lnd-hero-stat">
+                <span className="lnd-hero-stat-value lnd-hero-stat-green">{heroStats.rss}</span>
+                <span className="lnd-hero-stat-label">{t('RSS')}</span>
+              </div>
+              <div className="lnd-hero-stat">
+                <span className="lnd-hero-stat-value lnd-hero-stat-amber">{heroStats.scraped}</span>
+                <span className="lnd-hero-stat-label">{t('Scraped')}</span>
+              </div>
+            </div>
           </div>
           <div className="lnd-search-container">
             <span className="lnd-search-icon">🔍</span>
@@ -620,9 +943,47 @@ export default function LiveNewsDashboard() {
         </div>
       </div>
 
+      <div className="lnd-topic-tabs-container">
+        <div className="lnd-topic-tabs">
+          {FEATURED_TOPICS.map(topic => {
+            const isActive = activeCategory === topic.category
+            const color = topic.category === 'All'
+              ? '#60a5fa'
+              : (CATEGORY_COLORS[topic.category] || '#60a5fa')
+            return (
+              <button
+                key={topic.label}
+                className={`lnd-topic-tab ${isActive ? 'lnd-active' : ''}`}
+                style={isActive ? undefined : { '--lnd-topic-accent': color }}
+                onClick={() => setActiveCategory(topic.category)}
+              >
+                <span>{topic.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       <div className="lnd-country-tabs-container">
+        <div className="lnd-country-head">
+          <span>🌍 {countryList.length - 1} countries &amp; regions</span>
+          {activeCountry !== 'All' && (
+            <button
+              type="button"
+              className="lnd-country-fetch"
+              disabled={loading}
+              onClick={() => {
+                const keys = sources.filter(x => (x.country || 'Global') === activeCountry).map(x => x.key)
+                setSelectedSources(new Set(keys))
+                fetchNews(keys)
+              }}
+            >
+              ⚡ Fetch all {sourceCountsByCountry[activeCountry] || 0} {flagFor(activeCountry)} {activeCountry} sources
+            </button>
+          )}
+        </div>
         <div className="lnd-country-tabs">
-          {COUNTRIES.map(country => {
+          {countryList.map(country => {
             const count = sourceCountsByCountry[country] || 0
             const isActive = activeCountry === country
             return (
@@ -631,7 +992,7 @@ export default function LiveNewsDashboard() {
                 className={`lnd-country-tab ${isActive ? 'lnd-active' : ''}`}
                 onClick={() => setActiveCountry(country)}
               >
-                <span className="lnd-country-tab-flag">{COUNTRY_FLAGS[country]}</span>
+                <span className="lnd-country-tab-flag">{country === 'All' ? '🌍' : flagFor(country)}</span>
                 <span>{country}</span>
                 <span className="lnd-country-tab-count">{count}</span>
               </button>
@@ -684,8 +1045,8 @@ export default function LiveNewsDashboard() {
                 </span>
               </div>
               <div className="lnd-source-actions">
-                <button className="lnd-action-btn" onClick={selectAllVisible}>Select All Visible</button>
-                <button className="lnd-action-btn" onClick={deselectAll}>Deselect All</button>
+                <button className="lnd-action-btn" onClick={selectAllVisible}>{t('Select All Visible')}</button>
+                <button className="lnd-action-btn" onClick={deselectAll}>{t('Deselect All')}</button>
               </div>
             </div>
             <div className="lnd-source-grid">
@@ -789,9 +1150,23 @@ export default function LiveNewsDashboard() {
           </section>
 
           <div className="lnd-fetch-section">
+            <div className="lnd-preset-row">
+              <span className="lnd-preset-label">⚡ {t('Quick Fetch:')}</span>
+              {QUICK_PRESETS.map(preset => (
+                <button
+                  key={preset.label}
+                  className="lnd-preset-btn"
+                  onClick={() => quickFetch(preset.categories)}
+                  disabled={loading}
+                  title={`Select all ${preset.label.replace(/^[^\s]+\s/, '')} sources and fetch the latest news`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
             <button
               className="lnd-fetch-btn"
-              onClick={fetchNews}
+              onClick={() => fetchNews()}
               disabled={loading || selectedSources.size === 0}
             >
               {loading ? (
@@ -805,10 +1180,16 @@ export default function LiveNewsDashboard() {
                 </span>
               )}
             </button>
+            {fetchProgress && (
+              <div className="lnd-fetch-progress" role="progressbar" aria-valuemin={0} aria-valuemax={fetchProgress.total} aria-valuenow={fetchProgress.done}>
+                <div className="lnd-fetch-progress-bar"><i style={{ width: `${(fetchProgress.done / Math.max(1, fetchProgress.total)) * 100}%` }} /></div>
+                <span>{fetchProgress.done} / {fetchProgress.total} sources checked · {fetchProgress.articles} articles so far</span>
+              </div>
+            )}
             <p className="lnd-fetch-hint">
               {selectedSources.size === 0
                 ? 'Select one or more sources above to enable fetching.'
-                : `Ready to fetch from ${selectedSources.size} ${selectedSources.size === 1 ? 'source' : 'sources'}. May take up to 30 seconds.`}
+                : `Ready to fetch from ${selectedSources.size} ${selectedSources.size === 1 ? 'source' : 'sources'}. Results stream in batch by batch.`}
             </p>
           </div>
 
@@ -817,19 +1198,19 @@ export default function LiveNewsDashboard() {
               <div className="lnd-stats-bar">
                 <div className="lnd-stat-item">
                   <span className="lnd-stat-value">{stats.totalArticles}</span>
-                  <span className="lnd-stat-label">Articles</span>
+                  <span className="lnd-stat-label">{t('Articles')}</span>
                 </div>
                 <div className="lnd-stat-item lnd-stat-success">
                   <span className="lnd-stat-value">{stats.sourcesWithResults}</span>
-                  <span className="lnd-stat-label">With Data</span>
+                  <span className="lnd-stat-label">{t('With Data')}</span>
                 </div>
                 <div className="lnd-stat-item lnd-stat-error">
                   <span className="lnd-stat-value">{stats.sourcesWithErrors}</span>
-                  <span className="lnd-stat-label">Errors</span>
+                  <span className="lnd-stat-label">{t('Errors')}</span>
                 </div>
                 <div className="lnd-stat-item lnd-stat-muted">
                   <span className="lnd-stat-value">{stats.sourcesWithNoData}</span>
-                  <span className="lnd-stat-label">No Data</span>
+                  <span className="lnd-stat-label">{t('No Data')}</span>
                 </div>
                 {fetchedAt && (
                   <div className="lnd-stat-item" style={{ marginLeft: 'auto' }}>
@@ -843,8 +1224,8 @@ export default function LiveNewsDashboard() {
                   📰 Results ({filteredResults.length} sources · {stats.totalArticles} articles)
                 </h3>
                 <div className="lnd-source-actions">
-                  <button className="lnd-action-btn" onClick={expandAll}>Expand All</button>
-                  <button className="lnd-action-btn" onClick={collapseAll}>Collapse All</button>
+                  <button className="lnd-action-btn" onClick={expandAll}>{t('Expand All')}</button>
+                  <button className="lnd-action-btn" onClick={collapseAll}>{t('Collapse All')}</button>
                 </div>
               </div>
 
@@ -957,14 +1338,21 @@ export default function LiveNewsDashboard() {
                                         rel="noopener noreferrer"
                                         className={`lnd-article-card ${matchesSearch ? 'lnd-highlight' : ''}`}
                                       >
-                                        <div className="lnd-article-meta">
-                                          <span className="lnd-article-date">{formatDate(item.date)}</span>
-                                          <span className="lnd-article-source">{src.name}</span>
+                                        <ArticleCover
+                                          image={item.image}
+                                          category={category}
+                                          sourceName={src.name}
+                                        />
+                                        <div className="lnd-article-body">
+                                          <div className="lnd-article-meta">
+                                            <span className="lnd-article-date">🕘 {formatDate(item.date) || 'Latest'}</span>
+                                            <span className="lnd-read-more">Read ↗</span>
+                                          </div>
+                                          <div className="lnd-article-title">{item.title}</div>
+                                          {item.snippet && (
+                                            <div className="lnd-article-snippet">{item.snippet.slice(0, 250)}…</div>
+                                          )}
                                         </div>
-                                        <div className="lnd-article-title">{item.title}</div>
-                                        {item.snippet && (
-                                          <div className="lnd-article-snippet">{item.snippet.slice(0, 250)}…</div>
-                                        )}
                                       </a>
                                     )
                                   })}
@@ -995,7 +1383,7 @@ export default function LiveNewsDashboard() {
           className="lnd-rss-contribute-btn"
           onClick={() => setShowContributeModal(true)}
         >
-          📡 Suggest RSS Feed
+          📡 {t('Suggest RSS Feed')}
         </button>
         <span className="lnd-rss-contribute-hint">
           Know an AI news source with an RSS feed? Submit it to help improve the catalog.
@@ -1044,7 +1432,7 @@ export default function LiveNewsDashboard() {
             </p>
             <div className="lnd-contribute-actions">
               <button className="lnd-contribute-cancel" onClick={() => setShowContributeModal(false)}>
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 className="lnd-contribute-submit"
@@ -1063,7 +1451,7 @@ export default function LiveNewsDashboard() {
                 }}
                 disabled={!contributeUrl.trim()}
               >
-                📋 Copy Config Template
+                {t('📋 Copy Config Template')}
               </button>
             </div>
           </div>

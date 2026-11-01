@@ -2,6 +2,9 @@ import React, { useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { FILE_CATEGORIES, CATEGORY_ICONS, searchFiles } from '../data/appData'
 import FileViewer from '../components/FileViewer'
+import FetchButton from '../components/FetchButton'
+import { useLang } from '../i18n'
+import { refreshFileCatalog } from '../api'
 
 // File URL resolver - every manifest file already carries its own url
 function getFileUrl(file) {
@@ -58,6 +61,7 @@ function isOfficeFile(name) {
 }
 
 export default function FileReferenceView() {
+  const { t } = useLang()
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState(null)
   const [expandedCat, setExpandedCat] = useState(null)
@@ -77,11 +81,14 @@ export default function FileReferenceView() {
 
   return (
     <div className="file-reference">
-      <Link to="/" className="back-link">← Back to Home</Link>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
 
       {/* Header */}
       <div className="ref-header">
-        <h2 className="chapter-title">📂 AI Master Reference — All Files by Folder</h2>
+        <div className="page-header-row">
+          <h2 className="chapter-title">📂 {t('AI Master Reference — All Files by Folder')}</h2>
+          <FetchButton onFetch={() => { setSearchQ(''); setSearchResults(null); return refreshFileCatalog('File reference vault') }} label={t('Fetch Latest')} />
+        </div>
         <p className="chapter-preview">
           Complete file catalog from <strong>public/data</strong> and <strong>public/images</strong> ·
           {totalFiles}+ files across {FILE_CATEGORIES.length} categories ·
@@ -98,7 +105,7 @@ export default function FileReferenceView() {
           value={searchQ}
           onChange={e => setSearchQ(e.target.value)}
         />
-        <button type="submit">Search</button>
+        <button type="submit">{t('Search')}</button>
         {searchResults && (
           <button type="button" className="clear-btn" onClick={() => { setSearchResults(null); setSearchQ('') }}>✕</button>
         )}

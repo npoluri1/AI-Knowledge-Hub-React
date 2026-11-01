@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dynamic Trading Master Guide — SG, US & India 2026</title>
+
+<!-- ============================================================
+     EMBEDDABLE STANDALONE PAGE
+     Self-contained (inline CSS + JS, no external frameworks).
+     Hot-links to Unsplash CDN images (works when copied into any
+     app's static folder or an <iframe>).
+     ============================================================ -->
+
+<style>
+/* -------------------- RESET & VARIABLES -------------------- */
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#07070f;
+  --bg2:#0d0d1c;
+  --card:#131328;
+  --card2:#181834;
+  --line:#2c2c55;
+  --txt:#f2f3ff;
+  --muted:#9aa0c3;
+  --gold:#ffd24a;
+  --gold2:#ffb300;
+  --green:#2ee6a8;
+  --green2:#00c853;
+  --red:#ff5470;
+  --red2:#ff1744;
+  --blue:#4da6ff;
+  --cyan:#35e0ff;
+  --purple:#b388ff;
+  --orange:#ffab40;
+  --pink:#ff5da2;
+  --shadow:0 10px 40px rgba(0,0,0,.5);
+  --radius:16px;
+  --grad:linear-gradient(135deg,#ffd24a,#ffb300);
+  --grad2:linear-gradient(135deg,#4da6ff,#35e0ff);
+  --grad3:linear-gradient(135deg,#2ee6a8,#00c853);
+  --grad4:linear-gradient(135deg,#b388ff,#ff5da2);
+  --grad5:linear-gradient(135deg,#ff5470,#ffab40);
+}
+/* LIGHT THEME OVERRIDES */
+body.light{
+  --bg:#f5f6fb;
+  --bg2:#eceefa;
+  --card:#ffffff;
+  --card2:#ffffff;
+  --line:#d9ddf0;
+  --txt:#151a3a;
+  --muted:#5b628a;
+  --shadow:0 10px 40px rgba(30,40,120,.12);
+}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,'Helvetica Neue',Arial,sans-serif;
+  background:var(--bg);
+  color:var(--txt);
+  line-height:1.7;
+  overflow-x:hidden;
+}
+/* ambient animated background */
+body::before{
+  content:'';position:fixed;inset:0;z-index:-2;
+  background:
+    radial-gradient(60% 50% at 10% 0%,rgba(77,166,255,.10),transparent 60%),
+    radial-gradient(50% 45% at 90% 10%,rgba(255,210,74,.10),transparent 60%),
+    radial-gradient(55% 55% at 50% 100%,rgba(179,136,255,.10),transparent 60%),
+    var(--bg);
+}
+a{color:var(--cyan);text-decoration:none;}
+img{max-width:100%;display:block;}
+::selection{background:var(--gold);color:#0a0a12;}
+
+/* -------------------- SCROLLBAR -------------------- */
+::-webkit-scrollbar{width:11px;height:11px;}
+::-webkit-scrollbar-track{background:var(--bg2);}
+::-webkit-scrollbar-thumb{background:linear-gradient(var(--gold2),var(--red2));border-radius:10px;}
+
+/* -------------------- TOP TICKER BAR -------------------- */
+.ticker-wrap{
+  background:linear-gradient(90deg,#0a0a16,#14142e);
+  border-bottom:1px solid rgba(255,210,74,.25);
+  padding:10px 0;overflow:hidden;white-space:nowrap;
+}
+body.light .ticker-wrap{background:linear-gradient(90deg,#1c2450,#2a3560);}
+.ticker-inner{display:inline-block;animation:tick 38s linear infinite;padding-left:100%;}
+@keyframes tick{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+.tick-item{display:inline-block;margin-right:44px;font-size:.85rem;color:var(--muted);}
+.tick-item .t-sym{color:var(--txt);font-weight:700;margin-right:6px;}
+.tick-item .t-up{color:var(--green);font-weight:700;}
+.tick-item .t-dn{color:var(--red);font-weight:700;}
+
+/* -------------------- HERO -------------------- */
+.hero{
+  position:relative;min-height:74vh;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;text-align:center;overflow:hidden;
+}
+.hero img.hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;filter:brightness(.32) saturate(1.15);}
+.hero::after{content:'';position:absolute;inset:0;z-index:-1;
+  background:radial-gradient(60% 55% at 50% 40%,transparent 0%,rgba(7,7,15,.85) 100%);}
+.hero .kicker{
+  letter-spacing:6px;text-transform:uppercase;font-size:.78rem;font-weight:700;
+  color:var(--gold);background:rgba(255,210,74,.12);border:1px solid rgba(255,210,74,.4);
+  padding:7px 18px;border-radius:40px;backdrop-filter:blur(6px);
+}
+.hero h1{
+  font-size:clamp(2.2rem,6vw,4.6rem);font-weight:900;line-height:1.05;margin:22px 0 10px;
+  background:linear-gradient(120deg,#fff,#ffe9a8 45%,var(--gold) 70%,var(--orange));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 6px 30px rgba(255,210,74,.25));
+}
+.hero .sub{font-size:clamp(1rem,2.4vw,1.45rem);color:var(--cyan);font-weight:600;margin-bottom:15px;}
+.hero .meta{color:var(--muted);font-size:.95rem;max-width:720px;padding:0 20px;}
+.hero .cta-row{margin-top:30px;display:flex;flex-wrap:wrap;gap:14px;justify-content:center;}
+
+/* -------------------- BUTTONS -------------------- */
+.btn{
+  display:inline-flex;align-items:center;gap:8px;padding:13px 26px;border-radius:50px;
+  font-weight:700;font-size:.95rem;cursor:pointer;border:none;transition:.3s;
+  text-decoration:none;color:#0a0a12;
+}
+.btn-gold{background:var(--grad);box-shadow:0 8px 25px rgba(255,179,0,.35);}
+.btn-gold:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(255,179,0,.5);}
+.btn-ghost{background:transparent;border:1.5px solid rgba(255,255,255,.45);color:#fff;}
+body.light .btn-ghost{border-color:rgba(21,26,58,.45);color:var(--txt);}
+.btn-ghost:hover{background:rgba(255,255,255,.12);transform:translateY(-3px);}
+
+/* -------------------- NAV / TABS -------------------- */
+nav.ptabs{
+  position:sticky;top:0;z-index:200;
+  background:rgba(13,13,28,.85);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);padding:10px 16px;
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+}
+body.light nav.ptabs{background:rgba(255,255,255,.88);}
+.tab{
+  padding:9px 15px;border-radius:40px;cursor:pointer;font-size:.82rem;font-weight:600;
+  color:var(--muted);border:1px solid var(--line);transition:.25s;background:transparent;white-space:nowrap;
+}
+.tab:hover{color:var(--txt);border-color:var(--gold);transform:translateY(-1px);}
+.tab.active{background:var(--grad);color:#0a0a12;border-color:transparent;font-weight:800;box-shadow:0 6px 20px rgba(255,179,0,.35);}
+.nav-right{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.icon-btn{
+  width:40px;height:40px;border-radius:50%;border:1px solid var(--line);cursor:pointer;
+  background:var(--card);color:var(--txt);font-size:1.1rem;transition:.25s;display:flex;align-items:center;justify-content:center;
+}
+.icon-btn:hover{border-color:var(--gold);transform:translateY(-2px);}
+
+/* -------------------- SECTIONS -------------------- */
+section.sec{display:none;max-width:1280px;margin:0 auto;padding:38px 22px 60px;}
+section.sec.show{display:block;animation:fadeUp .5s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.sec-head{display:flex;align-items:center;gap:14px;margin-bottom:28px;}
+.sec-num{
+  font-size:1.6rem;font-weight:900;font-family:Consolas,monospace;
+  background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.sec-title{font-size:clamp(1.4rem,3vw,2.1rem);font-weight:900;line-height:1.15;}
+.sec-tag{font-size:.78rem;font-weight:700;padding:5px 13px;border-radius:30px;background:rgba(179,136,255,.15);color:var(--purple);border:1px solid rgba(179,136,255,.4);white-space:nowrap;}
+
+/* -------------------- CARDS / GRID -------------------- */
+.grid{display:grid;gap:20px;}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));}
+.g3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));}
+.g4{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:24px;box-shadow:var(--shadow);transition:.3s;position:relative;overflow:hidden;
+}
+.card:hover{transform:translateY(-5px);border-color:rgba(255,210,74,.4);}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.card.g::before{background:var(--grad);}
+.card.r::before{background:linear-gradient(135deg,var(--red2),#ff7a9e);}
+.card.b::before{background:var(--grad2);}
+.card.p::before{background:var(--grad4);}
+.card.o::before{background:var(--grad5);}
+.card.gr::before{background:var(--grad3);}
+.card h3{font-size:1.15rem;margin-bottom:10px;display:flex;align-items:center;gap:9px;}
+.card h3 .emoji{font-size:1.4rem;}
+.card p{color:var(--muted);font-size:.95rem;}
+.card .big{font-size:1.9rem;font-weight:900;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.card .big.red-t{background:linear-gradient(135deg,var(--red2),#ff7a9e);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+
+/* image cards */
+.imgcard{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);transition:.3s;min-height:250px;display:flex;align-items:flex-end;}
+.imgcard:hover{transform:translateY(-6px);border-color:rgba(255,210,74,.5);}
+.imgcard img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(1.1);transition:.5s;}
+.imgcard:hover img{transform:scale(1.07);}
+.imgcard .ov{position:relative;width:100%;padding:22px;background:linear-gradient(transparent,rgba(0,0,0,.85));}
+.imgcard .ov h4{color:#fff;font-size:1.15rem;font-weight:800;}
+.imgcard .ov p{color:#cfd2ea;font-size:.85rem;}
+
+/* gallery */
+.gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
+
+/* -------------------- TABLES -------------------- */
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);}
+table.tbl{width:100%;border-collapse:collapse;font-size:.9rem;min-width:640px;}
+table.tbl th{
+  background:linear-gradient(135deg,#1a1a3a,#23234a);color:var(--gold);padding:14px 16px;text-align:left;
+  font-size:.72rem;letter-spacing:1px;text-transform:uppercase;position:sticky;top:0;
+}
+body.light table.tbl th{background:linear-gradient(135deg,#2a3560,#39447a);}
+table.tbl td{padding:13px 16px;border-top:1px solid var(--line);color:var(--muted);}
+table.tbl tr{transition:.2s;}
+table.tbl tr:hover td{background:rgba(77,166,255,.07);color:var(--txt);}
+table.tbl td b,table.tbl td strong{color:var(--txt);}
+.up{color:var(--green);font-weight:700;}
+.dn{color:var(--red);font-weight:700;}
+.flat{color:var(--muted);}
+
+/* -------------------- PILLS / BADGES -------------------- */
+.pill{display:inline-block;padding:4px 12px;border-radius:30px;font-size:.74rem;font-weight:800;letter-spacing:.3px;}
+.pill.red{background:rgba(255,84,112,.15);color:var(--red);border:1px solid rgba(255,84,112,.4);}
+.pill.green{background:rgba(46,230,168,.15);color:var(--green);border:1px solid rgba(46,230,168,.4);}
+.pill.orange{background:rgba(255,171,64,.15);color:var(--orange);border:1px solid rgba(255,171,64,.4);}
+.pill.blue{background:rgba(77,166,255,.15);color:var(--blue);border:1px solid rgba(77,166,255,.4);}
+.pill.purple{background:rgba(179,136,255,.15);color:var(--purple);border:1px solid rgba(179,136,255,.4);}
+.pill.gold{background:rgba(255,210,74,.15);color:var(--gold);border:1px solid rgba(255,210,74,.4);}
+.pill.cyan{background:rgba(53,224,255,.15);color:var(--cyan);border:1px solid rgba(53,224,255,.4);}
+
+/* -------------------- ALERTS / ACCORDION -------------------- */
+.alert{border-radius:12px;padding:14px 18px;margin:14px 0;font-size:.92rem;border-left:5px solid;display:flex;gap:12px;align-items:flex-start;}
+.alert .al-ic{font-size:1.3rem;}
+.alert.danger{background:rgba(255,84,112,.1);border-color:var(--red);color:var(--red);}
+.alert.warn{background:rgba(255,171,64,.1);border-color:var(--orange);color:var(--orange);}
+.alert.info{background:rgba(77,166,255,.1);border-color:var(--blue);color:var(--blue);}
+.alert.good{background:rgba(46,230,168,.1);border-color:var(--green);color:var(--green);}
+details.acc{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:10px 0;overflow:hidden;transition:.3s;box-shadow:var(--shadow);}
+details.acc summary{cursor:pointer;padding:16px 20px;font-weight:700;list-style:none;display:flex;align-items:center;gap:12px;font-size:.98rem;}
+details.acc summary::-webkit-details-marker{display:none;}
+details.acc summary .chev{transition:.3s;color:var(--gold);}
+details.acc[open] summary .chev{transform:rotate(90deg);}
+details.acc .acc-body{padding:8px 20px 20px;color:var(--muted);font-size:.93rem;}
+
+/* -------------------- STAT COUNTERS -------------------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:18px;margin:24px 0;}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;text-align:center;box-shadow:var(--shadow);transition:.3s;}
+.stat:hover{transform:translateY(-4px);border-color:rgba(255,210,74,.5);}
+.stat .val{font-size:2rem;font-weight:900;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-family:Consolas,monospace;}
+.stat .lbl{color:var(--muted);font-size:.82rem;font-weight:600;margin-top:4px;}
+
+/* -------------------- CHART CONTAINERS -------------------- */
+.chart-box{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);position:relative;}
+svg.chart{width:100%;height:auto;overflow:visible;}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--muted);margin-top:12px;}
+.legend span{display:inline-flex;align-items:center;gap:6px;}
+.legend .dot{width:11px;height:11px;border-radius:50%;}
+
+/* -------------------- SEARCH / INPUT -------------------- */
+.searchbox{position:relative;max-width:520px;margin-bottom:24px;}
+.searchbox input{width:100%;padding:16px 20px 16px 52px;border-radius:50px;border:1px solid var(--line);background:var(--card);color:var(--txt);font-size:1rem;transition:.3s;outline:none;}
+.searchbox input:focus{border-color:var(--gold);box-shadow:0 0 0 4px rgba(255,210,74,.15);}
+.searchbox .s-ic{position:absolute;left:20px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:1.1rem;}
+
+/* -------------------- GLOSSARY -------------------- */
+.gloss-item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:10px;transition:.2s;}
+.gloss-item:hover{border-color:rgba(53,224,255,.5);transform:translateX(4px);}
+.gloss-item .g-term{font-weight:800;color:var(--gold);font-size:1rem;}
+.gloss-item .g-def{color:var(--muted);font-size:.9rem;margin-top:3px;}
+
+/* -------------------- MODAL -------------------- */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(5px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
+.overlay.show{display:flex;animation:fadeIn .3s;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{background:var(--card);border:1px solid var(--gold);border-radius:20px;max-width:560px;width:100%;padding:30px;box-shadow:0 20px 70px rgba(0,0,0,.6);max-height:90vh;overflow-y:auto;position:relative;animation:pop .3s;}
+@keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.modal .m-close{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--muted);font-size:1.5rem;cursor:pointer;}
+.modal .m-close:hover{color:var(--red);}
+.modal h3{font-size:1.5rem;margin-bottom:14px;}
+.modal p{color:var(--muted);margin-bottom:10px;}
+
+/* -------------------- PROGRESS / PRICE BAR -------------------- */
+.meter{height:12px;background:rgba(255,255,255,.08);border-radius:20px;overflow:hidden;margin:6px 0;}
+.meter > span{display:block;height:100%;border-radius:20px;transition:width 1.2s cubic-bezier(.2,.8,.2,1);}
+.alloc{display:flex;align-items:center;gap:14px;margin:10px 0;}
+.alloc .lbl{width:150px;font-size:.88rem;color:var(--txt);font-weight:600;flex-shrink:0;}
+.alloc .meter{flex:1;}
+.alloc .pct{width:52px;text-align:right;font-weight:800;color:var(--gold);font-family:Consolas,monospace;}
+
+/* -------------------- FOOTER -------------------- */
+.footer{border-top:1px solid var(--line);padding:40px 22px 30px;text-align:center;color:var(--muted);}
+.footer h4{color:var(--gold);font-size:1.2rem;margin-bottom:8px;}
+.footer .links a{margin:0 10px;font-size:.85rem;}
+
+/* -------------------- RESPONSIVE -------------------- */
+@media(max-width:720px){
+  nav.ptabs{flex-wrap:nowrap;overflow-x:auto;}
+  .hero{min-height:64vh;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ TICKER BAR ============ -->
+<div class="ticker-wrap">
+  <div class="ticker-inner" id="ticker">
+    <!-- Filled by JS -->
+  </div>
+</div>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <img class="hero-bg" src="https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1600&q=80" alt="Financial trading screens and market charts">
+  <div class="kicker">&#128200; Live Interactive Guide</div>
+  <h1>Trading Master Guide 2026</h1>
+  <div class="sub">Singapore &#8226; USA &#8226; India &mdash; Sep to Dec 2026</div>
+  <p class="meta">A rich, dynamic, real-time-feel companion for stocks, ETFs, gold, bonds, options, technical analysis and paper trading &mdash; built to be embedded anywhere.</p>
+  <div class="cta-row">
+    <button class="btn btn-gold" onclick="goTab('today')">&#9654; Start Reading</button>
+    <button class="btn btn-ghost" onclick="goTab('glossary')">&#128214; Trading Glossary</button>
+  </div>
+</header>
+
+<!-- ============ TAB NAV ============ -->
+<nav class="ptabs">
+  <button class="tab active" data-tab="today">&#128202; Today</button>
+  <button class="tab" data-tab="glossary">&#128214; Glossary</button>
+  <button class="tab" data-tab="howto">&#9889; How It Works</button>
+  <button class="tab" data-tab="stocks">&#127961; Stocks</button>
+  <button class="tab" data-tab="etfs">&#128200; ETFs</button>
+  <button class="tab" data-tab="gold">&#127941; Gold</button>
+  <button class="tab" data-tab="bonds">&#127973; Bonds</button>
+  <button class="tab" data-tab="mutual">&#127991; Mutual Funds</button>
+  <button class="tab" data-tab="outlook">&#128197; Monthly Outlook</button>
+  <button class="tab" data-tab="ta">&#128201; Technical Analysis</button>
+  <button class="tab" data-tab="options">&#128193; Options</button>
+  <button class="tab" data-tab="paper">&#128221; Paper Trading</button>
+  <button class="tab" data-tab="yahoo">&nbsp;&#128269;&nbsp;Research</button>
+  <div class="nav-right">
+    <button class="icon-btn" id="themeBtn" title="Toggle theme">&#127769;</button>
+  </div>
+</nav>
+
+<!-- ==================== SECTION: TODAY ==================== -->
+<section class="sec show" id="today">
+  <div class="sec-head">
+    <span class="sec-num">01</span>
+    <h2 class="sec-title">Today&#39;s Market Snapshot</h2>
+    <span class="sec-tag">2 SEPTEMBER 2026</span>
+  </div>
+
+  <div class="alert danger">
+    <span class="al-ic">&#9888;</span>
+    <div><strong>NOT FINANCIAL ADVICE.</strong> Everything on this page is for education only. Markets fall as fast as they rise. Always do your own research and never invest money you can&#39;t afford to lose.</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="val" data-count="7631.95" data-dec="2" data-prefix="$">$0</div><div class="lbl">S&amp;P 500</div></div>
+    <div class="stat"><div class="val" data-count="217.44" data-dec="2" data-prefix="$">$0</div><div class="lbl">NVIDIA (NVDA)</div></div>
+    <div class="stat"><div class="val" data-count="4320" data-dec="0" data-prefix="$">$0</div><div class="lbl">Gold / oz</div></div>
+    <div class="stat"><div class="val" data-count="78090" data-dec="0" data-prefix="$">$0</div><div class="lbl">Bitcoin</div></div>
+    <div class="stat"><div class="val" data-count="24100" data-dec="0" data-prefix="">0</div><div class="lbl">Nifty 50</div></div>
+    <div class="stat"><div class="val" data-count="95.73" data-dec="2" data-prefix="">0</div><div class="lbl">USD/INR</div></div>
+    <div class="stat"><div class="val" data-count="4.68" data-dec="2" data-prefix="">0</div><div class="lbl">10Y Treasury %</div></div>
+    <div class="stat"><div class="val" data-count="87.58" data-dec="2" data-prefix="$">$0</div><div class="lbl">WTI Oil</div></div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card b">
+      <h3><span class="emoji">&#128200;</span> Market Mood Gauge</h3>
+      <p>Global sentiment heading into September is <strong style="color:var(--orange)">RISK-OFF</strong> with elevated volatility driven by the US&#8211;Iran conflict and rising oil.</p>
+      <div class="meter" style="margin-top:20px"><span style="width:38%;background:var(--red2)"></span></div>
+      <p style="margin-top:8px;font-size:.85rem">Bearish &#8592; &#8226;&#8226;&#8226;&#8226;&#8226;&#8226; <b style="color:var(--txt)">&#9632; We are here</b> &#8226;&#8226;&#8226;&#8226; &#8594; Bullish</p>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--green)"></span>Risk-on</span>
+        <span><span class="dot" style="background:var(--red)"></span>Risk-off (now)</span>
+      </div>
+    </div>
+    <div class="card r">
+      <h3><span class="emoji">&#9888;</span> Key Driver Alert</h3>
+      <p><strong style="color:var(--red)">US&#8211;Iran conflict</strong> is pushing oil above $87 and pressuring equity markets. The Fed holds rates at 3.50&#8211;3.75% with <span class="pill red">65% odds</span> of a September hike.</p>
+      <details class="acc" style="margin-top:14px">
+        <summary><span class="chev">&#9656;</span> What this means for you</summary>
+        <div class="acc-body">Higher for longer rates squeeze valuations. Keep some cash, favour quality dividends and gold as a hedge, and be patient with entry points. Do not chase rallies into a hawkish Fed.</div>
+      </details>
+    </div>
+  </div>
+
+  <div class="chart-box" style="margin-top:22px">
+    <h3 style="margin-bottom:6px">Annualised Price Trend (Interactive)</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:6px">Hover over the line to read values. Toggle between assets.</p>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--blue)"></span>S&amp;P 500</span>
+      <span><span class="dot" style="background:var(--gold)"></span>Gold</span>
+      <span><span class="dot" style="background:var(--green)"></span>Nifty</span>
+    </div>
+    <svg class="chart" id="spark" viewBox="0 0 760 320" role="img" aria-label="Interactive market price chart"></svg>
+  </div>
+</section>
+
+<!-- ==================== SECTION: GLOSSARY ==================== -->
+<section class="sec" id="glossary">
+  <div class="sec-head">
+    <span class="sec-num">02</span>
+    <h2 class="sec-title">Trading Glossary</h2>
+    <span class="sec-tag">SEARCHABLE</span>
+  </div>
+  <div class="searchbox">
+    <span class="s-ic">&#128269;</span>
+    <input type="text" id="glossSearch" placeholder="Type to filter terms... e.g. 'bull', 'ETF', 'stop loss'">
+  </div>
+  <div id="glossList">
+    <div class="gloss-item"><div class="g-term">Stock</div><div class="g-def">A share of ownership in a company. Buy a stock and you own a tiny piece of the business.</div></div>
+    <div class="gloss-item"><div class="g-term">ETF (Exchange-Traded Fund)</div><div class="g-def">A basket of assets (stocks, bonds, gold) you buy like a single stock. One purchase gives instant diversification.</div></div>
+    <div class="gloss-item"><div class="g-term">Bull Market</div><div class="g-def">A period when prices are rising overall. Optimism dominates.</div></div>
+    <div class="gloss-item"><div class="g-term">Bear Market</div><div class="g-def">A period when prices fall ~20%+ from highs. Pessimism dominates.</div></div>
+    <div class="gloss-item"><div class="g-term">Dividend</div><div class="g-def">A share of a company&#39;s profit paid to shareholders, usually quarterly. A form of passive income.</div></div>
+    <div class="gloss-item"><div class="g-term">Bull/Bear</div><div class="g-def">Bull = buyer/optimistic. Bear = seller/pessimistic.</div></div>
+    <div class="gloss-item"><div class="g-term">Stop-Loss</div><div class="g-def">A preset price at which you automatically sell to cap your loss. Discipline that saves accounts.</div></div>
+    <div class="gloss-item"><div class="g-term">DCA (Dollar-Cost Averaging)</div><div class="g-def">Investing a fixed amount at regular intervals, ignoring price. Smooths out volatility over time.</div></div>
+    <div class="gloss-item"><div class="g-term">Index</div><div class="g-def">A benchmark tracking a group of stocks, e.g. S&amp;P 500, STI, Nifty 50.</div></div>
+    <div class="gloss-item"><div class="g-term">Benchmark</div><div class="g-def">The standard/index an investment is compared against (e.g. does your fund beat the S&amp;P 500?).</div></div>
+    <div class="gloss-item"><div class="g-term">Liquidity</div><div class="g-def">How easily you can buy/sell without moving the price. Cash is liquid; property is not.</div></div>
+    <div class="gloss-item"><div class="g-term">Volatility</div><div class="g-def">How much and how fast a price swings. High volatility = big moves, both up and down.</div></div>
+    <div class="gloss-item"><div class="g-term">Market Cap</div><div class="g-def">Total value of a company = share price x shares outstanding. Large-cap > $10B, small-cap < $2B.</div></div>
+    <div class="gloss-item"><div class="g-term">Portfolio</div><div class="g-def">Your full collection of investments across stocks, bonds, ETFs, gold, cash, etc.</div></div>
+    <div class="gloss-item"><div class="g-term">Rebalancing</div><div class="g-def">Realigning your portfolio back to target percentages periodically to control risk.</div></div>
+    <div class="gloss-item"><div class="g-term">Yield</div><div class="g-def">Annual income as a % of price. Dividend yield = annual dividend / price.</div></div>
+    <div class="gloss-item"><div class="g-term">Blue Chip</div><div class="g-def">A large, established, financially strong company (e.g. DBS, Apple, HDFC Bank).</div></div>
+    <div class="gloss-item"><div class="g-term">IPO (Initial Public Offering)</div><div class="g-def">The first time a private company sells shares to the public.</div></div>
+    <div class="gloss-item"><div class="g-term">Margin</div><div class="g-def">Borrowing money from your broker to trade. Amplifies gains AND losses. Dangerous for beginners.</div></div>
+    <div class="gloss-item"><div class="g-term">Leverage</div><div class="g-def">Using borrowed funds/derivatives to amplify exposure. Can multiply losses to zero.</div></div>
+    <div class="gloss-item"><div class="g-term">Short Selling</div><div class="g-def">Borrowing shares to sell now, hoping to buy back cheaper later. Betting on a price FALL.</div></div>
+    <div class="gloss-item"><div class="g-term">Call Option</div><div class="g-def">Right (not obligation) to BUY a stock at a set price before expiry. Bullish tool.</div></div>
+    <div class="gloss-item"><div class="g-term">Put Option</div><div class="g-def">Right (not obligation) to SELL a stock at a set price before expiry. Bearish tool / insurance.</div></div>
+    <div class="gloss-item"><div class="g-term">Strike Price</div><div class="g-def">The fixed price at which an option lets you buy (call) or sell (put) the underlying.</div></div>
+    <div class="gloss-item"><div class="g-term">Premium (Options)</div><div class="g-def">The price/cost you pay to buy an option, or collect when selling one.</div></div>
+    <div class="gloss-item"><div class="g-term">REIT (Real Estate Investment Trust)</div><div class="g-def">A company owning income-producing property. Distributes most profit as dividends.</div></div>
+    <div class="gloss-item"><div class="g-term">Bond</div><div class="g-def">A loan you give to a government/company that pays interest and returns principal at maturity.</div></div>
+    <div class="gloss-item"><div class="g-term">Interest Rate</div><div class="g-def">The cost of borrowing money. Central banks raise/lower it to control inflation and growth.</div></div>
+    <div class="gloss-item"><div class="g-term">Inflation</div><div class="g-def">The rate at which prices of goods/services rise, eroding purchasing power.</div></div>
+    <div class="gloss-item"><div class="g-term">Diversification</div><div class="g-def">Spreading money across assets/sectors/countries to reduce risk. Don&#39;t put all eggs in one basket.</div></div>
+    <div class="gloss-item"><div class="g-term">Technical Analysis</div><div class="g-def">Predicting price moves from charts, volume and indicators (RSI, moving averages, support).</div></div>
+    <div class="gloss-item"><div class="g-term">Fundamental Analysis</div><div class="g-def">Valuing a company from financials like earnings, revenue, debt and growth.</div></div>
+    <div class="gloss-item"><div class="g-term">RSI</div><div class="g-def">Relative Strength Index. 0-100 momentum gauge. Above 70 = overbought, below 30 = oversold.</div></div>
+    <div class="gloss-item"><div class="g-term">Moving Average</div><div class="g-def">Smoothed average price over N days. 50-day (short) &amp; 200-day (long) reveal trend.</div></div>
+    <div class="gloss-item"><div class="g-term">Support</div><div class="g-def">A price level where buyers repeatedly step in &mdash; a "floor".</div></div>
+    <div class="gloss-item"><div class="g-term">Resistance</div><div class="g-def">A price level where sellers repeatedly step in &mdash; a "ceiling".</div></div>
+    <div class="gloss-item"><div class="g-term">Volume</div><div class="g-def">Number of shares traded. Confirms whether a price move is strong or weak.</div></div>
+    <div class="gloss-item"><div class="g-term">Risk:Reward Ratio</div><div class="g-def">Compares potential loss to potential gain. Minimum 2:1 means risking 1 to make 2.</div></div>
+    <div class="gloss-item"><div class="g-term">Position Sizing</div><div class="g-def">How much of your portfolio each trade uses. Max 5% per stock is a common safety rule.</div></div>
+    <div class="gloss-item"><div class="g-term">Paper Trading</div><div class="g-def">Practicing trades with fake money in real market conditions. Zero risk, great for learning.</div></div>
+    <div class="gloss-item"><div class="g-term">Trading Journal</div><div class="g-def">A log of every trade: why you bought, stop-loss, target, result and lesson.</div></div>
+    <div class="gloss-item"><div class="g-term">Assets Under Management (AUM)</div><div class="g-def">Total market value of assets a fund/broker manages for clients.</div></div>
+    <div class="gloss-item"><div class="g-term">Net Asset Value (NAV)</div><div class="g-def">The per-share value of a fund&#39;s holdings, used to price mutual funds.</div></div>
+    <div class="gloss-item"><div class="g-term">Expense Ratio</div><div class="g-def">The annual fee a fund charges, as a % of your investment. Lower is better.</div></div>
+  </div>
+</section>
+
+<!-- ==================== SECTION: HOW IT WORKS ==================== -->
+<section class="sec" id="howto">
+  <div class="sec-head">
+    <span class="sec-num">03</span>
+    <h2 class="sec-title">How Trading Actually Works</h2>
+    <span class="sec-tag">5 STEPS</span>
+  </div>
+  <div class="alert info"><span class="al-ic">&#128161;</span><div>You don&#39;t need to be a genius. You need a <strong>system</strong>. Here is the 5-step path every trader follows.</div></div>
+  <div class="grid g2">
+    <div class="card g"><h3><span class="emoji">&#9312;</span> Open a Broker Account</h3><p>Register with a licensed broker (Moomoo, Tiger, IBKR, etc.). Complete identity verification with Singpass. Fund your account with a bank transfer.</p></div>
+    <div class="card b"><h3><span class="emoji">&#9313;</span> Do Your Research</h3><p>Decide WHAT to buy and WHY. Use fundamental analysis (is the company good?) and technical analysis (is the price trending?). Never buy on a tip alone.</p></div>
+    <div class="card gr"><h3><span class="emoji">&#9314;</span> Place an Order</h3><p>Choose order type: <b>Market</b> (buy now) or <b>Limit</b> (buy only at/below a set price). Set your position size and a stop-loss before clicking buy.</p></div>
+    <div class="card p"><h3><span class="emoji">&#9315;</span> Monitor &amp; Manage</h3><p>Check your positions weekly, not daily. Respect your stop-loss. Take profit on your targets. Write every trade in your journal.</p></div>
+    <div class="card o"><h3><span class="emoji">&#9316;</span> Review &amp; Improve</h3><p>Monthly review: what worked, what didn&#39;t, what to change. Continuous improvement is what separates winners from gamblers.</p></div>
+    <div class="card r"><h3><span class="emoji">&#9888;</span> Golden Rules</h3><p>1) Never invest money you need soon. 2) Never skip a stop-loss. 3) Expect losses &mdash; profit is what&#39;s left after a string of small losses.</p></div>
+  </div>
+</section>
+
+<!-- ==================== SECTION: STOCKS ==================== -->
+<section class="sec" id="stocks">
+  <div class="sec-head">
+    <span class="sec-num">04</span>
+    <h2 class="sec-title">Stocks &mdash; Complete Guide</h2>
+    <span class="sec-tag">SG &#8226; US &#8226; IND</span>
+  </div>
+
+  <div class="gallery">
+    <div class="imgcard" onclick="showStock('DBS')">
+      <img src="https://images.unsplash.com/photo-1560472355-536de3962603?w=800&q=80" alt="Singapore financial district skyline">
+      <div class="ov"><h4>Singapore Banks</h4><p>DBS (S$46, 4.5% yield) &mdash; click for details</p></div>
+    </div>
+    <div class="imgcard" onclick="showStock('NVDA')">
+      <img src="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80" alt="Stock market trading screen">
+      <div class="ov"><h4>US Tech</h4><p>NVIDIA $217 &mdash; AI growth engine</p></div>
+    </div>
+    <div class="imgcard" onclick="showStock('HDFC')">
+      <img src="https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&q=80" alt="Gateway of India Mumbai">
+      <div class="ov"><h4>India Blue Chips</h4><p>HDFC Bank, TCS, L&amp;T</p></div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:22px">
+    <div class="card b">
+      <h3><span class="emoji">&#127981;</span> Recommended Watchlist (Educational)</h3>
+      <p style="margin-bottom:12px">Quality names across all three markets. <strong>Not</strong> a buy signal &mdash; always verify fundamentals yourself.</p>
+      <div class="table-wrap"><table class="tbl">
+        <tr><th>Market</th><th>Stock</th><th>Ticker</th><th>Sector</th><th>Theme</th></tr>
+        <tr><td><span class="pill red">SG</span></td><td><b>DBS</b></td><td>D05</td><td>Banking</td><td>Dividend + growth</td></tr>
+        <tr><td><span class="pill red">SG</span></td><td><b>OCBC</b></td><td>O39</td><td>Banking</td><td>4.8% dividend</td></tr>
+        <tr><td><span class="pill red">SG</span></td><td><b>SGX</b></td><td>S68</td><td>Exchange</td><td>Trade volume play</td></tr>
+        <tr><td><span class="pill blue">US</span></td><td><b>NVIDIA</b></td><td>NVDA</td><td>Semiconductors</td><td>AI compute</td></tr>
+        <tr><td><span class="pill blue">US</span></td><td><b>Apple</b></td><td>AAPL</td><td>Tech</td><td>Ecosystem + cash</td></tr>
+        <tr><td><span class="pill blue">US</span></td><td><b>Microsoft</b></td><td>MSFT</td><td>Cloud/AI</td><td>Azure growth</td></tr>
+        <tr><td><span class="pill purple">IND</span></td><td><b>Reliance</b></td><td>RELIANCE</td><td>Conglomerate</td><td>Energy + retail</td></tr>
+        <tr><td><span class="pill purple">IND</span></td><td><b>HDFC Bank</b></td><td>HDFCBANK</td><td>Banking</td><td>India credit growth</td></tr>
+        <tr><td><span class="pill purple">IND</span></td><td><b>TCS</b></td><td>TCS</td><td>IT Services</td><td>Global outsourcing</td></tr>
+      </table></div>
+    </div>
+
+    <div class="card g">
+      <h3><span class="emoji">&#128176;</span> Dividend Yield Leaders</h3>
+      <p style="margin-bottom:12px">Passive income via strong cash-payers across markets.</p>
+      <div class="table-wrap"><table class="tbl">
+        <tr><th>Stock</th><th>Market</th><th>Approx Yield</th></tr>
+        <tr><td><b>DBS</b></td><td>SG</td><td class="up">4.5%</td></tr>
+        <tr><td><b>OCBC</b></td><td>SG</td><td class="up">4.8%</td></tr>
+        <tr><td><b>Singtel</b></td><td>SG</td><td class="up">5.2%</td></tr>
+        <tr><td><b>SGX</b></td><td>SG</td><td class="up">5.5%</td></tr>
+        <tr><td><b>Keppel DC REIT</b></td><td>SG</td><td class="up">4.2%</td></tr>
+        <tr><td><b>HDFC Bank</b></td><td>IND</td><td class="up">1.0%</td></tr>
+        <tr><td><b>TCS</b></td><td>IND</td><td class="up">2.8%</td></tr>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="alert warn"><span class="al-ic">&#9888;</span><div>Penny stocks are the #1 way beginners lose money. Stick to blue chips and ETFs while learning.</div></div>
+</section>
+
+<!-- ==================== SECTION: ETFs ==================== -->
+<section class="sec" id="etfs">
+  <div class="sec-head">
+    <span class="sec-num">05</span>
+    <h2 class="sec-title">ETFs &mdash; The Smart Way to Start</h2>
+    <span class="sec-tag">DIVERSIFY</span>
+  </div>
+
+  <div class="grid g2">
+    <div class="card b">
+      <h3><span class="emoji">&#128200;</span> Why ETFs?</h3>
+      <p>One ETF = a whole basket of stocks. Instant diversification, low fees, easy to buy, trades like a single stock. Ideal for beginners and DCA investors.</p>
+      <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-top:20px">
+        <div class="stat"><div class="val">1</div><div class="lbl">Trade to own 500</div></div>
+        <div class="stat"><div class="val">&lt;0.3%</div><div class="lbl">Expense ratio</div></div>
+        <div class="stat"><div class="val">SANY</div><div class="lbl">Amount to start</div></div>
+      </div>
+    </div>
+    <div class="card g">
+      <h3><span class="emoji">&#127919;</span> Core ETF Picks</h3>
+      <div class="table-wrap"><table class="tbl">
+        <tr><th>ETF</th><th>Region</th><th>What it holds</th></tr>
+        <tr><td><b>CSPX</b></td><td>US</td><td>S&amp;P 500 (largest 500 US firms)</td></tr>
+        <tr><td><b>VWRA</b></td><td>Global</td><td>World stocks, all countries</td></tr>
+        <tr><td><b>ES3</b></td><td>SG</td><td>STI (Singapore top 30)</td></tr>
+        <tr><td><b>GLD</b></td><td>Global</td><td>Physical gold</td></tr>
+        <tr><td><b>INDA</b></td><td>India</td><td>Indian large caps</td></tr>
+        <tr><td><b>NIFTYBEES</b></td><td>India</td><td>Tracks Nifty 50 index</td></tr>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="chart-box" style="margin-top:22px">
+    <h3 style="margin-bottom:10px">Model Asset Allocation (Interactive Donut)</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:6px">Hover segments to see exact %.</p>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:30px">
+      <svg class="chart" id="donut" viewBox="0 0 260 260" style="max-width:300px"></svg>
+      <div style="min-width:220px">
+        <div class="alloc"><span class="lbl">US ETFs</span><div class="meter"><span class="av" data-w="35" style="background:var(--blue)"></span></div><span class="pct">35%</span></div>
+        <div class="alloc"><span class="lbl">Singapore</span><div class="meter"><span class="av" data-w="20" style="background:var(--red)"></span></div><span class="pct">20%</span></div>
+        <div class="alloc"><span class="lbl">India</span><div class="meter"><span class="av" data-w="15" style="background:var(--purple)"></span></div><span class="pct">15%</span></div>
+        <div class="alloc"><span class="lbl">Gold</span><div class="meter"><span class="av" data-w="10" style="background:var(--gold)"></span></div><span class="pct">10%</span></div>
+        <div class="alloc"><span class="lbl">Cash</span><div class="meter"><span class="av" data-w="10" style="background:var(--cyan)"></span></div><span class="pct">10%</span></div>
+        <div class="alloc"><span class="lbl">Bonds</span><div class="meter"><span class="av" data-w="10" style="background:var(--green)"></span></div><span class="pct">10%</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== SECTION: GOLD ==================== -->
+<section class="sec" id="gold">
+  <div class="sec-head">
+    <span class="sec-num">06</span>
+    <h2 class="sec-title">Gold &mdash; The Ultimate Hedge</h2>
+    <span class="sec-tag">$4,320 / oz</span>
+  </div>
+
+  <div class="grid g3">
+    <div class="imgcard" style="min-height:220px">
+      <img src="https://images.unsplash.com/photo-1610375461246-83df859d849d?w=800&q=80" alt="Gold bars stacked">
+      <div class="ov"><h4>Physical Gold</h4><p>Bars &amp; coins &mdash; real but need storage/security</p></div>
+    </div>
+    <div class="card g">
+      <h3><span class="emoji">&#129718;</span> Why Gold Now?</h3>
+      <p>&bull; JP Morgan targets <b style="color:var(--gold)">$6,000/oz</b> by Q4 2026<br>
+      &bull; Hedge against the US&#8211;Iran conflict &amp; inflation<br>
+      &bull; Weak USD era supports the metal<br>
+      &bull; Central banks buying at record pace</p>
+    </div>
+    <div class="card o">
+      <h3><span class="emoji">&#128181;</span> Ways to Buy Gold</h3>
+      <div class="table-wrap"><table class="tbl">
+        <tr><th>Method</th><th>Liquidity</th><th>Fees</th></tr>
+        <tr><td><b>GLD / O87</b></td><td class="up">High</td><td>Low</td></tr>
+        <tr><td><b>Physical bullion</b></td><td class="flat">Low</td><td>High (premium)</td></tr>
+        <tr><td><b>Gold ETF SGX</b></td><td class="up">High</td><td>Low</td></tr>
+        <tr><td><b>Gold mining stocks</b></td><td class="up">High</td><td>Medium</td></tr>
+      </table></div>
+    </div>
+  </div>
+  <div class="alert good"><span class="al-ic">&#9989;</span><div>Gold ETFs (GLD) are the easiest, cheapest and most liquid way to own gold exposure. Keep 5-10% of a balanced portfolio in gold.</div></div>
+</section>
+
+<!-- ==================== SECTION: BONDS ==================== -->
+<section class="sec" id="bonds">
+  <div class="sec-head">
+    <span class="sec-num">07</span>
+    <h2 class="sec-title">Bonds &amp; Fixed Income</h2>
+    <span class="sec-tag">10Y = 4.68%</span>
+  </div>
+  <div class="grid g3">
+    <div class="card b"><h3><span class="emoji">&#127973;</span> What is a Bond?</h3><p>You lend money to a government/company. They pay you <b style="color:var(--blue)">interest</b> and return your <b>principal</b> at maturity. Lower risk than stocks.</p></div>
+    <div class="card g"><h3><span class="emoji">&#128178;</span> Treasury Interest</h3><p>The 10Y US Treasury is ~4.68%. When rates fall, existing bond prices rise. Bonds are a ballast against stock crashes.</p></div>
+    <div class="card o"><h3><span class="emoji">&#128236;</span> Easy Bond Picks</h3><p>&bull; SGOV (US short-term treasuries)<br>&bull; Singapore Savings Bonds (SSB)<br>&bull; T-bills (safe, liquid, good for short term)</p></div>
+  </div>
+</section>
+
+<!-- ==================== SECTION: MUTUAL FUNDS ==================== -->
+<section class="sec" id="mutual">
+  <div class="sec-head">
+    <span class="sec-num">08</span>
+    <h2 class="sec-title">Mutual Funds &amp; Index Funds</h2>
+    <span class="sec-tag">PASSIVE INCOME</span>
+  </div>
+  <div class="grid g3">
+    <div class="card b"><h3><span class="emoji">&#127991;</span> Mutual Fund</h3><p>Actively managed pool of money. A manager picks stocks to beat the market. Higher fees (expense ratio).</p></div>
+    <div class="card g"><h3><span class="emoji">&#128202;</span> Index Fund</h3><p>Passively tracks an index (S&amp;P 500, Nifty). Lower fees, easy to own, historically strong.</p></div>
+    <div class="card r"><h3><span class="emoji">&#9888;</span> Watch the Fees</h3><p>Fund fee of 2% vs 0.2% over 20 years can equal <b style="color:var(--red)">tens of thousands</b> in lost growth. Fees matter a lot.</p></div>
+  </div>
+</section>
+
+<!-- ==================== SECTION: MONTHLY OUTLOOK ==================== -->
+<section class="sec" id="outlook">
+  <div class="sec-head">
+    <span class="sec-num">09</span>
+    <h2 class="sec-title">Month-by-Month Outlook (Sep&ndash;Dec 2026)</h2>
+    <span class="sec-tag">EDUCATIONAL</span>
+  </div>
+
+  <details class="acc" open>
+    <summary><span class="chev">&#9656;</span>&#128197; <span style="color:var(--red)">September</span> &mdash; Risk-off, oil up <span class="pill red">HEDGE</span></summary>
+    <div class="acc-body">US&#8211;Iran conflict keeps oil above $87, pressuring equities. FOMC on Sep 16-17 with 65% hike odds. <b>Action:</b> keep cash, favour gold + energy, wait for dip entries. Non-farm payrolls Sep 5, CPI Sep 11 are the key data.</div>
+  </details>
+  <details class="acc">
+    <summary><span class="chev">&#9656;</span>&#128197; <span style="color:var(--orange)">October</span> &mdash; Earnings season volatility <span class="pill orange">CAUTION</span></summary>
+    <div class="acc-body">US bank earnings Oct 1-10, tech earnings (NVDA, MSFT, GOOG) Oct 13-17, Tesla Oct 21. Expect big single-stock swings. <b>Action:</b> respect stop-losses, avoid holding through earnings unless researched.</div>
+  </details>
+  <details class="acc">
+    <summary><span class="chev">&#9656;</span>&#128197; <span style="color:var(--green)">November</span> &mdash; Election aftermath, year-end positioning <span class="pill green">POSITION</span></summary>
+    <div class="acc-body">Non-farm payrolls Nov 6, US midterms aftermath, Black Friday Nov 28 signals consumer health. <b>Action:</b> begin rotating into quality for a potential year-end rally.</div>
+  </details>
+  <details class="acc">
+    <summary><span class="chev">&#9656;</span>&#128197; <span style="color:var(--blue)">December</span> &mdash; Santa Claus rally watch <span class="pill blue">OPPORTUNITY</span></summary>
+    <div class="acc-body">CPI Dec 10, final FOMC Dec 16-17. Historically December often rallies (Santa Claus). <b>Action:</b> take profits on winners, rebalance, review your year. Do not overtrade into year-end.</div>
+  </details>
+
+  <div class="chart-box" style="margin-top:22px">
+    <h3 style="margin-bottom:6px">Scenario Probabilities for S&amp;P 500 (Year-End)</h3>
+    <p style="font-size:.82rem;color:var(--muted)">Visual estimate of possible outcomes.</p>
+    <svg class="chart" id="bars" viewBox="0 0 760 300"></svg>
+  </div>
+</section>
+
+<!-- ==================== SECTION: TECHNICAL ANALYSIS ==================== -->
+<section class="sec" id="ta">
+  <div class="sec-head">
+    <span class="sec-num">10</span>
+    <h2 class="sec-title">Technical Analysis &amp; Chart Reading</h2>
+    <span class="sec-tag">PATTERNS</span>
+  </div>
+  <div class="grid g2">
+    <div class="card gr"><h3><span class="emoji">&#128200;</span> Moving Averages</h3><p>50-day (short) &amp; 200-day (long). Price above = uptrend. <b>Golden cross</b> (50 over 200) = bullish; <b>death cross</b> = bearish.</p></div>
+    <div class="card b"><h3><span class="emoji">&#127919;</span> RSI (0-100)</h3><p>Above <b style="color:var(--red)">70</b> = overbought (may pull back). Below <b style="color:var(--green)">30</b> = oversold (may bounce). ~50 = neutral.</p></div>
+    <div class="card p"><h3><span class="emoji">&#127981;</span> Support &amp; Resistance</h3><p>Support = "floor" where buyers step in. Resistance = "ceiling" where sellers step in. Breakouts above resistance can run.</p></div>
+    <div class="card o"><h3><span class="emoji">&#128278;</span> Volume</h3><p>Confirms moves. Price up + high volume = strong. Price up + low volume = weak / likely to reverse.</p></div>
+  </div>
+
+  <div class="alert info"><span class="al-ic">&#128161;</span><div>Never rely on ONE indicator. Combine trend (MA) + momentum (RSI) + levels (support/resistance) + volume for higher confidence.</div></div>
+</section>
+
+<!-- ==================== SECTION: OPTIONS ==================== -->
+<section class="sec" id="options">
+  <div class="sec-head">
+    <span class="sec-num">11</span>
+    <h2 class="sec-title">Options Trading &mdash; Step by Step</h2>
+    <span class="sec-tag">ADVANCED</span>
+  </div>
+  <div class="alert danger"><span class="al-ic">&#9888;</span><div><strong>HIGH RISK.</strong> You can lose more than you invest. Only trade options after full understanding and on a paper account first.</div></div>
+  <div class="grid g3">
+    <div class="card b"><h3><span class="emoji">&#128214;</span> Call Option</h3><p>Right to <b>BUY</b> at a set price by expiry. Bullish bet. Example: buy a NVDA $220 call.</p></div>
+    <div class="card r"><h3><span class="emoji">&#128214;</span> Put Option</h3><p>Right to <b>SELL</b> at a set price by expiry. Bearish bet / insurance.</p></div>
+    <div class="card o"><h3><span class="emoji">&#128197;</span> Expiry &amp; Strike</h3><p>Expiry = last valid day (3rd Friday). Strike = fixed price. 1 contract = 100 shares.</p></div>
+    <div class="card g"><h3><span class="emoji">&#128178;</span> Covered Call</h3><p>Own 100 shares + sell a call = collect premium income. Low-medium risk. Great for DBS/NVDA holders.</p></div>
+    <div class="card p"><h3><span class="emoji">&#127958;</span> Cash-Secured Put</h3><p>Sell a put, get paid to be ready to buy at a discount. Requires cash to cover.</p></div>
+    <div class="card gr"><h3><span class="emoji">&#129518;</span> Long Call</h3><p>Buy a call, bet on a big rise. High risk: can lose 100% of premium via time decay.</p></div>
+  </div>
+  <div class="alert warn"><span class="al-ic">&#9888;</span><div>Beginner rule: limit options to <b>1-2% of your portfolio</b>. Use covered calls and cash-secured puts. Avoid naked options entirely.</div></div>
+</section>
+
+<!-- ==================== SECTION: PAPER TRADING ==================== -->
+<section class="sec" id="paper">
+  <div class="sec-head">
+    <span class="sec-num">12</span>
+    <h2 class="sec-title">Paper Trading &mdash; Practice First</h2>
+    <span class="sec-tag">ZERO RISK</span>
+  </div>
+  <div class="grid g3">
+    <div class="card b"><h3><span class="emoji">&#128221;</span> 4-Month Plan</h3><p>Sep: learn order types. Oct: track + set stops. Nov: try options on paper. Dec: review &amp; journal.</p></div>
+    <div class="card g"><h3><span class="emoji">&#127942;</span> 30-Day Challenge</h3><p>Fake SGD 10k. Trade weekly. Write WHY, stop-loss, target before each trade. Aim to learn, not profit.</p></div>
+    <div class="card p"><h3><span class="emoji">&#128193;</span> Free Platforms</h3><p>Moomoo Paper, Tiger paper, Thinkorswim PaperMoney, TradingView Paper, IBKR paper.</p></div>
+  </div>
+  <div class="alert good"><span class="al-ic">&#9989;</span><div>Go live only after 2+ months paper trading + you set a stop-loss on EVERY trade without being asked. Start real with <b>SGD 500 max</b>.</div></div>
+</section>
+
+<!-- ==================== SECTION: RESEARCH ==================== -->
+<section class="sec" id="yahoo">
+  <div class="sec-head">
+    <span class="sec-num">13</span>
+    <h2 class="sec-title">Research &amp; Live Data Links</h2>
+    <span class="sec-tag">STAY INFORMED</span>
+  </div>
+  <div class="grid g3">
+    <a class="card b" style="text-decoration:none" href="https://finance.yahoo.com" target="_blank" rel="noopener"><h3><span class="emoji">&#128200;</span> Yahoo Finance</h3><p>Live US/SG/India quotes. Free and fast.</p></a>
+    <a class="card gr" style="text-decoration:none" href="https://in.investing.com" target="_blank" rel="noopener"><h3><span class="emoji">&#128269;</span> Investing.com</h3><p>Technical summaries, news, economic calendar.</p></a>
+    <a class="card g" style="text-decoration:none" href="https://www.tradingview.com" target="_blank" rel="noopener"><h3><span class="emoji">&#128202;</span> TradingView</h3><p>Best free charts + indicators.</p></a>
+    <a class="card r" style="text-decoration:none" href="https://www.sgx.com" target="_blank" rel="noopener"><h3><span class="emoji">&#127963;</span> SGX</h3><p>Singapore Exchange official listings &amp; data.</p></a>
+    <a class="card p" style="text-decoration:none" href="https://www.moneycontrol.com" target="_blank" rel="noopener"><h3><span class="emoji">&#128205;</span> MoneyControl</h3><p>India market news, Nifty and Sensex.</p></a>
+    <a class="card o" style="text-decoration:none" href="https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html" target="_blank" rel="noopener"><h3><span class="emoji">&#128197;</span> CME FedWatch</h3><p>Market odds of Fed rate moves.</p></a>
+  </div>
+  <div class="alert info"><span class="al-ic">&#128161;</span><div>Use an economic calendar (Investing.com) monthly to see upcoming CPI, FOMC and payroll dates that move markets.</div></div>
+</section>
+
+<!-- ============ MODAL ============ -->
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="m-close" onclick="closeModal()">&times;</button>
+    <h3 id="mTitle">Stock</h3>
+    <div id="mBody"></div>
+  </div>
+</div>
+
+<!-- ============ FOOTER ============ -->
+<footer class="footer">
+  <h4>&#128214; Dynamic Trading Master Guide 2026</h4>
+  <p>Singapore + USA + India Markets &mdash; Sep to Dec 2026 | Created 2 Sep 2026</p>
+  <p style="margin-top:8px;color:var(--red)">&#9888; NOT FINANCIAL ADVICE &mdash; For educational purposes only. Do your own research.</p>
+  <div class="links" style="margin-top:12px"><a href="https://finance.yahoo.com" target="_blank" rel="noopener">Yahoo</a><a href="https://www.tradingview.com" target="_blank" rel="noopener">TradingView</a><a href="https://www.sgx.com" target="_blank" rel="noopener">SGX</a><a href="https://www.moneycontrol.com" target="_blank" rel="noopener">MoneyControl</a><a href="https://www.investing.com" target="_blank" rel="noopener">Investing.com</a></div>
+  <p style="margin-top:14px;font-size:.78rem;color:var(--muted)">Images via Unsplash. Content for education; not investment advice.</p>
+</footer>
+
+<script>
+/* ================= TICKER DATA ================= */
+var tickData = [
+  ["S&amp;P 500","7,631.95","+0.4%",1],
+  ["NVIDIA","$217.44","+1.1%",1],
+  ["Gold","$4,320","+0.7%",1],
+  ["Bitcoin","$78,090","-1.2%",0],
+  ["Nifty","24,100","+0.5%",1],
+  ["USD/INR","95.73","+0.2%",0],
+  ["10Y Treas","4.68%","-0.03pt",0],
+  ["WTI Oil","$87.58","+1.8%",1],
+  ["DBS","S$46.00","-0.3%",0],
+  ["STI","4,100","+0.2%",1]
+];
+function buildTicker(){
+  var html = "";
+  tickData.forEach(function(t){
+    var cls = t[3] ? "t-up": "t-dn";
+    var arrow = t[3] ? "&#9650;":"&#9660;";
+    html += '<span class="tick-item"><span class="t-sym">'+t[0]+'</span>'+t[1]+' <span class="'+cls+'">'+arrow+' '+t[2]+'</span></span>';
+  });
+  document.getElementById('ticker').innerHTML = html + html; /* duplicate for seamless loop */
+}
+
+/* ================= TAB NAV ================= */
+function goTab(id){
+  document.querySelectorAll('section.sec').forEach(function(s){ s.classList.remove('show'); });
+  var sec = document.getElementById(id);
+  if(sec) sec.classList.add('show');
+  document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===id); });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.tab').forEach(function(b){
+  b.addEventListener('click', function(){ goTab(b.dataset.tab); });
+});
+/* initial hash */
+if(location.hash){ var h=location.hash.slice(1); if(document.getElementById(h)){ goTab(h); } }
+
+/* ================= THEME TOGGLE ================= */
+document.getElementById('themeBtn').addEventListener('click', function(){
+  document.body.classList.toggle('light');
+  this.textContent = document.body.classList.contains('light') ? '&#9728;&#65039;' : '&#127769;';
+  this.textContent = document.body.classList.contains('light') ? '\u2600\uFE0F' : '\u{1F319}';
+});
+
+/* ================= COUNT-UP ANIMATION ================= */
+function animateCount(el){
+  var target = parseFloat(el.dataset.count);
+  var dec = parseInt(el.dataset.dec||0);
+  var pre = el.dataset.prefix||"";
+  var dur = 1400, start = null;
+  function step(ts){
+    if(!start) start = ts;
+    var p = Math.min((ts-start)/dur,1);
+    var eased = 1-Math.pow(1-p,3);
+    el.textContent = pre + (target*eased).toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+    if(p<1) requestAnimationFrame(step);
+    else el.textContent = pre + target.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+  }
+  requestAnimationFrame(step);
+}
+/* IntersectionObserver to trigger on view */
+var statsObs = new IntersectionObserver(function(entries){
+  entries.forEach(function(e){ if(e.isIntersecting){ animateCount(e.target); statsObs.unobserve(e.target); } });
+},{threshold:0.4});
+document.querySelectorAll('.stat .val').forEach(function(el){ statsObs.observe(el); });
+
+/* ================= ANIMATE ALLOCATION BARS ================= */
+var allocObs = new IntersectionObserver(function(entries){
+  entries.forEach(function(e){
+    if(e.isIntersecting){
+      var bar = e.target;
+      setTimeout(function(){ bar.style.width = bar.dataset.w + '%'; }, 200);
+      allocObs.unobserve(bar);
+    }
+  });
+},{threshold:0.3});
+document.querySelectorAll('.meter .av').forEach(function(b){ b.style.width='0%'; allocObs.observe(b); });
+
+/* ================= GLOSSARY SEARCH ================= */
+document.getElementById('glossSearch').addEventListener('input', function(){
+  var q = this.value.toLowerCase();
+  document.querySelectorAll('.gloss-item').forEach(function(item){
+    item.style.display = item.textContent.toLowerCase().indexOf(q) > -1 ? '':'none';
+  });
+});
+
+/* ================= SVG LINE CHART ================= */
+function drawSpark(){
+  var svg = document.getElementById('spark');
+  var W=760,H=320,pad=44;
+  var data = [
+    {name:'S&P 500', color:'#4da6ff', pts:[7000,7150,7230,7100,7340,7420,7350,7510,7631]},
+    {name:'Gold', color:'#ffd24a', pts:[3600,3750,3900,4050,3980,4180,4250,4320,4400]},
+    {name:'Nifty', color:'#2ee6a8', pts:[22000,22800,22500,23300,23800,23600,24100,24500,25000]}
+  ];
+  var max = 0, min = 999999;
+  data.forEach(function(s){ s.pts.forEach(function(v){ if(v>max)max=v; if(v<min)min=v; }); });
+  var padT = (max-min)*0.1;
+  max += padT; min -= padT;
+  function y(v){ return H - pad - ((v-min)/(max-min))*(H-2*pad); }
+  data.forEach(function(s){
+    var n=s.pts.length, xStep=(W-2*pad)/(n-1);
+    var d="";
+    for(var i=0;i<n;i++){ var x=pad+i*xStep, yy=y(s.pts[i]); d += (i===0?'M':'L')+x.toFixed(1)+','+yy.toFixed(1); }
+    // area
+    var area = d + ' L'+(pad+(n-1)*xStep).toFixed(1)+','+(H-pad)+' L'+pad+','+(H-pad)+' Z';
+    var gr = svg.getAttribute('xmlns') || '';
+    var fade = s.color;
+    var areaGrad = 'area-'+s.name.replace(/[^a-z0-9]/gi,'');
+    var defs='<defs id="D"><linearGradient id="'+areaGrad+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+s.color+'" stop-opacity=".35"/><stop offset="1" stop-color="'+s.color+'" stop-opacity="0"/></linearGradient></defs>';
+    // draw path
+    svg.insertAdjacentHTML('beforeend', defs);
+    svg.insertAdjacentHTML('beforeend', '<path d="'+area+'" fill="url(#'+areaGrad+')" stroke="none"/>');
+    svg.insertAdjacentHTML('beforeend', '<path d="'+d+'" fill="none" stroke="'+s.color+'" stroke-width="3" stroke-linecap="round"/>');
+    // dots + labels
+    s.pts.forEach(function(v,i){
+      var x=pad+i*xStep, yy=y(v);
+      svg.insertAdjacentHTML('beforeend', '<circle cx="'+x.toFixed(1)+'" cy="'+yy.toFixed(1)+'" r="4" fill="'+s.color+'" stroke="#07070f" stroke-width="2"><title>'+s.name+': '+v.toLocaleString()+'</title></circle>');
+    });
+    svg.insertAdjacentHTML('beforeend', '<text x="'+(pad)+'" y="'+(y(s.pts[0])-8).toFixed(1)+'" fill="'+s.color+'" font-size="14" font-weight="700">'+s.name+'</text>');
+  });
+}
+
+/* ================= DONUT CHART ================= */
+function drawDonut(){
+  var svg = document.getElementById('donut');
+  var data=[
+    {v:35,c:'#4da6ff',l:'US ETFs'},
+    {v:20,c:'#ff5470',l:'Singapore'},
+    {v:15,c:'#b388ff',l:'India'},
+    {v:10,c:'#ffd24a',l:'Gold'},
+    {v:10,c:'#35e0ff',l:'Cash'},
+    {v:10,c:'#2ee6a8',l:'Bonds'}
+  ];
+  var cx=130,cy=130,R=95,r=60,start=-Math.PI/2,total=100;
+  data.forEach(function(d){
+    var ang = (d.v/total)*Math.PI*2;
+    var end = start+ang;
+    var x1=cx+R*Math.cos(start), y1=cy+R*Math.sin(start);
+    var x2=cx+R*Math.cos(end), y2=cy+R*Math.sin(end);
+    var large = ang>Math.PI?1:0;
+    var path = "M"+cx+","+cy+" L"+x1.toFixed(2)+","+y1.toFixed(2)+" A"+R+","+R+" 0 "+large+" 1 "+x2.toFixed(2)+","+y2.toFixed(2)+" Z";
+    var mid = start+ang/2;
+    var tx=cx+(R/2+r/2)*Math.cos(mid), ty=cy+(R/2+r/2)*Math.sin(mid);
+    svg.insertAdjacentHTML('beforeend','<path d="'+path+'" fill="'+d.c+'" opacity=".95"><title>'+d.l+' '+d.v+'%</title></path>');
+    svg.insertAdjacentHTML('beforeend','<text x="'+tx.toFixed(1)+'" y="'+ty.toFixed(1)+'" fill="#0a0a12" font-size="13" font-weight="800" text-anchor="middle">'+d.v+'%</text>');
+    svg.insertAdjacentHTML('beforeend','<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="var(--card)" stroke="none"/>');
+    start = end;
+  });
+  svg.insertAdjacentHTML('beforeend','<text x="'+cx+'" y="'+(cy-4)+'" fill="var(--txt)" font-size="15" font-weight="800" text-anchor="middle">Allocation</text><text x="'+cx+'" y="'+(cy+16)+'" fill="var(--gold)" font-size="12" text-anchor="middle">Model</text>');
+}
+
+/* ================= BAR CHART (SCENARIOS) ================= */
+function drawBars(){
+  var svg = document.getElementById('bars');
+  var W=760,H=300,pad=46;
+  var data=[
+    {l:'Bearish',v:20,c:'#ff5470'},
+    {l:'Base',v:55,c:'#ffd24a'},
+    {l:'Bullish',v:25,c:'#2ee6a8'}
+  ];
+  var max=60, bw=(W-2*pad)/data.length;
+  data.forEach(function(d,i){
+    var x=pad+i*bw, w=bw*0.6, h=(d.v/max)*(H-2*pad);
+    var yy=H-pad-h;
+    svg.insertAdjacentHTML('beforeend','<rect x="'+x+'" y="'+yy+'" width="'+w+'" height="'+h+'" rx="8" fill="'+d.c+'" opacity=".9"><title>'+d.l+' '+d.v+'%</title></rect>');
+    svg.insertAdjacentHTML('beforeend','<text x="'+(x+w/2)+'" y="'+(yy-8)+'" fill="'+d.c+'" font-size="15" font-weight="800" text-anchor="middle">'+d.v+'%</text>');
+    svg.insertAdjacentHTML('beforeend','<text x="'+(x+w/2)+'" y="'+(H-pad+20)+'" fill="var(--muted)" font-size="13" text-anchor="middle">'+d.l+'</text>');
+  });
+  svg.insertAdjacentHTML('beforeend','<text x="'+pad+'" y="18" fill="var(--muted)" font-size="12">Year-end S&amp;P 500 outcome probability (educational estimate)</text>');
+}
+
+/* ================= MODAL ================= */
+var stockInfo = {
+  DBS:{title:'DBS Group (D05)', body:'Singapore\'s largest bank. Strong capital, ~4.5-5% dividend yield. A classic dividend + growth holding. Fundamentals: deep liquidity, regional Asean exposure. Risks: rate cuts compress margins.'},
+  NVDA:{title:'NVIDIA (NVDA)', body:'AI compute leader. At ~$217 with massive data center demand. High growth but volatile and richly valued. Buy on dips, respect stop-losses, size small.'},
+  HDFC:{title:'HDFC Bank (HDFCBANK)', body:'India\'s leading private bank. Riding India credit growth and digitization. Long-term structural winner; modest dividend, strong fundamentals.'}
+};
+function showStock(k){
+  var info = stockInfo[k] || {title:'Stock', body:'Information not available.'};
+  document.getElementById('mTitle').textContent = info.title;
+  document.getElementById('mBody').innerHTML = '<p>'+info.body+'</p><div class="alert danger"><span class="al-ic">&#9888;</span><div>Educational summary only. Not a recommendation.</div></div>';
+  document.getElementById('overlay').classList.add('show');
+}
+function closeModal(e){
+  if(!e || e.target.id==='overlay'){ document.getElementById('overlay').classList.remove('show'); }
+}
+
+/* ================= INIT ================= */
+buildTicker();
+drawSpark();
+drawDonut();
+drawBars();
+</script>
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super AI — Beyond Intelligence, Toward Frontier Systems — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Super AI — Beyond Intelligence, Toward Frontier Systems</span><span class="spacer"></span>
+<a class="navlink" href="asi.html">&larr; ASI</a> <a class="navlink" href="index.html">Home &rarr;</a></nav>
+<header class="hero"><div class="mono">SA</div><div><h1>Super AI — Beyond Intelligence, Toward Frontier Systems</h1>
+<p class="tagline">Frontier models, superhuman tooling, and the practical discipline of building with the most capable AI ever made — today and tomorrow</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>"Super AI" means two things at once: the speculative superintelligence frontier (covered in AGI/ASI chapters) and the very real superhuman tools shipping today. This chapter is the practical counterpart: how to build with frontier models — agentic orchestration, frontier model selection, long-horizon autonomy, and the safety architecture that makes superhuman tools deployable. It ends with the synthesis: what engineering discipline looks like when the tool is smarter than its user.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Frontier model landscape, capabilities, selection</td><td>Can pick the right model for a task with evidence</td></tr>
+<tr><td>Tier 2</td><td>Agentic orchestration, tool design, context engineering</td><td>Can build a reliable frontier-model agent</td></tr>
+<tr><td>Tier 3</td><td>Long-horizon autonomy, self-correction, delegation</td><td>Can design multi-hour autonomous workflows</td></tr>
+<tr><td>Tier 4</td><td>Frontier safety architecture, oversight, verification</td><td>Can ship superhuman tools with contained risk</td></tr>
+<tr><td>Tier 5</td><td>Frontier agent product, evaluation suite, safety case</td><td>Shipped, measured, defensible systems</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 — the frontier landscape</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>The Frontier Model Landscape</h3>
+<p><strong>What &amp; why.</strong> Frontier models are the most capable systems available: multimodal (text, images, audio), long-context, tool-using, reasoning-capable. The landscape changes quarterly — the durable skill is evaluating models on YOUR tasks, not memorizing rankings.</p>
+<pre class="code"><code># Capability axes (evaluate on these)
+#   reasoning:     math, code, logic under pressure (o-series,
+#                  thinking modes)
+#   knowledge:     breadth + recency (web access changes this)
+#   long context:  128K-2M tokens; retrieval vs true usage
+#   tool use:      function calling reliability, parallel calls
+#   multimodality: vision, audio, document understanding
+#   coding:        repo-scale edits, test generation, agents
+#   cost/latency:  $/1M tokens, tokens/sec, cache discounts
+#   control:       structured output, guardrail API support
+#
+# Model classes (practical)
+#   frontier reasoning:   best at hard problems, expensive
+#   fast workhorses:      cheap, good enough for 80% of calls
+#   small local:          privacy/offline, distilled models
+#   multimodal:           vision+audio pipelines
+#
+# Selection heuristic
+#   - route easy work to fast models (see AI Workflows)
+#   - use frontier for judgment-heavy or complex steps
+#   - benchmark on a 50-case sample of YOUR traffic
+#     before committing — vendor leaderboards ≠ your workload</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every model decision. Keep a private eval set and re-run it each quarter; the leaderboard changes faster than your requirements do.</div>
+<div class="callout hood"><span>Under the hood</span>Model choice is a cost-quality-latency trade on YOUR distribution: a frontier model can be the wrong answer if 95% of your traffic is simple routing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Capabilities You Can Rely On — and Can't</h3>
+<p><strong>What &amp; why.</strong> Superhuman breadth is real; superhuman reliability is not. The professional skill is knowing the trust boundary: what to delegate, what to verify, and where human judgment remains load-bearing.</p>
+<pre class="code"><code># Trust boundary map (frontier models, ~today)
+#   RELIABLE (delegate + spot check)
+#     - code with tests (self-verifying)
+#     - structured extraction, classification
+#     - summarization, drafting, translation
+#     - tool calls with schema validation
+#   MOSTLY RELIABLE (verify automatically)
+#     - long-context retrieval (validate citations)
+#     - planning (check feasibility end-to-end)
+#     - multi-step math/code (re-run with verification)
+#   UNRELIABLE (never fully delegate)
+#     - claims about recent events (require sources)
+#     - novel safety/security judgments
+#     - anything with irreversible consequences
+#     - calibration: "confident" != "correct"
+#
+# The verification rule
+#   every delegated output needs a cheap checker:
+#     code -> tests; data -> schema; claims -> citations;
+#     math -> symbolic re-derivation; actions -> audit log
+#
+# This rule is what separates "uses AI" from
+# "ships with AI". Engineering the checker IS the work.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Designing any feature: for each model output, define the checker before you define the prompt. No checker, no delegation.</div>
+<div class="callout hood"><span>Under the hood</span>The verification rule is why code agents work: the compiler+tests are a ground-truth checker. Every domain needs its analog (validator, judge, simulator, reviewer).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Context Engineering: The Real Skill</h3>
+<p><strong>What &amp; why.</strong> "Prompting" grew into context engineering: curating what goes into the context window — instructions, retrieved facts, tool schemas, conversation state — because output quality is bounded by context quality. With 1M-token windows, the skill is deciding what to include, not stuffing everything in.</p>
+<pre class="code"><code># Context budget checklist
+#   system:      role, rules, output contract (small, precise)
+#   knowledge:   retrieved, cited, deduplicated (RAG)
+#   tools:       only the schemas needed for THIS step
+#   state:       compressed history, not raw logs
+#   examples:    few, task-matching (few-shot)
+#   output:      schema + constraints (JSON mode)
+#
+# Anti-patterns
+#   - dump the whole repo/docs "just in case"
+#   - unbounded conversation history (cost + confusion)
+#   - conflicting instructions (later wins, silently)
+#   - no citations (hallucination amplifier)
+#
+# Compression techniques
+#   - retrieval: top-k by relevance, rerank
+#   - summarization: hierarchical (chunk -> section -> whole)
+#   - memory: structured entities + recent window
+#     (see Memory Management)
+#   - dedup + dedup again (retrieved junk dilutes signal)
+
+# The 3-layer pattern
+#   small fast model drafts -> frontier model judges ->
+#   small model formats. Context cost is the design variable.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every agent and pipeline. Context engineering is where quality, cost, and latency are actually won — see <a href="rag.html">RAG</a>, <a href="prompting.html">Prompting</a>, <a href="memory-management.html">Memory</a>.</div>
+<div class="callout hood"><span>Under the hood</span>Attention degrades with context length (the "lost in the middle" effect): retrieval and compression aren't optimizations, they're correctness requirements.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Orchestration<small>Tier 2 — building with frontier models</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>The Frontier Agent Stack</h3>
+<p><strong>What &amp; why.</strong> A production frontier agent = model + tools + memory + guardrails + observability + eval. Each piece is a chapter of this MasterHub; the agent is the composition. Build the stack once, reuse it everywhere.</p>
+<pre class="code"><code># The stack (map to chapters)
+#   Model          (frontier, routed)         [LLMs]
+#   Planner        (decompose task)           [AI Agents / Workflows]
+#   Tools          (schema + sandbox)         [Tool Calling / MCP]
+#   Memory         (episodic + semantic)      [Memory Management]
+#   Loop           (plan->act->observe)       [Agent Loops]
+#   Guardrails     (in/out validation)        [Guardrails]
+#   Observability  (traces, cost, latency)    [Observability]
+#   Eval           (golden set + judge)       [Evaluations]
+#   Gateway        (models, fallbacks, keys)  [Agent Gateway]
+#
+# Composition rule: each layer is swappable.
+#   - swap model: env var + eval gate
+#   - swap tools: schema registry
+#   - swap memory: interface, not implementation
+#
+# The failure budget
+#   define it BEFORE building: acceptable error rate,
+#   max cost/task, max latency, escalation path.
+#   The eval suite is the contract that enforces it.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any agent product. The stack diagram doubles as your architecture doc and your hiring map.</div>
+<div class="callout hood"><span>Under the hood</span>Every layer exists because agents fail at layer boundaries: tools fail, memory drifts, guardrails false-positive, evals saturate — each needs its own monitoring.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Tool Design for Superhuman Agents</h3>
+<p><strong>What &amp; why.</strong> An agent is only as good as its tools. Well-designed tools have tight schemas, clear failure semantics, and sandboxes — they make the agent reliable. Sloppy tools (ambiguous params, silent failures, no sandbox) are where agents break.</p>
+<pre class="code"><code># Tool contract essentials
+#   - one tool, one job (no mega-tools)
+#   - strict schema: required fields, enums, limits
+#   - explicit errors: raise, don't silently return ""
+#   - idempotency keys for mutating tools
+#   - permission levels: read vs write vs admin
+#   - sandbox: no network? no /etc? tmpfs only?
+#
+# Example (good vs bad)
+# BAD:  run(command: str)                # anything, anywhere
+# GOOD: run_python(code: str, timeout_s: int = 30)
+#       # sandboxed, timeout, resource caps, no network
+# BAD:  send_email(to, subject, body)    # no approval
+# GOOD: draft_email(...) -> human_review -> send
+#
+# Tool registry pattern
+TOOLS = {
+  "search_web": {"fn": search_web, "approval": "never",
+                 "sandbox": "read-only", "timeout": 15},
+  "write_file": {"fn": write_file, "approval": "auto",
+                 "sandbox": "workspace", "timeout": 10},
+  "send_email": {"fn": send_email, "approval": "always",
+                 "sandbox": "none", "timeout": 10},
+}
+# The registry is your blast-radius map: audit it quarterly.
+
+# MCP gives this structure portability — see the MCP chapter.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every agent. Write the tool registry with approval + sandbox columns before writing the agent — the agent is the easy part.</div>
+<div class="callout hood"><span>Under the hood</span>Tool reliability is the agent's reliability: if a tool returns malformed data, the whole trajectory corrupts. Test tools adversarially, not just happily.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Multi-Model Orchestration and Routing</h3>
+<p><strong>What &amp; why.</strong> Superhuman systems rarely use one model. Router patterns: cheap model drafts / frontier judges; frontier plans / workhorse executes; local sensitive / cloud heavy. Routing is a cost-quality optimization with its own evals.</p>
+<pre class="code"><code># Common orchestrations
+#   1. Draft-refine:  fast model drafts, frontier reviews
+#   2. Judge loop:    frontier scores drafts, loop until pass
+#   3. Plan-execute:  frontier plans, workhorse executes steps
+#   4. Cascade:       cheap first; escalate on low confidence
+#   5. Router:        classify -> dispatch (see AI Workflows)
+#
+# Cascade pattern (cost saver)
+def answer(question):
+    for model in [fast_model, medium_model, frontier_model]:
+        out = model(question)
+        if out.confidence >= threshold[model]:
+            return out
+    return frontier_model(question)   # always answer
+
+# Route by cost + difficulty (rule or learned)
+#   difficulty classifier -> model tier -> cost cap
+#
+# EVAL the router itself:
+#   - what fraction of tasks could have used the cheap model?
+#   - what quality delta did escalation actually buy?
+#   - router accuracy on held-out difficulty labels
+#   - end-to-end cost per correct answer (the real metric)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost control at frontier scale. Routing typically cuts spend 40-70% while holding quality — if you measure the quality, not just the savings.</div>
+<div class="callout hood"><span>Under the hood</span>Confidence thresholds need calibration on your workload; a model's "confidence" is not a probability until you measure it against your correctness labels.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Autonomy<small>Tier 3 — long-horizon systems</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Long-Horizon Tasks: Structure for Autonomy</h3>
+<p><strong>What &amp; why.</strong> The leap from "helpful in a chat" to "completes a multi-hour task" requires structure: explicit goals, milestones, checkpoints, and self-evaluation. You don't just prompt for autonomy — you architect for it.</p>
+<pre class="code"><code># Autonomy architecture
+#   1. Contract: task -> goals, constraints, done-definition
+#   2. Plan:     milestones with checkable outputs
+#   3. Execute:  per-milestone, with checkpointing
+#   4. Verify:   each milestone checked (tests/judge/schema)
+#   5. Escalate: blocked > N minutes -> ask for help
+#   6. Report:   evidence trail per milestone (auditable)
+#
+# The done-definition is everything
+def done_definition(task, output):
+    return (
+        task.checklist_met(output) and
+        task.schema_valid(output) and
+        task.quality_gate(output)      # judge or tests
+    )
+#
+# Self-correction loops
+#   - plan -> execute -> verify -> on fail: diagnose -> replan
+#   - cap correction attempts (3x) then escalate
+#   - log every correction (they're the highest-value
+#     training/eval data you have)
+#
+# Failure taxonomy to log
+#   planning error, tool error, context loss, misunderstanding,
+#   timeout, safety refusal, eval gap
+#   -> your product's reliability is the distribution of these.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any autonomous workflow (see <a href="ai-workflows.html">AI Workflows</a>). Autonomy is earned milestone by milestone, never granted wholesale.</div>
+<div class="callout hood"><span>Under the hood</span>Autonomy without verification is just faster failure. The milestone checker is the unit of reliability — the more checkable the milestone, the more autonomy you can safely grant.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Delegation Hierarchies: Agents Managing Agents</h3>
+<p><strong>What &amp; why.</strong> Superhuman work is team-shaped: a supervisor agent decomposes work, delegates to specialist agents, reviews their output, and integrates results. Delegation multiplies throughput — and multiplies the need for oversight and eval at every level.</p>
+<pre class="code"><code># Supervisor pattern
+#   supervisor: plan -> assign -> review -> integrate
+#   specialists: each owns one capability (research, code,
+#                data, review) with narrow tools
+#
+# Why it works
+#   - each agent's context stays focused (better quality)
+#   - parallel execution (latency)
+#   - narrow blast radius (per-agent permissions)
+#
+# Why it fails (and how to prevent)
+#   - review is the bottleneck: supervisor must actually
+#     read outputs, not rubber-stamp
+#   - context fragmentation: specialists lose shared state
+#     -> use a shared artifact store (files/docs), not chat
+#   - blame ambiguity: which agent caused the failure?
+#     -> per-agent traces and evals
+#   - prompt drift: subagents reinvent instructions
+#     -> templates + versioned system prompts
+#
+# Eval the hierarchy, not just the leaf agents:
+#   - end-to-end task completion
+#   - supervisor review accuracy (does it catch bad work?)
+#   - delegation efficiency (steps per task, cost per task)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-agent products (see <a href="multi-agents.html">Multi-Agent Systems</a>). Hierarchy beats flat chat when tasks decompose cleanly; flat works for open-ended collaboration.</div>
+<div class="callout hood"><span>Under the hood</span>The supervisor's review quality is the system's quality ceiling: a poor reviewer agent makes a poor organization, same as with humans.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Human Oversight at Scale: Audits, Not Babysitting</h3>
+<p><strong>What &amp; why.</strong> You can't watch every action of a superhuman agent — so design oversight as sampling and audit, not real-time supervision: random reviews, exception alerts, complete audit trails, and corrective loops. This is how safety scales.</p>
+<pre class="code"><code># Oversight layers
+#   1. Tripwires:   alert on risk-class actions (outbound email,
+#                  large spend, data deletion, privileged ops)
+#   2. Sampling:    review 10% of completed tasks with a rubric;
+#                  track review score over time (drift!)
+#   3. Escalation:  hard gates on irreversible actions
+#                  (always require human)
+#   4. Audit trail: full action log — queryable, replayable,
+#                  immutable (append-only)
+#   5. Corrective:  failures -> eval set additions -> retrain
+#                  prompts -> redeploy (the loop that improves)
+#
+# Review rubric example
+def review_task(trace):
+    return {
+        "goal_met":     judge(trace.output, "met the goal?"),
+        "safe_actions": all(a.safe for a in trace.actions),
+        "efficient":    trace.cost <= budget and trace.steps <= max,
+        "honest":       not trace.contains_fabrication,
+    }
+# Track per-slot review pass rate weekly; a declining curve
+# is the earliest signal of drift or capability change.
+
+# The principle: oversight must scale sublinearly
+# (sampling + tripwires), never linearly (watching everything).</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every autonomous deployment. If your oversight plan can't survive 10x volume, it isn't oversight — it's a demo.</div>
+<div class="callout hood"><span>Under the hood</span>Sampling works because agents are mostly-consistent: anomalies concentrate in detectable patterns. The audit trail is what makes sampling meaningful — you can always zoom in.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Safety Architecture<small>Tier 4 — shipping superhuman tools safely</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Defense in Depth for Frontier Systems</h3>
+<p><strong>What &amp; why.</strong> Frontier systems deserve layered safety, like any critical infrastructure: input validation, sandboxing, output validation, monitoring, and incident response. No single layer is trusted; each layer catches what the others miss.</p>
+<pre class="code"><code># The five layers
+#   1. INPUT    sanitize: injections, PII, policy violations
+#              (see Guardrails: prompt injection, redaction)
+#   2. PERIMETER sandbox: tools, filesystem, network, exec
+#              (containment — see ASI chapter for the theory)
+#   3. OUTPUT   validate: schema, safety, hallucination checks
+#              (see Guardrails: validators, moderation)
+#   4. MONITOR  observe: traces, cost, behavior drift
+#              (see Observability)
+#   5. RESPOND  tripwires + kill switch + incident process
+#
+# Design rules
+#   - every layer logs (correlation IDs through all layers)
+#   - every layer fails closed (deny on uncertainty)
+#   - every layer is tested independently (layer evals)
+#   - no single layer is a "silver bullet" claim
+#
+# Threat model checklist
+#   - malicious user (injection, jailbreak)
+#   - compromised tool (tool returns malicious content)
+#   - prompt-poisoned context (RAG documents)
+#   - model error (hallucination, misjudgment)
+#   - supply chain (model update, dependency, weight swap)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any frontier deployment. Print this five-layer diagram, walk your system through it, and fill the gaps — that walk is your safety review.</div>
+<div class="callout hood"><span>Under the hood</span>Defense in depth is standard security engineering; the new part is the model as an unpredictable component — hence output validation and monitoring matter as much as input filtering.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Verification: Judging Superhuman Output</h3>
+<p><strong>What &amp; why.</strong> When the producer is superhuman, the verifier must be cheap, automated, and honest. Verification stack: ground-truth checkers (tests, schemas, compilers) first; LLM judges for subjective quality; human sampling for the residual.</p>
+<pre class="code"><code># Verification ladder (cheapest first)
+#   1. Deterministic: tests, schemas, regex, hashes
+#   2. Symbolic:      re-derive math, lint, type-check
+#   3. LLM-judge:     rubric-scored quality (with bias controls)
+#   4. Pairwise:      A/B against reference outputs
+#   5. Human sample:  random audits (see Oversight)
+#
+# LLM judge best practices
+#   - rubric, not vibes: score criteria, cite evidence lines
+#   - position order randomization (position bias)
+#   - self-consistency: judge twice, compare
+#   - judge != producer (different model reduces collusion)
+#   - calibrate: humans label a sample of judge verdicts
+#
+# The eval set is the product spec
+#   - golden tasks with reference outputs
+#   - failure-regression cases (every bug becomes a case)
+#   - safety probes (updated as threats evolve)
+#   - performance floor: no deploy without passing it
+#
+# Full method: see the Evaluations chapter.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every quality gate. The verification ladder converts "trust the model" into "check the output" — the difference between a tool and a liability.</div>
+<div class="callout hood"><span>Under the hood</span>LLM judges drift with model updates; re-calibrate judges quarterly and treat judge accuracy as a monitored metric, not a constant.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Incident Response for Autonomous Systems</h3>
+<p><strong>What &amp; why.</strong> Autonomous systems will have incidents. The professional difference is the response: detection, containment, forensics, and corrective action — rehearsed before the incident, not invented during it.</p>
+<pre class="code"><code># Incident playbook skeleton
+#   1. DETECT   tripwire fires / review score drops / user report
+#   2. CONTAIN  pause the agent (kill switch), revoke tool
+#              access, snapshot state
+#   3. TRIAGE   severity: blast radius, data, reversibility
+#   4. FORENSICS replay the trace; root cause (model? tool?
+#              prompt? eval gap?)
+#   5. CORRECT  add regression case to eval set, fix layer,
+#              update guardrails, redeploy shadow-first
+#   6. REPORT   what happened, what was affected, what changed
+#
+# Kill switch design (do NOT make it a joke)
+#   - instant pause for ALL agents of a deployment
+#   - revoke tokens/credentials on pause (not just a flag)
+#   - survive a model that is trying to avoid shutdown
+#     (server-side enforcement, not a prompt instruction)
+#   - tested monthly: "can we actually stop everything?"
+#
+# Severity table (align with your org)
+#   S1 data loss / external harm / legal   -> immediate
+#   S2 wrong irreversible business action  -> same hour
+#   S3 wrong reversible output             -> same day
+#   S4 cosmetic / eval miss                -> queue
+
+# The measure of maturity: time-to-contain, not absence
+# of incidents.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any system with autonomy. Run a tabletop incident drill quarterly — the first drill always reveals the gaps.</div>
+<div class="callout hood"><span>Under the hood</span>Server-side enforcement matters: a kill switch implemented as a prompt instruction is advice, not control — the model could ignore it (see ASI containment chapter).</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Projects<small>Tier 5 — build the real thing</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Project 1 — Frontier Research Agent with Eval Gate</h3>
+<p><strong>What &amp; why.</strong> Build the canonical frontier agent: plan -> search/code tools -> draft -> self-review -> report, with an eval gate before output. Then measure it honestly.</p>
+<pre class="code"><code>def research_agent(question):
+    state = {"question": question}
+    state = plan_node(state)              # decompose
+    state = tool_loop(state)              # search, read, code
+    state["draft"] = synthesize(state)
+    state = self_review(state)            # judge against rubric
+    if state["review"].score < 0.8:
+        state = tool_loop(state, focus=state["review"].gaps)
+        state = synthesize(state)         # one revision cap
+    return state["draft"], state["trace"]
+
+# Eval gate (the contract)
+def eval_gate(output, golden):
+    return (schema_ok(output) and
+            cite_check(output) and
+            judge_score(output, golden) >= 0.8)
+
+# Measure & report
+#   completion % on golden set, cost per task,
+#   p95 latency, correction rate, failure taxonomy.
+# Ship ONLY if the gate passes on the golden set.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Full agent stack composition</li>
+<li>Self-review + revision loops</li>
+<li>Eval-gated delivery (the professional norm)</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Project 2 — Multi-Model Cost-Quality Router</h3>
+<p><strong>What &amp; why.</strong> Build the cascade router, measure cost savings vs quality loss, and decide with data which tasks escalate. This is the highest-ROI infrastructure pattern in production AI.</p>
+<pre class="code"><code># Cascade with calibrated thresholds
+def cascade(question, tasks):
+    out = cheap(question)
+    if cheap_conf(out) >= cheap_threshold:
+        return out                      # 80% of traffic
+    out = medium(question)
+    if medium_conf(out) >= medium_threshold:
+        return out
+    return frontier(question)           # the hard 5%
+
+# Measurement protocol (run weekly)
+#   - sample 200 tasks; run ALL models on them
+#   - label quality with a judge + human sample
+#   - build the table: per model, per difficulty:
+#       quality, cost, latency
+#   - choose thresholds where marginal quality gain
+#     < marginal cost (the indifference point)
+
+# Report format
+#   difficulty  cheap  medium  frontier  chosen  quality_delta
+#   easy       0.95    0.97    0.98      cheap       --
+#   medium     0.82    0.93    0.95      medium     +0.11
+#   hard       0.60    0.78    0.90      frontier   +0.12
+#   total cost: $-XX% vs all-frontier, quality: -0.0X</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Calibrated multi-model orchestration</li>
+<li>Cost-quality measurement discipline</li>
+<li>Threshold optimization with real data</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Project 3 — Safety Case for an Autonomous Deployment</h3>
+<p><strong>What &amp; why.</strong> Write the safety case: what the system may do, what must never happen, and the layered controls proving it. This is the artifact regulators, boards, and customers increasingly demand — and the discipline makes your system genuinely safer.</p>
+<pre class="code"><code># Safety case structure
+#   1. SCOPE   what the system does, its permissions,
+#              its environment (the blast radius, honestly)
+#   2. HARMS   enumerated: what must never happen
+#              (data exfiltration, financial loss, harmful
+#              content, irreversible actions without approval)
+#   3. CLAIMS  per harm: "harm X cannot occur because..."
+#   4. EVIDENCE per claim: layer (input/sandbox/output/
+#              monitor/respond), tests, evals, incident log
+#   5. ASSUMPTIONS what could invalidate the case
+#              (model update, tool change, new threat)
+#   6. REVIEW   cadence, owners, revision history
+#
+# Example claim chain
+#   Harm: "agent sends unapproved email"
+#   Claim: "outbound email requires human approval"
+#   Evidence: approval gate test suite (pass 100%),
+#             tool registry approval=always,
+#             tripwire alert test, audit log sample
+#
+# Verdict style: "accepted with conditions", never
+# "we are safe". Conditions get owners and dates.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Safety-engineering documentation</li>
+<li>Evidence-based risk argumentation</li>
+<li>Auditable, reviewable deployment practice</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Frontier landscape</td><td>Evaluate on YOUR tasks, quarterly, not leaderboards</td><td>private eval set</td></tr>
+<tr><td>Trust boundary</td><td>Delegate only what has a cheap checker</td><td>verify rule</td></tr>
+<tr><td>Context engineering</td><td>Curate the window: retrieve, compress, cite</td><td>3-layer pattern</td></tr>
+<tr><td>Agent stack</td><td>Model, planner, tools, memory, guardrails, obs, eval</td><td>swappable layers</td></tr>
+<tr><td>Tool contract</td><td>One job, strict schema, explicit errors, sandbox</td><td>tool registry</td></tr>
+<tr><td>Approval levels</td><td>never / auto / always per tool</td><td>blast-radius map</td></tr>
+<tr><td>Routing</td><td>Cheap-first cascade with calibrated thresholds</td><td>confidence gates</td></tr>
+<tr><td>Done-definition</td><td>Checklist + schema + quality gate</td><td>done_definition()</td></tr>
+<tr><td>Autonomy</td><td>Milestones with checkers; escalate on block</td><td>checkpointed loops</td></tr>
+<tr><td>Delegation</td><td>Supervisor reviews specialists; shared artifacts</td><td>hierarchy evals</td></tr>
+<tr><td>Oversight</td><td>Tripwires + sampling + audit trail</td><td>10% review rubric</td></tr>
+<tr><td>Defense in depth</td><td>Input, sandbox, output, monitor, respond</td><td>5-layer diagram</td></tr>
+<tr><td>Verification ladder</td><td>Deterministic -> symbolic -> judge -> human</td><td>rubric judges</td></tr>
+<tr><td>Kill switch</td><td>Server-side enforcement, tested monthly</td><td>revoke tokens</td></tr>
+<tr><td>Safety case</td><td>Scope, harms, claims, evidence, assumptions</td><td>accepted w/ conditions</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="asi.html">&larr; ASI</a><a href="index.html">Home &rarr;</a></footer>
+</body></html>

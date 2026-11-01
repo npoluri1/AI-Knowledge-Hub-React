@@ -1,8 +1,10 @@
 import { SUPPLEMENT_REPOS, SUPPLEMENT_CATEGORIES } from './githubReposSupplement.js'
 import { EDUCATION_REPOS } from './githubReposEducation.js'
 import { ROBOTICS_REPOS } from './githubReposRobotics.js'
+import { REA_REPOS, REA_CATEGORY } from './githubReposRea.js'
 
 export const GITHUB_REPOS = Array.from(new Map([
+  ...REA_REPOS,
 {
     name: "LangChain",
     url: "https://github.com/langchain-ai/langchain",
@@ -207137,6 +207139,7 @@ export const GITHUB_REPOS = Array.from(new Map([
 ].map((repo, index) => [repo.url || repo.name || `__repo_${index}`, repo])).values());
 
 export const REPO_CATEGORIES = [
+  REA_CATEGORY,
   ...SUPPLEMENT_CATEGORIES,
   { id: "llm-frameworks", label: "LLM Frameworks & Orchestrators", icon: "🔗" },
   { id: "vector-databases", label: "Vector Databases & RAG", icon: "🗄️" },

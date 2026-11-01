@@ -2,8 +2,13 @@ import React, { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ALL_JOBS, ALL_JOB_TECHS, ALL_JOB_LOCATIONS, searchJobs, buildSourceUrl } from '../data/appData'
 import { generateProjectView } from '../data/projectGenerator'
+import FetchButton from '../components/FetchButton'
+import JobSolutionsSection from '../components/JobSolutionsSection'
+import { refreshLiveJobs } from '../api'
+import { useLang } from '../i18n'
 
 export default function JobsView() {
+  const { t } = useLang()
   const navigate = useNavigate()
   const [searchQ, setSearchQ] = useState('')
   const [results, setResults] = useState(ALL_JOBS)
@@ -54,15 +59,22 @@ export default function JobsView() {
 
   return (
     <div className="jobs-view">
-      <Link to="/" className="back-link">← Back to Home</Link>
-      <h2 className="chapter-title">💼 AI Engineering Jobs</h2>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
+      <div className="page-header-row">
+        <h2 className="chapter-title">💼 {t('AI Engineering Jobs')}</h2>
+        <FetchButton onFetch={async () => {
+          const { jobs, total, generatedAt } = await refreshLiveJobs()
+          setResults(jobs)
+          return `Loaded ${total} jobs from live catalog${generatedAt ? ` (generated ${generatedAt})` : ''}`
+        }} label={t('Fetch Latest')} />
+      </div>
       <p className="chapter-preview">
         {ALL_JOBS.length} AI Engineering Jobs from 2 sources. Showing {results.length} jobs
         {selectedTech ? ` filtered by: ${selectedTech}` : ''}.
       </p>
 
       <div className="source-filter-bar">
-        <span className="tech-filter-label">Source:</span>
+        <span className="tech-filter-label">{t('Source:')}</span>
         <button
           className={`tech-filter ${selectedSource === 'all' ? 'active' : ''}`}
           onClick={() => filterBySource('all')}
@@ -91,7 +103,7 @@ export default function JobsView() {
       </form>
 
       <div className="tech-filter-bar">
-        <span className="tech-filter-label">Filter by tech:</span>
+        <span className="tech-filter-label">{t('Filter by tech:')}</span>
         {ALL_JOB_TECHS.slice(0, 30).map(tech => (
           <button
             key={tech}
@@ -102,6 +114,8 @@ export default function JobsView() {
           </button>
         ))}
       </div>
+
+      <JobSolutionsSection />
 
       <div className="jobs-grid">
         {results.map((job, i) => (
@@ -209,16 +223,17 @@ export default function JobsView() {
 // ====== Project Text View Component ======
 
 function ProjectTextView({ job }) {
+  const { t } = useLang()
   const project = useMemo(() => generateProjectView(job), [job])
   const [tab, setTab] = useState('overview')
 
   const tabs = [
-    { id: 'overview', label: '📋 Overview' },
-    { id: 'structure', label: '📁 Structure' },
-    { id: 'architecture', label: '🏗️ Architecture' },
-    { id: 'patterns', label: '🧩 Patterns' },
-    { id: 'code', label: '💻 Code' },
-    { id: 'ideas', label: '💡 Ideas' },
+    { id: 'overview', label: `📋 ${t('Overview')}` },
+    { id: 'structure', label: `📁 ${t('Structure')}` },
+    { id: 'architecture', label: `🏗️ ${t('Architecture')}` },
+    { id: 'patterns', label: `🧩 ${t('Patterns')}` },
+    { id: 'code', label: `💻 ${t('Code')}` },
+    { id: 'ideas', label: `💡 ${t('Ideas')}` },
   ]
 
   const tabContent = {

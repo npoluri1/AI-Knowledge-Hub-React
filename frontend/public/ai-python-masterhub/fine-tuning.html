@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fine-Tuning — SFT to Alignment — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Fine-Tuning — SFT to Alignment</span><span class="spacer"></span>
+<a class="navlink" href="prompting.html">&larr; Prompting</a> <a class="navlink" href="lora-qlora.html">LoRA &amp; QLoRA &rarr;</a></nav>
+<header class="hero"><div class="mono">FT</div><div><h1>Fine-Tuning — SFT to Alignment</h1>
+<p class="tagline">From raw pretrained weights to supervised instruction-following and human-aligned models</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Fine-tuning adapts a pretrained language model to your domain, style, or task by continuing gradient descent on curated data. This chapter progresses from understanding when fine-tuning is warranted, through supervised fine-tuning mechanics, into alignment techniques like DPO and RLHF, and concludes with production deployment concerns.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Decision frameworks, dataset anatomy, basic training loops</td><td>Can decide when to fine-tune and prepare a clean JSONL dataset</td></tr>
+<tr><td>Tier 2</td><td>HF Trainer, PEFT/LoRA preview, evaluation pipelines</td><td>Can run a supervised fine-tune with loss monitoring and checkpointing</td></tr>
+<tr><td>Tier 3</td><td>Preference optimization (DPO, ORPO, KTO), safety, continual learning</td><td>Can align a model to preferences and handle multi-task fine-tuning</td></tr>
+<tr><td>Tier 4</td><td>Compute math, distributed training, governance, cost modeling</td><td>Can architect production fine-tuning pipelines with rollback and drift detection</td></tr>
+<tr><td>Tier 5</td><td>End-to-end projects: domain bot, style-mirror writer, DPO summarizer</td><td>Shipped artifacts with eval reports</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 &mdash; when and how to fine-tune</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Prompting vs RAG vs Fine-Tune Decision Table</h3>
+<p><strong>What &amp; why.</strong> Not every problem needs fine-tuning. Prompt engineering costs nothing at inference time, RAG grounds outputs in retrieved documents, and fine-tuning permanently alters model behavior. Choosing wrong wastes compute and adds maintenance burden.</p>
+<pre class="code"><code># Decision matrix
+# | Need               | Prompt | RAG  | Fine-tune |
+# |---------------------|--------|------|-----------|
+# | Domain vocabulary   |   x    |  x   |    x      |
+# | Live external facts |   x    |  x   |    -      |
+# | Consistent style    |   -    |  -   |    x      |
+# | Structured output   |   x    |  -   |    x      |
+# | Zero-shot fast prot |   x    |  -   |    -      |
+# | Latency at scale    |   -    |  x   |    x      |</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Architecture reviews where teams debate adding a fine-tune when RAG alone would suffice, saving weeks of data curation.</div>
+<div class="callout hood"><span>Under the hood</span>Fine-tuning shifts the model's internal probability distributions for tokens; prompting and RAG only manipulate the input context without weight changes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>What Fine-Tuning Changes in Weights</h3>
+<p><strong>What &amp; why.</strong> Supervised fine-tuning runs additional gradient descent steps on your data, nudging every parameter (full FT) or a subset (PEFT/LoRA) toward your target distribution. The model retains broad knowledge from pretraining while specializing on your task's loss landscape.</p>
+<pre class="code"><code>for batch in dataloader:
+    loss = model(batch).loss      # cross-entropy on your data
+    loss.backward()
+    optimizer.step()              # every weight gets a delta
+    optimizer.zero_grad()
+
+# Full FT: all parameters updated
+# LoRA/PEFT: only adapter parameters updated
+# The frozen base weights retain pretrained knowledge</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>When you need the model to consistently produce a format, vocabulary, or reasoning pattern that prompting alone cannot reliably elicit.</div>
+<div class="callout hood"><span>Under the hood</span>Backpropagation through all layers means even early embeddings shift slightly; this is why fine-tuning on small, noisy data can degrade general capabilities.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Chat JSONL Dataset Format</h3>
+<p><strong>What &amp; why.</strong> Most fine-tuning APIs expect JSONL where each line is a JSON object containing a messages array. The standard roles are system, user, and assistant. Consistent formatting prevents silent failures during tokenization.</p>
+<pre class="code"><code>{"messages": [
+  {"role": "system", "content": "You are a helpful support agent."},
+  {"role": "user", "content": "How do I reset my password?"},
+  {"role": "assistant", "content": "Go to Settings, click Reset Password, and follow the email link."}
+]}
+{"messages": [
+  {"role": "system", "content": "You are a helpful support agent."},
+  {"role": "user", "content": "Can I change my email?"},
+  {"role": "assistant", "content": "Yes, navigate to Account Settings and update your email address."}
+]}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>OpenAI, Anthropic, and most HuggingFace SFTTrainer configs expect exactly this schema for conversational fine-tuning.</div>
+<div class="callout hood"><span>Under the hood</span>The tokenizer concatenates messages with special tokens like &lt;|im_start&gt; and &lt;|im_end&gt; so the model learns turn boundaries as part of the sequence.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Instruction / Input / Output Anatomy</h3>
+<p><strong>What &amp; why.</strong> Beyond chat format, many datasets use a three-field structure: instruction (the task), optional input (context), and output (desired response). This decomposition makes it clear what the model must produce given a task and context.</p>
+<pre class="code"><code>{"instruction": "Summarize the following article",
+ "input": "AI safety researchers gathered in San Francisco...",
+ "output": "AI safety researchers held a conference in SF to discuss alignment."}
+
+# Equivalent chat format
+{"messages": [
+  {"role": "user", "content": "Summarize the following article:\nAI safety researchers gathered..."},
+  {"role": "assistant", "content": "AI safety researchers held a conference in SF to discuss alignment."}
+]}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Data pipelines that convert internal documentation into training examples by templating instruction/input/output triples.</div>
+<div class="callout hood"><span>Under the hood</span>During training the model only computes loss on the output (assistant) tokens; instruction tokens are provided as context but not supervised.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>OpenAI Fine-Tune API Walkthrough</h3>
+<p><strong>What &amp; why.</strong> OpenAI's API lets you fine-tune GPT-4o-mini and other models by uploading a JSONL file, triggering a training job, and referencing the resulting model ID. The process takes minutes to hours depending on dataset size.</p>
+<pre class="code"><code>import openai
+
+client = openai.OpenAI()
+
+# Step 1: upload training data
+file = client.files.create(file=open("train.jsonl", "rb"), purpose="fine-tune")
+
+# Step 2: create fine-tune job
+job = client.fine_tuning.jobs.create(
+    training_file=file.id,
+    model="gpt-4o-mini-2024-07-18",
+    hyperparameters={"n_epochs": 3}
+)
+
+# Step 3: poll until complete
+job = client.fine_tuning.jobs.retrieve(job.id)
+print(job.status, job.fine_tuned_model)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Rapid prototyping of domain-specific assistants where you need consistent formatting without managing GPU infrastructure.</div>
+<div class="callout hood"><span>Under the hood</span>OpenAI runs distributed SFT behind the scenes and provides the fine-tuned model as a new model ID you reference in subsequent API calls.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Data Cleaning &amp; Deduplication</h3>
+<p><strong>What &amp; why.</strong> Garbage in, garbage out. Duplicate examples cause the model to overweight certain patterns. Inconsistent formatting, profanity, or broken markup all degrade fine-tune quality. Cleaning is typically the highest-ROI step.</p>
+<pre class="code"><code>import hashlib, json
+
+seen_hashes = set()
+clean = []
+for line in open("raw.jsonl"):
+    row = json.loads(line)
+    content = json.dumps(row["messages"], sort_keys=True)
+    h = hashlib.sha256(content.encode()).hexdigest()
+    if h not in seen_hashes and len(content) &gt; 20:
+        seen_hashes.add(h)
+        clean.append(row)
+
+print(f"{len(clean)} unique examples from {sum(1 for _ in open('raw.jsonl'))} total")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every production fine-tune starts here; teams often find 10-30% duplicates in their first dataset export from support tickets or logs.</div>
+<div class="callout hood"><span>Under the hood</span>Near-duplicate detection (e.g., MinHash or cosine similarity on embeddings) catches paraphrased duplicates that exact hashing misses.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Train / Validation Split &amp; Loss Watching</h3>
+<p><strong>What &amp; why.</strong> Splitting data 90/10 or 95/5 lets you monitor validation loss during training. If training loss drops while validation loss rises, you are overfitting. A held-out set is non-negotiable for quality assurance.</p>
+<pre class="code"><code>from datasets import load_dataset
+
+ds = load_dataset("json", data_files="train.jsonl", split="train")
+split = ds.train_test_split(test_size=0.1, seed=42)
+split["train"].to_json("sft_train.jsonl")
+split["test"].to_json("sft_val.jsonl")
+
+# In HF Trainer:
+# training_args = TrainingArguments(
+#     eval_strategy="steps", eval_steps=50,
+#     load_best_model_at_end=True, metric_for_best_model="eval_loss"
+# )</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every supervised fine-tune uses this pattern; the validation curve is the primary signal for early stopping decisions.</div>
+<div class="callout hood"><span>Under the hood</span>Evaluation loss is computed on the validation set without gradient updates; it measures how well the model generalizes beyond the training examples.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Epochs, Learning Rate &amp; Basics</h3>
+<p><strong>What &amp; why.</strong> Epochs define how many passes over the data; learning rate controls step size. Too many epochs or too high a learning rate causes catastrophic forgetting. Typical fine-tuning uses 1-5 epochs with learning rates between 1e-5 and 5e-5.</p>
+<pre class="code"><code>from transformers import TrainingArguments
+
+args = TrainingArguments(
+    output_dir="./checkpoints",
+    num_train_epochs=3,
+    learning_rate=2e-5,
+    lr_scheduler_type="cosine",
+    warmup_ratio=0.1,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4,  # effective batch = 16
+    fp16=True,
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fine-tuning any HuggingFace model; these hyperparameters are the first knobs to tune when results are unsatisfactory.</div>
+<div class="callout hood"><span>Under the hood</span>Warmup prevents large gradient shocks early in training when the loss landscape is still being explored; cosine decay smoothly reduces the rate.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Catastrophic Forgetting Intro</h3>
+<p><strong>What &amp; why.</strong> Fine-tuning on narrow data can erase general capabilities the model learned during pretraining. The model becomes excellent at your task but incoherent on everything else. This is the primary risk of aggressive fine-tuning.</p>
+<pre class="code"><code># Symptoms of catastrophic forgetting:
+# 1. Fine-tune eval loss drops, but general chat quality collapses
+# 2. Model stops following basic instructions outside your domain
+# 3. Perplexity on a general benchmark (e.g., HellaSwag) spikes
+
+# Mitigation strategies:
+# - Use LoRA instead of full FT (fewer parameters changed)
+# - Keep epochs low (1-3)
+# - Mix in general-purpose data (replay buffer)
+# - Use smaller learning rates</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>When teams report that their fine-tuned model "forgot" how to follow basic prompts or answer general questions.</div>
+<div class="callout hood"><span>Under the hood</span>Neural networks exhibit sequential learning bias; new gradient updates overwrite weight regions used for prior capabilities, especially in later layers.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>When NOT to Fine-Tune</h3>
+<p><strong>What &amp; why.</strong> Fine-tuning is expensive, requires data, and adds deployment complexity. If your problem is solved by better prompting, few-shot examples, or RAG retrieval, skip fine-tuning. Small datasets (under 500 examples) rarely justify it.</p>
+<pre class="code"><code># Decision checklist -- do NOT fine-tune if:
+# - You have fewer than 500 high-quality examples
+# - The task changes frequently (new products, policies weekly)
+# - A general model already handles it with good prompting
+# - You need to cite sources (RAG is better for grounding)
+# - The main gain is tone/format (system prompt + examples suffice)
+# - You cannot commit to ongoing maintenance and retraining
+
+# Do fine-tune when:
+# - You need consistent output format at scale
+# - Domain vocabulary is critical (legal, medical, financial)
+# - Latency requires smaller fine-tuned model over large prompted one
+# - You have 1000+ labeled examples and a stable task definition</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Project kickoffs where the team assumes fine-tuning is needed; this checklist saves weeks of unnecessary work.</div>
+<div class="callout hood"><span>Under the hood</span>The break-even point depends on task complexity: simple formatting tasks yield to prompting, while deep domain reasoning requires weight adaptation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Small-Model-First Strategy</h3>
+<p><strong>What &amp; why.</strong> Start with the smallest model that could plausibly solve your task (e.g., 1.5B or 3B parameters). Fine-tune it, evaluate, and only scale up if quality is insufficient. Smaller models are cheaper to train, faster to iterate, and easier to deploy.</p>
+<pre class="code"><code>from transformers import AutoModelForCausalLM
+
+# Start small, scale only if needed
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-1.5B-Instruct")
+
+# Scale strategy: 1.5B -> 3B -> 7B -> 13B
+# Each step: fine-tune, eval on benchmark, measure cost/quality</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost-conscious teams who discover that a fine-tuned 3B model outperforms a prompted 70B model on their specific structured task.</div>
+<div class="callout hood"><span>Under the hood</span>Smaller models have less capacity but also less noise; fine-tuning them on a focused task can yield sharper specialization per parameter.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Evaluating Fine-Tune vs Base</h3>
+<p><strong>What &amp; why.</strong> A fine-tune is only useful if it improves on your target task without degrading general capabilities. You need both task-specific metrics and general benchmarks to make this judgment.</p>
+<pre class="code"><code>import evaluate
+
+accuracy_metric = evaluate.load("accuracy")
+
+for model_name in ["base-model", "your-finetuned-model"]:
+    preds = run_inference(model_name, eval_data)
+    acc = accuracy_metric.compute(
+        references=eval_data["labels"], predictions=preds
+    )
+    print(f"{model_name}: accuracy={acc['accuracy']:.3f}")
+
+# Also check: MMLU, HellaSwag, HumanEval before and after
+# Task-specific gains may mask general regressions</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Before promoting any fine-tuned model to production; the eval report is the gate between experiment and deployment.</div>
+<div class="callout hood"><span>Under the hood</span>Task-specific gains may mask regressions on general benchmarks; always check both dimensions to ensure the model remains broadly useful.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Intermediate<small>Tier 2 &mdash; hands-on SFT with HuggingFace</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>HuggingFace Trainer Basics</h3>
+<p><strong>What &amp; why.</strong> The Trainer class from transformers handles the training loop, logging, checkpointing, and evaluation for you. Pair it with TrainingArguments for configuration and a data collator for batch preparation.</p>
+<pre class="code"><code>from transformers import (
+    AutoModelForCausalLM, AutoTokenizer,
+    TrainingArguments, Trainer, DataCollatorForLanguageModeling
+)
+
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-3B-Instruct")
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-3B-Instruct")
+
+training_args = TrainingArguments(
+    output_dir="./output", num_train_epochs=3,
+    learning_rate=2e-5, per_device_train_batch_size=4,
+    logging_steps=10, save_strategy="epoch",
+    evaluation_strategy="epoch"
+)
+
+trainer = Trainer(
+    model=model, args=training_args,
+    train_dataset=train_ds, eval_dataset=val_ds,
+    data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False)
+)
+trainer.train()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any HuggingFace fine-tuning project; Trainer is the standard entry point for supervised training without writing a custom loop.</div>
+<div class="callout hood"><span>Under the hood</span>Trainer wraps a standard PyTorch training loop with distributed training support (DDP/FSDP), mixed precision, gradient accumulation, and checkpoint resumption.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>HF Datasets: Map &amp; Tokenize</h3>
+<p><strong>What &amp; why.</strong> The datasets library provides efficient, memory-mapped data processing. Map functions apply tokenization across your dataset in parallel. Arrow-backed storage means no JSON parsing overhead during training.</p>
+<pre class="code"><code>from datasets import load_dataset
+from transformers import AutoTokenizer
+
+ds = load_dataset("json", data_files="train.jsonl", split="train")
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-3B-Instruct")
+tokenizer.pad_token = tokenizer.eos_token
+
+def tokenize(example):
+    text = tokenizer.apply_chat_template(
+        example["messages"], tokenize=False
+    )
+    return tokenizer(text, truncation=True, max_length=2048)
+
+tokenized = ds.map(tokenize, batched=True, remove_columns=ds.column_names)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every HuggingFace training pipeline; apply_chat_template ensures consistent formatting with the model's expected prompt structure.</div>
+<div class="callout hood"><span>Under the hood</span>Map uses multiprocessing by default (num_proc=auto), processing millions of examples in seconds via Apache Arrow's columnar format.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Packing vs Padding</h3>
+<p><strong>What &amp; why.</strong> Padding wastes compute by filling short sequences with tokens. Packing concatenates multiple examples into a single sequence, eliminating waste but requiring attention mask adjustments to prevent cross-example attention.</p>
+<pre class="code"><code># Without packing: every batch padded to max_length
+# Wasted compute: short examples padded with 80%+ pad tokens
+
+# With packing: multiple examples per sequence
+# SFTTrainer has built-in packing=True flag
+from trl import SFTConfig
+
+config = SFTConfig(
+    packing=True,
+    max_seq_length=2048,
+    # Handles block-diagonal attention masking automatically
+)
+
+# Monitor: tokens_per_second should increase 2-5x
+# Verify: loss should be comparable to unpadded training</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>When training on variable-length data (chat conversations, documents); packing can 2-5x throughput compared to naive padding.</div>
+<div class="callout hood"><span>Under the hood</span>True packing requires block-diagonal attention masks so tokens from different examples do not attend to each other; HuggingFace handles this automatically.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>LoRA Preview via PEFT</h3>
+<p><strong>What &amp; why.</strong> Even before diving deep into LoRA (covered in the next chapter), PEFT lets you add trainable low-rank adapters to frozen model weights. This reduces GPU memory by 60-80% while achieving comparable quality to full fine-tuning.</p>
+<pre class="code"><code>from peft import LoraConfig, get_peft_model, TaskType
+
+lora_config = LoraConfig(
+    task_type=TaskType.CAUSAL_LM,
+    r=16, lora_alpha=32,
+    target_modules=["q_proj", "v_proj"],
+    lora_dropout=0.05
+)
+
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-3B-Instruct")
+peft_model = get_peft_model(model, lora_config)
+peft_model.print_trainable_parameters()
+# trainable params: 3,407,872 || all params: 3,000,000,000 || 0.11%</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fine-tuning on consumer GPUs where full FT is impossible; a single 24GB GPU can fine-tune a 7B model with LoRA.</div>
+<div class="callout hood"><span>Under the hood</span>PEFT inserts adapter matrices alongside frozen weights; only these small matrices receive gradients, drastically cutting memory for optimizer states.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>TRL SFTTrainer</h3>
+<p><strong>What &amp; why.</strong> TRL (Transformer Reinforcement Learning) provides SFTTrainer, which extends HF Trainer with conversation formatting, label masking, and packing support out of the box. It is the recommended tool for supervised fine-tuning of chat models.</p>
+<pre class="code"><code>from trl import SFTTrainer, SFTConfig
+
+sft_config = SFTConfig(
+    output_dir="./sft_output",
+    per_device_train_batch_size=4,
+    learning_rate=2e-5,
+    num_train_epochs=3,
+    max_seq_length=2048,
+    packing=True,
+)
+
+def formatting_func(examples):
+    return [tokenizer.apply_chat_template(msgs, tokenize=False)
+            for msgs in examples["messages"]]
+
+trainer = SFTTrainer(
+    model=model, args=sft_config,
+    train_dataset=ds, eval_dataset=val_ds,
+    formatting_func=formatting_func
+)
+trainer.train()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Modern fine-tuning projects; SFTTrainer handles chat formatting, packing, and label masking automatically.</div>
+<div class="callout hood"><span>Under the hood</span>SFTTrainer overrides the default loss computation to mask non-assistant tokens, so the model only learns to generate responses.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Completion-Only Loss Masking</h3>
+<p><strong>What &amp; why.</strong> In chat fine-tuning, you only want the model to learn predicting the assistant's response, not regurgitating the user's prompt. Loss masking sets labels to -100 for all non-assistant tokens, excluding them from the gradient.</p>
+<pre class="code"><code># Manual masking approach
+def mask_prompt_tokens(examples):
+    labels = examples["input_ids"].copy()
+    in_assistant = False
+    for i, token_id in enumerate(labels):
+        if token_id == assistant_token_id_start:
+            in_assistant = True
+        elif token_id == assistant_token_id_end:
+            in_assistant = False
+        if not in_assistant:
+            labels[i] = -100  # ignore in loss
+    return {"labels": labels}
+
+# SFTTrainer does this automatically for chat-formatted data
+# PyTorch CrossEntropyLoss ignores targets == -100</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every chat fine-tune; without masking, the model wastes capacity learning to reproduce prompts rather than generate responses.</div>
+<div class="callout hood"><span>Under the hood</span>PyTorch's CrossEntropyLoss ignores targets equal to -100, so masked positions contribute zero gradient to the model.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Checkpointing &amp; Resume</h3>
+<p><strong>What &amp; why.</strong> Fine-tuning jobs can take hours or days. Checkpointing saves model state periodically so you can resume from the last save if the job crashes, or pick the best checkpoint based on validation loss.</p>
+<pre class="code"><code>training_args = TrainingArguments(
+    output_dir="./checkpoints",
+    save_strategy="steps",
+    save_steps=200,
+    save_total_limit=3,
+    load_best_model_at_end=True,
+    metric_for_best_model="eval_loss",
+)
+
+# Resume a crashed training run
+trainer.train(resume_from_checkpoint="./checkpoints/checkpoint-1000")
+
+# Or auto-resume from latest
+trainer.train(resume_from_checkpoint=True)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Long-running fine-tunes on cloud instances where spot interrupts or OOM errors are common.</div>
+<div class="callout hood"><span>Under the hood</span>Checkpoints save model weights, optimizer state, scheduler state, and RNG state so training resumes identically, not just approximately.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Overfitting Curve Signatures</h3>
+<p><strong>What &amp; why.</strong> Recognizing overfitting early saves wasted compute. The telltale sign is diverging train and validation loss curves: train loss keeps falling while validation loss plateaus or rises.</p>
+<pre class="code"><code># Overfitting signatures to monitor:
+# 1. val_loss stops decreasing while train_loss keeps dropping
+# 2. Model starts memorizing exact training examples verbatim
+# 3. Generation on held-out prompts becomes repetitive
+# 4. Task accuracy on eval set plateaus while train accuracy = 100%
+
+# Prevention toolkit:
+# - Early stopping (patience=3 on eval_loss)
+# - Dropout / LoRA dropout
+# - Data augmentation
+# - Fewer epochs (1-3 typically)
+# - Mix in regularization data</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Reviewing training logs; the moment val_loss curves upward, you should stop training or increase regularization.</div>
+<div class="callout hood"><span>Under the hood</span>Overfitting happens when the model memorizes training-specific patterns rather than learning generalizable features; small datasets amplify this risk.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Synthetic Data Generation</h3>
+<p><strong>What &amp; why.</strong> When you lack enough real training data, you can use a stronger model to generate synthetic examples. This bootstraps your dataset, but quality filtering is critical to avoid amplifying the teacher's biases.</p>
+<pre class="code"><code>import openai
+
+def generate_examples(instruction, n=10):
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{
+            "role": "user",
+            "content": f"Generate {n} diverse Q&amp;A pairs for: {instruction}\n"
+                       "Return as JSONL with messages array."
+        }],
+        response_format={"type": "json_object"}
+    )
+    return json.loads(resp.choices[0].message.content)
+
+# Critical: filter synthetic data
+# - Remove near-duplicates
+# - Human-review a sample
+# - Check for hallucinated facts
+# - Mix real and synthetic (e.g., 70/30)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Bootstrapping fine-tuning datasets when real labeled examples are scarce or expensive to annotate.</div>
+<div class="callout hood"><span>Under the hood</span>Synthetic data inherits the teacher model's knowledge and biases; mixing real and synthetic examples often yields the best results.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Distillation: Teacher-Student Framework</h3>
+<p><strong>What &amp; why.</strong> Knowledge distillation trains a smaller student model to mimic a larger teacher's output distributions. The student learns not just the correct answer but the teacher's confidence and reasoning patterns encoded in soft label probabilities.</p>
+<pre class="code"><code>import torch, torch.nn.functional as F
+
+def distillation_loss(student_logits, teacher_logits, labels,
+                      temperature=2.0, alpha=0.5):
+    soft_loss = F.kl_div(
+        F.log_softmax(student_logits / temperature, dim=-1),
+        F.softmax(teacher_logits / temperature, dim=-1),
+        reduction="batchmean"
+    ) * (temperature ** 2)
+
+    hard_loss = F.cross_entropy(
+        student_logits.view(-1, student_logits.size(-1)),
+        labels.view(-1)
+    )
+    return alpha * soft_loss + (1 - alpha) * hard_loss</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Deploying smaller models that match the quality of larger ones; distilled 7B models often match prompted 70B models on specific tasks.</div>
+<div class="callout hood"><span>Under the hood</span>Soft labels encode inter-class relationships the teacher has learned; the temperature parameter controls how much of this dark knowledge transfers to the student.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>HF Hub Upload &amp; Licensing</h3>
+<p><strong>What &amp; why.</strong> Publishing your fine-tuned model to HF Hub makes it shareable and deployable. You must choose an appropriate license and write a model card documenting capabilities, limitations, and training details.</p>
+<pre class="code"><code>from huggingface_hub import HfApi
+
+api = HfApi()
+
+# Upload model
+api.upload_folder(
+    folder_path="./best_checkpoint",
+    repo_id="your-org/my-finetuned-model",
+    repo_type="model"
+)
+
+# License: choose based on base model license
+# Llama 3: llama3 license (restrictive commercial)
+# Qwen: Apache 2.0
+# Mistral: Apache 2.0</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Publishing models for team access, public release, or integration with HF Inference Endpoints.</div>
+<div class="callout hood"><span>Under the hood</span>HF Hub stores model weights as Git LFS; the model card (README.md) is the primary documentation artifact for discoverability.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; Advanced<small>Tier 3 &mdash; alignment and preference optimization</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Preference Pairs: Chosen vs Rejected</h3>
+<p><strong>What &amp; why.</strong> Alignment training uses pairs of responses where one is preferred (chosen) and one is dispreferred (rejected). The model learns to score chosen responses higher than rejected ones, shaping behavior toward human preferences.</p>
+<pre class="code"><code>{
+  "prompt": "Explain quantum computing",
+  "chosen": "Quantum computing uses qubits that can exist in superposition...",
+  "rejected": "Quantum computing is like regular computing but faster..."
+}
+{
+  "prompt": "Write a poem about rain",
+  "chosen": "Soft drops compose a symphony on the windowpane...",
+  "rejected": "Rain falls down from the sky it is wet and cold..."
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Post-SFT alignment where you want the model to prefer helpful, harmless, and honest responses over lazy or incorrect ones.</div>
+<div class="callout hood"><span>Under the hood</span>The quality gap between chosen and rejected drives learning signal; too-small gaps yield weak training; too-large gaps make the model overconfident.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Reward Model Concept</h3>
+<p><strong>What &amp; why.</strong> RLHF starts by training a reward model on preference pairs to assign scalar scores to responses. This learned reward function then guides the language model's policy optimization via reinforcement learning.</p>
+<pre class="code"><code>from transformers import AutoModelForSequenceClassification
+
+rm = AutoModelForSequenceClassification.from_pretrained(
+    "Qwen/Qwen2.5-3B-Instruct", num_labels=1
+)
+
+for batch in preference_loader:
+    chosen_scores = rm(batch["chosen_input_ids"]).logits
+    rejected_scores = rm(batch["rejected_input_ids"]).logits
+    loss = -F.logsigmoid(chosen_scores - rejected_scores).mean()
+    loss.backward()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>RLHF pipelines where you need a learned scoring function to guide policy optimization without human-in-the-loop scoring.</div>
+<div class="callout hood"><span>Under the hood</span>The reward model uses a Bradley-Terry preference model: P(chosen &gt; rejected) = sigmoid(r_chosen - r_rejected).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>RLHF PPO Loop Components</h3>
+<p><strong>What &amp; why.</strong> PPO (Proximal Policy Optimization) is the RL algorithm used in RLHF. The language model is the policy, the reward model provides the signal, and a KL penalty prevents the model from diverging too far from the SFT baseline.</p>
+<pre class="code"><code># PPO components in RLHF:
+# 1. Policy model (the LLM being optimized)
+# 2. Reward model (scores responses)
+# 3. Reference model (frozen SFT copy, computes KL penalty)
+# 4. Value model (estimates expected future rewards)
+
+# Simplified PPO step
+old_logprobs = ref_model(generated_tokens).logprobs
+new_logprobs = policy_model(generated_tokens).logprobs
+rewards = reward_model(generated_tokens) - kl_coef * (new_logprobs - old_logprobs)
+
+ratio = torch.exp(new_logprobs - old_logprobs)
+clipped = torch.clamp(ratio, 1-eps, 1+eps) * advantages
+loss = -torch.min(ratio * advantages, clipped).mean()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Full RLHF pipelines at scale (ChatGPT, Claude); PPO is complex but offers the most control over alignment.</div>
+<div class="callout hood"><span>Under the hood</span>The KL penalty term prevents reward hacking, where the model finds degenerate outputs that score high with the reward model but are nonsensical to humans.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>DPO Objective &amp; TRL DPOTrainer</h3>
+<p><strong>What &amp; why.</strong> Direct Preference Optimization bypasses the reward model entirely by deriving a closed-form objective from the RLHF framework. It trains the policy directly on preference pairs using a simple binary cross-entropy loss.</p>
+<pre class="code"><code>from trl import DPOTrainer, DPOConfig
+
+dpo_config = DPOConfig(
+    output_dir="./dpo_output",
+    per_device_train_batch_size=2,
+    learning_rate=5e-7,
+    beta=0.1,                    # KL penalty strength
+    num_train_epochs=1,
+    gradient_accumulation_steps=8
+)
+
+trainer = DPOTrainer(
+    model=model,
+    ref_model=ref_model,         # frozen SFT copy
+    args=dpo_config,
+    train_dataset=preference_ds,
+    tokenizer=tokenizer
+)
+trainer.train()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>When you want alignment without the complexity of RL; DPO is the most popular alternative to PPO in 2024-2025.</div>
+<div class="callout hood"><span>Under the hood</span>DPO reparameterizes the RLHF objective so the optimal policy has a closed-form solution relative to the reward function, eliminating the need for a separate reward model.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>ORPO: Single-Stage Alignment</h3>
+<p><strong>What &amp; why.</strong> Odds Ratio Preference Optimization combines SFT and alignment into a single training stage. It adds a preference loss term to the standard SFT loss, eliminating the need for a separate alignment phase.</p>
+<pre class="code"><code>from trl import ORPOConfig, ORPOTrainer
+
+orpo_config = ORPOConfig(
+    output_dir="./orpo_output",
+    learning_rate=5e-6,
+    beta=0.1,
+    per_device_train_batch_size=4,
+    num_train_epochs=1
+)
+
+trainer = ORPOTrainer(
+    model=model, args=orpo_config,
+    train_dataset=preference_ds,  # needs chosen + rejected
+    tokenizer=tokenizer
+)
+trainer.train()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>When you want to skip the two-stage SFT-then-DPO pipeline; ORPO trains a base model directly to preference-aligned output in one pass.</div>
+<div class="callout hood"><span>Under the hood</span>ORPO uses the odds ratio between chosen and rejected responses as the preference signal, added directly to the cross-entropy SFT loss.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>KTO: Binary Feedback Optimization</h3>
+<p><strong>What &amp; why.</strong> KTO (Kahneman-Tversky Optimization) works with binary good/bad signals rather than preference pairs. This is easier to collect at scale since annotators only need to rate individual responses, not compare pairs.</p>
+<pre class="code"><code># KTO dataset format
+{"prompt": "What is 2+2?", "completion": "4", "label": true}
+{"prompt": "What is 2+2?", "completion": "5", "label": false}
+
+from trl import KTOConfig, KTOTrainer
+
+kto_config = KTOConfig(
+    output_dir="./kto_output",
+    learning_rate=5e-6, beta=0.1
+)
+
+trainer = KTOTrainer(
+    model=model, ref_model=ref_model,
+    args=kto_config,
+    train_dataset=kto_ds,
+    tokenizer=tokenizer
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>When you have thumbs-up/thumbs-down data from users rather than ranked preference pairs; scales better for production feedback loops.</div>
+<div class="callout hood"><span>Under the hood</span>KTO adapts prospect theory: losses (bad responses) are weighted more heavily than gains (good responses), matching human psychology.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Alignment Eval: Win-Rates &amp; LLM Judge</h3>
+<p><strong>What &amp; why.</strong> Evaluating aligned models requires comparing outputs to a reference. Win-rate evaluation (head-to-head comparison) and LLM-as-judge (using GPT-4 to score) are the standard approaches for measuring alignment quality.</p>
+<pre class="code"><code>def llm_judge(prompt, response_a, response_b):
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{
+            "role": "user",
+            "content": f"Compare these two responses to: {prompt}\n\n"
+                       f"A: {response_a}\n\nB: {response_b}\n\n"
+                       "Which is better? Respond with JSON: "
+                       '{"winner": "A"|"B"|"tie", "reasoning": "..."}'
+        }],
+        response_format={"type": "json_object"}
+    )
+    return json.loads(resp.choices[0].message.content)
+
+# Aggregate: win_rate_A = wins_A / (wins_A + wins_B + ties)
+# Mitigate position bias: swap A/B and average</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Post-alignment evaluation; win-rates against the SFT baseline quantify the alignment improvement.</div>
+<div class="callout hood"><span>Under the hood</span>LLM judges correlate ~80% with human preferences; position bias is mitigated by swapping A/B ordering and averaging.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Safety &amp; Refusal Fine-Tunes</h3>
+<p><strong>What &amp; why.</strong> Fine-tuning on safety-relevant data teaches the model to refuse harmful requests, avoid generating dangerous content, and escalate to disclaimers. This is critical for deployed systems where misuse is a risk.</p>
+<pre class="code"><code>{"messages": [
+  {"role": "user", "content": "How do I hack into a server?"},
+  {"role": "assistant", "content": "I can't help with unauthorized access "
+   "to computer systems. This is illegal and harmful. If you're "
+   "interested in cybersecurity, consider ethical hacking courses."}
+]}
+
+# Multi-category safety data should cover:
+# - Violence and self-harm
+# - Illegal activities
+# - Personal information requests
+# - Misinformation
+# - Malware and exploit code</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production chatbots in regulated industries (healthcare, finance, government) where safety violations have legal consequences.</div>
+<div class="callout hood"><span>Under the hood</span>Safety fine-tunes teach the model to activate refusal patterns for certain input clusters; over-tuning can cause false refusals on benign requests.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Very Advanced / Expert<small>Tier 4 &mdash; production fine-tuning at scale</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Multi-Task Mix Ratios</h3>
+<p><strong>What &amp; why.</strong> When fine-tuning on multiple tasks simultaneously, the ratio of examples per task significantly affects performance. Equal mixing rarely works; task-specific ratios must balance each task's difficulty and data availability.</p>
+<pre class="code"><code>task_weights = {
+    "summarization": 0.30,
+    "classification": 0.25,
+    "extraction": 0.20,
+    "generation": 0.15,
+    "safety": 0.10
+}
+
+# Proportional sampling
+from torch.utils.data import WeightedRandomSampler
+weights = [task_weights[ex["task"]] for ex in dataset]
+sampler = WeightedRandomSampler(weights, num_samples=len(dataset))
+
+# Alternative: temperature-based mixing
+# n_i / sum(n_j^(1-T)) where T controls rebalancing</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-task fine-tunes where you need the model to handle several capabilities without separate models for each.</div>
+<div class="callout hood"><span>Under the hood</span>Temperature-based mixing upweights rare tasks and downweights frequent ones, preventing majority-task dominance in gradient updates.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Continual Learning &amp; Replay</h3>
+<p><strong>What &amp; why.</strong> When you need to update a fine-tuned model with new data over time, continual learning techniques prevent catastrophic forgetting of previously learned capabilities. Replay buffers mix old data with new during training.</p>
+<pre class="code"><code>replay_buffer = load_previous_data("old_training.jsonl")
+new_data = load_new_data("new_training.jsonl")
+
+# Mix: 20% old data, 80% new data
+import random
+mixed = (
+    random.sample(replay_buffer, k=int(0.2 * len(new_data)))
+    + list(new_data)
+)
+random.shuffle(mixed)
+
+# Or use elastic weight consolidation (EWC)
+# Penalizes changes to important weights from previous tasks
+# fisher = compute_fisher(old_model, replay_buffer)
+# ewc_loss = lambda_ * (fisher * (theta - theta_old)^2).sum()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Models that need periodic updates with new products, policies, or knowledge without retraining from scratch.</div>
+<div class="callout hood"><span>Under the hood</span>Replay buffers are simple but effective; EWC and similar methods add regularization terms that protect important weights from previous training phases.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Merge and Unload Adapters</h3>
+<p><strong>What &amp; why.</strong> After training, LoRA adapters can be merged into the base model weights to produce a single model with no adapter overhead at inference. This eliminates the latency and complexity of loading separate adapter files.</p>
+<pre class="code"><code>from peft import PeftModel
+
+base_model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-3B-Instruct")
+model = PeftModel.from_pretrained(base_model, "./lora_checkpoint")
+
+# Merge adapter weights into base
+merged_model = model.merge_and_unload()
+
+# Save as standalone model (no adapter files needed)
+merged_model.save_pretrained("./merged_model")
+tokenizer.save_pretrained("./merged_model")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production deployment where you want a single model artifact without PEFT overhead; reduces inference latency by removing adapter forward passes.</div>
+<div class="callout hood"><span>Under the hood</span>Merging computes W_merged = W_base + alpha/r * B @ A for each adapted layer, producing identical output to adapter-based inference.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>GGUF Export &amp; llama.cpp Smoke Test</h3>
+<p><strong>What &amp; why.</strong> GGUF is the format used by llama.cpp for efficient CPU/GPU inference. Exporting your fine-tuned model to GGUF lets you run it locally, test quantized versions, and deploy without Python dependency.</p>
+<pre class="code"><code># Step 1: Convert HF model to GGUF
+python convert_hf_to_gguf.py ./merged_model --outfile model-f16.gguf
+
+# Step 2: Quantize to smaller format
+./llama-quantize model-f16.gguf model-q4_k_m.gguf Q4_K_M
+
+# Step 3: Smoke test
+./llama-cli -m model-q4_k_m.gguf \
+  -p "You are a helpful assistant." \
+  -n 200 --temp 0.7
+
+# Step 4: Server mode for API testing
+./llama-server -m model-q4_k_m.gguf \
+  --host 0.0.0.0 --port 8080 -n 4</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Local testing, edge deployment, or serving on consumer hardware where GPU VRAM is limited.</div>
+<div class="callout hood"><span>Under the hood</span>GGUF supports mixed quantization (different bits per layer) and memory-mapped loading, enabling 7B models to run in ~4GB of RAM.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Full-FT vs PEFT Compute Math</h3>
+<p><strong>What &amp; why.</strong> Understanding the compute cost difference between full fine-tuning and PEFT is essential for budgeting. Full FT requires optimizer states for every parameter (4x model size in fp32), while LoRA reduces this by orders of magnitude.</p>
+<pre class="code"><code># Compute comparison for a 7B parameter model:
+# Full FT (AdamW, fp32 states):
+#   Weights:    7B * 4 bytes = 28 GB
+#   Gradients:  7B * 4 bytes = 28 GB
+#   Optimizer:  7B * 8 bytes = 56 GB  (m + v)
+#   Total:      ~112 GB
+
+# LoRA (rank=16, 4 target modules):
+#   Frozen weights: 7B * 2 bytes (fp16) = 14 GB
+#   LoRA params:    ~20M * 4 bytes = 80 MB
+#   Optimizer:      ~20M * 8 bytes = 160 MB
+#   Total:          ~14.3 GB
+
+# Ratio: full FT uses ~8x more memory</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>GPU budgeting and infrastructure planning; this math determines how many GPUs you need and what instance type to provision.</div>
+<div class="callout hood"><span>Under the hood</span>The dominant cost is optimizer states; AdamW stores first and second moments (2x model size), which PEFT avoids by freezing most parameters.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>FSDP, DeepSpeed ZeRO Overview</h3>
+<p><strong>What &amp; why.</strong> Distributed training frameworks split model state across GPUs. DeepSpeed ZeRO partitions optimizer states (Stage 1), gradients (Stage 2), and parameters (Stage 3) to reduce per-GPU memory. FSDP is PyTorch's native equivalent.</p>
+<pre class="code"><code># DeepSpeed ZeRO Stage 2 config
+{
+    "zero_optimization": {
+        "stage": 2,
+        "offload_optimizer": {"device": "cpu"},
+        "overlap_comm": true
+    },
+    "fp16": {"enabled": true},
+    "train_batch_size": 32,
+    "train_micro_batch_size_per_gpu": 4,
+    "gradient_accumulation_steps": 2
+}
+
+# FSDP equivalent
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+model = FSDP(model, sharding_strategy=ShardingStrategy.FULL_SHARD)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Training models larger than single-GPU capacity; ZeRO-2 with CPU offloading lets a 7B model train on 2x 24GB GPUs.</div>
+<div class="callout hood"><span>Under the hood</span>ZeRO Stage 3 partitions parameters so each GPU stores only 1/N of the model; all-gather operations reconstruct the full parameters during forward/backward passes.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Real-Time Projects &amp; Use Cases<small>Tier 5 &mdash; build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Domain Support Bot from Tickets</h3>
+<p>Build a fine-tuned support chatbot trained on historical customer support ticket conversations that maintains consistent tone and accuracy.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Export 5000+ resolved support tickets with agent responses</li>
+<li>Clean and deduplicate: remove PII, normalize formatting, remove internal tool references</li>
+<li>Convert to chat JSONL format with system prompt defining your brand voice</li>
+<li>Split 90/10 train/validation with stratification by ticket category</li>
+<li>Fine-tune Qwen2.5-3B-Instruct with LoRA (r=16, alpha=32) using SFTTrainer</li>
+<li>Evaluate on held-out set: accuracy, tone consistency, refusal on out-of-scope</li>
+<li>Export to GGUF Q4_K_M and test with llama.cpp for latency benchmarking</li>
+<li>Deploy behind a FastAPI endpoint with input validation and logging</li>
+</ol>
+<pre class="code"><code>from trl import SFTTrainer, SFTConfig
+from peft import LoraConfig
+
+lora = LoraConfig(r=16, lora_alpha=32, target_modules=["q_proj","v_proj"])
+args = SFTConfig(
+    output_dir="./support-bot", num_train_epochs=3,
+    learning_rate=2e-5, packing=True, max_seq_length=2048
+)
+trainer = SFTTrainer(model=model, args=args, peft_config=lora,
+                     train_dataset=train_ds, eval_dataset=val_ds,
+                     formatting_func=format_chat)
+trainer.train()</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>End-to-end fine-tuning pipeline from raw data to deployed model</li>
+<li>PII scrubbing and data governance for training data</li>
+<li>GGUF export and local inference optimization</li>
+<li>Evaluation methodology for domain-specific models</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Style-Mirroring Writer on Your Corpus</h3>
+<p>Fine-tune a language model to mirror your personal or brand writing style by training on your existing body of work.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Collect 2000+ writing samples from the target author (blog posts, emails, docs)</li>
+<li>Segment into 500-2000 token passages with consistent metadata</li>
+<li>Create instruction pairs: "Write in the style of [author] about [topic]" with the passage as the expected output</li>
+<li>Clean: remove footers, timestamps, and formatting artifacts</li>
+<li>Fine-tune a 3B model with LoRA, higher rank (r=32) to capture style nuances</li>
+<li>Evaluate with human pairwise comparison: base vs fine-tuned on 50 prompts</li>
+<li>Generate style report: vocabulary overlap, sentence length distribution, tone metrics</li>
+<li>Publish model card documenting style boundaries and limitations</li>
+</ol>
+<pre class="code"><code>{"messages": [
+    {"role": "system", "content": "You write in the style of the provided author. "
+     "Match their vocabulary, sentence structure, and tone precisely."},
+    {"role": "user", "content": "Write about the future of renewable energy"},
+    {"role": "assistant", "content": "[author's writing sample on a similar topic]"}
+]}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Style transfer through fine-tuning with high-rank LoRA</li>
+<li>Human evaluation protocol for subjective quality</li>
+<li>Vocabulary and stylistic analysis of model outputs</li>
+<li>Writing style documentation and boundary definition</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>DPO-Tuned Summarizer with Eval Report</h3>
+<p>Build a summarization model aligned to human preferences using DPO, with a comprehensive evaluation report comparing SFT-only vs DPO-aligned outputs.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Start with a base model and generate summaries for 3000 articles</li>
+<li>Collect preference pairs: for each article, generate 2 summaries and have humans rank them</li>
+<li>SFT stage: fine-tune on the chosen summaries only (standard SFT)</li>
+<li>DPO stage: train on preference pairs with beta=0.1, 1 epoch</li>
+<li>Evaluate: ROUGE scores, human win-rate vs SFT-only, factual consistency check</li>
+<li>Run LLM judge evaluation (GPT-4o) on 200 held-out examples</li>
+<li>Generate eval report: metrics tables, sample outputs, failure analysis</li>
+<li>Publish both models to HF Hub with comparison model cards</li>
+</ol>
+<pre class="code"><code>from trl import DPOTrainer, DPOConfig
+
+dpo_config = DPOConfig(
+    output_dir="./dpo-summarizer",
+    beta=0.1, learning_rate=5e-7,
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=8,
+    num_train_epochs=1
+)
+
+trainer = DPOTrainer(
+    model=sft_model, ref_model=ref_model,
+    args=dpo_config,
+    train_dataset=preference_ds,
+    tokenizer=tokenizer
+)
+trainer.train()</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Two-stage SFT-then-DPO training pipeline</li>
+<li>Preference data collection and annotation protocol</li>
+<li>Multi-dimensional evaluation: automated metrics + human judgment</li>
+<li>Model comparison methodology with statistical significance</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Decision framework</td><td>Prompt vs RAG vs fine-tune based on task needs</td><td>See decision matrix card 1</td></tr>
+<tr><td>JSONL format</td><td>Each line: messages array with system/user/assistant roles</td><td>{"messages": [...]}</td></tr>
+<tr><td>OpenAI fine-tune</td><td>Upload JSONL, create job, reference model ID</td><td>client.fine_tuning.jobs.create()</td></tr>
+<tr><td>Data cleaning</td><td>Dedup with hash, filter by length, remove PII</td><td>hashlib.sha256()</td></tr>
+<tr><td>Train/val split</td><td>90/10 split, monitor eval_loss for overfitting</td><td>ds.train_test_split()</td></tr>
+<tr><td>Learning rate</td><td>1e-5 to 5e-5 for SFT, cosine schedule with warmup</td><td>lr_scheduler_type="cosine"</td></tr>
+<tr><td>Catastrophic forgetting</td><td>Fine-tuning erases general capabilities</td><td>Use LoRA, low epochs, replay buffer</td></tr>
+<tr><td>HF Trainer</td><td>Standard training loop with distributed support</td><td>Trainer(model, args, train_dataset)</td></tr>
+<tr><td>Packing</td><td>Multiple examples per sequence, 2-5x throughput</td><td>SFTConfig(packing=True)</td></tr>
+<tr><td>PEFT LoRA</td><td>Low-rank adapters on frozen weights, 0.1% params</td><td>get_peft_model(model, lora_config)</td></tr>
+<tr><td>SFTTrainer</td><td>TRL's trainer with chat formatting and loss masking</td><td>SFTTrainer(model, formatting_func=)</td></tr>
+<tr><td>Loss masking</td><td>Labels = -100 for non-assistant tokens</td><td>labels[~mask] = -100</td></tr>
+<tr><td>Preference pairs</td><td>Chosen vs rejected responses for alignment</td><td>{"chosen": ..., "rejected": ...}</td></tr>
+<tr><td>DPO</td><td>Direct preference optimization, no reward model</td><td>DPOTrainer(model, ref_model, beta=0.1)</td></tr>
+<tr><td>ORPO</td><td>Single-stage SFT + alignment</td><td>ORPOTrainer(model, train_dataset)</td></tr>
+<tr><td>KTO</td><td>Binary good/bad feedback, no pairs needed</td><td>KTOTrainer(model, ref_model)</td></tr>
+<tr><td>LLM judge</td><td>GPT-4o head-to-head comparison for eval</td><td>win_rate = wins / total</td></tr>
+<tr><td>Merge adapters</td><td>Fold LoRA into base weights for inference</td><td>model.merge_and_unload()</td></tr>
+<tr><td>GGUF export</td><td>Convert to GGUF, quantize, run with llama.cpp</td><td>convert_hf_to_gguf.py</td></tr>
+<tr><td>DeepSpeed ZeRO</td><td>Partition optimizer/gradients/params across GPUs</td><td>{"zero_optimization": {"stage": 2}}</td></tr>
+<tr><td>Distillation</td><td>Train small model to mimic large teacher</td><td>KL divergence on soft logits</td></tr>
+<tr><td>Synthetic data</td><td>Generate training examples with a stronger model</td><td>GPT-4o generation + filtering</td></tr>
+<tr><td>Multi-task ratios</td><td>Weighted sampling prevents majority-task dominance</td><td>WeightedRandomSampler</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="prompting.html">&larr; Prompting</a><a href="lora-qlora.html">LoRA &amp; QLoRA &rarr;</a></footer>
+</body></html>

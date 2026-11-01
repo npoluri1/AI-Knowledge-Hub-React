@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { getImages, refreshFiles } from '../api'
+import { getImages, refreshFiles, refreshFileCatalog } from '../api'
+import FetchButton from '../components/FetchButton'
 import DocxViewer from '../components/DocxViewer'
 import NotebookViewer from '../components/NotebookViewer'
 import RichText from '../components/RichText'
+import { useLang } from '../i18n'
 
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 5
@@ -16,16 +18,28 @@ const ZOOM_STEP = 0.25
 // missing thumbnail on one card doesn't affect the rest of the grid.
 // ---------------------------------------------------------------------------
 function ImageCard({ img, sub, onClick }) {
+  const { t } = useLang()
   const [err, setErr] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   return (
     <div className="image-card" onClick={onClick}>
       {err ? (
         <div className="image-card-broken" role="img" aria-label={`${img.name} unavailable`}>
           📁
-          <div className="image-card-broken-label">unavailable</div>
+          <div className="image-card-broken-label">{t('unavailable')}</div>
         </div>
       ) : (
-        <img src={img.url} alt={img.name} loading="lazy" onError={() => setErr(true)} />
+        <img
+          // Re-attempt the load once (fresh src via cache-busting query) in
+          // case the first request hit a transient proxy/backend hiccup.
+          src={attempt === 0 ? img.url : `${img.url}${img.url.includes('?') ? '&' : '?'}r=${attempt}`}
+          alt={img.name}
+          loading="lazy"
+          onError={() => {
+            if (attempt < 1) setTimeout(() => setAttempt(a => a + 1), 400)
+            else setErr(true)
+          }}
+        />
       )}
       {sub && <div className="image-card-subfolder" title={`Located in /${sub}/ inside the scan source`}>📁 {sub}/</div>}
       <div className="image-card-label">{img.display_name || img.name}</div>
@@ -95,7 +109,55 @@ function sortByMtimeDesc(arr) {
   return [...arr].sort((a, b) => (b.mtime || 0) - (a.mtime || 0))
 }
 
+// Matches browser-download duplicates like `photo (1).png`, `photo(2).jpg`.
+const DUP_SUFFIX_RE = /\s*\(\s*(\d+)\s*\)(?=\.[^.]+$)/i
+
+function baseNoDup(name) {
+  return String(name || '').replace(DUP_SUFFIX_RE, '').trim()
+}
+
+function sourceSlug(file) {
+  return file.folder || (file.source_label === 'images' ? 'images' : file.source_label === 'data' ? 'data' : '')
+}
+
+// Drop duplicate files (same folder + name once the " (n)" copy suffix is
+// stripped). When both an original and a copy exist, keep the original;
+// otherwise keep the lowest-numbered copy so each file shows exactly once.
+function dedupeByName(items) {
+  const best = new Map()
+  for (const it of items) {
+    const name = it.name || ''
+    const key = `${sourceSlug(it)}/${baseNoDup(name)}`.toLowerCase()
+    const m = name.match(DUP_SUFFIX_RE)
+    const n = m ? parseInt(m[1], 10) : 0
+    const cur = best.get(key)
+    if (!cur || n < cur.n) best.set(key, { item: it, n })
+  }
+  return [...best.values()].map(b => b.item)
+}
+
+// Recompute per-source chip totals from the deduped arrays so toolbar counts
+// match what is actually shown in the grids.
+function recomputePerSource(orig, images, pdfs, documents, dataFiles) {
+  const out = {}
+  for (const [slug, info] of Object.entries(orig || {})) {
+    out[slug] = { ...info, images: 0, pdfs: 0, documents: 0, dataFiles: 0 }
+  }
+  const add = (arr, field) => {
+    for (const f of arr) {
+      const s = sourceSlug(f)
+      if (out[s]) out[s][field] += 1
+    }
+  }
+  add(images, 'images')
+  add(pdfs, 'pdfs')
+  add(documents, 'documents')
+  add(dataFiles, 'dataFiles')
+  return out
+}
+
 export default function ImagesGallery() {
+  const { t } = useLang()
   const [images, setImages] = useState([])
   const [pdfs, setPdfs] = useState([])
   const [documents, setDocuments] = useState([])
@@ -116,10 +178,12 @@ export default function ImagesGallery() {
   const [zoom, setZoom] = useState(1)
   const [isFs, setIsFs] = useState(false)
   const [modalImgErr, setModalImgErr] = useState(false)   // tracks failed <img> load in the modal viewer
+  const [modalAttempt, setModalAttempt] = useState(0)      // auto-retry counter for the modal image
   const [sourceFilter, setSourceFilter] = useState('all') // 'all' | <slug>
   const [perSource, setPerSource] = useState({})          // slug -> { images, pdfs, documents, dataFiles, label, kind }
   const [textContent, setTextContent] = useState(null)    // fetched text/code content for inline viewing
   const [searchQuery, setSearchQuery] = useState('')      // global search across all file types
+  const [visibleImageCount, setVisibleImageCount] = useState(60)
   const modalRef = useRef(null)
 
   const showToast = useCallback((kind, text) => {
@@ -131,21 +195,25 @@ export default function ImagesGallery() {
   const loadData = useCallback(async ({ fromButton = false } = {}) => {
     try {
       const data = await getImages()
-      setImages(sortByMtimeDesc(data.images || []))
-      setPdfs(sortByMtimeDesc(data.pdfs || []))
-      setDocuments(sortByMtimeDesc(data.documents || []))
-      setDataFiles(sortByMtimeDesc(data.dataFiles || []))
-      setCount(data.total || 0)
-      setPdfCount(data.pdf_count || 0)
-      setDocCount(data.doc_count || 0)
-      setDataCount((data.dataFiles || []).length)
+      const arrImages = sortByMtimeDesc(dedupeByName(data.images || []))
+      const arrPdfs = sortByMtimeDesc(dedupeByName(data.pdfs || []))
+      const arrDocuments = sortByMtimeDesc(dedupeByName(data.documents || []))
+      const arrDataFiles = sortByMtimeDesc(dedupeByName(data.dataFiles || []))
+      setImages(arrImages)
+      setPdfs(arrPdfs)
+      setDocuments(arrDocuments)
+      setDataFiles(arrDataFiles)
+      setCount(arrImages.length)
+      setPdfCount(arrPdfs.length)
+      setDocCount(arrDocuments.length)
+      setDataCount(arrDataFiles.length)
       setScanPaths(data.scanPaths || [])
-      setPerSource(data.perSource || {})
+      setPerSource(recomputePerSource(data.perSource, arrImages, arrPdfs, arrDocuments, arrDataFiles))
       setSource(data.source || null)
       setGeneratedAt(data.generatedAt || null)
       setLoading(false)
       if (fromButton) {
-        showToast('ok', `Synced ${(data.totals?.total ?? (data.images.length + data.pdfs.length + data.documents.length))} files from ${data.source === 'backend' ? 'backend scan' : 'embedded manifest'}.`)
+        showToast('ok', `Synced ${(data.totals?.total ?? (arrImages.length + arrPdfs.length + arrDocuments.length))} files from ${data.source === 'backend' ? 'backend scan' : 'embedded manifest'}.`)
       }
     } catch (e) {
       setLoading(false)
@@ -166,16 +234,20 @@ export default function ImagesGallery() {
     try {
       const result = await refreshFiles()
       const d = result?.data || {}
-      setImages(sortByMtimeDesc(d.images || []))
-      setPdfs(sortByMtimeDesc(d.pdfs || []))
-      setDocuments(sortByMtimeDesc(d.documents || []))
-      setDataFiles(sortByMtimeDesc(d.dataFiles || []))
+      const arrImages = sortByMtimeDesc(dedupeByName(d.images || []))
+      const arrPdfs = sortByMtimeDesc(dedupeByName(d.pdfs || []))
+      const arrDocuments = sortByMtimeDesc(dedupeByName(d.documents || []))
+      const arrDataFiles = sortByMtimeDesc(dedupeByName(d.dataFiles || []))
+      setImages(arrImages)
+      setPdfs(arrPdfs)
+      setDocuments(arrDocuments)
+      setDataFiles(arrDataFiles)
       setScanPaths(d.scanPaths || [])
-      setPerSource(d.perSource || {})
-      const imagesCount = (d.images || []).length
-      const pdfsCount = (d.pdfs || []).length
-      const docsCount = (d.documents || []).length
-      const dataFilesCount = (d.dataFiles || []).length
+      setPerSource(recomputePerSource(d.perSource, arrImages, arrPdfs, arrDocuments, arrDataFiles))
+      const imagesCount = arrImages.length
+      const pdfsCount = arrPdfs.length
+      const docsCount = arrDocuments.length
+      const dataFilesCount = arrDataFiles.length
       setCount(imagesCount)
       setPdfCount(pdfsCount)
       setDocCount(docsCount)
@@ -219,6 +291,12 @@ export default function ImagesGallery() {
     }
     return true
   })
+
+  useEffect(() => {
+    setVisibleImageCount(60)
+  }, [sourceFilter, searchQuery])
+
+  const visibleImageItems = tab === 'images' ? filteredItems.slice(0, visibleImageCount) : filteredItems
 
   // Cache the immediate parent folder for items that came from a subfolder.
   // Used by the small `📁 /subfolder/` pill on cards so users can see WHERE
@@ -282,6 +360,7 @@ export default function ImagesGallery() {
     if (selectedIdx === null) {
       setZoom(1)
       setModalImgErr(false)   // also clear broken-image state when modal closes
+      setModalAttempt(0)
       if (document.fullscreenElement) {
         const exit = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen
         if (exit) exit.call(document)
@@ -289,6 +368,7 @@ export default function ImagesGallery() {
     } else {
       setZoom(1)
       setModalImgErr(false)   // clear when navigating to a new asset so the next try gets a fresh slate
+      setModalAttempt(0)
     }
   }, [selectedIdx])
 
@@ -337,8 +417,11 @@ export default function ImagesGallery() {
 
   return (
     <div className="images-gallery">
-      <Link to="/" className="back-link">← Back to Home</Link>
-      <h2 className="chapter-title">🖼️ Reference Images & Documents Gallery</h2>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
+      <div className="page-header-row">
+        <h2 className="chapter-title">🖼️ {t('Reference Images & Documents Gallery')}</h2>
+        <FetchButton onFetch={() => refreshFileCatalog('Image & docs gallery')} label="Fetch Latest" />
+      </div>
       <p className="chapter-preview">
         <strong>{count} images</strong> · {pdfCount} PDFs · <strong>{docCount} office documents</strong> · {dataCount} data files.
         {searchQuery ? (
@@ -352,16 +435,16 @@ export default function ImagesGallery() {
       <div className="gallery-toolbar-row">
         <div className="gallery-tabs">
           <button className={`gallery-tab ${tab === 'images' ? 'active' : ''}`} onClick={() => { setTab('images'); setSelectedIdx(null); setSearchQuery('') }}>
-            🖼️ Images ({count})
+            🖼️ {t('Images')} ({count})
           </button>
           <button className={`gallery-tab ${tab === 'documents' ? 'active' : ''}`} onClick={() => { setTab('documents'); setSelectedIdx(null); setSearchQuery('') }}>
-            📋 Documents ({docCount})
+            📋 {t('Documents')} ({docCount})
           </button>
           <button className={`gallery-tab ${tab === 'pdfs' ? 'active' : ''}`} onClick={() => { setTab('pdfs'); setSelectedIdx(null); setSearchQuery('') }}>
-            📕 PDFs ({pdfCount})
+            📕 {t('PDFs')} ({pdfCount})
           </button>
           <button className={`gallery-tab ${tab === 'data' ? 'active' : ''}`} onClick={() => { setTab('data'); setSelectedIdx(null); setSearchQuery('') }}>
-            📂 Data ({dataCount})
+            📂 {t('Data')} ({dataCount})
           </button>
         </div>
         <div className="gallery-search-box">
@@ -387,10 +470,10 @@ export default function ImagesGallery() {
         >
           {refreshing ? (
             <>
-              <span className="gallery-fetch-spinner" aria-hidden="true" /> Fetching…
+              <span className="gallery-fetch-spinner" aria-hidden="true" /> {t('Fetching…')}
             </>
           ) : (
-            <>🔄 Fetch Files</>
+            <>🔄 {t('Fetch Files')}</>
           )}
         </button>
       </div>
@@ -552,12 +635,15 @@ export default function ImagesGallery() {
                     </div>
                   ) : currentItem.url ? (
                     <img
-                      src={currentItem.url}
+                      src={modalAttempt === 0 ? currentItem.url : `${currentItem.url}${currentItem.url.includes('?') ? '&' : '?'}r=${modalAttempt}`}
                       alt={currentItem.name}
                       className="image-modal-img"
                       style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}
                       draggable={false}
-                      onError={() => setModalImgErr(true)}
+                      onError={() => {
+                        if (modalAttempt < 1) setTimeout(() => setModalAttempt(a => a + 1), 400)
+                        else setModalImgErr(true)
+                      }}
                     />
                   ) : (
                     <div className="doc-modal-placeholder">
@@ -687,7 +773,7 @@ export default function ImagesGallery() {
       {/* Image Grid */}
       {tab === 'images' && (
         <div className="images-grid">
-          {filteredItems.map((img, i) => (
+          {visibleImageItems.map((img, i) => (
             // Use `folder + '/' + name` as the React key so each ImageCard's
             // useState(broken) is bound to the *actual* file, not the array
             // index. Otherwise a source-filter change keeps key=0 mapped to a
@@ -700,6 +786,11 @@ export default function ImagesGallery() {
             />
           ))}
           {filteredItems.length === 0 && <p className="empty-state">No images available. Drop image files into <code>frontend/public/images/</code> or add a folder to <code>EXTRA_SCAN_PATHS</code>, then click <strong>🔄 Fetch Files</strong>.</p>}
+          {filteredItems.length > visibleImageItems.length && (
+            <button className="gallery-load-more" onClick={() => setVisibleImageCount(count => count + 60)}>
+              Load 60 more images ({filteredItems.length - visibleImageItems.length} remaining)
+            </button>
+          )}
         </div>
       )}
 

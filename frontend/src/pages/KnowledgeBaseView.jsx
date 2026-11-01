@@ -2,8 +2,11 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { KNOWLEDGE_SECTIONS, searchKnowledge } from '../data/appData'
 import CodeBlock from '../components/CodeBlock'
+import FetchButton from '../components/FetchButton'
+import { useLang } from '../i18n'
 
 export default function KnowledgeBaseView() {
+  const { t } = useLang()
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState(null)
   const [expandedSections, setExpandedSections] = useState([KNOWLEDGE_SECTIONS[0]?.id])
@@ -31,8 +34,11 @@ export default function KnowledgeBaseView() {
 
   return (
     <div className="knowledge-base">
-      <Link to="/" className="back-link">← Back to Home</Link>
-      <h2 className="chapter-title">📐 AI Knowledge Tables</h2>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
+      <div className="page-header-row">
+        <h2 className="chapter-title">📐 {t('AI Knowledge Tables')}</h2>
+        <FetchButton onFetch={() => { setSearchQ(''); setSearchResults(null) }} label={t('Fetch Latest')} staticMode />
+      </div>
       <p className="chapter-preview">
         Structured knowledge from AI_KNOWLEDGE_TABLE.txt — {KNOWLEDGE_SECTIONS.length} sections covering
         core AI architecture, agent protocols, LLM architectures, vector databases, embedding models,

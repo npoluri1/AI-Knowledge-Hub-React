@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spring AI — Java LLM Applications — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Spring AI — Java LLM Applications</span><span class="spacer"></span>
+<a class="navlink" href="mlops.html">&larr; MLOps</a> <a class="navlink" href="governance.html">Governance &rarr;</a></nav>
+<header class="hero"><div class="mono">SA</div><div><h1>Spring AI — Java LLM Applications</h1>
+<p class="tagline">Building production-grade LLM-powered applications with Spring Boot and Spring AI — from simple chat completions through RAG pipelines, tool calling, and multimodal integrations within the enterprise Java ecosystem.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Spring AI brings LLM integration into the familiar Spring Boot ecosystem. This chapter progresses from adding a starter dependency through building full RAG pipelines with tool calling, streaming, and observability — targeting Java developers who need to ship AI features inside existing enterprise applications.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Starter deps, ChatClient, prompt templates, streaming, REST controllers, provider configs, Ollama local</td><td>You can call any LLM from a Spring Boot app and expose it via REST</td></tr>
+<tr><td>Tier 2</td><td>ChatClient fluent API, advisors, memory, structured output, tool calling, embeddings, RAG with QuestionAnswerAdvisor, ETL pipelines</td><td>You can build conversational agents with memory, tools, and document retrieval</td></tr>
+<tr><td>Tier 3</td><td>Vector store configs, multi-advisor composition, resilience4j, micrometer observability, MCP, multimodal, evaluation, streaming SSE, error handling, security, provider property matrix</td><td>You can operate Spring AI features with production hardening and multi-provider support</td></tr>
+<tr><td>Tier 4</td><td>GraalVM native, virtual threads, Python interop, enterprise integration, multi-tenant isolation, blue-green models, cost governance, audit logging, hybrid RAG, custom Advisors, versioning, production checklist</td><td>You can architect enterprise Spring AI platforms at scale</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have production-ready Spring AI implementations</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Starter deps, ChatClient, prompt templates, streaming, controllers, providers</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>What Spring AI Adds to Spring Boot</h3>
+<p><strong>What &amp; why.</strong> Spring AI is a Spring project that provides a unified abstraction layer for interacting with LLMs from within Spring Boot applications. It eliminates the need to wire HTTP clients, manage API keys manually, or write provider-specific boilerplate. By adding a single starter dependency, you gain access to a consistent <code>ChatClient</code> API that works across OpenAI, Azure OpenAI, Ollama, Bedrock, Vertex AI, and other providers — following the same Spring convention of pluggable implementations behind stable interfaces.</p>
+<pre class="code"><code>&lt;!-- pom.xml --&gt;
+&lt;dependency&gt;
+  &lt;groupId&gt;org.springframework.ai&lt;/groupId&gt;
+  &lt;artifactId&gt;spring-ai-openai-spring-boot-starter&lt;/artifactId&gt;
+&lt;/dependency&gt;
+
+&lt;dependency&gt;
+  &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+  &lt;artifactId&gt;spring-boot-starter-web&lt;/artifactId&gt;
+&lt;/dependency&gt;</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any Spring Boot microservice that needs to call an LLM — chatbots, summarizers, classification pipelines, content generators — starts with this starter.</div>
+<div class="callout hood"><span>Under the hood</span>The starter auto-configures an <code>OpenAiChatModel</code> bean backed by an HTTP client, reading API key and base URL from Spring properties. You inject the model or <code>ChatClient</code> directly into your beans.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Starter Dependency and Properties for OpenAI API Key</h3>
+<p><strong>What &amp; why.</strong> Spring Boot's auto-configuration reads properties from <code>application.yml</code> to configure the LLM client. The API key, model name, temperature, and endpoint URL are all externalized. Spring profiles let you switch between providers (dev uses Ollama, prod uses OpenAI) without code changes — just profile-specific property files.</p>
+<pre class="code"><code># application.yml
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o
+          temperature: 0.7
+      base-url: https://api.openai.com/v1
+
+# application-dev.yml — local Ollama
+spring:
+  config:
+    activate:
+      on-profile: dev
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: llama3.1
+          temperature: 0.5</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every Spring AI application reads provider config from properties. Profile-based switching lets developers test locally with Ollama and deploy to OpenAI in production.</div>
+<div class="callout hood"><span>Under the hood</span>Spring Boot auto-configuration detects which starter is on the classpath and creates the corresponding <code>ChatModel</code> bean. Multiple starters can coexist with <code>@Primary</code> annotation selecting the default.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>ChatClient Basic Call</h3>
+<p><strong>What &amp; why.</strong> <code>ChatClient</code> is the primary abstraction for calling LLMs in Spring AI. It wraps the underlying <code>ChatModel</code> and provides a fluent, builder-style API for constructing prompts, calling the model, and extracting responses. You create it via <code>ChatClient.create(chatModel)</code> or inject it as a Spring bean. Every call returns a <code>ChatResponse</code> containing the generated text, token usage, and metadata.</p>
+<pre class="code"><code>import org.springframework.ai.chat.client.ChatClient;
+
+@Service
+public class ChatService {
+    private final ChatClient chatClient;
+
+    public ChatService(ChatClient.Builder builder) {
+        this.chatClient = builder.build();
+    }
+
+    public String ask(String question) {
+        return chatClient.prompt()
+            .user(question)
+            .call()
+            .content();
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every LLM interaction in a Spring AI app goes through <code>ChatClient</code>. It is the equivalent of <code>JdbcTemplate</code> for databases — a clean, idiomatic Spring API for a complex external service.</div>
+<div class="callout hood"><span>Under the hood</span><code>ChatClient.Builder</code> is auto-configured as a bean with the active <code>ChatModel</code> injected. Calling <code>.build()</code> creates an immutable client. The <code>.call()</code> method blocks and returns the full response; <code>.stream()</code> returns a reactive <code>Flux</code>.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Prompt Templates with Placeholders</h3>
+<p><strong>What &amp; why.</strong> Prompt templates allow parameterized prompts with <code>{placeholder}</code> syntax, separating prompt structure from runtime data. Spring AI supports system and user message templates via the <code>PromptTemplate</code> class. Placeholders are replaced using <code>MapSqlParameterSource</code>-style variable binding. This is essential for building reusable prompts that adapt to different inputs.</p>
+<pre class="code"><code>import org.springframework.ai.chat.prompt.PromptTemplate;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+
+// Template with placeholders
+String template = "You are a {role} assistant. "
+    + "Answer the following question about {topic}: {question}";
+
+PromptTemplate promptTemplate = new PromptTemplate(template);
+var message = promptTemplate.createMessage(Map.of(
+    "role", "senior Java architect",
+    "topic", "Spring Boot",
+    "question", "How do I configure connection pooling?"
+));
+
+// System vs user message separation
+var systemMsg = new SystemMessage("You are a concise technical writer.");
+var userMsg = new UserMessage(message.getText());
+
+ChatResponse response = chatClient.prompt()
+    .system(systemMsg)
+    .user(userMsg)
+    .call()
+    .chatResponse();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Templated prompts power every chatbot, classifier, and content generator. System messages set behavior rules; user messages carry the actual input — this separation is critical for reliable outputs.</div>
+<div class="callout hood"><span>Under the hood</span>Spring AI uses SpEL (Spring Expression Language) or simple <code>{name}</code> placeholder resolution. The <code>PromptTemplate</code> compiles the template once and creates new message instances per call.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>System vs User Messages</h3>
+<p><strong>What &amp; why.</strong> LLMs distinguish between system messages (instructions about behavior, tone, constraints) and user messages (the actual input). System messages define the persona and rules; user messages carry the query. Getting this separation right prevents prompt injection and ensures consistent outputs. Spring AI models this as <code>SystemMessage</code> and <code>UserMessage</code> classes.</p>
+<pre class="code"><code>import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+
+SystemMessage system = new SystemMessage(
+    "You are a financial analyst. "
+    + "Only answer questions about publicly traded companies. "
+    + "Never provide buy/sell recommendations."
+);
+
+UserMessage user = new UserMessage(
+    "What was Apple's revenue last quarter?"
+);
+
+ChatResponse response = chatClient.prompt()
+    .system(system)
+    .user(user)
+    .call()
+    .chatResponse();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>System messages enforce guardrails — role definitions, output format requirements, and safety rules. Without them, the model has no instructions and produces generic outputs.</div>
+<div class="callout hood"><span>Under the hood</span>The system message is prepended to the prompt in the API request. Most providers charge tokens for both. Keep system messages concise but complete — they are processed first by the model and have strong influence.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Streaming Responses with Flux</h3>
+<p><strong>What &amp; why.</strong> Streaming sends LLM output token-by-token as it is generated, reducing time-to-first-token from seconds to milliseconds. Spring AI exposes streaming via reactive <code>Flux&lt;String&gt;</code> from <code>chatClient.prompt().stream()</code>. This is essential for responsive chat UIs where users expect to see text appear in real-time rather than waiting for the complete response.</p>
+<pre class="code"><code>import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
+
+@RestController
+public class ChatStreamController {
+    private final ChatClient chatClient;
+
+    public ChatStreamController(ChatClient.Builder builder) {
+        this.chatClient = builder.build();
+    }
+
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux&lt;String&gt; stream(@RequestParam String message) {
+        return chatClient.prompt()
+            .user(message)
+            .stream()
+            .content();
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Chat UIs, real-time translation, and interactive agents all require streaming. Users perceive streaming as 3-5x faster even when total generation time is identical.</div>
+<div class="callout hood"><span>Under the hood</span>The underlying HTTP client uses Server-Sent Events (SSE) or chunked transfer encoding. Spring AI buffers tokens into a <code>Flux&lt;ChatResponse&gt;</code> and extracts text via <code>.content()</code>. WebFlux or servlet async support handles the reactive pipeline.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Simple REST Controller Exposing Chat</h3>
+<p><strong>What &amp; why.</strong> A REST controller wraps the <code>ChatClient</code> in an HTTP endpoint that accepts user messages and returns LLM responses. This is the standard pattern for exposing AI capabilities to frontend apps, mobile clients, or other microservices. Use <code>@RestController</code> with <code>@PostMapping</code> for structured input and proper error handling.</p>
+<pre class="code"><code>@RestController
+@RequestMapping("/api/chat")
+public class ChatController {
+    private final ChatClient chatClient;
+
+    public ChatController(ChatClient.Builder builder) {
+        this.chatClient = builder.build();
+    }
+
+    public record ChatRequest(String message) {}
+    public record ChatResponse(String reply) {}
+
+    @PostMapping
+    public ChatResponse chat(@RequestBody ChatRequest request) {
+        String reply = chatClient.prompt()
+            .user(request.message())
+            .call()
+            .content();
+        return new ChatResponse(reply);
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The REST controller is the integration boundary between your AI backend and any consumer. It decouples the LLM interaction from the transport layer.</div>
+<div class="callout hood"><span>Under the hood</span>Spring Boot auto-configures Jackson serialization for records. The controller method blocks on the LLM call; for high-concurrency, use the streaming endpoint with <code>Flux</code> and reactive streams instead.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Configuration Profiles Per Provider</h3>
+<p><strong>What &amp; why.</strong> Spring profiles let you define different LLM provider configurations for different environments. A dev profile uses local Ollama, staging uses Azure OpenAI, and production uses OpenAI directly. Only one profile is active at a time, and Spring Boot auto-configures the correct <code>ChatModel</code> bean. This eliminates environment-specific code entirely.</p>
+<pre class="code"><code># application.yml — default
+spring:
+  ai:
+    chat:
+      options:
+        temperature: 0.7
+        max-tokens: 2048
+
+---
+# application-local.yml
+spring:
+  config:
+    activate:
+      on-profile: local
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+    chat:
+      options:
+        model: llama3.1
+
+---
+# application-production.yml
+spring:
+  config:
+    activate:
+      on-profile: production
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o
+
+# Activate: java -jar app.jar --spring.profiles.active=production</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Profile-based provider switching is standard in enterprise deployments. It enables local development without API costs while using cloud providers in production.</div>
+<div class="callout hood"><span>Under the hood</span>Spring Boot's profile system uses document separators (<code>---</code>) in YAML to define per-profile properties. The <code>spring.config.activate.on-profile</code> key controls which block is loaded.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Ollama Local Setup</h3>
+<p><strong>What &amp; why.</strong> Ollama runs open-source LLMs locally (Llama 3.1, Mistral, Gemma, etc.) without API keys or cloud dependencies. Spring AI integrates with Ollama via the <code>spring-ai-ollama-spring-boot-starter</code>. This is ideal for development, testing, and air-gapped environments where data cannot leave the premises.</p>
+<pre class="code"><code># Install Ollama: https://ollama.com
+# Pull a model: ollama pull llama3.1
+
+# application.yml for Ollama
+spring:
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: llama3.1
+          temperature: 0.3
+          num-ctx: 4096
+
+# pom.xml
+&lt;dependency&gt;
+  &lt;groupId&gt;org.springframework.ai&lt;/groupId&gt;
+  &lt;artifactId&gt;spring-ai-ollama-spring-boot-starter&lt;/artifactId&gt;
+&lt;/dependency&gt;
+
+# Ollama also supports embeddings
+spring:
+  ai:
+    ollama:
+      embedding:
+        options:
+          model: nomic-embed-text</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Ollama is the go-to for local AI development. It eliminates API costs during development, enables offline work, and keeps sensitive data on-premises.</div>
+<div class="callout hood"><span>Under the hood</span>Ollama exposes an OpenAI-compatible API on <code>localhost:11434</code>. Spring AI's Ollama starter uses this compatibility layer, so most configuration options map directly to OpenAI parameters.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Model Options: Temperature and Beyond</h3>
+<p><strong>What &amp; why.</strong> Model options control generation behavior — temperature affects creativity vs. consistency, max tokens limits response length, top-p and top-k control sampling diversity. Spring AI lets you set defaults in configuration and override per-request via the <code>ChatClient</code>. Understanding these parameters is essential for tuning output quality for different use cases.</p>
+<pre class="code"><code># Global defaults in application.yml
+spring:
+  ai:
+    openai:
+      chat:
+        options:
+          model: gpt-4o
+          temperature: 0.7
+          max-tokens: 4096
+          top-p: 0.95
+
+// Per-request override in Java
+ChatResponse response = chatClient.prompt()
+    .user("Write a creative poem about the ocean")
+    .options(OpenAiChatOptions.builder()
+        .temperature(1.2)
+        .maxTokens(1024)
+        .build())
+    .call()
+    .chatResponse();
+
+// Low temperature for factual responses
+ChatResponse factual = chatClient.prompt()
+    .user("What is the capital of France?")
+    .options(OpenAiChatOptions.builder()
+        .temperature(0.0)
+        .build())
+    .call()
+    .chatResponse();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Temperature 0.0 for extraction and classification (deterministic), 0.7 for conversational agents (balanced), 1.0+ for creative writing (diverse). Per-request overrides let one service handle multiple use cases.</div>
+<div class="callout hood"><span>Under the hood</span>Temperature controls the randomness of token sampling via the softmax probability distribution. Lower values sharpen the distribution toward the most likely token; higher values flatten it.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Structured Output: Hello World with BeanOutputConverter</h3>
+<p><strong>What &amp; why.</strong> Structured output forces the LLM to return JSON conforming to a Java class schema. Spring AI's <code>BeanOutputConverter</code> sends the schema to the model and parses the response into a typed POJO. This eliminates manual JSON parsing and enables compile-time safety for LLM outputs.</p>
+<pre class="code"><code>import org.springframework.ai.converter.BeanOutputConverter;
+
+public record TravelPlan(
+    String destination,
+    int days,
+    List&lt;String&gt; highlights,
+    double estimatedCost
+) {}
+
+@Service
+public class TravelService {
+    private final ChatClient chatClient;
+    private final BeanOutputConverter&lt;TravelPlan&gt; converter =
+        new BeanOutputConverter&lt;&gt;(TravelPlan.class);
+
+    public TravelPlan planTrip(String request) {
+        String format = converter.getFormat();
+        String prompt = "Create a travel plan as JSON matching this schema: "
+            + format + "\n\nRequest: " + request;
+
+        return chatClient.prompt()
+            .user(prompt)
+            .call()
+            .convert(converter);
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Structured output is critical for pipelines that feed LLM responses into downstream systems — database storage, API responses, and multi-step workflows all need typed, validated data.</div>
+<div class="callout hood"><span>Under the hood</span><code>BeanOutputConverter</code> generates a JSON schema from the Java class, injects it into the prompt, and uses Jackson to deserialize the model's JSON response. It includes retry logic for malformed outputs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Project Layout Conventions</h3>
+<p><strong>What &amp; why.</strong> Spring AI projects follow standard Spring Boot conventions with AI-specific additions. The <code>src/main/resources/prompts/</code> directory stores prompt templates as text files. Configuration lives in <code>application.yml</code>. Services containing <code>ChatClient</code> calls are annotated with <code>@Service</code>. This standardization makes AI projects navigable for any Spring developer.</p>
+<pre class="code"><code>src/main/java/com/example/
+  ChatApplication.java              # @SpringBootApplication
+  config/
+    AiConfig.java                   # ChatClient bean, advisor config
+  service/
+    ChatService.java                # Core LLM interactions
+    RagService.java                 # RAG pipeline logic
+  controller/
+    ChatController.java             # REST endpoints
+    StreamController.java           # SSE streaming endpoints
+  model/
+    TravelPlan.java                 # Structured output records
+
+src/main/resources/
+  application.yml                   # Provider config, model options
+  application-dev.yml               # Ollama local config
+  application-prod.yml              # OpenAI/Azure prod config
+  prompts/
+    travel-plan.st                  # Prompt template file
+    summarize.st                    # Summarization template
+
+pom.xml                             # spring-ai starters</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>This layout mirrors standard Spring Boot structure with minimal additions. Teams already familiar with Spring conventions can navigate an AI project without documentation.</div>
+<div class="callout hood"><span>Under the hood</span>Prompt template files (<code>.st</code> or <code>.txt</code>) can be loaded via <code>PromptTemplate</code> from the classpath. Spring's <code>ResourceLoader</code> resolves file paths, enabling A/B testing of prompt versions through configuration.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — ChatClient fluent API, advisors, memory, tools, embeddings, RAG, ETL</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>ChatClient Fluent API Chain Deep Use</h3>
+<p><strong>What &amp; why.</strong> The <code>ChatClient</code> fluent API supports chaining system prompts, user messages, advisors, options, and output converters in a single declarative expression. Each method in the chain adds a configuration layer, and <code>.call()</code> or <code>.stream()</code> triggers execution. Deep chaining reduces boilerplate and makes the full prompt configuration readable at a glance.</p>
+<pre class="code"><code>String result = chatClient.prompt()
+    .system(s -&gt; s.text("You are a {role}")
+                .param("role", "senior backend engineer"))
+    .user(u -&gt; u.text("Review this code for security issues: {code}")
+                .param("code", sourceCode))
+    .advisors(new MessageChatMemoryAdvisor(chatMemory))
+    .options(OpenAiChatOptions.builder()
+        .model("gpt-4o")
+        .temperature(0.1)
+        .maxTokens(4096)
+        .build())
+    .call()
+    .content();
+
+// Streaming variant with Flux
+Flux&lt;String&gt; stream = chatClient.prompt()
+    .system("You are a helpful coding assistant")
+    .user(userQuestion)
+    .stream()
+    .content();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fluent chains make prompt configuration self-documenting. Each adapter in the chain (system, user, advisors, options) is visible without jumping between methods.</div>
+<div class="callout hood"><span>Under the hood</span>The builder accumulates configuration state until <code>.call()</code> is invoked. Advisors execute as an ordered chain of interceptors before the request reaches the LLM, similar to Spring's <code>HandlerInterceptor</code> pattern.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Advisors: RequestResponseAdvisor Concept</h3>
+<p><strong>What &amp; why.</strong> Advisors are Spring AI's interceptor pattern for modifying, logging, or augmenting LLM requests and responses. They implement <code>RequestResponseAdvisor</code> and execute in an ordered chain around every LLM call. Use advisors for cross-cutting concerns: adding context, enforcing guardrails, logging prompts, managing memory, or retrieving documents for RAG.</p>
+<pre class="code"><code>import org.springframework.ai.chat.client.advisor.RequestResponseAdvisor;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
+
+public class LoggingAdvisor implements RequestResponseAdvisor {
+    private static final Logger log =
+        LoggerFactory.getLogger(LoggingAdvisor.class);
+
+    @Override
+    public Prompt adviseRequest(Prompt prompt, Map&lt;String, Object&gt; context) {
+        log.info("LLM request: {} messages, model={}",
+            prompt.getMessages().length,
+            prompt.getChatOptions());
+        return prompt;
+    }
+
+    @Override
+    public ChatResponse adviseResponse(ChatResponse response,
+                                       Map&lt;String, Object&gt; context) {
+        log.info("LLM response: tokens={}",
+            response.getMetadata().getUsage());
+        return response;
+    }
+
+    @Override
+    public int getOrder() {
+        return 0;  // lower = executes first
+    }
+}
+
+// Register advisors on ChatClient
+chatClient = ChatClient.builder(chatModel)
+    .defaultAdvisors(new LoggingAdvisor())
+    .build();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Advisors replace scattered if/else logic with composable, ordered interceptors. Add logging, guardrails, or RAG retrieval without modifying business logic.</div>
+<div class="callout hood"><span>Under the hood</span>Advisors execute in <code>getOrder()</code> sequence — lower values run first on request, last on response. The chain is inspired by Spring Security's filter chain and Servlet filter ordering.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>ChatMemory Advisors: Message Window Management</h3>
+<p><strong>What &amp; why.</strong> <code>MessageChatMemoryAdvisor</code> stores conversation history and injects it into each request, enabling multi-turn conversations. It uses a sliding window strategy — keeping the last N messages (configurable) to manage token limits. Memory is stored per conversation ID, so different chat sessions are isolated.</p>
+<pre class="code"><code>import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.memory.InMemoryChatMemory;
+import org.springframework.ai.chat.memory.ChatMemory;
+
+@Service
+public class ConversationService {
+    private final ChatClient chatClient;
+    private final ChatMemory chatMemory = new InMemoryChatMemory();
+
+    public ConversationService(ChatClient.Builder builder) {
+        this.chatClient = builder.build();
+    }
+
+    public String chat(String conversationId, String message) {
+        return chatClient.prompt()
+            .system("You are a helpful assistant with memory")
+            .user(message)
+            .advisors(a -&gt; a.param(
+                ChatMemory.CONVERSATION_ID, conversationId))
+            .advisors(new MessageChatMemoryAdvisor(
+                chatMemory, conversationId, 20)) // window=20 messages
+            .call()
+            .content();
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every conversational AI needs memory. The message window prevents context from growing unbounded while maintaining recent conversation coherence. Map-backed storage is ideal for development; JDBC or Redis adapters handle production.</div>
+<div class="callout hood"><span>Under the hood</span>The advisor retrieves past messages from <code>ChatMemory</code> for the given <code>CONVERSATION_ID</code>, prepends them to the current prompt, and stores the new exchange after the call completes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>PromptTemplate with List Items</h3>
+<p><strong>What &amp; why.</strong> Complex prompts often include dynamic lists — bullet points of requirements, code snippets, or document excerpts. Spring AI's <code>PromptTemplate</code> supports variable binding for lists and structured objects. You construct the list in Java, bind it as a template variable, and the template renders it into the prompt text.</p>
+<pre class="code"><code>import org.springframework.ai.chat.prompt.PromptTemplate;
+
+List&lt;String&gt; requirements = List.of(
+    "Must support OAuth 2.0 authentication",
+    "Response time under 200ms at P99",
+    "Horizontal scaling to 10k RPM",
+    "Audit logging for all mutations"
+);
+
+String template = """
+    You are a solutions architect. Design a system with these requirements:
+    {requirements}
+
+    Provide architecture, technology choices, and trade-offs.
+    """;
+
+PromptTemplate pt = new PromptTemplate(template);
+String rendered = pt.render(Map.of(
+    "requirements", requirements.stream()
+        .map(r -&gt; "- " + r)
+        .collect(Collectors.joining("\n"))
+));
+
+ChatResponse response = chatClient.prompt()
+    .user(rendered)
+    .call()
+    .chatResponse();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Dynamic list injection is essential for prompts that process variable-length inputs — requirement lists, code review checklists, document excerpts for summarization, or multi-item classification tasks.</div>
+<div class="callout hood"><span>Under the hood</span>The <code>render()</code> method performs simple string interpolation of bound variables. No SpEL evaluation occurs for plain variable substitution — variables are replaced via <code>String.replace()</code> style matching.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>BeanOutputConverter: Structured Output to POJO</h3>
+<p><strong>What &amp; why.</strong> <code>BeanOutputConverter</code> converts unstructured LLM text into typed Java objects by providing a JSON schema to the model and deserializing the response. It handles retries for malformed output and enforces schema compliance. This is the foundation for building reliable LLM-powered data extraction pipelines.</p>
+<pre class="code"><code>import org.springframework.ai.converter.BeanOutputConverter;
+
+public record CodeReview(
+    String summary,
+    List&lt;Issue&gt; issues,
+    String overallRisk
+) {
+    public record Issue(
+        String severity,
+        String description,
+        String suggestion
+    ) {}
+}
+
+@Service
+public class CodeReviewService {
+    private final ChatClient chatClient;
+    private final BeanOutputConverter&lt;CodeReview&gt; converter =
+        new BeanOutputConverter&lt;&gt;(CodeReview.class);
+
+    public CodeReview review(String code) {
+        return chatClient.prompt()
+            .system("You are a code reviewer. "
+                + "Return your review as JSON matching this schema: "
+                + converter.getFormat())
+            .user("Review this code:\n" + code)
+            .call()
+            .convert(converter);
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Structured output enables LLM responses to feed directly into databases, APIs, and downstream services without manual parsing. This is critical for reliable automation.</div>
+<div class="callout hood"><span>Under the hood</strong>The converter generates a JSON schema from the record, embeds it in the prompt, and uses Jackson to deserialize the response. It retries up to 3 times if the model returns invalid JSON.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>@Tool Annotated Functions and Registration</h3>
+<p><strong>What &amp;why.</strong> Spring AI's <code>@Tool</code> annotation marks Java methods as callable functions that the LLM can invoke during conversation. The model receives tool descriptions, decides which to call based on the user's request, and Spring AI executes the Java method and returns the result. This bridges LLM reasoning with real-world actions.</p>
+<pre class="code"><code>import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
+
+@Service
+public class EmployeeTools {
+    private final LeaveRepository leaveRepo;
+
+    @Tool(description = "Check remaining leave balance for an employee")
+    public LeaveBalance checkLeaveBalance(
+            @ToolParam(description = "Employee ID") String empId) {
+        return leaveRepo.findByEmployeeId(empId);
+    }
+
+    @Tool(description = "Submit a leave request with start and end dates")
+    public LeaveRequest submitLeave(
+            @ToolParam(description = "Employee ID") String empId,
+            @ToolParam(description = "Start date, format YYYY-MM-DD") String start,
+            @ToolParam(description = "End date, format YYYY-MM-DD") String end) {
+        return leaveRepo.createRequest(empId, start, end);
+    }
+}
+
+// Register tools on ChatClient
+ChatClient client = ChatClient.builder(chatModel)
+    .defaultTools(new EmployeeTools(leaveRepo))
+    .build();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Tool calling transforms LLMs from text generators into action-capable agents. Use for database queries, API calls, form submissions, and any real-world operation triggered by natural language.</div>
+<div class="callout hood"><span>Under the hood</span>Spring AI serializes tool definitions (name, description, parameters) into the API's function-calling format. When the model returns a tool call, the framework deserializes arguments, invokes the method, and feeds the result back to the model.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Function Calling Callbacks</h3>
+<p><strong>What &amp; why.</strong> Function calling lets the LLM request execution of named functions mid-conversation. Spring AI maps function names to Java beans via <code>FunctionCallback</code> registrations. The model outputs a function call with arguments, the framework executes the matching Java method, and the result is sent back to the model for final response generation. This enables multi-step reasoning with real data access.</p>
+<pre class="code"><code>import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.context.annotation.Bean;
+
+@Configuration
+public class ToolConfig {
+    @Bean
+    public Function&lt;WeatherRequest, WeatherResponse&gt; weatherFunction() {
+        return request -&gt; {
+            // Call real weather API
+            double temp = weatherService.getTemp(request.city());
+            return new WeatherResponse(request.city(), temp, "sunny");
+        };
+    }
+}
+
+// Register via ChatClient builder
+chatClient = ChatClient.builder(chatModel)
+    .defaultFunctions("weatherFunction")
+    .build();
+
+// The model may call: weatherFunction({"city": "Singapore"})
+String response = chatClient.prompt()
+    .user("What is the weather in Singapore?")
+    .call()
+    .content();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Function callbacks are the backbone of AI agents. The model reasons about when to call which function, and Spring AI handles the execution plumbing — enabling conversational interfaces to real systems.</div>
+<div class="callout hood"><span>Under the hood</span>Functions are registered by name and description. The model receives available functions as tool definitions in the API request. When it decides to call a function, the response includes a <code>tool_calls</code> array that Spring AI processes automatically.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>EmbeddingModel Interface and Embed Calls</h3>
+<p><strong>What &amp; why.</strong> <code>EmbeddingModel</code> converts text into numerical vectors (embeddings) that capture semantic meaning. Spring AI's <code>EmbeddingModel</code> interface provides a <code>embed()</code> method that returns <code>List&lt;Float&gt;</code> vectors. These vectors power similarity search, clustering, classification, and RAG retrieval. The same interface works across providers (OpenAI, Ollama, Azure).</p>
+<pre class="code"><code>import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.EmbeddingResponse;
+
+@Service
+public class EmbeddingService {
+    private final EmbeddingModel embeddingModel;
+
+    public EmbeddingService(EmbeddingModel embeddingModel) {
+        this.embeddingModel = embeddingModel;
+    }
+
+    public float[] embed(String text) {
+        EmbeddingResponse response = embeddingModel.call(
+            new EmbeddingRequest(List.of(text),
+                OpenAiEmbeddingOptions.builder()
+                    .model("text-embedding-3-small")
+                    .build()));
+        return response.getResult().getOutput().getFloatVector();
+    }
+
+    public List&lt;float[]&gt; embedBatch(List&lt;String&gt; texts) {
+        EmbeddingResponse response = embeddingModel.call(
+            new EmbeddingRequest(texts, null));
+        return response.getResults().stream()
+            .map(r -&gt; r.getOutput().getFloatVector())
+            .collect(Collectors.toList());
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Embeddings are the foundation of semantic search and RAG. Every document and query must be embedded before similarity comparison. Batch embedding reduces API calls and latency.</div>
+<div class="callout hood"><span>Under the hood</strong>The <code>EmbeddingModel</code> auto-configuration reads provider properties and creates the appropriate client. OpenAI <code>text-embedding-3-small</code> returns 1536-dimensional vectors; Ollama models may use different dimensions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>SimpleVectorStore: In-Memory RAG Mini</h3>
+<p><strong>What &amp; why.</strong> <code>SimpleVectorStore</code> is Spring AI's in-memory vector store for development and small datasets. It stores embeddings in a <code>Map</code> and performs cosine similarity search at query time. Combined with an <code>EmbeddingModel</code>, it provides a complete RAG (Retrieval-Augmented Generation) pipeline without external databases.</p>
+<pre class="code"><code>import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.SearchRequest;
+
+@Service
+public class MiniRagService {
+    private final SimpleVectorStore vectorStore;
+    private final EmbeddingModel embeddingModel;
+
+    public MiniRagService(EmbeddingModel embeddingModel) {
+        this.embeddingModel = embeddingModel;
+        this.vectorStore = new SimpleVectorStore(embeddingModel);
+    }
+
+    public void indexDocuments(List&lt;Document&gt; docs) {
+        vectorStore.add(docs);
+    }
+
+    public String query(String question, int topK) {
+        SearchRequest request = SearchRequest.query(question)
+            .withTopK(topK)
+            .withSimilarityThreshold(0.7);
+
+        List&lt;Document&gt; results = vectorStore.similaritySearch(request);
+        String context = results.stream()
+            .map(Document::getContent)
+            .collect(Collectors.joining("\n---\n"));
+
+        return chatClient.prompt()
+            .system("Answer based on the provided context only")
+            .user("Context:\n" + context + "\n\nQuestion: " + question)
+            .call()
+            .content();
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SimpleVectorStore is ideal for prototyping RAG without external dependencies. For production, swap to PgVector, Redis, or Milvus — the <code>VectorStore</code> interface is identical.</div>
+<div class="callout hood"><span>Under the hood</span>Cosine similarity is computed by iterating all stored vectors and computing dot product / magnitudes. Performance degrades above ~100k documents — switch to a proper vector database for larger datasets.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>QuestionAnswerAdvisor: Retrieval Advisor</h3>
+<p><strong>What &amp; why.</strong> <code>QuestionAnswerAdvisor</code> wraps RAG retrieval into an advisor that automatically searches the vector store for relevant documents before each LLM call. It appends retrieved context to the prompt, eliminating manual retrieval logic. This makes RAG a single advisor added to the <code>ChatClient</code> chain.</p>
+<pre class="code"><code>import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
+import org.springframework.ai.vectorstore.VectorStore;
+
+@Service
+public class RagAdvisorService {
+    private final ChatClient chatClient;
+
+    public RagAdvisorService(ChatClient.Builder builder,
+                              VectorStore vectorStore) {
+        this.chatClient = builder.build();
+        this.vectorStore = vectorStore;
+    }
+
+    public String ask(String question) {
+        return chatClient.prompt()
+            .user(question)
+            .advisors(new QuestionAnswerAdvisor(vectorStore,
+                SearchRequest.defaults().withTopK(5)))
+            .call()
+            .content();
+    }
+}
+
+// Multi-advisor: memory + RAG together
+String answer = chatClient.prompt()
+    .user(question)
+    .advisors(new QuestionAnswerAdvisor(vectorStore))
+    .advisors(new MessageChatMemoryAdvisor(chatMemory))
+    .call()
+    .content();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>QuestionAnswerAdvisor makes RAG a one-line addition. Any chatbot or knowledge assistant benefits from grounding responses in your document corpus rather than relying solely on the model's training data.</div>
+<div class="callout hood"><span>Under the hood</span>The advisor executes a <code>VectorStore.similaritySearch()</code> with the user's question, retrieves top-K documents, formats them as context, and injects them into the system message before the LLM call.</div>
+</article>
+
+
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Vector stores, multi-advisor, resilience, observability, MCP, multimodal, testing, SSE, security</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Vector Stores: PgVector, Redis, Milvus Config and Filter Expressions</h3>
+<p><strong>What &amp; why.</strong> Production RAG requires persistent, scalable vector stores. Spring AI provides <code>PgVectorStore</code>, <code>RedisVectorStore</code>, and <code>MilvusVectorStore</code> with consistent APIs. Each supports metadata filtering — combining vector similarity search with structured queries (e.g., "find documents similar to X where year = 2025"). Configuration is declarative via application properties.</p>
+<pre class="code"><code># PgVector configuration
+spring:
+  ai:
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        table-name: documents
+        initialize-schema: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/rag
+    username: rag_user
+    password: ${DB_PASSWORD}
+
+# Redis vector store
+spring:
+  ai:
+    vectorstore:
+      redis:
+        uri: redis://localhost:6379
+        index: docs-index
+        prefix: "doc:"
+
+// Filter expressions in Java
+SearchRequest request = SearchRequest.query("Spring Boot security")
+    .withTopK(10)
+    .withSimilarityThreshold(0.75)
+    .withFilterExpression("year == 2025 AND category == 'backend'");
+
+List&lt;Document&gt; results = vectorStore.similaritySearch(request);</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>PgVector is ideal for teams already running PostgreSQL. Redis suits high-throughput, low-latency use cases. Milvus handles billion-scale vectors with distributed architecture. Filter expressions enable hybrid search without separate systems.</div>
+<div class="callout hood"><span>Under the hood</span>HNSW (Hierarchical Navigable Small World) indexing provides O(log n) approximate nearest-neighbor search. Filter expressions are pushed down to the database query layer, reducing the candidate set before vector comparison.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Multi-Advisor Ordering and Composition</h3>
+<p><strong>What &amp; why.</strong> Multiple advisors execute in <code>getOrder()</code> sequence. The order matters: RAG retrieval should run before guardrails (check retrieved content), memory should run after RAG (avoid injecting memory into retrieved context). Understanding advisor composition prevents subtle bugs like double-injection of context or guardrails bypassing retrieved content.</p>
+<pre class="code"><code>// Advisor execution order: lower order = runs first
+// RAG (order=100) -> Guardrails (order=200) -> Memory (order=300)
+
+public class GuardrailAdvisor implements RequestResponseAdvisor {
+    @Override
+    public Prompt adviseRequest(Prompt prompt, Map&lt;String, Object&gt; ctx) {
+        // Runs AFTER RAG has added context — validates final prompt
+        String content = prompt.getContents();
+        if (containsSensitiveData(content)) {
+            throw new GuardrailViolationException(
+                "Prompt contains sensitive data");
+        }
+        return prompt;
+    }
+
+    @Override
+    public int getOrder() { return 200; }
+}
+
+// Composition on ChatClient
+ChatClient client = ChatClient.builder(chatModel)
+    .defaultAdvisors(
+        new QuestionAnswerAdvisor(vectorStore),    // order 100
+        new GuardrailAdvisor(),                     // order 200
+        new MessageChatMemoryAdvisor(chatMemory)    // order 300
+    )
+    .build();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Advisor ordering determines the security and quality properties of your AI pipeline. Incorrect ordering can allow prompt injection through retrieved documents or double-process user messages.</div>
+<div class="callout hood"><span>Under the hood</span>The advisor chain follows the decorator pattern — each advisor wraps the next, modifying the request on the way in and the response on the way out. The order determines the nesting depth.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Retry and Rate-Limit Advisors with Resilience4j</h3>
+<p><strong>What &amp; why.</strong> LLM APIs are unreliable — rate limits, timeouts, and transient errors are common. Resilience4j integration provides retry with exponential backoff, rate limiting, circuit breaking, and bulkhead isolation for LLM calls. Spring AI advisors can wrap these patterns around the chat model, making resilience transparent to business logic.</p>
+<pre class="code"><code>import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.ratelimiter.RateLimiter;
+
+@Configuration
+public class ResilienceConfig {
+    @Bean
+    public Retry retryConfig() {
+        return Retry.of("llm-retry", RetryConfig.custom()
+            .maxAttempts(3)
+            .waitDuration(Duration.ofSeconds(2))
+            .retryOnException(e -&gt;
+                e instanceof HttpServerErrorException
+                || e instanceof ResourceAccessException)
+            .build());
+    }
+
+    @Bean
+    public RateLimiter rateLimiter() {
+        return RateLimiter.of("llm-ratelimit",
+            RateLimiterConfig.custom()
+                .limitForPeriod(10)
+                .limitRefreshPeriod(Duration.ofMinutes(1))
+                .timeoutDuration(Duration.ofSeconds(30))
+                .build());
+    }
+}
+
+// Wrap ChatModel with resilience
+ChatModel resilientModel = Retry.decorateCheckedSupplier(
+    retryConfig,
+    () -&gt; rateLimiter.executeSupplier(() -&gt;
+        originalChatModel.call(prompt))
+);</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Production LLM integrations must handle rate limits (429 errors), timeouts, and model availability issues gracefully. Resilience4j patterns prevent cascading failures and provide graceful degradation.</div>
+<div class="callout hood"><span>Under the hood</span>Resilience4j uses functional decorators that wrap the original function. Retry retries on configured exceptions; rate limiter enforces a sliding window of allowed calls; circuit breaker opens after consecutive failures.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Observability with Micrometer: Traces and Spans</h3>
+<p><strong>What &amp; why.</strong> Spring AI integrates with Micrometer to automatically trace every LLM call with OpenTelemetry-compatible spans. Each call records model name, token usage, latency, and advisor execution. This observability is essential for debugging, performance tuning, and cost attribution in production systems.</p>
+<pre class="code"><code># application.yml
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  otlp:
+    metrics:
+      export:
+        url: http://localhost:4318/v1/metrics
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
+
+# Spring AI automatically creates spans for:
+# - ChatModel.call()
+# - EmbeddingModel.call()
+# - Advisor execution
+# - VectorStore queries
+
+// Custom observation for business metrics
+ Observation chatObs = Observation.start("llm.chat", registry);
+try {
+    String response = chatClient.prompt().user(msg).call().content();
+    chatObs.highCardinalityKeyValue(
+        "llm.tokens", String.valueOf(usage.getTotalTokens()));
+    chatObs.lowCardinalityKeyValue("llm.model", "gpt-4o");
+    return response;
+} finally {
+    chatObs.end();
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Micrometer tracing reveals the full request lifecycle across microservices — from HTTP request through advisor chain to LLM API call. Jaeger or Zipkin dashboards visualize latency hotspots.</div>
+<div class="callout hood"><span>Under the hood</span>Spring AI uses Micrometer's <code>Observation</code> API to instrument every model call. Spans include attributes for model provider, token counts, and advisor names — enabling filtering and aggregation in trace backends.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>MCP Java SDK: Client and Server Boot Apps</h3>
+<p><strong>What &amp; why.</strong> The Model Context Protocol (MCP) standardizes how LLM applications connect to external tools and data sources. The MCP Java SDK enables Spring Boot apps to act as MCP clients (consuming tools from MCP servers) or MCP servers (exposing Spring beans as MCP tools). This interop layer enables cross-language tool sharing between Python and Java AI systems.</p>
+<pre class="code"><code>// MCP Server: expose Spring beans as tools
+@Tool(description = "Query employee directory by name")
+public Employee lookupEmployee(
+        @ToolParam(description = "Employee name") String name) {
+    return employeeService.findByName(name);
+}
+
+// MCP Client: consume external MCP tools
+@Configuration
+public class McpClientConfig {
+    @Bean
+    public McpSyncClient mcpClient() {
+        return McpClient.sync(
+            new HttpClientSseTransport(
+                new URI("http://localhost:8080/mcp")))
+            .clientInfo(new Implementation("my-app", "1.0"))
+            .build();
+    }
+}
+
+// Use MCP tools in ChatClient
+List&lt;ToolCallback&gt; mcpTools = mcpClient.listTools()
+    .tools().stream()
+    .map(McpToolCallback::new)
+    .toList();
+
+ChatClient client = ChatClient.builder(chatModel)
+    .defaultToolCallbacks(mcpTools)
+    .build();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MCP enables language-agnostic tool sharing. A Python ML team can expose a model as an MCP server; Java Spring Boot apps consume it as a tool — no API wrappers or custom integrations needed.</div>
+<div class="callout hood"><span>Under the hood</span>MCP uses JSON-RPC over stdio or HTTP SSE. The Java SDK handles protocol negotiation, tool schema exchange, and argument serialization. Server apps auto-register <code>@Tool</code> methods in the MCP tool manifest.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Multimodal: Media Images in Messages</h3>
+<p><strong>What &amp; why.</strong> Spring AI supports multimodal messages that combine text and images. <code>UserMessage</code> accepts media objects (URLs, base64-encoded images) alongside text. This enables image analysis, visual question answering, and document understanding with models like GPT-4o and Gemini that accept image inputs.</p>
+<pre class="code"><code>import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.content.Media;
+
+// Image from URL
+Media imageFromUrl = Media.builder()
+    .mimeType(MimeTypeUtils.IMAGE_JPEG)
+    .data(new URL("https://example.com/chart.png"))
+    .build();
+
+// Image from local file
+Media imageFromFile = Media.builder()
+    .mimeType(MimeTypeUtils.IMAGE_PNG)
+    .data(new FileSystemResource("/tmp/screenshot.png"))
+    .build();
+
+UserMessage message = UserMessage.builder()
+    .text("Analyze this chart and describe the trend")
+    .media(imageFromUrl)
+    .build();
+
+ChatResponse response = chatClient.prompt()
+    .user(message)
+    .call()
+    .chatResponse();</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multimodal LLMs enable use cases like invoice processing (scan and extract), chart analysis (visual data interpretation), and UI testing (screenshot comparison) — all from a single API call.</div>
+<div class="callout hood"><span>Under the hood</span>The image is sent as a base64-encoded data URL or external URL in the API request. The model processes both text and image tokens together. GPT-4o charges ~765 tokens per image regardless of size.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Evaluation Stub: Evaluator and RelevancyEvaluator</h3>
+<p><strong>What &amp; why.</strong> Spring AI includes an evaluation framework for measuring LLM response quality. <code>RelevancyEvaluator</code> checks whether a response is relevant to the input question. Custom <code>Evaluator</code> implementations measure domain-specific metrics. Evaluation is essential for regression testing prompts and catching quality degradation after changes.</p>
+<pre class="code"><code>import org.springframework.ai.evaluation.RelevancyEvaluator;
+
+@Service
+public class EvaluationService {
+    private final ChatClient chatClient;
+    private final RelevancyEvaluator evaluator;
+
+    public EvaluationService(ChatClient.Builder builder) {
+        this.chatClient = builder.build();
+        this.evaluator = new RelevancyEvaluator(chatClient);
+    }
+
+    public EvaluationResult evaluate(String question, String answer) {
+        ChatResponse chatResponse = new ChatResponse(
+            List.of(new Generation(answer)));
+
+        return evaluator.evaluate(
+            new EvaluationRequest(question, chatResponse));
+    }
+
+    public void runEvaluationSuite(String[] questions) {
+        int passed = 0;
+        for (String q : questions) {
+            String answer = chatClient.prompt()
+                .user(q).call().content();
+            EvaluationResult result = evaluate(q, answer);
+            if (result.isPass()) passed++;
+            System.out.printf("Q: %s -> %s%n", q,
+                result.isPass() ? "PASS" : "FAIL");
+        }
+        System.out.printf("Score: %d/%d%n", passed, questions.length);
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Automated evaluation catches prompt regressions before they reach production. Run evaluation suites on every prompt change to ensure quality remains stable or improves.</div>
+<div class="callout hood"><span>Under the hood</span><code>RelevancyEvaluator</code> uses a secondary LLM call to judge whether the answer is relevant to the question. This "LLM-as-judge" pattern is cost-effective for non-critical evaluations but should be supplemented with human review for high-stakes applications.</div>
+</article>
+
+
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Security with Spring Security on Chat Endpoints</h3>
+<p><strong>What &amp; why.</strong> Chat endpoints must be secured to prevent unauthorized access, prompt injection, and abuse. Spring Security integrates with Spring AI to enforce authentication (OAuth2, JWT, API keys) and authorization (role-based access) on chat and streaming endpoints. Rate limiting per user prevents individual consumers from exhausting API quotas.</p>
+<pre class="code"><code>@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        return http
+            .csrf(csrf -&gt; csrf.disable())
+            .authorizeHttpRequests(auth -&gt; auth
+                .requestMatchers("/api/chat/**").authenticated()
+                .requestMatchers("/api/public/**").permitAll()
+                .anyRequest().denyAll())
+            .oauth2ResourceServer(oauth2 -&gt;
+                oauth2.jwt(Customizer.withDefaults()))
+            .build();
+    }
+}
+
+@RestController
+@RequestMapping("/api/chat")
+public class SecuredChatController {
+    private final ChatClient chatClient;
+
+    @PostMapping
+    public ChatResponse chat(@RequestBody ChatRequest req,
+                             Authentication auth) {
+        // Log user identity for audit
+        log.info("Chat request from user={}", auth.getName());
+
+        return chatClient.prompt()
+            .system("You are assisting user: " + auth.getName())
+            .user(req.message())
+            .call()
+            .chatResponse();
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Unauthenticated chat endpoints are a security risk — they enable prompt injection attacks, data exfiltration, and cost abuse. Spring Security integrates seamlessly with existing OAuth2/JWT infrastructure.</div>
+<div class="callout hood"><span>Under the hood</span>Spring Security's filter chain validates JWTs before the request reaches the controller. The <code>Authentication</code> object provides user identity for audit logging and per-user rate limiting.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Property Matrix: Providers — Azure OpenAI, Bedrock, Ollama, Vertex</h3>
+<p><strong>What &amp; why.</strong> Spring AI supports multiple LLM providers through a consistent property schema. Each provider has its own starter and configuration namespace. This property matrix shows how to configure OpenAI, Azure OpenAI, AWS Bedrock, Ollama, and Google Vertex AI — enabling multi-provider strategies for resilience and cost optimization.</p>
+<pre class="code"><code># OpenAI
+spring.ai.openai.api-key: ${OPENAI_KEY}
+spring.ai.openai.chat.options.model: gpt-4o
+
+# Azure OpenAI
+spring.ai.azure.openai.api-key: ${AZURE_KEY}
+spring.ai.azure.openai.endpoint: https://myresource.openai.azure.com
+spring.ai.azure.openai.chat.options.deployment-name: gpt-4o
+
+# AWS Bedrock
+spring.ai.bedrock.aws.region: us-east-1
+spring.ai.bedrock.chat.options.model: anthropic.claude-3-sonnet
+
+# Ollama (local)
+spring.ai.ollama.base-url: http://localhost:11434
+spring.ai.ollama.chat.options.model: llama3.1
+
+# Google Vertex AI
+spring.ai.vertex.ai.gemini.project-id: my-gcp-project
+spring.ai.vertex.ai.gemini.location: us-central1
+spring.ai.vertex.ai.gemini.chat.options.model: gemini-1.5-pro
+
+# Provider-specific starters in pom.xml:
+# spring-ai-openai-spring-boot-starter
+# spring-ai-azure-openai-spring-boot-starter
+# spring-ai-bedrock-converse-spring-boot-starter
+# spring-ai-ollama-spring-boot-starter
+# spring-ai-vertex-ai-gemini-spring-boot-starter</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-provider strategies prevent vendor lock-in and enable fallback routing. If OpenAI is rate-limited, route to Bedrock; if cloud access is blocked, fall back to local Ollama.</div>
+<div class="callout hood"><span>Under the hood</span>Each provider starter auto-configures its own <code>ChatModel</code> implementation. The <code>@Primary</code> annotation or explicit <code>@Qualifier</code> selects which provider handles each request.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — GraalVM, virtual threads, Python interop, enterprise, multi-tenant, cost governance, audit, hybrid RAG, custom Advisors, versioning, production checklist</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>GraalVM Native Image: Constraints and Reflection Hints</h3>
+<p><strong>What &amp; why.</strong> GraalVM compiles Spring Boot apps to native executables for instant startup and low memory. However, LLM client libraries use reflection, dynamic proxies, and JSON deserialization that require GraalVM hints. Spring AI provides reflection configuration for its models, but custom tools and output converters need additional <code>@RegisterReflectionForBinding</code> annotations or JSON config files.</p>
+<pre class="code"><code>// Reflection hints for custom structured output
+@RegisterReflectionForBinding(
+    classes = {TravelPlan.class, TravelPlan.Issue.class})
+@Configuration
+public class GraalvmHints {
+    @Bean
+    public RuntimeHints runtimeHints() {
+        RuntimeHints hints = new RuntimeHints();
+        hints.reflection()
+            .registerType(TravelPlan.class,
+                MemberCategory.values());
+        hints.resources()
+            .registerPattern("prompts/*.st");
+        return hints;
+    }
+}
+
+// Native build command
+// ./mvnw -Pnative native:compile
+// ./target/my-app  # starts in ~50ms vs ~2s JVM</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>GraalVM native images are ideal for serverless AI functions (AWS Lambda, Azure Functions) and CLI tools where startup time and memory are critical constraints.</div>
+<div class="callout hood"><span>Under the hood</span>GraalVM performs ahead-of-time compilation, eliminating JVM warmup. Spring Boot 3+ includes automatic reflection hints for most Spring classes, but third-party libraries (like HTTP clients used by LLM providers) may need manual hints.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>High-Throughput Tuning: Connection Pools and Virtual Threads</h3>
+<p><strong>What &amp; why.</strong> LLM API calls are network-bound, not CPU-bound. Java 21+ virtual threads enable blocking HTTP calls to LLM providers without consuming OS threads. Connection pooling for HTTP clients prevents socket exhaustion under high concurrency. Tuning these ensures your Spring AI service handles hundreds of concurrent LLM requests without thread pool starvation.</p>
+<pre class="code"><code># Enable virtual threads (Java 21+)
+spring:
+  threads:
+    virtual:
+      enabled: true
+
+// HTTP client connection pool for LLM API calls
+@Bean
+public HttpClient httpClient() {
+    return HttpClient.create()
+        .responseTimeout(Duration.ofSeconds(60))
+        .doOnConnected(conn -&gt;
+            conn.addHandlerLast(new ReadTimeoutHandler(60))
+                .addHandlerLast(new WriteTimeoutHandler(30)))
+        .observe(connection -&gt;
+            log.debug("Connection: {}", connection.channel()));
+}
+
+// Connection pool configuration
+@Bean
+public ConnectionProvider connectionProvider() {
+    return ConnectionProvider.builder("llm-pool")
+        .maxConnections(200)
+        .maxIdleTime(Duration.ofSeconds(20))
+        .maxLifeTime(Duration.ofSeconds(60))
+        .pendingAcquireTimeout(Duration.ofSeconds(30))
+        .build();
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>High-throughput services (chatbots serving 1000+ concurrent users) need virtual threads and connection pooling. Without them, the thread pool exhausts quickly since each LLM call blocks for 2-10 seconds.</div>
+<div class="callout hood"><span>Under the hood</span>Virtual threads are lightweight threads managed by the JVM, not the OS. Millions can coexist, each blocking on an HTTP call without consuming an OS thread. Connection pooling reuses TCP connections to LLM providers, reducing TLS handshake overhead.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>Python Interop via MCP and gRPC Boundary Patterns</h3>
+<p><strong>What &amp; why.</strong> Enterprise AI stacks often have Python ML services alongside Java backend systems. MCP and gRPC provide clean boundary patterns: Python hosts model inference as an MCP server; Java Spring Boot consumes it as a tool. gRPC offers lower-latency binary protocol for high-throughput model serving. Both approaches avoid polyglot monoliths while enabling language-appropriate implementations.</p>
+<pre class="code"><code>// Java MCP client consuming Python MCP server
+@Configuration
+public class PythonInteropConfig {
+    @Bean
+    public McpSyncClient pythonModelServer() {
+        return McpClient.sync(
+            new HttpClientSseTransport(
+                new URI("http://python-ml:8081/mcp")))
+            .clientInfo(new Implementation("java-backend", "1.0"))
+            .build();
+    }
+
+    @Bean
+    public ChatClient chatClient(ChatModel model,
+                                  McpSyncClient pythonClient) {
+        List&lt;ToolCallback&gt; pythonTools = pythonClient
+            .listTools().tools().stream()
+            .map(McpToolCallback::new)
+            .toList();
+
+        return ChatClient.builder(model)
+            .defaultToolCallbacks(pythonTools)
+            .build();
+    }
+}
+
+// gRPC alternative for model serving
+// .proto definition for model inference
+// service ModelInference {
+//     rpc Predict (PredictRequest) returns (PredictResponse);
+// }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MCP enables Python ML teams and Java backend teams to work independently. Each deploys separately, communicates via MCP protocol, and evolves without breaking the other.</div>
+<div class="callout hood"><span>Under the hood</span>MCP uses JSON-RPC over HTTP SSE for tool invocation; gRPC uses Protocol Buffers over HTTP/2 for binary serialization. MCP is better for tool-oriented interop; gRPC for high-throughput model inference.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>Enterprise Integration: JMS/Kafka Pipelines Feeding RAG</h3>
+<p><strong>What &amp; why.</strong> Enterprise data lives in message queues and event streams, not just files. Spring Integration and Spring Cloud Stream enable JMS/Kafka messages to trigger document ingestion into the vector store. A new document arriving on a Kafka topic is automatically chunked, embedded, and indexed — keeping the RAG knowledge base current without manual intervention.</p>
+<pre class="code"><code>@Configuration
+public class KafkaIngestionConfig {
+    @Bean
+    public Function&lt;Flux&lt;Message&lt;Document&gt;&gt;, Flux&lt;String&gt;&gt;
+            ingestDocuments(VectorStore vectorStore,
+                            TokenTextSplitter splitter) {
+        return flux -&gt; flux.map(msg -&gt; {
+            Document doc = msg.getPayload();
+            List&lt;Document&gt; chunks = splitter.apply(List.of(doc));
+            vectorStore.accept(chunks);
+            return "Indexed " + chunks.size() + " chunks from "
+                + doc.getMetadata().get("filename");
+        });
+    }
+}
+
+// application.yml
+spring:
+  cloud:
+    stream:
+      bindings:
+        ingestDocuments-in-0:
+          destination: document-uploads
+          group: rag-ingestion
+          consumer:
+            max-attempts: 3
+
+# Spring Integration alternative: file inbound adapter
+// @InboundChannelAdapter(channel = "newFiles",
+//     poller = @Poller(fixedRate = "5000"))
+// public MessageSource&lt;File&gt; fileSource() {
+//     FileReadingMessageSource source = new FileReadingMessageSource();
+//     source.setDirectory(new File("/data/inbox"));
+//     return source;
+// }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Automated ingestion from Kafka/JMS keeps the RAG knowledge base synchronized with source systems. New documents, policy updates, or knowledge articles are indexed in near real-time without manual triggers.</div>
+<div class="callout hood"><span>Under the hood</span>Spring Cloud Stream abstracts messaging middleware behind functional bindings. The same <code>Function</code> works with Kafka, RabbitMQ, or AWS SQS by changing the binder dependency and properties.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">41</span>Multi-Tenant Isolation: Keys Per Tenant</h3>
+<p><strong>What &amp; why.</strong> Multi-tenant AI services must isolate API keys, vector stores, chat memories, and rate limits per tenant. Spring's <code>@TenantContext</code> pattern combined with request-scoped beans ensures Tenant A's data never leaks into Tenant B's context. Each tenant can have its own LLM provider configuration and model preferences.</p>
+<pre class="code"><code>@Component
+@RequestScope
+public class TenantContext {
+    private final String tenantId;
+    private final String apiKey;
+    private final String vectorStorePrefix;
+
+    public TenantContext(@RequestHeader("X-Tenant-ID") String tenantId,
+                         TenantConfigService configService) {
+        this.tenantId = tenantId;
+        TenantConfig config = configService.getConfig(tenantId);
+        this.apiKey = config.getApiKey();
+        this.vectorStorePrefix = "tenant-" + tenantId + ":";
+    }
+}
+
+@Service
+public class TenantChatService {
+    public String chat(String question) {
+        TenantContext ctx = tenantContextProvider.get();
+
+        return ChatClient.builder(chatModelForTenant(ctx))
+            .build()
+            .prompt()
+            .user(question)
+            .advisors(new QuestionAnswerAdvisor(
+                vectorStore, ctx.getVectorStorePrefix()))
+            .call()
+            .content();
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-tenant SaaS AI platforms need strict isolation. Each tenant's prompts, documents, and conversation history must be separated to prevent data leakage and enable per-tenant billing.</div>
+<div class="callout hood"><span>Under the hood</span>Request-scoped beans are created per HTTP request and destroyed at request end. The <code>@RequestScope</code> annotation ensures the tenant context is thread-local and does not leak between requests.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">42</span>Blue-Green Model Upgrades: Config-Driven Switchover</h3>
+<p><strong>What &amp; why.</strong> Blue-green model upgrades maintain two model configurations — current (blue) and next (green) — and switch traffic atomically via configuration change. Spring profiles and feature flags control which model version serves each request. Rollback is a single property change, not a redeployment.</p>
+<pre class="code"><code># blue-green.yml
+models:
+  blue:
+    provider: openai
+    model: gpt-4o
+    temperature: 0.7
+  green:
+    provider: openai
+    model: gpt-4o-mini
+    temperature: 0.5
+  active: blue  # Switch to green for rollout
+
+@Service
+public class BlueGreenChatService {
+    @Value("${models.active}")
+    private String activeModel;
+
+    @Bean
+    public ChatClient chatClient(
+            @Qualifier("blueModel") ChatModel blue,
+            @Qualifier("greenModel") ChatModel green) {
+        ChatModel active = "green".equals(activeModel) ? green : blue;
+        return ChatClient.builder(active).build();
+    }
+}
+
+# Switchover: change models.active=green and restart
+# Rollback: change models.active=blue and restart</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Blue-green model upgrades enable safe rollout of new models. The switch is instant and reversible, with no code changes required.</div>
+<div class="callout hood"><span>Under the hood</span>Spring's <code>@Qualifier</code> selects between multiple beans of the same type. The active profile or property determines which <code>ChatModel</code> bean is injected into the service. A restart (or Spring Cloud Config refresh) switches the active model.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">43</span>Cost Governance: Meter Registry and Chargeback</h3>
+<p><strong>What &amp; why.</strong> LLM API costs scale with token usage. Without per-user or per-tenant metering, costs become unpredictable. Spring Boot's <code>MeterRegistry</code> (Micrometer) tracks tokens per request, and a custom advisor aggregates usage for chargeback reporting. This enables cost attribution, budget alerts, and usage-based pricing.</p>
+<pre class="code"><code>import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Counter;
+
+public class CostTrackingAdvisor implements RequestResponseAdvisor {
+    private final MeterRegistry registry;
+    private final CostCalculator costCalc;
+
+    @Override
+    public ChatResponse adviseResponse(ChatResponse response,
+                                       Map&lt;String, Object&gt; ctx) {
+        Usage usage = response.getMetadata().getUsage();
+        String tenant = (String) ctx.getOrDefault("tenantId", "default");
+        String model = (String) ctx.getOrDefault("model", "unknown");
+
+        Counter.builder("llm.tokens.total")
+            .tag("tenant", tenant)
+            .tag("model", model)
+            .tag("type", "prompt")
+            .register(registry)
+            .increment(usage.getPromptTokens());
+
+        Counter.builder("llm.tokens.total")
+            .tag("tenant", tenant)
+            .tag("model", model)
+            .tag("type", "completion")
+            .register(registry)
+            .increment(usage.getGenerationTokens());
+
+        double cost = costCalc.calculate(model, usage);
+        Counter.builder("llm.cost.usd")
+            .tag("tenant", tenant)
+            .register(registry)
+            .increment(cost);
+
+        return response;
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>LLM costs can spiral without governance. Per-tenant metering enables chargeback, budget alerts, and usage-based billing. Grafana dashboards built on Micrometer metrics provide real-time cost visibility.</div>
+<div class="callout hood"><span>Under the hood</span>Micrometer's <code>Counter</code> and <code>Gauge</code> instruments are pushed to Prometheus, Datadog, or CloudWatch via configured exporters. Tags enable multi-dimensional querying by tenant, model, and request type.</div>
+</article>
+
+
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Customer Support Assistant with Spring Boot + PgVector RAG</h3>
+<p>Build a customer support chatbot that retrieves answers from a knowledge base of support articles using RAG with PgVector. The system handles product questions, troubleshoots issues, and escalates unresolved queries to human agents.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Create a Spring Boot 3 project with <code>spring-ai-openai-spring-boot-starter</code> and <code>spring-ai-pgvector-store-spring-boot-starter</code></li>
+<li>Set up PostgreSQL with PgVector extension and configure <code>application.yml</code> with vector store properties</li>
+<li>Ingest support articles using <code>TikaDocumentReader</code> + <code>TokenTextSplitter</code> into PgVector via the ETL pipeline</li>
+<li>Configure <code>ChatClient</code> with <code>QuestionAnswerAdvisor</code> pointing to the PgVector store</li>
+<li>Add a guardrail advisor that escalates to human agents when confidence is low</li>
+<li>Build REST endpoints: <code>POST /api/support/ask</code> (sync) and <code>GET /api/support/stream</code> (SSE streaming)</li>
+<li>Add Micrometer tracing for every LLM call with token usage metrics</li>
+<li>Implement retry with Resilience4j and rate limiting per API key</li>
+</ol>
+<pre class="code"><code>@RestController
+@RequestMapping("/api/support")
+public class SupportController {
+    private final ChatClient chatClient;
+
+    public SupportController(ChatClient.Builder builder,
+                              VectorStore vectorStore) {
+        this.chatClient = builder
+            .defaultAdvisors(
+                new QuestionAnswerAdvisor(vectorStore,
+                    SearchRequest.defaults().withTopK(5)))
+            .build();
+    }
+
+    @PostMapping("/ask")
+    public SupportResponse ask(@RequestBody SupportRequest req) {
+        String answer = chatClient.prompt()
+            .system("You are a helpful support agent. "
+                + "Only answer based on the provided context.")
+            .user(req.question())
+            .call()
+            .content();
+        return new SupportResponse(answer, Instant.now());
+    }
+}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>PgVector RAG pipeline configuration and ETL ingestion</li>
+<li>Advisor composition for RAG + guardrails</li>
+<li>REST API design for LLM-powered services</li>
+<li>Micrometer observability and Resilience4j resilience patterns</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Internal HR Chatbot with Tools (Leave Balance) + Memory</h3>
+<p>Build an HR chatbot for employees to check leave balances, submit leave requests, and ask policy questions. The bot uses tool calling for database operations and conversation memory for multi-turn interactions.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Create a Spring Boot project with OpenAI starter and <code>spring-ai-openai-spring-boot-starter</code></li>
+<li>Define <code>@Tool</code> annotated methods in an <code>HrTools</code> service: <code>checkLeaveBalance</code>, <code>submitLeave</code>, <code>getPolicy</code></li>
+<li>Register tools on <code>ChatClient</code> via <code>.defaultTools(new HrTools(...))</code></li>
+<li>Configure <code>InMemoryChatMemory</code> with <code>MessageChatMemoryAdvisor</code> (window=20 messages)</li>
+<li>Build a REST controller with conversation ID tracking via request header</li>
+<li>Add Spring Security with JWT authentication to identify the employee</li>
+<li>Implement audit logging advisor that records all tool calls and responses</li>
+<li>Add <code>BeanOutputConverter</code> for structured leave request parsing</li>
+</ol>
+<pre class="code"><code>public class HrTools {
+    private final LeaveRepository leaveRepo;
+    private final PolicyRepository policyRepo;
+
+    @Tool(description = "Check remaining leave balance for the employee")
+    public LeaveBalance checkLeaveBalance(
+            @ToolParam(description = "Employee ID") String empId) {
+        return leaveRepo.getBalance(empId);
+    }
+
+    @Tool(description = "Submit a leave request")
+    public LeaveRequest submitLeave(
+            @ToolParam(description = "Employee ID") String empId,
+            @ToolParam(description = "Start date YYYY-MM-DD") String start,
+            @ToolParam(description = "End date YYYY-MM-DD") String end,
+            @ToolParam(description = "Leave type") String type) {
+        return leaveRepo.createRequest(empId, start, end, type);
+    }
+
+    @Tool(description = "Get HR policy by topic")
+    public String getPolicy(
+            @ToolParam(description = "Policy topic") String topic) {
+        return policyRepo.findByTopic(topic).getContent();
+    }
+}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Tool calling with <code>@Tool</code> and <code>@ToolParam</code> annotations</li>
+<li>Conversation memory with <code>MessageChatMemoryAdvisor</code></li>
+<li>Multi-turn conversational agents with real database operations</li>
+<li>Audit logging and structured output with <code>BeanOutputConverter</code></li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Document QA Microservice with SSE Streaming + Micrometer Dashboards</h3>
+<p>Build a document Q&A microservice that ingests PDFs and text files, answers questions via RAG, streams responses to browser clients via SSE, and exposes Micrometer metrics for operational dashboards.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Create a Spring Boot 3 WebFlux project with OpenAI and PgVector starters</li>
+<li>Build an ingestion API: <code>POST /api/ingest</code> accepts file uploads and processes them through <code>TikaDocumentReader</code> + <code>TokenTextSplitter</code> into PgVector</li>
+<li>Configure <code>ChatClient</code> with <code>QuestionAnswerAdvisor</code> for RAG retrieval</li>
+<li>Implement SSE streaming endpoint: <code>GET /api/qa/stream?question=...&amp;docId=...</code></li>
+<li>Add Micrometer custom metrics: <code>llm.tokens.total</code>, <code>llm.cost.usd</code>, <code>rag.retrieval.count</code></li>
+<li>Build a Thymeleaf or static HTML page with JavaScript <code>EventSource</code> for real-time streaming display</li>
+<li>Configure Prometheus exporter and create Grafana dashboard for LLM metrics</li>
+<li>Add error handling with <code>@ControllerAdvice</code> mapping AI-specific exceptions</li>
+</ol>
+<pre class="code"><code>@RestController
+@RequestMapping("/api/qa")
+public class QaController {
+    private final ChatClient chatClient;
+    private final VectorStore vectorStore;
+
+    @GetMapping(value = "/stream",
+                produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux&lt;ServerSentEvent&lt;String&gt;&gt; stream(
+            @RequestParam String question,
+            @RequestParam String docId) {
+        return chatClient.prompt()
+            .user(question)
+            .advisors(new QuestionAnswerAdvisor(vectorStore,
+                SearchRequest.defaults()
+                    .withFilterExpression("docId == '" + docId + "'")
+                    .withTopK(5)))
+            .stream()
+            .content()
+            .index((i, chunk) -&gt;
+                ServerSentEvent.&lt;String&gt;builder()
+                    .id(String.valueOf(i))
+                    .data(chunk)
+                    .build());
+    }
+}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Document ingestion pipeline with Tika + TokenTextSplitter</li>
+<li>SSE streaming with WebFlux and ServerSentEvent</li>
+<li>Micrometer metrics and Prometheus/Grafana dashboarding</li>
+<li>Per-document RAG retrieval with filter expressions</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>ChatClient</td><td>Primary abstraction for LLM calls in Spring AI</td><td><code>chatClient.prompt().user(msg).call().content()</code></td></tr>
+<tr><td>Prompt Template</td><td>Parameterized prompts with {placeholder} syntax</td><td><code>new PromptTemplate(template).createMessage(vars)</code></td></tr>
+<tr><td>System vs User</td><td>System sets behavior; user provides input</td><td><code>.system(sysMsg).user(userMsg)</code></td></tr>
+<tr><td>Streaming</td><td>Token-by-token response via reactive Flux</td><td><code>.stream().content()</code> returns <code>Flux&lt;String&gt;</code></td></tr>
+<tr><td>Advisors</td><td>Interceptors around LLM calls (ordered chain)</td><td><code>RequestResponseAdvisor</code> with <code>getOrder()</code></td></tr>
+<tr><td>ChatMemory</td><td>Conversation history with sliding window</td><td><code>new MessageChatMemoryAdvisor(memory, id, 20)</code></td></tr>
+<tr><td>Tool Calling</td><td>LLM invokes Java methods via @Tool annotation</td><td><code>@Tool(description="...")</code> + <code>.defaultTools()</code></td></tr>
+<tr><td>EmbeddingModel</td><td>Converts text to numerical vectors</td><td><code>embeddingModel.call(new EmbeddingRequest(...))</code></td></tr>
+<tr><td>SimpleVectorStore</td><td>In-memory vector store for prototyping RAG</td><td><code>new SimpleVectorStore(embeddingModel)</code></td></tr>
+<tr><td>QuestionAnswerAdvisor</td><td>One-line RAG via advisor chain</td><td><code>new QuestionAnswerAdvisor(vectorStore)</code></td></tr>
+<tr><td>TikaDocumentReader</td><td>Reads PDF, Word, HTML (200+ formats)</td><td><code>new TikaDocumentReader(resource).get()</code></td></tr>
+<tr><td>TokenTextSplitter</td><td>Splits documents into token-based chunks</td><td><code>new TokenTextSplitter(800, 200, 10, 5000, true)</code></td></tr>
+<tr><td>PgVector</td><td>PostgreSQL vector store with HNSW indexing</td><td><code>spring.ai.vectorstore.pgvector.*</code></td></tr>
+<tr><td>Filter Expressions</td><td>Metadata filters on vector search</td><td><code>.withFilterExpression("year == 2025")</code></td></tr>
+<tr><td>Resilience4j</td><td>Retry, rate limit, circuit breaker for LLM calls</td><td><code>Retry.of("llm", config)</code></td></tr>
+<tr><td>Micrometer</td><td>Traces and metrics for LLM observability</td><td><code>management.tracing.*</code></td></tr>
+<tr><td>MCP</td><td>Model Context Protocol for cross-language tools</td><td><code>McpClient.sync(transport).build()</code></td></tr>
+<tr><td>Multimodal</td><td>Text + image messages in single prompt</td><td><code>UserMessage.builder().media(image).build()</code></td></tr>
+<tr><td>Evaluator</td><td>Automated quality assessment of LLM responses</td><td><code>new RelevancyEvaluator(chatClient)</code></td></tr>
+<tr><td>MockChatClient</td><td>Test doubles for LLM services</td><td><code>@MockBean ChatModel</code></td></tr>
+<tr><td>SSE Streaming</td><td>Server-Sent Events for real-time browser output</td><td><code>Flux&lt;ServerSentEvent&lt;String&gt;&gt;</code></td></tr>
+<tr><td>Security</td><td>JWT/OAuth2 auth on chat endpoints</td><td><code>.oauth2ResourceServer().jwt()</code></td></tr>
+<tr><td>GraalVM</td><td>Native image compilation with reflection hints</td><td><code>@RegisterReflectionForBinding</code></td></tr>
+<tr><td>Virtual Threads</td><td>Lightweight threads for blocking LLM calls</td><td><code>spring.threads.virtual.enabled=true</code></td></tr>
+<tr><td>Blue-Green</td><td>Config-driven model version switching</td><td><code>@Qualifier("blueModel")</code></td></tr>
+<tr><td>Cost Metering</td><td>Per-tenant token/cost tracking</td><td><code>Counter.builder("llm.cost.usd").tag(...)</code></td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="mlops.html">&larr; MLOps</a><a href="governance.html">Governance &rarr;</a></footer>
+</body></html>

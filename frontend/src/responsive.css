@@ -1,0 +1,65 @@
+/* ==========================================================================
+   DEVICE LAYER — applies to every page. Loaded after styles.css.
+   iPhone (≤480) · iPad (768–1180) · MacBook Pro 14/16 (1440–1728)
+   iMac 24 (2240) · Studio Display / Pro Display XDR (2560+)
+   ========================================================================== */
+
+html { scroll-behavior: smooth; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* Fluid page titles — scale smoothly between phone and 5K. */
+#page-content .chapter-title { font-size: clamp(20px, 1.2rem + 1.1vw, 40px); line-height: 1.15; letter-spacing: -.015em; }
+#page-content .hero-text h2 { font-size: clamp(21px, 1.1rem + 1.3vw, 44px); line-height: 1.12; }
+
+/* Rich surfaces: softer depth and smoother hover on the shared card types. */
+#page-content .chapter-card, #page-content .glass-card, #page-content .info-card, #page-content .deep-dive-card, #page-content .job-card {
+  border-radius: 16px; transition: transform .25s cubic-bezier(.2, .8, .2, 1), box-shadow .25s, border-color .25s, background .25s;
+}
+@media (hover: hover) {
+  #page-content .chapter-card:hover, #page-content .deep-dive-card:hover, #page-content .job-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(1, 5, 16, .4); }
+}
+#page-content .hero { border-radius: 22px; }
+
+/* Media never overflows; images get a crisp rounded frame. */
+#page-content img { height: auto; }
+
+/* Touch devices (iPhone / iPad): comfortable tap targets, no hover jumps. */
+@media (pointer: coarse) {
+  #page-content button, #page-content select, #page-content .back-link { min-height: 40px; }
+  #page-content .chapter-card:hover, #page-content .deep-dive-card:hover, #page-content .job-card:hover { transform: none; }
+}
+
+/* iPhone: 16px inputs stop Safari zooming on focus; two-up grids collapse. */
+@media (max-width: 600px) {
+  #page-content input, #page-content select, #page-content textarea { font-size: 16px; }
+  #page-content .cards-grid { grid-template-columns: 1fr; }
+  #page-content .hero { border-radius: 18px; }
+}
+
+/* iPad: two-column card grids breathe. */
+@media (min-width: 769px) and (max-width: 1180px) {
+  #page-content .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+}
+
+/* MacBook Pro 14"/16" */
+@media (min-width: 1400px) {
+  #page-content .cards-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  #page-content { font-size: 15.5px; }
+}
+
+/* iMac 24" & large external displays */
+@media (min-width: 1900px) {
+  #page-content .cards-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  #page-content { font-size: 16px; }
+  .app-header { height: 66px; }
+  :root { --header-height: 66px; }
+}
+
+/* Studio Display / Pro Display XDR (5K/6K scaled to 2560+) */
+@media (min-width: 2400px) {
+  #page-content { font-size: 17px; }
+  #page-content .cards-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .app-header { height: 72px; }
+  :root { --header-height: 72px; }
+  .app-header h1 { font-size: 20px; }
+}

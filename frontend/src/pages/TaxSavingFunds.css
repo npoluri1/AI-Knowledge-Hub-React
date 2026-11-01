@@ -1,0 +1,233 @@
+/* ═══════════════════════════════════════════════════════════
+   Tax-Saving & Retirement Funds (country by country)
+   ═══════════════════════════════════════════════════════════ */
+
+.tsf-page {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 16px 60px;
+  color: #e5e7eb;
+}
+
+/* Hero */
+.tsf-hero {
+  position: relative;
+  margin: 8px 0 20px;
+  padding: 26px 28px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(99,102,241,0.14) 50%, rgba(236,72,153,0.13) 100%);
+  border: 1px solid rgba(16,185,129,0.28);
+  overflow: hidden;
+}
+.tsf-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: #34d399;
+  margin-bottom: 8px;
+}
+.tsf-title {
+  margin: 0 0 6px;
+  font-size: 1.6rem;
+  color: #f1f5f9;
+}
+.tsf-sub {
+  margin: 0 0 14px;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  max-width: 780px;
+  line-height: 1.5;
+}
+.tsf-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  margin-bottom: 14px;
+}
+.tsf-stats strong { color: #34d399; }
+.tsf-disclaimer {
+  font-size: 0.78rem;
+  color: #fcd34d;
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.28);
+  border-radius: 10px;
+  padding: 9px 12px;
+  line-height: 1.5;
+}
+
+/* Layout */
+.tsf-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .tsf-layout { grid-template-columns: 1fr; }
+}
+
+/* Left nav */
+.tsf-nav {
+  position: sticky;
+  top: 10px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: rgba(17,24,39,0.72);
+  border: 1px solid rgba(55,65,81,0.7);
+  border-radius: 14px;
+  padding: 12px;
+}
+.tsf-nav-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(31,41,55,0.9);
+  border: 1px solid rgba(75,85,99,0.7);
+  border-radius: 9px;
+  padding: 7px 10px;
+  margin-bottom: 10px;
+}
+.tsf-nav-search span { opacity: 0.6; font-size: 0.85rem; }
+.tsf-nav-search input {
+  border: none;
+  background: transparent;
+  color: #e5e7eb;
+  outline: none;
+  width: 100%;
+  font-size: 0.85rem;
+}
+.tsf-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  margin-bottom: 3px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.85rem;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.tsf-nav-item:hover { background: rgba(55,65,81,0.5); color: #f1f5f9; }
+.tsf-nav-item.active {
+  background: rgba(16,185,129,0.16);
+  border-color: rgba(16,185,129,0.5);
+  color: #a7f3d0;
+  font-weight: 600;
+}
+.tsf-nav-flag { font-size: 1.05rem; }
+.tsf-nav-label { flex: 1; }
+.tsf-nav-count {
+  font-size: 0.7rem;
+  color: #6b7280;
+  background: rgba(55,65,81,0.6);
+  border-radius: 20px;
+  padding: 1px 7px;
+  min-width: 20px;
+  text-align: center;
+}
+.tsf-nav-item.active .tsf-nav-count { color: #a7f3d0; background: rgba(16,185,129,0.25); }
+.tsf-nav-empty { color: #6b7280; font-size: 0.82rem; padding: 10px 4px; }
+
+/* Main */
+.tsf-main { min-width: 0; }
+.tsf-country-head {
+  background: rgba(17,24,39,0.72);
+  border: 1px solid rgba(55,65,81,0.7);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.tsf-country-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.tsf-country-flag { font-size: 2.4rem; line-height: 1; }
+.tsf-country-title h3 { margin: 0; font-size: 1.35rem; color: #f1f5f9; }
+.tsf-currency { font-size: 0.78rem; color: #9ca3af; }
+.tsf-taxnote {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  color: #d1d5db;
+  line-height: 1.55;
+  border-left: 3px solid rgba(16,185,129,0.6);
+  padding-left: 12px;
+}
+
+/* Cards */
+.tsf-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+}
+.tsf-card {
+  background: rgba(17,24,39,0.72);
+  border: 1px solid rgba(55,65,81,0.7);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.tsf-card:hover { border-color: rgba(16,185,129,0.5); transform: translateY(-2px); }
+.tsf-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(55,65,81,0.5);
+}
+.tsf-card-head h4 { margin: 0; font-size: 1rem; color: #a7f3d0; flex: 1; line-height: 1.35; }
+.tsf-type {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #93c5fd;
+  background: rgba(59,130,246,0.14);
+  border: 1px solid rgba(59,130,246,0.35);
+  border-radius: 20px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+.tsf-fields { margin: 0; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.tsf-field { display: grid; grid-template-columns: 116px 1fr; gap: 10px; }
+@media (max-width: 480px) { .tsf-field { grid-template-columns: 1fr; gap: 2px; } }
+.tsf-field dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6ee7b7;
+  font-weight: 700;
+  padding-top: 2px;
+}
+.tsf-field dd { margin: 0; font-size: 0.83rem; color: #d1d5db; line-height: 1.5; }
+.tsf-source {
+  margin-top: 14px;
+  align-self: flex-start;
+  font-size: 0.78rem;
+  color: #60a5fa;
+  text-decoration: none;
+  border: 1px solid rgba(96,165,250,0.4);
+  border-radius: 8px;
+  padding: 5px 10px;
+}
+.tsf-source:hover { background: rgba(59,130,246,0.12); }
+
+.tsf-footnote {
+  margin-top: 16px;
+  font-size: 0.76rem;
+  color: #9ca3af;
+  line-height: 1.55;
+  border-top: 1px solid rgba(55,65,81,0.6);
+  padding-top: 12px;
+}
+.tsf-nav-empty, .tsf-nav-item { text-align: left; }

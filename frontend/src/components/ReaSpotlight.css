@@ -1,0 +1,94 @@
+.rea {
+  margin: 22px 0 26px;
+  padding: 22px;
+  border: 1px solid rgba(155, 231, 180, .22);
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(155, 231, 180, .08), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, rgba(121, 217, 242, .07), transparent 60%),
+    var(--bg-surface);
+  box-shadow: 0 10px 30px rgba(1, 5, 16, .18);
+}
+.rea-head { display: flex; gap: 20px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
+.rea-head > div:first-child { flex: 1 1 420px; min-width: 0; }
+.rea-kicker { font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-green); }
+.rea h2 { margin: 6px 0 8px; font-size: 22px; color: var(--text-primary); }
+.rea-head p { margin: 0; max-width: 720px; color: var(--text-secondary); font-size: 13px; line-height: 1.65; }
+.rea-stats { display: flex; gap: 10px; }
+.rea-stats div {
+  min-width: 86px; padding: 10px 12px; border-radius: 12px; text-align: center;
+  border: 1px solid var(--border); background: rgba(255, 255, 255, .03);
+}
+.rea-stats strong { display: block; font-size: 20px; color: var(--text-primary); }
+.rea-stats span { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+
+.rea-tabs { display: flex; gap: 6px; margin: 18px 0 14px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.rea-tabs button {
+  flex-shrink: 0; padding: 6px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 650;
+  color: var(--text-secondary); background: rgba(255, 255, 255, .03); border: 1px solid var(--border);
+  transition: all .15s ease;
+}
+.rea-tabs button span { margin-left: 4px; opacity: .65; font-size: 11px; }
+.rea-tabs button:hover { color: var(--text-primary); border-color: rgba(155, 231, 180, .4); }
+.rea-tabs button.on { color: #0b1120; background: var(--accent-green); border-color: var(--accent-green); }
+
+.rea-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 12px; }
+.rea-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 12px; text-decoration: none;
+  border: 1px solid var(--border); background: rgba(9, 14, 26, .55);
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.rea-card:hover { transform: translateY(-2px); border-color: rgba(155, 231, 180, .5); box-shadow: 0 8px 22px rgba(1, 5, 16, .3); text-decoration: none; }
+.rea-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.rea-card-name { font-weight: 800; font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rea-card-stars { flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: var(--accent-yellow); }
+.rea-card-owner { font-size: 11px; color: var(--text-muted); }
+.rea-card p {
+  margin: 2px 0 0; flex: 1; font-size: 12px; line-height: 1.55; color: var(--text-secondary);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.rea-card-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.rea-card-tags span {
+  padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700;
+  color: var(--accent-blue); background: rgba(121, 217, 242, .08); border: 1px solid rgba(121, 217, 242, .2);
+}
+.rea-card-tags span.pick { color: var(--accent-green); background: rgba(155, 231, 180, .08); border-color: rgba(155, 231, 180, .3); }
+
+.rea-more { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+.rea-more button, .rea-videos-head button, .rea-video-actions button {
+  padding: 7px 14px; border-radius: 9px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700;
+  color: #0b1120; background: var(--accent-green); border: 1px solid var(--accent-green);
+}
+.rea-more button.ghost { color: var(--text-secondary); background: transparent; border-color: var(--border); }
+.rea-more button:hover, .rea-videos-head button:hover { filter: brightness(1.08); }
+
+.rea-videos-head {
+  display: flex; gap: 16px; justify-content: space-between; align-items: center; flex-wrap: wrap;
+  margin-top: 22px; padding-top: 18px; border-top: 1px dashed var(--border);
+}
+.rea-videos-head h3 { margin: 0 0 4px; font-size: 16px; color: var(--text-primary); }
+.rea-videos-head p { margin: 0; font-size: 12px; color: var(--text-muted); max-width: 680px; line-height: 1.55; }
+.rea-videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 10px; margin-top: 14px; }
+.rea-video { padding: 10px; border-radius: 12px; border: 1px solid var(--border); background: rgba(9, 14, 26, .55); }
+.rea-video.open { grid-row: span 3; }
+.rea-video-head { display: flex; align-items: center; gap: 8px; }
+.rea-plat { padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 900; color: #fff; }
+.rea-plat.facebook { background: #1877f2; }
+.rea-plat.instagram { background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af); }
+.rea-video-title { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
+.rea-video-tag { margin-left: auto; font-size: 10px; color: var(--accent-green); }
+.rea-embed { margin-top: 8px; border-radius: 10px; overflow: hidden; background: #000; aspect-ratio: 9 / 16; }
+.rea-embed iframe { width: 100%; height: 100%; border: 0; display: block; }
+.rea-video-repos { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; font-size: 11.5px; }
+.rea-video-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.rea-video-actions button { padding: 4px 10px; font-size: 11px; color: var(--text-primary); background: rgba(255, 255, 255, .05); border-color: var(--border); }
+.rea-video-actions a { font-size: 11.5px; font-weight: 700; color: var(--accent-blue); }
+.rea-creators { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; font-size: 12px; }
+.rea-creators a { color: var(--accent-blue); }
+
+@media (max-width: 640px) {
+  .rea { padding: 16px; }
+  .rea h2 { font-size: 18px; }
+  .rea-stats { width: 100%; }
+  .rea-stats div { flex: 1; min-width: 0; }
+}

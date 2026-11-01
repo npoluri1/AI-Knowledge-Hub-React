@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import RichText from '../components/RichText'
 import fileManifest from '../fileManifest.json'
+import FetchButton from '../components/FetchButton'
+import { refreshFileCatalog } from '../api'
+import { useLang } from '../i18n'
 
 const EDUREKHA_SLUG = 'edurekha_docs'
 
@@ -69,6 +72,7 @@ function docTitle(name) {
 }
 
 export default function AiNewsDashboard() {
+  const { t } = useLang()
   const navigate = useNavigate()
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -137,7 +141,7 @@ export default function AiNewsDashboard() {
       <div className="ai-news-dashboard">
         <div className="news-doc-viewer">
           <div className="news-doc-header">
-            <button className="news-back-btn" onClick={closeDoc}>← Back to Dashboard</button>
+            <button className="news-back-btn" onClick={closeDoc}>← {t('Back to Dashboard')}</button>
             <div className="news-doc-title-bar">
               <span className="news-doc-icon" style={{ background: selectedDoc.meta.color }}>{selectedDoc.meta.icon}</span>
               <div>
@@ -163,9 +167,12 @@ export default function AiNewsDashboard() {
 
   return (
     <div className="ai-news-dashboard">
-      <Link to="/" className="back-link">← Back to Home</Link>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
       <div className="news-header">
-        <h2 className="chapter-title">📡 AI Daily News & Resources Dashboard</h2>
+        <div className="page-header-row">
+          <h2 className="chapter-title">📡 {t('AI Daily News & Resources Dashboard')}</h2>
+          <FetchButton onFetch={() => { setSearchQuery(''); setFilterCategory('All'); return refreshFileCatalog('Edureka docs archive') }} label={t('Fetch Latest')} />
+        </div>
         <p className="chapter-preview">
           Browse {docs.length} AI resource documents — news sites, GitHub repos, cloud stack, tools, APIs, projects, and more.
           Click any card to load its full content.
@@ -200,9 +207,9 @@ export default function AiNewsDashboard() {
       </div>
 
       <div className="news-stats">
-        <span className="stat-badge">📄 <strong>{filteredDocs.length}</strong> Documents</span>
-        <span className="stat-badge">📂 <strong>{categories.length - 1}</strong> Categories</span>
-        {loading && <span className="stat-badge edureka-loading-indicator">⏳ Loading…</span>}
+        <span className="stat-badge">📄 <strong>{filteredDocs.length}</strong> {t('Documents')}</span>
+        <span className="stat-badge">📂 <strong>{categories.length - 1}</strong> {t('Categories')}</span>
+        {loading && <span className="stat-badge edureka-loading-indicator">⏳ {t('Loading…')}</span>}
       </div>
 
       {loading ? (

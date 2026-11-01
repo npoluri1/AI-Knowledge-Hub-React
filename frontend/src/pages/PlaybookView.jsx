@@ -2,7 +2,9 @@ import React, { useMemo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import MermaidRenderer from '../components/MermaidRenderer'
 import { PLAYBOOK_DOCS, PLAYBOOK_REPO_URL, PLAYBOOK_SOURCE_URL } from '../data/playbookData'
+import FetchButton from '../components/FetchButton'
 import './PlaybookView.css'
+import { useLang } from '../i18n'
 
 const SECTION_META = {
   '01-llm-fundamentals': ['01', 'LLM Fundamentals', '🧠'],
@@ -137,7 +139,7 @@ function parseDocument(markdown) {
       while (i < lines.length && /^===\s+"/.test(lines[i].trim())) {
         const tabTitle = lines[i].trim().match(/^===\s+"([^"]+)"/)?.[1] || 'Tab'
         const body = collectIndented(lines, i)
-        tabs.push({ title: tabTitle, blocks: parseDocument(body.lines.join('\\n')) })
+        tabs.push({ title: tabTitle, blocks: parseDocument(body.lines.join('\n')) })
         i = body.end + 1
       }
       blocks.push({ type: 'tabs', tabs })
@@ -221,6 +223,7 @@ function parseDocument(markdown) {
 }
 
 function BlockRenderer({ block, currentKey, diagramIndex }) {
+  const { t } = useLang()
   if (block.type === 'heading') {
     const Tag = `h${Math.min(block.level, 4)}`
     return <Tag className={`pb-heading pb-h${block.level}`}><InlineMarkdown text={block.text} currentKey={currentKey} /></Tag>
@@ -236,10 +239,10 @@ function BlockRenderer({ block, currentKey, diagramIndex }) {
     return <Tag className="pb-list">{block.items.map((item, index) => <li key={index}><InlineMarkdown text={item} currentKey={currentKey} /></li>)}</Tag>
   }
   if (block.type === 'table') return <div className="pb-table-wrap"><table className="pb-table"><thead><tr>{block.headers.map((cell, index) => <th key={index}><InlineMarkdown text={cell} currentKey={currentKey} /></th>)}</tr></thead><tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, index) => <td key={index}><InlineMarkdown text={cell} currentKey={currentKey} /></td>)}</tr>)}</tbody></table></div>
-  if (block.type === 'code') return <details className="pb-code" open><summary>{block.language || 'Code'} <span>⌄</span></summary><pre><code>{block.code}</code></pre></details>
-  if (block.type === 'mermaid') return <div className="pb-diagram"><div className="pb-diagram-label">📐 Diagram</div><MermaidRenderer source={block.code} id={`playbook-${diagramIndex}`} /><details className="pb-source"><summary>Show Mermaid source</summary><pre><code>{block.code}</code></pre></details></div>
+  if (block.type === 'code') return <details className="pb-code" open><summary>{block.language || t('Code')} <span>⌄</span></summary><pre><code>{block.code}</code></pre></details>
+  if (block.type === 'mermaid') return <div className="pb-diagram"><div className="pb-diagram-label">📐 {t('Diagram')}</div><MermaidRenderer source={block.code} id={`playbook-${diagramIndex}`} /><details className="pb-source"><summary>{t('Show Mermaid source')}</summary><pre><code>{block.code}</code></pre></details></div>
   if (block.type === 'admonition') return <aside className={`pb-callout pb-callout-${block.kind}`}><div className="pb-callout-title">{calloutIcon(block.kind)} {block.title}</div><div className="pb-callout-body"><BlockList blocks={block.blocks} currentKey={currentKey} prefix={`${diagramIndex}-callout`} /></div></aside>
-  if (block.type === 'quiz') return <details className={`pb-quiz pb-quiz-${block.kind}`} open={block.open}><summary>🧪 {block.title}<span>Reveal answer</span></summary><div className="pb-quiz-body"><BlockList blocks={block.blocks} currentKey={currentKey} prefix={`${diagramIndex}-quiz`} /></div></details>
+  if (block.type === 'quiz') return <details className={`pb-quiz pb-quiz-${block.kind}`} open={block.open}><summary>🧪 {block.title}<span>{t('Reveal answer')}</span></summary><div className="pb-quiz-body"><BlockList blocks={block.blocks} currentKey={currentKey} prefix={`${diagramIndex}-quiz`} /></div></details>
   return null
 }
 
@@ -269,34 +272,43 @@ function currentDocKey(pathname) {
 }
 
 function SourceBar({ currentKey }) {
+  const { t } = useLang()
   const rawUrl = `https://raw.githubusercontent.com/karthikreddy-7/ai-engineering-playbook/main/${currentKey}`
-  return <div className="pb-source-bar"><span>📌 Source mirrored from</span><a href={rawUrl} target="_blank" rel="noopener noreferrer">GitHub raw Markdown ↗</a><a href={PLAYBOOK_SOURCE_URL} target="_blank" rel="noopener noreferrer">Open original site ↗</a></div>
+  return <div className="pb-source-bar"><span>📌 {t('Source mirrored from')}</span><a href={rawUrl} target="_blank" rel="noopener noreferrer">{t('GitHub raw Markdown')} ↗</a><a href={PLAYBOOK_SOURCE_URL} target="_blank" rel="noopener noreferrer">{t('Open original site')} ↗</a></div>
 }
 
 export default function PlaybookView() {
+  const { t } = useLang()
   const location = useLocation()
   const navigate = useNavigate()
   const currentKey = currentDocKey(location.pathname)
-  if (!currentKey) return <div className="playbook-page"><div className="pb-not-found"><h1>Playbook page not found</h1><p>This route does not map to one of the mirrored GitHub Markdown pages.</p><Link to="/playbook">← Return to the Playbook</Link></div></div>
-  const markdown = PLAYBOOK_DOCS[currentKey] || PLAYBOOK_DOCS['docs/index.md']
+  const markdown = currentKey ? (PLAYBOOK_DOCS[currentKey] || PLAYBOOK_DOCS['docs/index.md']) : ''
   const blocks = useMemo(() => parseDocument(markdown), [markdown])
   const navigation = useMemo(buildNavigation, [])
+  if (!currentKey) return <div className="playbook-page"><div className="pb-not-found"><h1>{t('Playbook page not found')}</h1><p>This route does not map to one of the mirrored GitHub Markdown pages.</p><Link to="/playbook">← {t('Return to the Playbook')}</Link></div></div>
   const current = currentKey === 'docs/index.md' ? { title: 'AI Engineering Playbook', section: 'root', slug: 'index' } : getDocMeta(currentKey)
   const diagramCount = blocks.filter(block => block.type === 'mermaid').length
 
   return <div className="playbook-page">
-    <div className="pb-topline"><Link to="/">← AI Knowledge Hub</Link><span>Complete repository mirror · {DOC_KEYS.length} Markdown pages</span><a href={PLAYBOOK_REPO_URL} target="_blank" rel="noopener noreferrer">GitHub repository ↗</a></div>
+    <div className="pb-topline">
+      <Link to="/">← {t('AI Knowledge Hub')}</Link>
+      <div className="page-header-row">
+        <span>{t('Complete repository mirror')} · {DOC_KEYS.length} {t('Markdown pages')}</span>
+        <FetchButton label="Fetch Latest" staticMode />
+      </div>
+      <a href={PLAYBOOK_REPO_URL} target="_blank" rel="noopener noreferrer">{t('GitHub repository')} ↗</a>
+    </div>
     <div className="pb-layout">
       <aside className="pb-nav">
-        <Link to="/playbook" className={`pb-nav-home ${currentKey === 'docs/index.md' ? 'active' : ''}`}><span>📘</span><strong>AI Engineering Playbook</strong></Link>
-        <div className="pb-nav-search">⌕ <span>Browse all source pages</span></div>
+        <Link to="/playbook" className={`pb-nav-home ${currentKey === 'docs/index.md' ? 'active' : ''}`}><span>📘</span><strong>{t('AI Engineering Playbook')}</strong></Link>
+        <div className="pb-nav-search">⌕ <span>{t('Browse all source pages')}</span></div>
         {navigation.map(section => <div className="pb-nav-section" key={section.key}><div className="pb-nav-section-title"><span>{section.icon}</span>{section.number} · {section.title}</div>{section.pages.map(page => <Link key={page.key} to={docUrl(page.key)} className={page.key === currentKey ? 'active' : ''}>{page.title}</Link>)}</div>)}
       </aside>
       <main className="pb-main">
         <SourceBar currentKey={currentKey} />
-        <div className="pb-breadcrumb"><Link to="/playbook">AI Engineering Playbook</Link>{current.section !== 'root' && <> <span>/</span> <span>{SECTION_META[current.section]?.[1] || titleCase(current.section)}</span></>}</div>
-        <article className="pb-article"><div className="pb-article-meta"><span>{current.section === 'root' ? 'START HERE' : `${SECTION_META[current.section]?.[0] || ''} · ${SECTION_META[current.section]?.[1] || titleCase(current.section)}`}</span>{diagramCount > 0 && <span>📐 {diagramCount} diagram{diagramCount === 1 ? '' : 's'} on this page</span>}</div><BlockList blocks={blocks} currentKey={currentKey} prefix={currentKey.replace(/[^a-z0-9]/gi, '-')} /></article>
-        <div className="pb-bottom-nav"><button disabled={currentKey === 'docs/index.md'} onClick={() => navigate('/playbook')}>← Playbook home</button><a href={PLAYBOOK_REPO_URL} target="_blank" rel="noopener noreferrer">View repository ↗</a></div>
+        <div className="pb-breadcrumb"><Link to="/playbook">{t('AI Engineering Playbook')}</Link>{current.section !== 'root' && <> <span>/</span> <span>{SECTION_META[current.section]?.[1] || titleCase(current.section)}</span></>}</div>
+        <article className="pb-article"><div className="pb-article-meta"><span>{current.section === 'root' ? t('START HERE') : `${SECTION_META[current.section]?.[0] || ''} · ${SECTION_META[current.section]?.[1] || titleCase(current.section)}`}</span>{diagramCount > 0 && <span>📐 {diagramCount} diagram{diagramCount === 1 ? '' : 's'} on this page</span>}</div><BlockList blocks={blocks} currentKey={currentKey} prefix={currentKey.replace(/[^a-z0-9]/gi, '-')} /></article>
+        <div className="pb-bottom-nav"><button disabled={currentKey === 'docs/index.md'} onClick={() => navigate('/playbook')}>← {t('Playbook home')}</button><a href={PLAYBOOK_REPO_URL} target="_blank" rel="noopener noreferrer">{t('View repository')} ↗</a></div>
       </main>
     </div>
   </div>

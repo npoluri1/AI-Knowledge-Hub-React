@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { INTEGRATION_CATEGORIES, INTEGRATION_STATS } from '../data/webIntegrationsCatalog'
+import FetchButton from '../components/FetchButton'
+import { useLang } from '../i18n'
 import './WebIntegrationsCatalog.css'
 
 const CATEGORY_ICONS = {
@@ -45,6 +47,7 @@ function keyColor(k) {
 }
 
 export default function WebIntegrationsCatalog() {
+  const { t } = useLang()
   const [search, setSearch] = useState('')
   const [activeCat, setActiveCat] = useState(null)
   const [sortBy, setSortBy] = useState('name')
@@ -89,11 +92,14 @@ export default function WebIntegrationsCatalog() {
 
   return (
     <div className="wic-page">
-      <Link to="/" className="back-link">← Back to Home</Link>
+      <Link to="/" className="back-link">← {t('Back to Home')}</Link>
 
       <div className="wic-hero">
         <div className="wic-hero-icon">🔌</div>
-        <h1>Web Integrations Catalog</h1>
+        <div className="page-header-row">
+          <h1>{t('Web Integrations Catalog')}</h1>
+          <FetchButton onFetch={() => { setSearch(''); setActiveCat(null); setSortBy('name') }} label="Fetch Latest" staticMode />
+        </div>
         <p className="wic-subtitle">
           {INTEGRATION_STATS.totalServices} cloud/SaaS services with ready-to-use API integrations — sourced from the Freebuff project
         </p>
@@ -153,7 +159,7 @@ export default function WebIntegrationsCatalog() {
             <h2 className="wic-section-title">{icon} {catName} <span className="wic-section-count">({services.length})</span></h2>
                 <div className="wic-grid">
                   {services.map(svc => (
-                    <a key={svc.name} href={serviceUrl(svc.name)} target="_blank" rel="noopener noreferrer" className="wic-card-link">
+                    <a key={`${svc.name}-${catName}`} href={serviceUrl(svc.name)} target="_blank" rel="noopener noreferrer" className="wic-card-link">
                       <div className="wic-card">
                         <div className="wic-card-logo-wrap">
                           <img
@@ -187,7 +193,7 @@ export default function WebIntegrationsCatalog() {
       ) : (
         <div className="wic-grid">
           {filtered.map(svc => (
-            <a key={svc.name} href={serviceUrl(svc.name)} target="_blank" rel="noopener noreferrer" className="wic-card-link">
+            <a key={`${svc.name}-${svc.categoryId}`} href={serviceUrl(svc.name)} target="_blank" rel="noopener noreferrer" className="wic-card-link">
               <div className="wic-card">
                 <div className="wic-card-logo-wrap">
                   <img

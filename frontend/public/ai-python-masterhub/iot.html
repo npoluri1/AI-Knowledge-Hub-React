@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IoT &amp; Edge AI — Devices, Protocols and On-Device Intelligence — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / IoT &amp; Edge AI — Devices, Protocols and On-Device Intelligence</span><span class="spacer"></span>
+<a class="navlink" href="semiconductor.html">&larr; Semiconductor Engineering</a> <a class="navlink" href="agi.html">AGI &rarr;</a></nav>
+<header class="hero"><div class="mono">IO</div><div><h1>IoT &amp; Edge AI — Devices, Protocols and On-Device Intelligence</h1>
+<p class="tagline">Sensors, MQTT, gateways, TinyML and the architecture of intelligent systems that live at the edge</p>
+<div class="chips"><span class="chip t1">Tier 1 &middot; Foundations</span><span class="chip t2">Tier 2 &middot; Intermediate</span><span class="chip t3">Tier 3 &middot; Advanced</span><span class="chip t4">Tier 4 &middot; Expert</span><span class="chip t5">Tier 5 &middot; Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>The Internet of Things connects physical sensors and actuators to software and AI. This chapter covers the full stack: device hardware, communication protocols, edge-vs-cloud architecture, TinyML model deployment, fleet security, and the data pipelines that turn sensor streams into intelligence.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>IoT architecture, sensors, MQTT/CoAP basics</td><td>Can design a device-to-cloud architecture</td></tr>
+<tr><td>Tier 2</td><td>Gateways, edge vs cloud, time-series data, ESP32/RPi</td><td>Can build a working sensor-to-dashboard pipeline</td></tr>
+<tr><td>Tier 3</td><td>TinyML, TFLite Micro, quantization, model deployment</td><td>Can run a model on a microcontroller</td></tr>
+<tr><td>Tier 4</td><td>Fleet ops, security, OTA, digital twins, 5G</td><td>Can design secure, maintainable fleets</td></tr>
+<tr><td>Tier 5</td><td>Smart-home hub, anomaly detection, MQTT+ML pipeline</td><td>Shipped end-to-end edge AI products</td></tr></table></section>
+
+<section><h2 class="part p1">Part I &middot; Foundations<small>Tier 1 — the edge stack</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>The IoT Reference Architecture</h3>
+<p><strong>What &amp; why.</strong> Every IoT system is a four-layer stack: devices (sensors/actuators) → connectivity (protocols) → edge/gateway (local compute) → cloud (storage, ML, dashboards). Where intelligence runs — device, edge, or cloud — is the central architecture decision.</p>
+<pre class="code"><code># Reference architecture
+#   [Devices]      sensors, actuators, MCUs, cameras
+#       |  MQTT / CoAP / BLE / LoRaWAN
+#   [Gateways]     protocol translation, buffering, local AI
+#       |  HTTPS / MQTT-over-TLS
+#   [Cloud]        ingestion, time-series DB, ML training,
+#                  dashboards, OTA fleet management
+#
+# Intelligence placement:
+#   Device:  real-time, offline-safe, privacy-first
+#            (wake words, anomaly detection)
+#   Edge:    aggregation, low-latency decisions
+#            (gateway rules, local inferencing)
+#   Cloud:   training, big-data analytics, heavy models
+#
+# Latency/bandwidth/power triangle:
+#   more edge = less latency/bandwidth but less compute
+#   more cloud = more compute but latency + data cost
+
+# Example: industrial vibration monitoring
+#   MCU reads accelerometer @ 1kHz, runs tiny anomaly model,
+#   only sends anomalies + summaries to the cloud.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every IoT design. Decide where each decision lives before writing any code — moving intelligence later is expensive.</div>
+<div class="callout hood"><span>Under the hood</span>The "edge" is not one place: it's a spectrum from the MCU to the on-prem server. Edge AI usually means inference within a few ms of the sensor.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Communication Protocols: MQTT, CoAP, BLE</h3>
+<p><strong>What &amp; why.</strong> IoT devices are constrained, intermittent and numerous. MQTT (publish/subscribe over TCP, QoS levels) is the default for sensor telemetry; CoAP (UDP, REST-like) suits very constrained nodes; BLE suits short-range battery devices; LoRaWAN suits kilometers at low rate.</p>
+<pre class="code"><code># MQTT essentials
+#   broker = central hub (Mosquitto, EMQX, HiveMQ)
+#   topics = hierarchical:  factory/line1/temp
+#   QoS 0: fire-and-forget     QoS 1: at-least-once
+#   QoS 2: exactly-once        (2x round trips)
+#   retained messages: last value kept for new subscribers
+#   will messages: broker publishes if device dies
+
+# Mosquitto CLI example
+# mosquitto_pub -h broker -t factory/line1/temp -m 22.5
+# mosquitto_sub -h broker -t factory/+/temp   # wildcard
+
+# Python with paho-mqtt
+import paho.mqtt.client as mqtt
+
+def on_message(client, userdata, msg):
+    print(f"{msg.topic}: {msg.payload.decode()}")
+
+client = mqtt.Client()
+client.on_message = on_message
+client.connect("broker.local", 1883)
+client.subscribe("factory/+/temp")
+client.loop_forever()
+
+# When to use what:
+#   MQTT:    reliable telemetry, fleet of devices
+#   CoAP:    tiny MCUs over UDP (DTLS security)
+#   BLE:     wearables, phones, short range
+#   LoRaWAN: agriculture, metering, km range, low rate</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choosing transport for any device fleet. MQTT + TLS + JSON/Protobuf covers 80% of production IoT.</div>
+<div class="callout hood"><span>Under the hood</span>MQTT QoS 1/2 trade throughput for delivery guarantees; brokers retain session state, so reconnect is seamless — ideal for flaky radio links.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Sensors, Sampling and Data Realities</h3>
+<p><strong>What &amp; why.</strong> Real IoT data is messy: missing samples, out-of-order timestamps, drift, and units confusion. Understanding your sensors (rate, resolution, noise) determines what the ML pipeline can achieve.</p>
+<pre class="code"><code># Sensor pipeline from raw to feature
+raw = read_adc(channel=0, samples=256, rate=1000)  # 1kHz
+#   -> calibrate (offset/gain from datasheet or factory cal)
+#   -> filter (moving average / median for spikes)
+#   -> downsample (1kHz -> 100Hz)
+#   -> features: mean, rms, peak, fft bands, zero crossings
+#   -> window: 1-2s windows with overlap for streaming models
+
+import numpy as np
+
+def extract_features(window):
+    return {
+        "mean": window.mean(),
+        "rms": np.sqrt((window**2).mean()),
+        "peak": np.abs(window).max(),
+        "crest": np.abs(window).max() / np.sqrt((window**2).mean()),
+        "std": window.std(),
+    }
+
+# Data-quality rules
+#   - timestamp at the DEVICE (not at ingestion)
+#   - store raw + derived; never overwrite raw
+#   - treat gaps explicitly (null, not zero)
+#   - log calibration + firmware version with every batch
+#   - watch for sensor drift -> periodic recalibration</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any ML on sensor data. Garbage sensors in = garbage models out; feature extraction is often more valuable than a fancier model.</div>
+<div class="callout hood"><span>Under the hood</span>ADC sampling obeys Nyquist: sample at ≥2x the highest frequency you care about. Aliased high-frequency noise looks like real signal — filter first.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II &middot; Systems<small>Tier 2 — pipelines and gateways</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Building a Sensor-to-Dashboard Pipeline</h3>
+<p><strong>What &amp; why.</strong> The canonical IoT project: device publishes MQTT → broker → ingestion service → time-series database → dashboard/alerts. This is the skeleton every product builds on.</p>
+<pre class="code"><code># Stack (all open source)
+#   Device:      ESP32 + sensor, publishes JSON via MQTT
+#   Broker:      Mosquitto (or EMQX for scale)
+#   Ingestion:   FastAPI + paho subscriber -> TimescaleDB
+#   Storage:     TimescaleDB (Postgres + time-series)
+#   Dashboard:   Grafana; alerts via Alertmanager
+
+# Ingestion subscriber (FastAPI + paho)
+import json
+import psycopg2
+
+def on_message(client, userdata, msg):
+    payload = json.loads(msg.payload)
+    with psycopg2.connect(DB_URL) as conn:
+        conn.execute(
+            "INSERT INTO telemetry(device, ts, temp, rms) "
+            "VALUES (%s, to_timestamp(%s), %s, %s)",
+            (payload["device"], payload["ts"],
+             payload["temp"], payload["rms"]))
+
+# Time-series modeling
+#   - hypertable partitioned by time (TimescaleDB)
+#   - downsampling/continuous aggregates for long retention
+#   - retention policy: raw 30d, hourly 1y, daily 5y
+
+# Grafana: panel per device + threshold alert when temp > 80</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every telemetry product. Keep the pipeline idempotent (device_id + ts as dedup key) — MQTT redelivery will duplicate otherwise.</div>
+<div class="callout hood"><span>Under the hood</span>Time-series DBs win over generic stores via columnar compression and time partitioning; continuous aggregates precompute rollups so dashboards stay instant.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Edge vs Cloud: The Decision Framework</h3>
+<p><strong>What &amp; why.</strong> "Send everything to the cloud" fails at scale: bandwidth, latency, power, privacy, cost. The framework: process where it is cheapest in total — device for real-time, edge for aggregation, cloud for training and heavy analytics.</p>
+<pre class="code"><code># Decision framework
+#   Q1. Latency budget?  <50ms?  -> device/edge (no round trip)
+#   Q2. Connectivity?    offline safe needed? -> edge
+#   Q3. Data volume?     GB/day of raw? -> summarize at edge
+#   Q4. Privacy?         PII/sensitive? -> keep at edge
+#   Q5. Model size?      >100MB? -> cloud (unless quantized)
+#   Q6. Power?           battery years? -> tiny MCU models
+
+# A typical hybrid split (video analytics)
+#   Device/camera:  motion detection (cheap CNN, 1-5 TOPS NPU)
+#   Edge gateway:   object tracking, dedup, crop interesting
+#   Cloud:          fine-tuned model on crops, training, evals
+
+# Cost reality
+#   cellular data $/MB vs edge compute $/hour decides everything;
+#   "summarize at the edge, archive in the cloud" is the norm</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Architecting any IoT product. Write the data-flow budget (bytes/day per tier) before choosing hardware.</div>
+<div class="callout hood"><span>Under the hood</span>Edge AI economics: a $2 MCU doing local anomaly detection can beat a $0.10/MB cellular bill — the unit economics decide the architecture.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Microcontrollers and Boards: ESP32, RP2040, Jetson</h3>
+<p><strong>What &amp; why.</strong> The hardware ladder: MCUs (ESP32, RP2040) for sensors/actuators at ~$2-10; application processors (Raspberry Pi, Jetson) for gateways and real AI at $35-250+. Pick by compute, RAM, and power envelope.</p>
+<pre class="code"><code># Hardware ladder
+# ESP32-S3:  240MHz dual-core Xtensa, 512KB SRAM, WiFi+BLE
+#            -> sensors, MQTT clients, TinyML (300KB model)
+# RP2040:    133MHz dual-core, 264KB SRAM, no radio
+#            -> hobbyist, low-power sensing
+# Raspberry Pi 5: quad A76, 8GB, full Linux
+#            -> gateway, video, heavy processing
+# Jetson Orin Nano: 1024-core GPU, 8GB, 40 TOPS
+#            -> real-time vision AI at the edge
+
+# ESP32 MicroPython sensor + MQTT (sketch)
+from machine import Pin, ADC
+import time, network, ujson
+from umqtt.simple import MQTTClient
+
+wlan = network.WLAN(network.STA_IF); wlan.active(True)
+wlan.connect("ssid", "pass")
+adc = ADC(Pin(34)); adc.atten(ADC.ATTN_11DB)
+
+def publish():
+    temp = adc.read() / 4095 * 3.3 * 100 - 50  # crude linear
+    c = MQTTClient("dev-7", "broker.local")
+    c.connect(); c.publish("factory/line1/temp",
+                           ujson.dumps({"v": round(temp, 2)}))
+    c.disconnect()
+
+while True:
+    publish(); time.sleep(30)
+
+# Power: deep sleep (ESP32) draws ~10uA -> years on battery</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choosing hardware for each tier of the architecture. Match the MCU to the task: don't run Linux where a 300KB model suffices.</div>
+<div class="callout hood"><span>Under the hood</span>MCU RAM (KB) is the hard constraint: models must fit in flash (MB) and run with activations in RAM — hence quantization to 4-8 bits is mandatory for TinyML.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III &middot; TinyML<small>Tier 3 — AI on microcontrollers</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>TinyML: From TensorFlow to Microcontroller</h3>
+<p><strong>What &amp; why.</strong> TinyML runs ML on devices with KB of RAM: train in TensorFlow, convert with TensorFlow Lite, quantize to int8, and deploy with TFLite Micro on any MCU. The whole flow is designed around the memory ceiling.</p>
+<pre class="code"><code># Flow: train -> quantize -> convert -> deploy
+import tensorflow as tf
+
+# 1. Train a small model (keep it TINY by design)
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(16, activation="relu", input_shape=(8,)),
+    tf.keras.layers.Dense(4, activation="relu"),
+    tf.keras.layers.Dense(3, activation="softmax"),
+])
+model.compile(optimizer="adam", loss="sparse_categorical_crossentropy")
+model.fit(X_train, y_train, epochs=10)
+
+# 2. Convert + quantize (int8) for MCU
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+converter.representative_dataset = lambda: gen_rep_data()  # sample
+tflite_model = converter.convert()
+
+# 3. Deploy via TFLite Micro C++ on ESP32/STM32
+#    or on-device inference via TensorFlow Lite Python/RPi
+
+# Budget rules of thumb (8-bit quantized)
+#   params  <  200K   (200KB flash)
+#   activations < 32KB RAM
+#   latency < 50ms per inference on MCU @ 240MHz</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Wake-word detection, gesture recognition, vibration anomaly detection, predictive maintenance on the device.</div>
+<div class="callout hood"><span>Under the hood</span>Quantization-aware training (QAT) recovers accuracy after int8 conversion: simulate quantization during training so the model learns to tolerate it.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>On-Device Inference Runtimes</h3>
+<p><strong>What &amp; why.</strong> Beyond TFLite Micro: ONNX Runtime (Edge/Web), ExecuTorch (PyTorch on edge), MediaPipe (vision pipelines), and vendor SDKs (STM32Cube.AI, NXP eIQ, Qualcomm QNN). Choose by model source and target hardware.</p>
+<pre class="code"><code># Runtime selection guide
+# TFLite Micro:  TF-trained, MCUs (ESP32, STM32) - de facto
+# ExecuTorch:    PyTorch-trained, mobile+edge (llama.cpp too)
+# ONNX Runtime:  any framework -> ONNX, x86/ARM/GPU/Web
+# llama.cpp:     LLM inference on CPU/NPU (edge LLMs)
+# QNN / NNAPI:   vendor NPU acceleration on phones
+
+# ONNX on Raspberry Pi (gateway AI)
+import onnxruntime as ort
+sess = ort.InferenceSession("model.onnx",
+                            providers=["CPUExecutionProvider"])
+result = sess.run(None, {"input": window_np})   # (1, 8)
+print(result[0])   # class probabilities
+
+# llama.cpp for edge LLMs
+# llama-cli -m llama-3.2-1b-q4_k_m.gguf -p "hello"
+#   1B @ 4-bit ~ 1-2 GB RAM -> runs on Pi 5 / phones
+
+# Deploy + validate:
+#   - run on the TARGET device (not the laptop)
+#   - measure: RAM peak, latency p95, accuracy vs fp32
+#   - golden test set on-device before fleet rollout</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Shipping models beyond the laptop. The runtime choice is dictated by training framework + target silicon; benchmark both before committing.</div>
+<div class="callout hood"><span>Under the hood</span>Runtimes differ in kernel coverage: a model that runs on x86 may hit unsupported ops on MCU — test the converted artifact, not the source model.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Edge Computer Vision Pipelines</h3>
+<p><strong>What &amp; why.</strong> Cameras are the most common "sensor" at the edge. A production vision pipeline is a chain: capture → preprocessing (resize/normalize) → detection → tracking → region-of-interest crop → optional cloud. Latency and power are engineered, not hoped for.</p>
+<pre class="code"><code># Pipeline (Jetson / RPi + camera)
+#   1. Capture @ 30fps, skip frames by motion
+#   2. Preprocess: BGR->RGB, resize 640, /255 (NPP/CUDA)
+#   3. Detect: YOLOv8n (~6M params) @ 20-60 fps on Orin
+#   4. Track: ByteTrack/DeepSORT -> stable IDs across frames
+#   5. Act:   crop person, run face/OCR model on crop only
+#   6. Cloud: send only detections + crops (Kafka/MQTT)
+
+import cv2
+from ultralytics import YOLO
+
+model = YOLO("yolov8n.pt")
+cap = cv2.VideoCapture(0)
+
+while True:
+    ok, frame = cap.read()
+    if not ok: break
+    results = model(frame, verbose=False)     # detect
+    for r in results:
+        for box in r.boxes.xyxy.cpu().numpy():
+            x1, y1, x2, y2 = map(int, box)
+            if r.boxes.cls[0] == 0:           # person
+                crop = frame[y1:y2, x1:x2]    # ROI
+                # embed -> compare -> count/alert
+    cv2.imshow("edge", results[0].plot())
+    if cv2.waitKey(1) & 0xFF == ord("q"): break
+
+# Power budget: 24/7 cameras at the edge need NPU
+# (Jetson ~7-15W total vs cloud upload cost per hour)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Security, retail analytics, industrial QA, traffic monitoring — every vision product follows this chain.</div>
+<div class="callout hood"><span>Under the hood</span>Tracking removes duplicate detections and enables counting; cropping to ROIs lets a small, cheap model do what a giant model would do in the cloud.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV &middot; Fleet &amp; Security<small>Tier 4 — operate at scale</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>IoT Security: The Attack Surface</h3>
+<p><strong>What &amp; why.</strong> Default passwords and plaintext MQTT have powered some of the biggest botnets (Mirai). A secure IoT device covers: secure boot, encrypted storage, TLS everywhere, per-device certificates, key rotation, and no hardcoded secrets.</p>
+<pre class="code"><code># Security checklist
+#   Device
+#     - unique per-device identity (secure element / TPM)
+#     - secure boot: signed firmware only
+#     - encrypted flash (keys in secure element, not flash)
+#     - no default credentials; forced setup flow
+#   Transport
+#     - TLS 1.2+ for MQTT/HTTPS; cert pinning on gateways
+#     - CoAP -> DTLS; BLE -> pairing + encryption
+#   Cloud
+#     - per-device certificates (X.509), not shared tokens
+#     - revocation list / device quarantine
+#     - audit logs of every control command
+#   Ops
+#     - signed, staggered OTA updates
+#     - rate limiting + anomaly detection on traffic
+
+# Example: AWS IoT / Azure IoT provisioning
+#   device -> register -> issue cert -> connect over TLS
+#   policy: device may only publish to its own topics
+
+# Red-team mindset: assume physical access + network access.
+# If the secret is in the firmware, it is public.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every device you ship. Security is a design property; retrofitting it to a fleet is orders of magnitude more expensive.</div>
+<div class="callout hood"><span>Under the hood</span>Hardware root of trust (secure element) means even full flash readout yields no keys — the difference between a breach and a nuisance.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>OTA Updates and Fleet Management</h3>
+<p><strong>What &amp; why.</strong> You will find bugs after shipping. Over-the-air updates must be signed, atomic (A/B partitions), staggered, and rollback-safe. Fleet management = inventory + health + config-as-code for thousands of devices.</p>
+<pre class="code"><code># OTA design
+#   1. Build firmware, sign with private key (code signing)
+#   2. Upload to OTA server, tag by fleet/channel (stable/beta)
+#   3. Devices poll, verify signature against public key
+#   4. A/B partitions: write new image to inactive slot,
+#      reboot into it, report health; auto-rollback on failure
+#   5. Stagger rollout: 1% -> 10% -> 100% with health gates
+
+# Fleet health signals
+#   - connectivity rate (heartbeats expected vs received)
+#   - firmware version distribution
+#   - memory/CPU/error counters from devices
+#   - model metrics when edge AI is deployed (drift!)
+
+# Config as code
+#   device config in git -> rendered per device -> OTA'd
+#   every change is a release with a rollback path
+
+# Monitoring golden rule:
+#   you cannot fix a fleet you cannot see;
+#   telemetry comes FIRST, features second.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any fleet beyond a handful of devices. Design OTA before the first device ships; retrofitting is painful.</div>
+<div class="callout hood"><span>Under the hood</span>A/B partition layout trades flash space for atomicity: if the new firmware fails to boot, the bootloader flips back automatically.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Digital Twins and 5G/Private Networks</h3>
+<p><strong>What &amp; why.</strong> A digital twin is a live software model of a physical system, fed by IoT data, used to simulate "what if". Private 5G / Wi-Fi 6 / LoRaWAN give factories the deterministic, low-latency connectivity industrial edge AI needs.</p>
+<pre class="code"><code># Digital twin loop
+#   physical asset --(telemetry)--> twin model --(simulate)--> 
+#   insights --(actuate/plan)--> physical asset
+
+# Value
+#   - predictive maintenance: run failure scenarios in sim
+#   - what-if: change setpoint in twin, not the plant
+#   - operator training on a safe simulation
+#   - as-built vs as-designed reconciliation (BIM/GIS)
+
+# Connectivity for industrial IoT
+#   Wi-Fi 6:   ~1-2 Gbps indoor, fine for cameras
+#   Private 5G: deterministic latency (1-10ms), slicing
+#   LoRaWAN:   km range, low rate, battery years (metering)
+#   TSN:       time-synchronized ethernet for control loops
+
+# Implementation stack
+#   OPC-UA / Modbus for machines
+#   MQTT-Sparkplug B for industrial telemetry
+#   TimescaleDB + Grafana + simulation engine
+#   (e.g. pyomo/Modelica for physics simulation)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Manufacturing, energy, smart cities. Twins are where IoT data becomes decision-making infrastructure.</div>
+<div class="callout hood"><span>Under the hood</span>Digital twins fail when the model and reality diverge: continuous reconciliation (Kalman filters, drift detection) between telemetry and simulation is the hard part.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V &middot; Projects<small>Tier 5 — build end to end</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Project 1 — Smart-Home Edge Hub</h3>
+<p><strong>What &amp; why.</strong> A gateway (Raspberry Pi) ingesting MQTT sensors, running local rules and a small model, and exposing a local dashboard — the shape of every smart-home product.</p>
+<pre class="code"><code># Components
+#   ESP32s: temp/humidity, motion, door sensor -> MQTT
+#   Pi hub: paho subscriber + rule engine + TFLite model
+#   Local dashboard: Grafana / Node-RED on the Pi
+#   Offline-first: rules run even with no internet
+
+# Rule engine (simple, readable, testable)
+RULES = [
+    {"when": "motion/kitchen", "and": {"temp/living": ("<", 18)},
+     "then": "act/heater", "value": "on"},
+    {"when": "door/front", "and": {"night": True},
+     "then": "alert/security", "value": "open"},
+]
+
+def evaluate(rules, state):
+    actions = []
+    for rule in rules:
+        if state.get(rule["when"]) and all(
+                check(state[k], op, v)
+                for k, (op, v) in rule["and"].items()):
+            actions.append(rule["then"])
+    return actions
+
+# Add a TinyML model: classify "home vs away" from
+# aggregated motion to auto-arm security.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Full MQTT device-to-gateway integration</li>
+<li>Offline-first rule systems</li>
+<li>Local data + dashboard without the cloud</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Project 2 — Vibration Anomaly Detection (Predictive Maintenance)</h3>
+<p><strong>What &amp; why.</strong> A motor's vibration signature changes before failure. Build: MCU samples accelerometer → feature extraction → tiny model flags anomalies → only anomalies go to the cloud.</p>
+<pre class="code"><code># 1. Collect: normal vs faulty vibration windows (1s @ 1kHz)
+# 2. Features: rms, peak, crest, fft energy bands, skew
+# 3. Model: isolation forest / small autoencoder (TinyML)
+#    - autoencoder: reconstruction error > threshold = anomaly
+import numpy as np
+from sklearn.ensemble import IsolationForest
+
+def featurize(windows):  # (n, 1000) -> (n, 8)
+    out = []
+    for w in windows:
+        f = np.abs(np.fft.rfft(w))
+        out.append([w.mean(), w.std(), np.abs(w).max(),
+                    np.sqrt((w**2).mean()),
+                    f[1:20].sum(), f[50:100].sum(),
+                    f[100:200].sum(), f[200:400].sum()])
+    return np.array(out)
+
+model = IsolationForest(contamination=0.05)
+model.fit(featurize(normal_windows))
+
+def is_anomaly(window):
+    return model.predict(featurize([window]))[0] == -1
+
+# 4. Deploy: convert to TFLite int8 on ESP32, publish
+#    only anomalies + hourly summary. Alert when rate spikes.
+
+# 5. Evaluate on held-out faulty data BEFORE deploying;
+#    report precision/recall at the chosen threshold.</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Time-series feature engineering</li>
+<li>Anomaly detection models + threshold tuning</li>
+<li>Edge summarization to cut bandwidth 100x</li>
+</ul>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Project 3 — MQTT + ML Pipeline with Drift Monitoring</h3>
+<p><strong>What &amp; why.</strong> The full industrial loop: device → MQTT → FastAPI ingestion → ML inference → dashboard + drift detector that triggers retraining. This is MLOps for IoT.</p>
+<pre class="code"><code># Pipeline
+#   MQTT -> FastAPI subscriber -> inference -> TimescaleDB
+#                                  -> alert on anomaly score
+#                                  -> drift detector on features
+#
+# Drift detection (data + model)
+from scipy.stats import ks_2samp
+
+REFERENCE_FEATURES = [...]   # training-time distribution
+def detect_drift(new_window_feature, p_threshold=0.01):
+    stat, p = ks_2samp(REFERENCE_FEATURES, new_window_feature)
+    return p < p_threshold    # distributions differ -> retrain
+
+# Feature drift -> retrain trigger
+# Prediction drift -> investigate (sensor? process change?)
+# Model performance drift -> golden-set eval on-device
+
+# Ops loops
+#   1. alert on anomaly (real-time)
+#   2. daily batch: recompute baselines, check drift
+#   3. weekly: retrain + A/B deploy via OTA
+#   4. monthly: review cost, accuracy, fleet health</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Production ML ingestion + inference</li>
+<li>Drift monitoring and retraining triggers</li>
+<li>Full IoT + AI ops lifecycle</li>
+</ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>IoT stack</td><td>Devices -> connectivity -> edge -> cloud</td><td>4-layer architecture</td></tr>
+<tr><td>MQTT</td><td>Pub/sub broker protocol, QoS 0/1/2</td><td>paho-mqtt, topics</td></tr>
+<tr><td>CoAP/DTLS</td><td>UDP REST-like for tiny constrained nodes</td><td>GET/PUT over UDP</td></tr>
+<tr><td>LoRaWAN</td><td>km range, low rate, battery years</td><td>sub-GHz</td></tr>
+<tr><td>Nyquist</td><td>Sample at 2x highest frequency</td><td>ADC rate</td></tr>
+<tr><td>Edge vs cloud</td><td>Latency/bandwidth/power decides placement</td><td>budget table</td></tr>
+<tr><td>ESP32</td><td>240MHz dual-core, WiFi/BLE, TinyML capable</td><td>MicroPython / Arduino</td></tr>
+<tr><td>TinyML</td><td>Train -> quantize -> TFLite Micro on MCU</td><td>converter.convert()</td></tr>
+<tr><td>int8 quantization</td><td>4x smaller/faster, needs eval vs fp32</td><td>Optimize.DEFAULT</td></tr>
+<tr><td>Runtimes</td><td>TFLite Micro / ONNX / ExecuTorch / llama.cpp</td><td>InferenceSession</td></tr>
+<tr><td>Vision chain</td><td>Capture -> detect -> track -> crop -> cloud</td><td>YOLO + ByteTrack</td></tr>
+<tr><td>Security</td><td>Secure boot, TLS, per-device certs, no defaults</td><td>X.509 per device</td></tr>
+<tr><td>OTA</td><td>Signed, A/B partitions, staggered rollout</td><td>bootloader fallback</td></tr>
+<tr><td>Digital twin</td><td>Live model of a physical system</td><td>simulate -> actuate</td></tr>
+<tr><td>Drift</td><td>Feature/prediction shift -> retrain trigger</td><td>ks_2samp</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="semiconductor.html">&larr; Semiconductor Engineering</a><a href="agi.html">AGI &rarr;</a></footer>
+</body></html>

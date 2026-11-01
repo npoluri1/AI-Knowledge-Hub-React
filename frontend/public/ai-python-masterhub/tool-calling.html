@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tool / Function Calling — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Tool / Function Calling</span><span class="spacer"></span>
+<a class="navlink" href="memory-management.html">&larr; Memory Management</a> <a class="navlink" href="agent-gateway.html">Agent Gateway &rarr;</a></nav>
+<header class="hero"><div class="mono">TC</div><div><h1>Tool / Function Calling</h1>
+<p class="tagline">Bridging the gap between LLM reasoning and real-world execution by giving models structured access to external functions, APIs, and services through JSON-schema-defined tool interfaces.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Function calling is the mechanism that transforms an LLM from a text generator into an agent capable of taking action. This chapter covers the full spectrum: defining tools with JSON schemas, implementing dispatchers, handling provider-specific formats, and building production tool platforms with security, observability, and governance.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Function calling concept, JSON schemas, OpenAI tools param, dispatchers, error handling</td><td>You can define and execute tools in a basic agent loop</td></tr>
+<tr><td>Tier 2</td><td>Parallel tools, strict mode, Anthropic/Gemini formats, streaming, chained tools</td><td>You can build multi-tool systems across providers</td></tr>
+<tr><td>Tier 3</td><td>RAG-over-tools, permissions, approval gates, retries, MCP, cost accounting</td><td>You can build secure, observable tool platforms</td></tr>
+<tr><td>Tier 4</td><td>Protocol design, sandboxing, capability tokens, computer-use, marketplace governance</td><td>You can architect enterprise-grade tool infrastructure</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready tool-powered applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Schemas, tools param, dispatchers, round-trips, validation</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Function Calling Concept: Model Outputs Intent, Not Execution</h3>
+<p><strong>What &amp; why.</strong> When you give an LLM a function schema, it does not execute the function. Instead, it outputs a structured JSON object describing which function to call and with what arguments. Your code is responsible for executing the function and returning the result. This separation keeps the model sandboxed while giving it access to real-world actions.</p>
+<pre class="code"><code>import openai, json
+
+client = openai.OpenAI()
+
+tools = [{"type": "function", "function": {
+    "name": "get_weather",
+    "description": "Get current weather for a city",
+    "parameters": {"type": "object", "properties": {
+        "city": {"type": "string", "description": "City name"}
+    }, "required": ["city"]}
+}}]
+
+resp = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "What is the weather in Tokyo?"}],
+    tools=tools
+)
+msg = resp.choices[0].message
+if msg.tool_calls:
+    args = json.loads(msg.tool_calls[0].function.arguments)
+    print(f"Model wants to call: {msg.tool_calls[0].function.name}")
+    print(f"With arguments: {args}")
+    # YOUR code executes the function
+    result = {"temp": 22, "condition": "sunny"}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every tool-using agent relies on this pattern. The model decides WHAT to call; your code handles HOW. This keeps the LLM away from direct system access while enabling rich functionality.</div>
+<div class="callout hood"><span>Under the hood</span>The model has been trained on function-calling examples and understands JSON Schema. It selects the best function based on the user's request and generates compliant arguments.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>JSON Schema Describing a Function</h3>
+<p><strong>What &amp; why.</strong> A JSON schema defines the function's name, description, parameters, and their types. The schema is the contract between your code and the model. Clear descriptions and well-typed parameters are the primary lever for making the model call tools correctly.</p>
+<pre class="code"><code>search_tool_schema = {
+    "type": "function",
+    "function": {
+        "name": "search_products",
+        "description": "Search for products in the catalog. Returns matching products with prices.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search terms, e.g. 'wireless headphones'"
+                },
+                "max_price": {
+                    "type": "number",
+                    "description": "Maximum price filter in USD. Omit for no limit."
+                },
+                "category": {
+                    "type": "string",
+                    "enum": ["electronics", "clothing", "books", "home"],
+                    "description": "Product category filter"
+                }
+            },
+            "required": ["query"]
+        }
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every tool needs a schema. The quality of the schema directly determines how often the model generates correct arguments. Invest time in clear descriptions and examples.</div>
+<div class="callout hood"><span>Under the hood</span>The schema follows JSON Schema Draft 7 with OpenAI extensions (the "function" wrapper). Anthropic and Google use similar but slightly different formats for their tool definitions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>OpenAI tools Param and tool_choice auto</h3>
+<p><strong>What &amp; why.</strong> The tools parameter accepts a list of tool schemas. The tool_choice parameter controls whether the model may choose any tool (auto), must use a specific tool (by name), or must not use tools (none). This gives you control over the model's tool-selection behavior.</p>
+<pre class="code"><code># Default: model decides whether to use a tool
+resp = client.chat.completions.create(
+    model="gpt-4o", messages=messages, tools=tools, tool_choice="auto"
+)
+
+# Force the model to use a specific tool
+resp = client.chat.completions.create(
+    model="gpt-4o", messages=messages, tools=tools,
+    tool_choice={"type": "function", "function": {"name": "get_weather"}}
+)
+
+# Force the model to use any tool (not respond with text)
+resp = client.chat.completions.create(
+    model="gpt-4o", messages=messages, tools=tools, tool_choice="required"
+)
+
+# Disable tool calling
+resp = client.chat.completions.create(
+    model="gpt-4o", messages=messages, tools=tools, tool_choice="none"
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>tool_choice="required" is useful when you know the user's request needs a tool. tool_choice with a specific tool name forces the model into a particular workflow.</div>
+<div class="callout hood"><span>Under the hood</span>When tool_choice="none", the model behaves as if no tools are defined. When "required", the model must call at least one tool but can choose which one.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Reading Response: tool_calls and Arguments</h3>
+<p><strong>What &amp; why.</strong> When the model decides to use a tool, the response contains tool_calls: an array of objects each with an id, function name, and arguments string. The arguments are a JSON string that must be parsed. Reading this structure correctly is essential for dispatching tool calls.</p>
+<pre class="code"><code>resp = client.chat.completions.create(
+    model="gpt-4o", messages=messages, tools=tools
+)
+
+choice = resp.choices[0]
+msg = choice.message
+
+if choice.finish_reason == "tool_calls":
+    for tc in msg.tool_calls:
+        print(f"ID: {tc.id}")              # unique call ID
+        print(f"Function: {tc.function.name}")  # function name
+        print(f"Args (raw): {tc.function.arguments}")  # JSON string
+        args = json.loads(tc.function.arguments)  # parsed dict
+        print(f"Args (parsed): {args}")
+elif choice.finish_reason == "stop":
+    print(f"Final answer: {msg.content}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every tool-calling loop must handle the tool_calls structure. The finish_reason tells you whether the model wants to use tools or is done.</div>
+<div class="callout hood"><span>Under the hood</span>The arguments field is always a string (not a dict), even if the function takes no arguments. Always use json.loads() to parse it safely.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Executing Dispatcher: if/elif Registry Pattern</h3>
+<p><strong>What &amp; why.</strong> A dispatcher maps tool names to functions. The if/elif pattern is the simplest: check the tool name and call the corresponding function. For many tools, a dictionary registry is cleaner. The dispatcher handles execution and catches errors for each tool independently.</p>
+<pre class="code"><code>def get_weather(city: str) -> str:
+    return f"Weather in {city}: 22C sunny"
+
+def get_stock_price(ticker: str) -> str:
+    return f"{ticker} price: $150.25"
+
+# Dictionary registry
+TOOL_REGISTRY = {
+    "get_weather": get_weather,
+    "get_stock_price": get_stock_price,
+}
+
+def dispatch_tool(tool_name: str, arguments: str) -> str:
+    args = json.loads(arguments)
+    func = TOOL_REGISTRY.get(tool_name)
+    if func is None:
+        return f"Error: unknown tool '{tool_name}'"
+    try:
+        result = func(**args)
+        return str(result)
+    except Exception as e:
+        return f"Error executing {tool_name}: {e}"
+
+# Usage in loop
+for tc in msg.tool_calls:
+    result = dispatch_tool(tc.function.name, tc.function.arguments)
+    messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The dictionary registry pattern scales to dozens of tools without growing if/elif chains. It also makes adding new tools a one-line operation.</div>
+<div class="callout hood"><span>Under the hood</span>Using **args unpacking means the function signature must match the JSON schema parameter names exactly. Mismatches cause KeyError at runtime.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Returning role: tool Result Message</h3>
+<p><strong>What &amp; why.</strong> After executing a tool, the result must be returned as a message with role="tool" and the matching tool_call_id. This lets the model correlate the result with its original request. Without the tool_call_id, the model cannot determine which result corresponds to which call.</p>
+<pre class="code"><code>def execute_and_respond(msg, messages):
+    """Execute all tool calls and append results to messages."""
+    for tc in msg.tool_calls:
+        result = dispatch_tool(tc.function.name, tc.function.arguments)
+        messages.append({
+            "role": "tool",
+            "tool_call_id": tc.id,
+            "content": str(result)
+        })
+
+# Complete round-trip
+messages = [{"role": "user", "content": "Weather in Tokyo and NYC"}]
+resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+messages.append(resp.choices[0].message)
+
+if resp.choices[0].finish_reason == "tool_calls":
+    execute_and_respond(resp.choices[0].message, messages)
+    # Model now sees both results and can compose the answer
+    resp2 = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The tool_call_id linking is mandatory for all OpenAI-compatible APIs. It enables parallel tool calls where multiple results arrive simultaneously.</div>
+<div class="callout hood"><span>Under the hood</span>The OpenAI API enforces that tool result messages follow the corresponding assistant message. Skipping or reordering tool results causes API errors.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Complete Round-Trip Example: Calculator</h3>
+<p><strong>What &amp; why.</strong> A calculator tool demonstrates the complete function-calling round-trip: schema definition, model call, argument parsing, execution, result return, and final answer generation. It is the minimal end-to-end example for learning tool calling.</p>
+<pre class="code"><code>import openai, json
+
+client = openai.OpenAI()
+
+def calculator(expression: str) -> str:
+    try:
+        result = eval(expression, {"__builtins__": {}})
+        return str(result)
+    except Exception as e:
+        return f"Error: {e}"
+
+calc_tool = {"type": "function", "function": {
+    "name": "calculator", "description": "Evaluate a math expression",
+    "parameters": {"type": "object", "properties": {
+        "expression": {"type": "string", "description": "Math expression, e.g. '2+2*3'"}
+    }, "required": ["expression"]}
+}}
+
+messages = [{"role": "user", "content": "What is 15 * 7 + 3?"}]
+tools = [calc_tool]
+
+resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools)
+msg = resp.choices[0].message
+messages.append(msg)
+
+if resp.choices[0].finish_reason == "tool_calls":
+    tc = msg.tool_calls[0]
+    result = calculator(json.loads(tc.function.arguments)["expression"])
+    messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+    final = client.chat.completions.create(model="gpt-4o", messages=messages)
+    print(final.choices[0].message.content)  # "15 * 7 + 3 = 108"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Calculator is the canonical tool-calling demo. It verifies the full cycle without external dependencies.</div>
+<div class="callout hood"><span>Under the hood</span>Using eval() for a calculator is unsafe in production. A proper calculator would use ast.literal_eval or a math parser. This example prioritizes simplicity.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Pydantic Args Validation</h3>
+<p><strong>What &amp; why.</strong> Pydantic models validate tool arguments at runtime, catching malformed inputs before they reach your tool logic. When the model generates invalid arguments, Pydantic raises a ValidationError that you can return as a tool error message, letting the model self-correct.</p>
+<pre class="code"><code>from pydantic import BaseModel, Field, ValidationError
+
+class WeatherArgs(BaseModel):
+    city: str = Field(description="City name")
+    units: str = Field(default="celsius", pattern="^(celsius|fahrenheit)$")
+
+def validated_weather(arguments: str) -> str:
+    try:
+        args = WeatherArgs.model_validate_json(arguments)
+    except ValidationError as e:
+        return f"Invalid arguments: {e.errors()[0]['msg']}"
+    return get_weather(args.city, args.units)
+
+# Schema with Pydantic
+from pydantic import TypeAdapter
+
+def get_weather_schema() -> dict:
+    schema = TypeAdapter(WeatherArgs).json_schema()
+    return {"type": "function", "function": {
+        "name": "get_weather", "description": "Get weather for a city",
+        "parameters": schema
+    }}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pydantic validation prevents tools from receiving unexpected argument types. It catches enum violations, missing required fields, and type mismatches before execution.</div>
+<div class="callout hood"><span>Under the hood</span>Pydantic v2 generates JSON Schema from Python type hints automatically. This means you define validation once in Python and it becomes the tool schema for the model.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Enum-Constrained Parameters</h3>
+<p><strong>What &amp; why.</strong> Enum constraints restrict a parameter to a fixed set of values. This prevents the model from generating invalid options (e.g., a misspelled sort order). Enums also generate cleaner schema definitions that the model follows more reliably.</p>
+<pre class="code"><code>from enum import Enum
+from pydantic import BaseModel
+
+class SortOrder(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
+
+class Priority(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+class SearchArgs(BaseModel):
+    query: str
+    sort_by: SortOrder = SortOrder.DESC
+    priority: Priority = Priority.MEDIUM
+
+search_tool = {"type": "function", "function": {
+    "name": "search_tasks",
+    "description": "Search and filter tasks",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string"},
+            "sort_by": {"type": "string", "enum": ["asc", "desc"]},
+            "priority": {"type": "string", "enum": ["low", "medium", "high"]}
+        },
+        "required": ["query"]
+    }
+}}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Enum constraints are essential for tools that interface with APIs expecting exact string values. They prevent the model from inventing values that the downstream system rejects.</div>
+<div class="callout hood"><span>Under the hood</span>The "enum" keyword in JSON Schema tells the model the exact allowed values. The model almost always respects enum constraints because they appear in its training data as valid patterns.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Docstring as Spec: Quality Tips</h3>
+<p><strong>What &amp; why.</strong> The tool description is the model's primary guide for when and how to use a tool. Clear, specific descriptions with examples dramatically improve tool selection accuracy. A good description answers: when should the model use this tool, what inputs are expected, and what does the output look like?</p>
+<pre class="code"><code>excellent_tool_schema = {
+    "type": "function", "function": {
+        "name": "query_database",
+        "description": (
+            "Execute a read-only SQL query against the company database. "
+            "Use this when the user asks about business data: sales figures, "
+            "customer counts, inventory levels, or any data stored in tables. "
+            "Do NOT use for simple calculations (use calculator instead) or "
+            "for checking system status (use health_check instead). "
+            "Returns query results as a list of rows."
+        ),
+        "parameters": {"type": "object", "properties": {
+            "sql": {"type": "string", "description": "SELECT query only. Max 1000 rows."},
+            "database": {"type": "string", "enum": ["analytics", "crm", "inventory"],
+                         "description": "Which database to query"}
+        }, "required": ["sql", "database"]}
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Tool descriptions are the most important factor in tool-selection accuracy. Invest time in writing descriptions that clearly distinguish each tool's purpose from similar tools.</div>
+<div class="callout hood"><span>Under the hood</span>The model uses the description to decide which tool matches the user's intent. Vague descriptions lead to wrong tool selection; specific descriptions with exclusions ("Do NOT use for...") reduce false positives.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Error Message Returns for Model Self-Correction</h3>
+<p><strong>What &amp; why.</strong> When a tool fails, returning a descriptive error message as the tool result lets the model understand what went wrong and try a different approach. This self-correction loop is more resilient than crashing on tool errors.</p>
+<pre class="code"><code>def safe_tool_execution(tool_name: str, arguments: str) -> str:
+    func = TOOL_REGISTRY.get(tool_name)
+    if func is None:
+        return f"Error: tool '{tool_name}' does not exist. Available: {list(TOOL_REGISTRY.keys())}"
+    try:
+        args = json.loads(arguments)
+    except json.JSONDecodeError as e:
+        return f"Error: invalid JSON in arguments: {e}"
+    try:
+        result = func(**args)
+        return str(result)
+    except TypeError as e:
+        return f"Error: wrong argument types. {e}. Check the schema."
+    except ValueError as e:
+        return f"Error: invalid value. {e}. Please use valid input."
+    except Exception as e:
+        return f"Error: {type(e).__name__}: {e}"
+
+# Model sees the error and adjusts
+messages.append({"role": "tool", "tool_call_id": tc.id,
+                 "content": "Error: wrong argument types. 'city' must be a string, got int."})
+# Model will retry with correct types</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Self-correction via error messages is a core agent pattern. The model learns from the error and retries with corrected arguments, improving robustness without human intervention.</div>
+<div class="callout hood"><span>Under the hood</span>Specific error messages are better than generic ones. "city must be a string" tells the model exactly what to fix; "invalid input" does not.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>When NOT to Give a Tool</h3>
+<p><strong>What &amp; why.</strong> Not every capability should be a tool. Giving the model unnecessary tools increases prompt size, dilutes tool-selection accuracy, and wastes tokens. Tools should be provided only when the model cannot accomplish the task from its own knowledge or when real-time data access is needed.</p>
+<pre class="code"><code># GOOD: Tool for real-time data the model cannot know
+weather_tool = {"name": "get_weather", "description": "Real-time weather data"}
+
+# GOOD: Tool for actions the model cannot perform
+send_email_tool = {"name": "send_email", "description": "Send an email to a recipient"}
+
+# BAD: Tool for something the model already knows
+capital_tool = {"name": "get_capital", "description": "Get capital of a country"}
+# The model already knows capitals; this wastes a tool slot
+
+# BAD: Tool that duplicates existing functionality
+calc_tool = {"name": "add", "description": "Add two numbers"}
+# The model can do arithmetic; only use a calculator for complex expressions
+
+# Rule of thumb
+PROVIDE_TOOL_IF = [
+    "Real-time or frequently changing data",
+    "Actions with side effects (send, create, delete)",
+    "Access to private/proprietary data",
+    "Computation too complex for the model",
+]
+SKIP_TOOL_IF = [
+    "General knowledge the model already has",
+    "Simple arithmetic the model can do",
+    "Text transformation the model can perform",
+]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Tool proliferation is a common anti-pattern. Each tool adds tokens to every API call; 20+ tools degrade performance. Keep the tool set minimal and purposeful.</div>
+<div class="callout hood"><span>Under the hood</span>Models select tools more accurately with fewer options. The tool-selection accuracy drops measurably when the count exceeds 15-20 tools per call.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Parallel tools, strict mode, provider formats, streaming, chained tools</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Multiple Tools: Registry Dict Pattern</h3>
+<p><strong>What &amp; why.</strong> A tool registry organizes multiple tools in a dictionary mapping names to functions and schemas. This pattern scales cleanly: adding a tool means one dict entry. The registry also provides tool enumeration for schema generation and validation.</p>
+<pre class="code"><code>@dataclass
+class Tool:
+    name: str
+    description: str
+    function: Callable
+    schema: dict
+
+class ToolRegistry:
+    def __init__(self):
+        self._tools: dict[str, Tool] = {}
+
+    def register(self, tool: Tool):
+        self._tools[tool.name] = tool
+
+    def get_schemas(self) -> list[dict]:
+        return [{"type": "function", "function": {
+            "name": t.name, "description": t.description, "parameters": t.schema
+        }} for t in self._tools.values()]
+
+    def dispatch(self, name: str, arguments: str) -> str:
+        tool = self._tools.get(name)
+        if not tool:
+            return f"Unknown tool: {name}"
+        args = json.loads(arguments)
+        return str(tool.function(**args))
+
+registry = ToolRegistry()
+registry.register(Tool("get_weather", "Get weather", get_weather, weather_schema))
+registry.register(Tool("search", "Search catalog", search_products, search_schema))
+schemas = registry.get_schemas()  # pass to OpenAI tools param</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The registry pattern is the standard for production agents with 5+ tools. It provides a single source of truth for tool definitions and dispatch logic.</div>
+<div class="callout hood"><span>Under the hood</span>Frameworks like LangChain and CrewAI use similar registry patterns under the hood. Understanding the raw pattern helps when debugging framework internals.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Parallel Tool Calls: Parsing Arrays</h3>
+<p><strong>What &amp; why.</strong> The model may return multiple tool_calls in a single response when it determines that several tools need to be called independently. Each tool call has its own id, function name, and arguments. All must be executed and their results appended before the next LLM call.</p>
+<pre class="code"><code>def handle_parallel_calls(msg, messages):
+    """Execute all tool calls from a single response."""
+    if not msg.tool_calls:
+        return
+    for tc in msg.tool_calls:
+        result = dispatch_tool(tc.function.name, tc.function.arguments)
+        messages.append({
+            "role": "tool",
+            "tool_call_id": tc.id,
+            "content": str(result)
+        })
+
+# Full loop with parallel support
+for i in range(MAX_ITER):
+    resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=schemas)
+    msg = resp.choices[0].message
+    messages.append(msg)
+    if resp.choices[0].finish_reason == "stop":
+        return msg.content
+    handle_parallel_calls(msg, messages)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Parallel calls reduce round-trips. A query like "weather in Tokyo and NYC" produces two tool_calls in one response instead of two sequential LLM calls.</div>
+<div class="callout hood"><span>Under the hood</span>OpenAI enables parallel tool calls by default. The model has been trained to batch independent calls, reducing latency and cost.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Strict Mode: Guaranteed Schema Compliance</h3>
+<p><strong>What &amp; why.</strong> OpenAI's strict mode ensures the model's tool-call arguments exactly match the JSON schema. Without strict mode, the model may generate extra fields or omit required ones. Strict mode uses grammar-constrained decoding to guarantee compliance.</p>
+<pre class="code"><code># Strict mode tool definition
+strict_tool = {
+    "type": "function",
+    "function": {
+        "name": "create_order",
+        "description": "Create a customer order",
+        "strict": True,  # enables strict schema compliance
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "item_id": {"type": "string"},
+                "quantity": {"type": "integer", "minimum": 1},
+                "shipping": {"type": "string", "enum": ["standard", "express", "overnight"]}
+            },
+            "required": ["item_id", "quantity", "shipping"],
+            "additionalProperties": False  # mandatory with strict mode
+        }
+    }
+}
+
+# With strict mode, the model ALWAYS generates valid arguments
+resp = client.chat.completions.create(
+    model="gpt-4o", messages=messages, tools=[strict_tool]
+)
+# Arguments are guaranteed to match the schema exactly</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Strict mode is essential for tools that interface with rigid APIs. It eliminates argument validation errors at the cost of slightly higher latency.</div>
+<div class="callout hood"><span>Under the hood</span>Strict mode uses constrained decoding: the model's token probabilities are masked to only allow tokens that maintain valid JSON according to the schema. This guarantees syntactic and semantic compliance.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Anthropic tool_use Block Format</h3>
+<p><strong>What &amp; why.</strong> Anthropic's tool-use format differs from OpenAI's. Tool calls arrive as content blocks with type="tool_use" inside the assistant message. Tool results are sent as type="tool_result" blocks within a user message, not as separate tool-role messages.</p>
+<pre class="code"><code>import anthropic
+
+aclient = anthropic.Anthropic()
+
+tools = [{"name": "get_weather", "description": "Get weather",
+          "input_schema": {"type": "object", "properties": {
+              "city": {"type": "string"}}, "required": ["city"]}}]
+
+resp = aclient.messages.create(model="claude-sonnet-4-20250514", max_tokens=4096,
+                                messages=[{"role": "user", "content": "Weather in Tokyo?"}],
+                                tools=tools)
+
+# Parse tool_use blocks
+for block in resp.content:
+    if block.type == "tool_use":
+        result = execute_tool(block.name, block.input)
+
+# Return results as user message with tool_result blocks
+result_blocks = [{"type": "tool_result", "tool_use_id": block.id, "content": str(result)}]
+resp2 = aclient.messages.create(model="claude-sonnet-4-20250514", max_tokens=4096,
+    messages=[{"role": "user", "content": "Weather in Tokyo?"},
+              {"role": "assistant", "content": resp.content},
+              {"role": "user", "content": result_blocks}], tools=tools)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Claude's tool_use format is used by all Anthropic API consumers. Understanding the content-block structure is essential for Claude-based tool-calling agents.</div>
+<div class="callout hood"><span>Under the hood</span>Anthropic's approach keeps the message structure flat (only user/assistant roles) by using content blocks for tool interactions. This differs from OpenAI's dedicated tool role.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Gemini Function Declarations Mapping</h3>
+<p><strong>What &amp; why.</strong> Google's Gemini API uses function_declarations with a slightly different schema format. Parameters use "type": "STRING" instead of "type": "string", and the response format includes functionCall and functionResponse parts.</p>
+<pre class="code"><code>import google.generativeai as genai
+
+genai.configure(api_key="your-key")
+model = genai.GenerativeModel(model_name="gemini-2.0-flash")
+
+# Gemini tool declaration
+weather_func = {"function_declarations": [{
+    "name": "get_weather",
+    "description": "Get weather for a city",
+    "parameters": {"type": "OBJECT", "properties": {
+        "city": {"type": "STRING", "description": "City name"}
+    }, "required": ["city"]}
+}]}
+
+# Call with tools
+response = model.generate_content(
+    "Weather in Tokyo?",
+    tools=weather_func
+)
+
+# Parse function call
+for part in response.parts:
+    if hasattr(part, "function_call"):
+        fc = part.function_call
+        result = execute_tool(fc.name, dict(fc.args))
+        # Return function response
+        response2 = model.generate_content(
+            [{"function_response": {"name": fc.name, "response": {"result": result}}}],
+            tools=weather_func
+        )</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Gemini function declarations follow the same concept as OpenAI/Anthropic but with different naming conventions. Multi-provider agents must handle all three formats.</div>
+<div class="callout hood"><span>Under the hood</span>Gemini uses uppercase type names (OBJECT, STRING) matching Protocol Buffer conventions. The functionCall/functionResponse parts keep tool interactions within the content stream.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Nested Object Schemas: Pitfalls</h3>
+<p><strong>What &amp; why.</strong> Nested objects in tool schemas (e.g., address: {street, city, zip}) are valid but risky. Models sometimes flatten them, generate extra nesting, or omit required nested fields. Flat schemas with explicit field names (address_street, address_city) are more reliable.</p>
+<pre class="code"><code># PITFALL: nested schema often fails
+nested_tool = {"type": "function", "function": {
+    "name": "create_contact",
+    "parameters": {"type": "object", "properties": {
+        "name": {"type": "string"},
+        "address": {"type": "object", "properties": {
+            "street": {"type": "string"},
+            "city": {"type": "string"},
+            "zip": {"type": "string"}
+        }}
+    }}
+}}
+
+# BETTER: flat schema with prefixed names
+flat_tool = {"type": "function", "function": {
+    "name": "create_contact",
+    "parameters": {"type": "object", "properties": {
+        "name": {"type": "string"},
+        "street": {"type": "string"},
+        "city": {"type": "string"},
+        "zip_code": {"type": "string"}
+    }, "required": ["name", "city"]}
+}}
+
+# ACCEPTABLE: single nested object with strict mode
+strict_nested = {**nested_tool, "function": {**nested_tool["function"],
+    "strict": True, "parameters": {**nested_tool["function"]["parameters"],
+    "additionalProperties": False}}}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Nested schemas are common in real-world APIs. The tradeoff is clean schema design vs. model reliability. Use strict mode if nesting is necessary.</div>
+<div class="callout hood"><span>Under the hood</span>Models are trained on flat parameter examples more than nested ones. The training distribution bias makes flat schemas produce more reliable arguments.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Optional vs Required Fields and Defaults</h3>
+<p><strong>What &amp; why.</strong> Correctly marking fields as required vs optional affects what the model generates. Required fields must always appear; optional fields may be omitted if defaults are provided. Missing required fields cause tool failures; unnecessary required fields cause the model to invent values.</p>
+<pre class="code"><code>send_email_tool = {"type": "function", "function": {
+    "name": "send_email",
+    "description": "Send an email",
+    "parameters": {"type": "object", "properties": {
+        "to": {"type": "string", "description": "Recipient email address"},
+        "subject": {"type": "string", "description": "Email subject line"},
+        "body": {"type": "string", "description": "Email body text"},
+        "cc": {"type": "string", "description": "CC address. Optional."},
+        "priority": {"type": "string", "enum": ["low", "normal", "high"],
+                     "default": "normal"}
+    }, "required": ["to", "subject", "body"]}
+    # cc is optional; priority defaults to "normal"
+}}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Mis-marking optional fields as required causes the model to hallucinate values. Mis-marking required fields as optional causes tool execution failures when they are missing.</div>
+<div class="callout hood"><span>Under the hood</span>The default keyword in JSON Schema tells the model what value to use if the field is omitted. OpenAI strict mode requires all fields to be in "required" but allows null types for optional semantics.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Streaming Tool-Call Deltas: Accumulation</h3>
+<p><strong>What &amp; why.</strong> When streaming, tool calls arrive as deltas across multiple chunks. The function name may come in one chunk and arguments in subsequent chunks. Accumulating these deltas into complete tool-call objects is essential for streaming agent loops.</p>
+<pre class="code"><code>def accumulate_tool_calls(stream) -> list[dict]:
+    """Accumulate streaming tool-call deltas into complete objects."""
+    tool_calls = {}
+    for chunk in stream:
+        delta = chunk.choices[0].delta
+        if delta.tool_calls:
+            for tc_delta in delta.tool_calls:
+                idx = tc_delta.index
+                if idx not in tool_calls:
+                    tool_calls[idx] = {"id": "", "name": "", "args": ""}
+                if tc_delta.id:
+                    tool_calls[idx]["id"] = tc_delta.id
+                if tc_delta.function and tc_delta.function.name:
+                    tool_calls[idx]["name"] += tc_delta.function.name
+                if tc_delta.function and tc_delta.function.arguments:
+                    tool_calls[idx]["args"] += tc_delta.function.arguments
+    return list(tool_calls.values())
+
+stream = client.chat.completions.create(model="gpt-4o", messages=messages, tools=tools, stream=True)
+completed_calls = accumulate_tool_calls(stream)
+for tc in completed_calls:
+    result = dispatch_tool(tc["name"], tc["args"])</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Streaming accumulation is needed for responsive UIs that show tool-call progress. Without it, the UI must wait for the full response before processing any tool call.</div>
+<div class="callout hood"><span>Under the hood</span>Deltas are fragmented because the API sends tokens as they are generated. The function name and arguments are generated token-by-token, arriving in separate chunks.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Forced Tool-Choice Flows</h3>
+<p><strong>What &amp; why.</strong> Forcing the model to use a specific tool creates deterministic workflows. The model must call the designated tool and cannot respond with text. This is useful for structured data extraction where every user input must go through a specific pipeline.</p>
+<pre class="code"><code>def forced_extraction_flow(user_input: str, tool_name: str) -> dict:
+    """Force the model to use a specific extraction tool."""
+    extract_tool = [t for t in tools if t["function"]["name"] == tool_name][0]
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": user_input}],
+        tools=[extract_tool],
+        tool_choice={"type": "function", "function": {"name": tool_name}}
+    )
+    tc = resp.choices[0].message.tool_calls[0]
+    return json.loads(tc.function.arguments)
+
+# Forced extraction: every input goes through structured parsing
+data = forced_extraction_flow("Alice is 30 and works at Acme", "extract_person")
+# {"name": "Alice", "age": 30, "company": "Acme"}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Forced tool-choice flows are used for structured data extraction, form filling, and routing decisions where the model must produce a structured output.</div>
+<div class="callout hood"><span>Under the hood</span>Forced tool choice eliminates the "should I use a tool?" decision, reducing latency and improving consistency for structured-output tasks.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Chained Tools: Output Feeding Input</h3>
+<p><strong>What &amp; why.</strong> Chained tools pass the output of one tool as input to the next. The model orchestrates the chain by deciding the sequence. For example, search_products returns IDs, then get_product_details fetches full information for each ID.</p>
+<pre class="code"><code>def search_products(query: str) -> str:
+    results = db.search(query)
+    return json.dumps([{"id": r.id, "name": r.name} for r in results[:5]])
+
+def get_product_details(product_id: str) -> str:
+    product = db.get(product_id)
+    return json.dumps({"name": product.name, "price": product.price, "stock": product.stock})
+
+tools = [
+    {"type": "function", "function": {"name": "search_products", ...}},
+    {"type": "function", "function": {"name": "get_product_details", ...}},
+]
+
+# Model chains: search -> get details for each result
+# Iter 1: model calls search_products("headphones")
+# Iter 2: model calls get_product_details("prod_123")
+# Iter 3: model calls get_product_details("prod_456")
+# Iter 4: model composes final answer with all details</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Chained tools are common in data-retrieval agents: search then fetch details, list then get specifics, query then drill down. The model handles the orchestration.</div>
+<div class="callout hood"><span>Under the hood</span>Chained tools require multiple LLM iterations. Each tool call adds a round-trip. For long chains, consider providing a batch-fetch tool to reduce round-trips.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — RAG-over-tools, permissions, approval gates, MCP, cost accounting</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Dynamic Tool Selection: RAG-over-Tools Catalog</h3>
+<p><strong>What &amp; why.</strong> When an agent has hundreds of tools, sending all schemas to the model is impractical. RAG-over-tools selects the most relevant tools for each query by embedding tool descriptions and retrieving the top matches. Only relevant tools are included in the API call.</p>
+<pre class="code"><code>import numpy as np
+
+class ToolCatalog:
+    def __init__(self, tools: list[dict]):
+        self.tools = tools
+        self.vectors = self._embed_tools()
+
+    def _embed_tools(self) -> list[list[float]]:
+        descriptions = [t["function"]["description"] for t in self.tools]
+        resp = client.embeddings.create(model="text-embedding-3-small", input=descriptions)
+        return [d.embedding for d in resp.data]
+
+    def select_tools(self, query: str, top_k: int = 5) -> list[dict]:
+        resp = client.embeddings.create(model="text-embedding-3-small", input=query)
+        q_vec = np.array(resp.data[0].embedding)
+        scores = [(i, float(np.dot(q_vec, np.array(v)))) for i, v in enumerate(self.vectors)]
+        scores.sort(key=lambda x: x[1], reverse=True)
+        return [self.tools[i] for i, _ in scores[:top_k]]
+
+catalog = ToolCatalog(all_tools)
+relevant = catalog.select_tools("what is the weather in Singapore")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>RAG-over-tools is essential for platforms with 50+ tools. It reduces prompt size and improves tool-selection accuracy by presenting only relevant options.</div>
+<div class="callout hood"><span>Under the hood</span>The embedding similarity between the user query and tool descriptions determines relevance. This works because tool descriptions are typically short and semantically clear.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Permission Layers: Role-Based Tool Allowlists</h3>
+<p><strong>What &amp; why.</strong> Not all users should have access to all tools. Permission layers restrict which tools each role can use. An admin might have database-write tools; a viewer only has read tools. The permission check runs before including tools in the API call.</p>
+<pre class="code"><code>ROLE_PERMISSIONS = {
+    "admin": ["read_data", "write_data", "delete_user", "send_email", "deploy"],
+    "analyst": ["read_data", "run_query", "export_report"],
+    "viewer": ["read_data"],
+}
+
+class PermissionedToolRegistry:
+    def __init__(self, all_tools: dict):
+        self.tools = all_tools
+
+    def get_tools_for_role(self, role: str) -> list[dict]:
+        allowed = ROLE_PERMISSIONS.get(role, [])
+        return [self.tools[name] for name in allowed if name in self.tools]
+
+    def is_allowed(self, role: str, tool_name: str) -> bool:
+        return tool_name in ROLE_PERMISSIONS.get(role, [])
+
+    def execute_with_permission(self, role: str, tool_name: str, arguments: str) -> str:
+        if not self.is_allowed(role, tool_name):
+            return f"Permission denied: role '{role}' cannot use tool '{tool_name}'"
+        return self.tools[tool_name].execute(arguments)
+
+registry = PermissionedToolRegistry(all_tools)
+tools = registry.get_tools_for_role("analyst")  # only read tools</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Permission layers are mandatory for multi-tenant agent platforms. They prevent privilege escalation where a user tricks the model into calling restricted tools.</div>
+<div class="callout hood"><span>Under the hood</span>Permissions are checked at tool inclusion time (before the API call) AND at execution time (before running the tool). Dual checking prevents both prompt injection and runtime bypass.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Human Approval Gate for Dangerous Actions</h3>
+<p><strong>What &amp; why.</strong> Tools that have irreversible side effects (delete, send, deploy, charge) require human approval before execution. The agent proposes the action, the human reviews it, and only approved actions proceed. This is a critical safety mechanism for production agents.</p>
+<pre class="code"><code>class ApprovalGate:
+    DANGEROUS_TOOLS = {"delete_user", "send_email", "deploy", "charge_card", "execute_sql"}
+
+    def __init__(self, notification_channel=None):
+        self.channel = notification_channel
+
+    def needs_approval(self, tool_name: str) -> bool:
+        return tool_name in self.DANGEROUS_TOOLS
+
+    def request_approval(self, tool_name: str, arguments: str, user_id: str) -> bool:
+        if not self.needs_approval(tool_name):
+            return True
+        request = {"tool": tool_name, "args": arguments, "user": user_id, "status": "pending"}
+        if self.channel:
+            self.channel.send(f"Approval needed: {tool_name}({arguments})")
+        # In production, this waits for webhook callback
+        response = input(f"Approve {tool_name}({arguments})? (y/n): ")
+        return response.lower() == "y"
+
+gate = ApprovalGate()
+
+# In agent loop
+for tc in msg.tool_calls:
+    if gate.needs_approval(tc.function.name):
+        approved = gate.request_approval(tc.function.name, tc.function.arguments, user_id)
+        if not approved:
+            result = "Action denied by user"
+        else:
+            result = dispatch_tool(tc.function.name, tc.function.arguments)
+    else:
+        result = dispatch_tool(tc.function.name, tc.function.arguments)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Approval gates are required for agents that manage finances, deploy code, modify databases, or send communications. They are the human-in-the-loop safety mechanism.</div>
+<div class="callout hood"><span>Under the hood</span>In production, approval gates use async patterns: the agent pauses, sends a notification (Slack, email), and resumes when the approval arrives via webhook.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Result Size Truncation and Summarization</h3>
+<p><strong>What &amp; why.</strong> Tool results can be very large (database query returning 10K rows, web page with 50K tokens). Sending the full result wastes tokens and may exceed the context window. Truncation or LLM-based summarization keeps results manageable.</p>
+<pre class="code"><code>def truncate_tool_result(result: str, max_chars: int = 4000) -> str:
+    if len(result) <= max_chars:
+        return result
+    truncated = result[:max_chars]
+    return f"{truncated}\n\n[Truncated: {len(result) - max_chars} chars omitted. Total: {len(result)} chars]"
+
+def summarize_tool_result(result: str, query_context: str) -> str:
+    if len(result) < 2000:
+        return result
+    resp = client.chat.completions.create(model="gpt-4o-mini", messages=[
+        {"role": "system", "content": "Summarize this tool result concisely, keeping key data."},
+        {"role": "user", "content": f"Context: {query_context}\n\nResult:\n{result}"}
+    ])
+    return resp.choices[0].message.content
+
+# Usage in dispatcher
+for tc in msg.tool_calls:
+    raw_result = dispatch_tool(tc.function.name, tc.function.arguments)
+    clean_result = truncate_tool_result(raw_result, max_chars=4000)
+    messages.append({"role": "tool", "tool_call_id": tc.id, "content": clean_result})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Result truncation prevents context-window overflow from large tool outputs. Database queries and API responses are common sources of oversized results.</div>
+<div class="callout hood"><span>Under the hood</span>LLM-based summarization preserves more information than hard truncation but adds latency and cost. The choice depends on whether the details or the gist are more important.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Retries with Backoff and Circuit Breaker per Tool</h3>
+<p><strong>What &amp; why.</strong> Individual tools may fail due to network issues, rate limits, or service outages. A circuit breaker tracks failure rates per tool and stops calling a failing tool after consecutive failures. Combined with exponential backoff, this prevents cascading failures.</p>
+<pre class="code"><code>class CircuitBreaker:
+    def __init__(self, failure_threshold: int = 3, reset_timeout: int = 60):
+        self.failures = 0
+        self.threshold = failure_threshold
+        self.reset_timeout = reset_timeout
+        self.last_failure_time = 0
+        self.state = "closed"  # closed = normal, open = failing
+
+    def record_success(self):
+        self.failures = 0
+        self.state = "closed"
+
+    def record_failure(self):
+        self.failures += 1
+        if self.failures >= self.threshold:
+            self.state = "open"
+            self.last_failure_time = time.time()
+
+    def is_open(self) -> bool:
+        if self.state == "open":
+            if time.time() - self.last_failure_time > self.reset_timeout:
+                self.state = "half-open"
+                return False
+            return True
+        return False
+
+breakers = {name: CircuitBreaker() for name in TOOL_REGISTRY}
+
+def resilient_dispatch(tool_name: str, arguments: str) -> str:
+    breaker = breakers[tool_name]
+    if breaker.is_open():
+        return f"Error: tool '{tool_name}' is temporarily unavailable (circuit open)"
+    try:
+        result = dispatch_tool(tool_name, arguments)
+        breaker.record_success()
+        return result
+    except Exception as e:
+        breaker.record_failure()
+        return f"Error: {e}"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Circuit breakers prevent an agent from repeatedly calling a failing tool, which wastes time and may trigger rate limits. They are standard in microservice architectures.</div>
+<div class="callout hood"><span>Under the hood</span>The half-open state allows a single test request after the timeout. If it succeeds, the circuit closes; if it fails, the circuit reopens. This auto-recovery pattern avoids manual intervention.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Observability: Span per Tool Invocation</h3>
+<p><strong>What &amp; why.</strong> Each tool invocation should be traced as a span in an observability system (LangSmith, Langfuse, OpenTelemetry). The span captures the tool name, arguments, result, latency, and any errors. This enables performance analysis and debugging of tool-calling behavior.</p>
+<pre class="code"><code>import time
+from contextlib import contextmanager
+
+class ToolTracer:
+    def __init__(self):
+        self.spans: list[dict] = []
+
+    @contextmanager
+    def trace(self, tool_name: str, arguments: str):
+        span = {
+            "tool": tool_name,
+            "arguments": arguments[:200],
+            "start_time": time.time(),
+            "status": "ok",
+        }
+        try:
+            yield span
+        except Exception as e:
+            span["status"] = "error"
+            span["error"] = str(e)
+            raise
+        finally:
+            span["end_time"] = time.time()
+            span["duration_ms"] = (span["end_time"] - span["start_time"]) * 1000
+            self.spans.append(span)
+
+tracer = ToolTracer()
+with tracer.trace("get_weather", '{"city": "Tokyo"}') as span:
+    result = dispatch_tool("get_weather", '{"city": "Tokyo"}')
+    span["result_size"] = len(result)
+# Span recorded: {"tool": "get_weather", "duration_ms": 142.3, "status": "ok"}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Per-tool tracing reveals which tools are slow, which fail often, and which are called most frequently. This data drives tool optimization and infrastructure decisions.</div>
+<div class="callout hood"><span>Under the hood</span>OpenTelemetry provides the standard for distributed tracing. Each tool span gets a trace ID that links it to the parent agent loop span, enabling full request tracing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Schema Versioning for Backward Compatibility</h3>
+<p><strong>What &amp; why.</strong> When tool schemas change (new parameters, renamed fields), existing models may generate arguments matching the old schema. Schema versioning ensures backward compatibility by supporting old and new formats during transition periods.</p>
+<pre class="code"><code>class VersionedTool:
+    def __init__(self, name: str, versions: dict[str, dict]):
+        self.name = name
+        self.versions = versions  # {"v1": schema_v1, "v2": schema_v2}
+
+    def get_schema(self, version: str = "latest") -> dict:
+        if version == "latest":
+            version = max(self.versions.keys())
+        return self.versions[version]
+
+    def execute(self, arguments: str, schema_version: str = "latest") -> str:
+        args = json.loads(arguments)
+        if schema_version == "v1":
+            args = self._migrate_v1_to_v2(args)
+        return self._execute_impl(args)
+
+    def _migrate_v1_to_v2(self, args: dict) -> dict:
+        if "location" in args and "city" not in args:
+            args["city"] = args.pop("location")
+        return args
+
+weather_v1 = {"type": "object", "properties": {"location": {"type": "string"}}}
+weather_v2 = {"type": "object", "properties": {"city": {"type": "string"}, "units": {"type": "string"}}}
+versioned_weather = VersionedTool("get_weather", {"v1": weather_v1, "v2": weather_v2})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Schema versioning prevents breaking changes when evolving tool interfaces. It is essential for multi-agent systems where different agents may use different schema versions.</div>
+<div class="callout hood"><span>Under the hood</span>The migration layer translates old argument formats to new ones transparently. This lets you evolve schemas without forcing all consumers to update simultaneously.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>MCP Standard Bridge Preview</h3>
+<p><strong>What &amp; why.</strong> The Model Context Protocol (MCP) is an emerging standard for connecting LLMs to external tools and data sources. It provides a universal interface for tool discovery, invocation, and result formatting across different providers and frameworks.</p>
+<pre class="code"><code># MCP server exposing tools
+from mcp.server import Server
+from mcp.types import Tool, TextContent
+
+server = Server("weather-server")
+
+@server.list_tools()
+async def list_tools():
+    return [Tool(
+        name="get_weather",
+        description="Get weather for a city",
+        inputSchema={"type": "object", "properties": {
+            "city": {"type": "string"}}, "required": ["city"]}
+    )]
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict):
+    if name == "get_weather":
+        result = get_weather(arguments["city"])
+        return [TextContent(type="text", text=result)]
+
+# MCP client connecting to the server
+from mcp.client import StdioServerParameters, stdio_client
+
+server_params = StdioServerParameters(command="python", args=["weather_server.py"])
+async with stdio_client(server_params) as (read, write):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        tools = await session.list_tools()
+        result = await session.call_tool("get_weather", {"city": "Tokyo"})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>MCP is becoming the standard for tool integration in the Claude ecosystem and beyond. It simplifies adding new tools without modifying the agent framework.</div>
+<div class="callout hood"><span>Under the hood</span>MCP uses JSON-RPC 2.0 over stdio or HTTP. It separates tool servers from agent clients, enabling tool reuse across different agent frameworks.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Cost Accounting per Tool Class</h3>
+<p><strong>What &amp; why.</strong> Different tools have different costs: API calls, compute time, database queries. Tracking cost per tool class enables budget allocation, identifies expensive tools, and guides optimization decisions like caching or batching.</p>
+<pre class="code"><code>from dataclasses import dataclass, field
+
+@dataclass
+class ToolCostTracker:
+    costs: dict[str, list[float]] = field(default_factory=dict)
+
+    def record(self, tool_name: str, cost: float, category: str = "api"):
+        key = f"{tool_name}:{category}"
+        self.costs.setdefault(key, []).append(cost)
+
+    def summary(self) -> dict:
+        return {key: {"count": len(vals), "total": sum(vals),
+                      "avg": sum(vals)/len(vals), "p95": sorted(vals)[int(len(vals)*0.95)]}
+                for key, vals in self.costs.items() if vals}
+
+tracker = ToolCostTracker()
+tracker.record("search_web", 0.003, "api")
+tracker.record("search_web", 0.005, "api")
+tracker.record("database_query", 0.001, "compute")
+print(tracker.summary())
+# {"search_web:api": {"count": 2, "total": 0.008, "avg": 0.004}, ...}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost accounting reveals which tools dominate the budget. Often 20% of tools account for 80% of costs, guiding targeted optimization.</div>
+<div class="callout hood"><span>Under the hood</span>Tool costs include API fees, compute time, and opportunity cost (latency). Tracking all three dimensions enables holistic optimization beyond just API spend.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Protocol design, sandboxing, capability tokens, computer-use, governance</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Protocol Design for Internal Tool Platforms</h3>
+<p><strong>What &amp; why.</strong> Enterprise tool platforms require a well-defined protocol for tool registration, discovery, invocation, and result handling. The protocol specifies authentication, rate limiting, versioning, and error formats. Designing this protocol upfront prevents integration chaos as the tool ecosystem grows.</p>
+<pre class="code"><code>from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class ToolRegistration(BaseModel):
+    name: str
+    description: str
+    schema: dict
+    owner: str
+    rate_limit: int = 100  # requests per minute
+    cost_per_call: float = 0.0
+
+class ToolInvocation(BaseModel):
+    tool_name: str
+    arguments: dict
+    caller_id: str
+
+class ToolResult(BaseModel):
+    success: bool
+    result: str | None = None
+    error: str | None = None
+    latency_ms: float = 0
+    cost: float = 0
+
+@app.post("/tools/register")
+async def register_tool(reg: ToolRegistration, auth=Depends(verify_api_key)):
+    tools_db[reg.name] = reg
+    return {"status": "registered", "name": reg.name}
+
+@app.post("/tools/invoke")
+async def invoke_tool(inv: ToolInvocation, auth=Depends(verify_api_key)):
+    tool = tools_db.get(inv.tool_name)
+    if not tool:
+        raise HTTPException(404, f"Tool {inv.tool_name} not found")
+    if not check_rate_limit(inv.tool_name, inv.caller_id):
+        raise HTTPException(429, "Rate limit exceeded")
+    start = time.time()
+    result = execute_tool(tool, inv.arguments)
+    return ToolResult(success=True, result=result, latency_ms=(time.time()-start)*1000)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Internal tool platforms (similar to API gateways) centralize tool management, authentication, and monitoring. They are essential for organizations with 20+ tools.</div>
+<div class="callout hood"><span>Under the hood</span>The protocol borrows from REST API design: registration (POST /register), invocation (POST /invoke), and metadata (GET /tools). Adding OpenAPI specs enables auto-generated clients.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Typed End-to-End Codegen for Tool Clients</h3>
+<p><strong>What &amp; why.</strong> Instead of hand-writing tool dispatchers, generate typed clients from JSON schemas. Codegen produces Python functions with proper type hints, Pydantic models, and docstrings directly from the tool schema. This eliminates manual mapping errors and keeps schemas and code in sync.</p>
+<pre class="code"><code># Generate typed client from schema
+# json-schema-to-python or datamodel-code-generator
+
+# Input: JSON schema
+weather_schema = {"type": "object", "properties": {
+    "city": {"type": "string"}, "units": {"type": "string", "enum": ["celsius", "fahrenheit"]}
+}, "required": ["city"]}
+
+# Generated Python code (by codegen tool)
+from pydantic import BaseModel
+from enum import Enum
+
+class Units(str, Enum):
+    CELSIUS = "celsius"
+    FAHRENHEIT = "fahrenheit"
+
+class GetWeatherArgs(BaseModel):
+    city: str
+    units: Units = Units.CELSIUS
+
+def get_weather(args: GetWeatherArgs) -> str:
+    """Get weather for a city."""
+    return impl_get_weather(args.city, args.units.value)
+
+# Registry auto-generated from schemas
+TOOL_REGISTRY = {
+    "get_weather": {"func": get_weather, "args_model": GetWeatherArgs}
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Codegen eliminates the most error-prone part of tool integration: manual mapping between JSON schemas and Python functions. It is essential for platforms with frequently changing tool definitions.</div>
+<div class="callout hood"><span>Under the hood</span>Tools like datamodel-code-generator and pydantic's TypeAdapter generate Python models from JSON Schema. The generated code is type-safe and IDE-friendly.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Sandbox Isolation: Processes and VMs</h3>
+<p><strong>What &amp; why.</strong> Tools that execute code or access the filesystem must run in isolated sandboxes. Process isolation (subprocess with restricted permissions), container isolation (Docker), or VM isolation prevent tools from affecting the host system or other tools.</p>
+<pre class="code"><code>import subprocess, resource
+
+def sandboxed_code_execution(code: str, timeout: int = 10) -> str:
+    """Execute Python code in a sandboxed subprocess."""
+    try:
+        result = subprocess.run(
+            ["python", "-c", code],
+            capture_output=True, text=True,
+            timeout=timeout,
+            # Restrict filesystem and network access
+            env={"PATH": "/usr/bin", "HOME": "/tmp", "PYTHONPATH": ""},
+        )
+        if result.returncode != 0:
+            return f"Error: {result.stderr[:500]}"
+        return result.stdout[:5000]
+    except subprocess.TimeoutExpired:
+        return "Error: code execution timed out"
+
+class DockerSandbox:
+    def __init__(self, image: str = "python:3.11-slim"):
+        self.image = image
+
+    def execute(self, code: str, timeout: int = 30) -> str:
+        result = subprocess.run(
+            ["docker", "run", "--rm", "--network=none", "--memory=256m",
+             "--cpus=0.5", self.image, "python", "-c", code],
+            capture_output=True, text=True, timeout=timeout
+        )
+        return result.stdout[:5000] if result.returncode == 0 else f"Error: {result.stderr[:500]}"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Sandboxed execution is mandatory for code-interpreter tools. Without isolation, malicious or buggy code could damage the host system.</div>
+<div class="callout hood"><span>Under the hood</span>Docker provides strong isolation with resource limits (memory, CPU, network). For lighter-weight isolation, Python's RestrictedPython or seccomp-bpf can restrict available system calls.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Capability Tokens: Scoped Credentials</h3>
+<p><strong>What &amp; why.</strong> Instead of giving tools broad API keys, capability tokens grant time-limited, scope-limited access. A tool that reads user data gets a token scoped to that user's data for one hour. This limits damage from token compromise and enforces least-privilege access.</p>
+<pre class="code"><code>import jwt, time
+
+class CapabilityToken:
+    def __init__(self, secret: str):
+        self.secret = secret
+
+    def issue(self, tool_name: str, scopes: list[str], user_id: str,
+              ttl_seconds: int = 3600) -> str:
+        payload = {
+            "tool": tool_name,
+            "scopes": scopes,
+            "user_id": user_id,
+            "iat": int(time.time()),
+            "exp": int(time.time()) + ttl_seconds,
+        }
+        return jwt.encode(payload, self.secret, algorithm="HS256")
+
+    def verify(self, token: str, required_scope: str) -> dict:
+        try:
+            payload = jwt.decode(token, self.secret, algorithms=["HS256"])
+            if required_scope not in payload["scopes"]:
+                raise ValueError(f"Missing scope: {required_scope}")
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise ValueError("Token expired")
+
+cap = CapabilityToken("secret-key")
+token = cap.issue("database_query", ["read:analytics", "read:crm"], user_id="alice")
+# Tool uses token to access only analytics and CRM data for alice</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Capability tokens enforce least-privilege in multi-tool systems. Each tool gets only the access it needs, and tokens expire automatically.</div>
+<div class="callout hood"><span>Under the hood</span>Capability tokens are similar to AWS STS temporary credentials. They provide fine-grained, time-limited access without sharing long-lived API keys.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Audit Evidence Trails for Compliance</h3>
+<p><strong>What &amp; why.</strong> Compliance frameworks (SOC 2, ISO 27001, PDPA) require evidence that tools are used appropriately. Audit trails record every tool invocation with who, what, when, and outcome. These trails are the primary evidence during compliance audits.</p>
+<pre class="code"><code>import hashlib, json, time
+
+class ComplianceAuditor:
+    def __init__(self, log_path: str):
+        self.log_path = log_path
+        self.chain_hash = "genesis"
+
+    def record_invocation(self, tool_name: str, caller: str, arguments: str,
+                          result: str, status: str):
+        entry = {
+            "timestamp": time.time(),
+            "tool": tool_name,
+            "caller": caller,
+            "arguments_hash": hashlib.sha256(arguments.encode()).hexdigest(),
+            "result_status": status,
+            "prev_hash": self.chain_hash,
+        }
+        entry_str = json.dumps(entry, sort_keys=True)
+        entry["entry_hash"] = hashlib.sha256(entry_str.encode()).hexdigest()
+        self.chain_hash = entry["entry_hash"]
+        with open(self.log_path, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+
+    def verify_chain(self) -> bool:
+        prev_hash = "genesis"
+        with open(self.log_path) as f:
+            for line in f:
+                entry = json.loads(line)
+                if entry["prev_hash"] != prev_hash:
+                    return False
+                prev_hash = entry["entry_hash"]
+        return True
+
+auditor = ComplianceAuditor("tool_audit.jsonl")
+auditor.record_invocation("query_database", "alice", "SELECT * FROM users",
+                          "success", "ok")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Audit chains provide tamper-evident logs for compliance. If any entry is modified, the hash chain breaks, making tampering detectable.</div>
+<div class="callout hood"><span>Under the hood</span>The hash chain pattern is similar to blockchain: each entry references the previous, making the log append-only and tamper-evident.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Multi-Modal Tools: Vision and Actions</h3>
+<p><strong>What &amp; why.</strong> Multi-modal tools accept images, audio, or video as input alongside text. A vision tool might analyze a screenshot; an audio tool might transcribe a voice command. These tools require multimodal message formats and special parameter handling.</p>
+<pre class="code"><code># Vision tool: analyze an image and take action
+vision_tool = {"type": "function", "function": {
+    "name": "analyze_screenshot",
+    "description": "Analyze a screenshot and suggest UI actions",
+    "parameters": {"type": "object", "properties": {
+        "image_url": {"type": "string", "description": "URL or base64 of the screenshot"},
+        "task": {"type": "string", "description": "What to look for or do"}
+    }, "required": ["image_url", "task"]}
+}}
+
+# Sending multimodal content with tool calls
+messages = [{
+    "role": "user",
+    "content": [
+        {"type": "text", "text": "What errors do you see in this screenshot?"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
+    ]
+}]
+resp = client.chat.completions.create(model="gpt-4o", messages=messages, tools=[vision_tool])
+# Model analyzes the image and calls the tool with specific observations</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-modal tools power UI testing agents, medical image analysis, document processing, and visual inspection workflows.</div>
+<div class="callout hood"><span>Under the hood</span>GPT-4o and Claude 3.5 support image inputs natively. The model processes the image as part of its reasoning, then calls tools based on visual analysis.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Computer-Use Abstraction: Reliability Ladder</h3>
+<p><strong>What &amp; why.</strong> Computer-use tools control a GUI: clicking, typing, scrolling. The reliability ladder ranks interaction methods from most to least reliable: API &gt; CLI &gt; accessibility tree &gt; pixel coordinates. Always prefer higher-reliability methods.</p>
+<pre class="code"><code># Reliability ladder for computer-use tools
+RELIABILITY_LADDER = {
+    "api": {"reliability": 1.0, "speed": "fast", "example": "REST API call"},
+    "cli": {"reliability": 0.95, "speed": "fast", "example": "subprocess.run(['git', 'status'])"},
+    "accessibility": {"reliability": 0.85, "speed": "medium", "example": "find element by role/name"},
+    "pixel_coordinates": {"reliability": 0.6, "speed": "slow", "example": "click(x=450, y=320)"},
+}
+
+def select_interaction_method(target: str, available: list[str]) -> str:
+    """Select the most reliable available method."""
+    for method in ["api", "cli", "accessibility", "pixel_coordinates"]:
+        if method in available:
+            return method
+    return "pixel_coordinates"  # fallback
+
+# Tool that tries higher reliability first
+def smart_click(element_description: str) -> str:
+    methods = ["api", "cli", "accessibility", "pixel_coordinates"]
+    for method in methods:
+        try:
+            return attempt_click(element_description, method)
+        except Exception:
+            continue
+    return "All click methods failed"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Computer-use agents (Anthropic computer use, OpenAI operator) use this hierarchy. API calls are preferred; pixel coordinates are the last resort.</div>
+<div class="callout hood"><span>Under the hood</span>The reliability drops sharply from API (deterministic) to pixel coordinates (screenshot-dependent, resolution-sensitive, fragile to UI changes).</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Weather + Calendar Assistant with Strict Schemas</h3>
+<p>A personal assistant that checks weather conditions and manages calendar events through strictly typed tool schemas. The assistant uses Pydantic models for all tool arguments, enum-constrained parameters, and proper error handling for robust tool execution.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define Pydantic models for all tool arguments (WeatherArgs, CalendarArgs, etc.)</li><li>Generate JSON schemas from Pydantic models for the tools parameter</li><li>Implement weather tool with real API integration (OpenWeatherMap or similar)</li><li>Build calendar tool with CRUD operations (create, read, update, delete events)</li><li>Add strict mode to all tool schemas for guaranteed compliance</li><li>Implement tool chaining: check weather then suggest outdoor activities</li><li>Build error handling that returns descriptive messages for model self-correction</li><li>Add token budget tracking per session to control costs</li></ol>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from enum import Enum
+
+class Units(str, Enum):
+    CELSIUS = "celsius"
+    FAHRENHEIT = "fahrenheit"
+
+class WeatherArgs(BaseModel):
+    city: str = Field(description="City name")
+    units: Units = Field(default=Units.CELSIUS)
+
+class CalendarAction(str, Enum):
+    CREATE = "create"
+    LIST = "list"
+    DELETE = "delete"
+
+class CalendarArgs(BaseModel):
+    action: CalendarAction
+    title: str | None = None
+    date: str | None = None
+    time: str | None = None
+
+weather_tool = {"type": "function", "function": {
+    "name": "get_weather", "strict": True,
+    "description": "Get current weather for a city",
+    "parameters": {**WeatherArgs.model_json_schema(), "additionalProperties": False}
+}}
+
+calendar_tool = {"type": "function", "function": {
+    "name": "manage_calendar", "strict": True,
+    "description": "Create, list, or delete calendar events",
+    "parameters": {**CalendarArgs.model_json_schema(), "additionalProperties": False}
+}}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Pydantic-driven tool schema generation with strict mode</li><li>Enum-constrained parameters for reliable model output</li><li>Multi-tool chaining (weather + calendar integration)</li><li>Error handling patterns for self-correcting tool calls</li><li>Token budget tracking for cost-controlled sessions</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Admin-Ops Console with Approval Gates</h3>
+<p>An administrative operations console that allows AI-assisted infrastructure management with mandatory human approval for destructive operations. The system implements role-based tool access, audit logging, and circuit breakers for external service calls.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Design a tool registry with role-based permissions (admin, operator, viewer)</li><li>Implement read-only tools (list servers, check status, view logs) with no approval required</li><li>Build destructive tools (restart server, deploy code, delete resource) with approval gates</li><li>Add a circuit breaker per external service (AWS, database, monitoring)</li><li>Implement an audit chain that logs every tool invocation with hash verification</li><li>Build a notification system for approval requests (Slack webhook integration)</li><li>Add result truncation for large outputs (log files, deployment status)</li><li>Create a compliance report generator from audit logs</li></ol>
+<pre class="code"><code>class AdminOpsConsole:
+    def __init__(self):
+        self.registry = PermissionedToolRegistry()
+        self.approval_gate = ApprovalGate()
+        self.auditor = ComplianceAuditor("admin_audit.jsonl")
+        self.circuit_breakers = {}
+
+    def execute(self, role: str, tool_name: str, arguments: str, user_id: str) -> str:
+        if not self.registry.is_allowed(role, tool_name):
+            return f"Permission denied for role '{role}'"
+        if self.approval_gate.needs_approval(tool_name):
+            if not self.approval_gate.request_approval(tool_name, arguments, user_id):
+                return "Action denied by administrator"
+        breaker = self.circuit_breakers.get(tool_name, CircuitBreaker())
+        if breaker.is_open():
+            return f"Service '{tool_name}' temporarily unavailable"
+        try:
+            result = self.registry.execute_with_permission(role, tool_name, arguments)
+            breaker.record_success()
+            self.auditor.record_invocation(tool_name, user_id, arguments, "success", "ok")
+            return truncate_tool_result(result)
+        except Exception as e:
+            breaker.record_failure()
+            self.auditor.record_invocation(tool_name, user_id, arguments, "error", str(e))
+            return f"Error: {e}"</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Role-based tool access control with permission layers</li><li>Human approval gates for destructive operations</li>
+<li>Circuit breakers preventing cascading failures</li><li>Hash-chain audit logs for compliance evidence</li><li>Result truncation for large operational outputs</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Tool-Quality Eval Harness: Scoring Choice Accuracy</h3>
+<p>An evaluation harness that measures how accurately a model selects and populates tools across a benchmark suite of test cases. The harness runs each test case through the agent loop, compares tool calls to expected outputs, and produces accuracy reports by tool, category, and difficulty.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Build a test suite of 50+ cases with expected tool names, arguments, and success criteria</li><li>Implement a mock tool server that returns deterministic responses for test cases</li><li>Create an evaluator that compares actual tool calls against expected calls</li><li>Measure three dimensions: tool selection accuracy, argument correctness, final answer quality</li><li>Add difficulty categories (easy: single tool, medium: chained tools, hard: dynamic selection)</li><li>Generate per-tool accuracy metrics to identify weak spots in tool descriptions</li><li>Build a regression suite that re-runs after schema or prompt changes</li><li>Produce markdown reports with accuracy tables and failure analysis</li></ol>
+<pre class="code"><code>class ToolEvalHarness:
+    def __init__(self, test_cases: list[dict], mock_tools: dict):
+        self.cases = test_cases
+        self.mock = mock_tools
+        self.results = []
+
+    def run_case(self, case: dict) -> dict:
+        messages = [{"role": "user", "content": case["query"]}]
+        tools = case.get("available_tools", list(self.mock.keys()))
+        resp = client.chat.completions.create(
+            model="gpt-4o", messages=messages,
+            tools=[self.mock[t]["schema"] for t in tools]
+        )
+        actual_calls = resp.choices[0].message.tool_calls or []
+        expected = case["expected_tool_calls"]
+        return {
+            "tool_selection": self._score_selection(actual_calls, expected),
+            "argument_correctness": self._score_arguments(actual_calls, expected),
+            "difficulty": case.get("difficulty", "medium"),
+        }
+
+    def evaluate(self) -> dict:
+        self.results = [self.run_case(c) for c in self.cases]
+        return {
+            "total": len(self.results),
+            "selection_accuracy": sum(r["tool_selection"] for r in self.results) / len(self.results),
+            "argument_accuracy": sum(r["argument_correctness"] for r in self.results) / len(self.results),
+            "by_difficulty": self._group_by("difficulty"),
+        }</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Tool-selection accuracy measurement methodology</li><li>Mock tool servers for deterministic test execution</li><li>Multi-dimensional evaluation (selection, arguments, answers)</li><li>Regression testing for tool schema and prompt changes</li><li>Data-driven tool description optimization from accuracy metrics</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Function calling concept</td><td>Model outputs structured intent, not execution</td><td>tools=[{"type": "function", "function": {...}}]</td></tr>
+<tr><td>JSON schema</td><td>Defines function name, description, parameters</td><td>"parameters": {"type": "object", "properties": {...}}</td></tr>
+<tr><td>tools param</td><td>Pass tool definitions to the API</td><td>client.chat.completions.create(tools=tools)</td></tr>
+<tr><td>tool_choice</td><td>Control model's tool-selection behavior</td><td>"auto", "required", "none", or {"type": "function", ...}</td></tr>
+<tr><td>tool_calls response</td><td>Array of tool calls with id, name, arguments</td><td>msg.tool_calls[0].function.name</td></tr>
+<tr><td>tool result message</td><td>Return results with matching tool_call_id</td><td>{"role": "tool", "tool_call_id": tc.id}</td></tr>
+<tr><td>Dispatcher registry</td><td>Dict mapping tool names to functions</td><td>TOOL_REGISTRY[name](**args)</td></tr>
+<tr><td>Calculator round-trip</td><td>Minimal end-to-end tool-calling example</td><td>schema + call + execute + return + final</td></tr>
+<tr><td>Pydantic validation</td><td>Validate tool arguments with type safety</td><td>WeatherArgs.model_validate_json(arguments)</td></tr>
+<tr><td>Enum constraints</td><td>Restrict parameters to fixed values</td><td>"enum": ["asc", "desc"]</td></tr>
+<tr><td>Docstring quality</td><td>Clear descriptions improve tool selection</td><td>"description": "Use when... Do NOT use for..."</td></tr>
+<tr><td>Error self-correction</td><td>Return errors as tool results for model retry</td><td>return f"Error: {e}. Check the schema."</td></tr>
+<tr><td>Tool count guidance</td><td>Keep tools minimal; 15+ degrades accuracy</td><td>Provide only if real-time data or side effects</td></tr>
+<tr><td>Parallel tool calls</td><td>Multiple tool_calls in one response</td><td>for tc in msg.tool_calls: handle(tc)</td></tr>
+<tr><td>Strict mode</td><td>Guaranteed schema compliance via constrained decoding</td><td>"strict": True, "additionalProperties": False</td></tr>
+<tr><td>Anthropic tool_use</td><td>Content blocks with type="tool_use"</td><td>block.type == "tool_use", block.name, block.input</td></tr>
+<tr><td>Gemini functions</td><td>Uppercase types, functionCall parts</td><td>"type": "OBJECT", part.function_call</td></tr>
+<tr><td>Nested schemas</td><td>Prefer flat schemas; use strict if nested</td><td>"address_street" over nested "address.street"</td></tr>
+<tr><td>Optional fields</td><td>Mark optional params; use defaults</td><td>"required": ["to", "subject"], "default": "normal"</td></tr>
+<tr><td>Streaming accumulation</td><td>Merge tool-call deltas from stream chunks</td><td>tc.index, tc.function.name += delta</td></tr>
+<tr><td>Forced tool choice</td><td>Make model use a specific tool</td><td>tool_choice={"type": "function", "function": {"name": ...}}</td></tr>
+<tr><td>Chained tools</td><td>Output of one tool feeds input to next</td><td>search -> get_details -> compose answer</td></tr>
+<tr><td>RAG-over-tools</td><td>Select relevant tools via embedding similarity</td><td>catalog.select_tools(query, top_k=5)</td></tr>
+<tr><td>Permission layers</td><td>Role-based tool allowlists</td><td>get_tools_for_role("analyst")</td></tr>
+<tr><td>Approval gates</td><td>Human approval for dangerous actions</td><td>gate.needs_approval(tool_name)</td></tr>
+<tr><td>Result truncation</td><td>Limit tool output size for context management</td><td>truncate_tool_result(result, max_chars=4000)</td></tr>
+<tr><td>Circuit breaker</td><td>Stop calling failing tools after threshold</td><td>breaker.record_failure(); breaker.is_open()</td></tr>
+<tr><td>Tool tracing</td><td>Span per invocation for observability</td><td>tracer.trace(tool_name, arguments)</td></tr>
+<tr><td>Schema versioning</td><td>Support old schemas during transitions</td><td>migrate_v1_to_v2(args)</td></tr>
+<tr><td>MCP protocol</td><td>Universal tool integration standard</td><td>@server.list_tools(), @server.call_tool()</td></tr>
+<tr><td>Cost accounting</td><td>Track cost per tool class</td><td>tracker.record(tool, cost, category)</td></tr>
+<tr><td>Protocol design</td><td>Internal tool platform with registration/invocation</td><td>POST /tools/register, POST /tools/invoke</td></tr>
+<tr><td>Codegen clients</td><td>Generate typed Python from JSON schemas</td><td>datamodel-code-generator</td></tr>
+<tr><td>Sandbox isolation</td><td>Run tools in restricted environments</td><td>subprocess.run(["python", "-c", code])</td></tr>
+<tr><td>Capability tokens</td><td>Scoped, time-limited credentials per tool</td><td>jwt.encode(payload, secret)</td></tr>
+<tr><td>Audit trails</td><td>Hash-chain logs for compliance evidence</td><td>entry["prev_hash"] = chain_hash</td></tr>
+<tr><td>Multi-modal tools</td><td>Accept images/audio alongside text</td><td>content: [{"type": "image_url", ...}]</td></tr>
+<tr><td>Computer-use ladder</td><td>API > CLI > accessibility > pixel coordinates</td><td>prefer higher reliability methods</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="memory-management.html">&larr; Memory Management</a><a href="agent-gateway.html">Agent Gateway &rarr;</a></footer>
+</body></html>

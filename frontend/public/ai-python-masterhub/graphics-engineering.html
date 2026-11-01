@@ -1,0 +1,1623 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graphics Engineering — Visualization, Rendering & Game Tech — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Graphics Engineering — Visualization, Rendering &amp; Game Tech</span><span class="spacer"></span>
+<a class="navlink" href="nextjs.html">&larr; Next.js</a> <a class="navlink" href="ml-fundamentals.html">ML Fundamentals &rarr;</a></nav>
+<header class="hero"><div class="mono">GR</div><div><h1>Graphics Engineering — Visualization, Rendering &amp; Game Tech</h1>
+<p class="tagline">From matplotlib figures to GPU shaders: build charts, dashboards, interactive apps, and 2D games with Python's graphics stack.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Graphics engineering spans data visualization, scientific plotting, interactive dashboards, and real-time game rendering. This chapter progresses from fundamental matplotlib usage through advanced OO APIs, GPU shaders, and production visualization systems. Work through each tier sequentially; projects consolidate skills across the full stack.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>Core plotting libraries, figure anatomy, basic chart types, image I/O, game loop fundamentals</td><td>Produce publication-ready static plots and a skeleton pygame window</td></tr>
+<tr><td>Tier 2</td><td>Advanced statistical plots, animation, interactive libraries, pandas integration, export formats</td><td>Build interactive figures and animated visualizations for dashboards</td></tr>
+<tr><td>Tier 3</td><td>Custom artists, complex layouts, 3D rendering, Dash/Bokeh apps, GPU data rendering, shader programming</td><td>Construct custom visualization components and streaming data apps</td></tr>
+<tr><td>Tier 4</td><td>OpenGL pipelines, transformation matrices, physics integration, GPU-accelerated computation, performance profiling</td><td>Implement real-time rendering loops and GPU-viz pipelines</td></tr>
+<tr><td>Tier 5</td><td>End-to-end projects: sensor dashboards, interactive data explorers, arcade games</td><td>Ship complete interactive applications combining all graphics skills</td></tr></table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Core plotting, figure anatomy, and game-loop basics</small></h2>
+<article class="topic-card">
+<h3><span class="tnum">1</span>Why Visualization Matters</h3>
+<p><strong>What &amp; why.</strong> Visualization transforms raw data into perceptual patterns that humans can reason about in seconds. A well-designed chart reveals trends, outliers, and relationships that tabular summaries miss entirely. In ML workflows, visual EDA prevents downstream modeling mistakes and communicates results to non-technical stakeholders.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+
+rng = np.random.default_rng(42)
+x = rng.uniform(0, 10, 200)
+y = 2.5 * x + rng.normal(0, 2, 200)
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.scatter(x, y, alpha=0.6, edgecolors='k', linewidths=0.5)
+ax.set_title("Visual inspection reveals a linear trend")
+ax.set_xlabel("Feature X"); ax.set_ylabel("Target Y")
+plt.tight_layout()
+plt.savefig("eda_scatter.png", dpi=150)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>EDA notebooks in every data science project, monitoring dashboards, scientific publications, and executive presentations all depend on clear visual storytelling.</div>
+<div class="callout hood"><span>Under the hood</span>Matplotlib renders to a backend (Agg for files, TkAgg for interactive windows). The figure manager handles DPI scaling, vector/raster output, and event dispatch for interactive backends.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Matplotlib Anatomy: Figure, Axes, Artists</h3>
+<p><strong>What &amp; why.</strong> Every matplotlib visualization is composed of three layers: the Figure (canvas), one or more Axes (plotting areas), and Artists (every rendered element from lines to tick labels). Understanding this hierarchy lets you target and customize any visual element programmatically rather than relying on defaults.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+
+fig = plt.figure(figsize=(10, 6))
+ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+
+ax.plot([1, 2, 3], [1, 4, 9], label="y = x²")
+fig.canvas.draw()
+print(type(ax.xaxis.get_major_ticks()[0]))
+print(type(ax.lines[0]))
+
+for child in ax.get_children():
+    print(type(child).__name__)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Custom dashboard components, automated report generation, and library development all require direct Artist manipulation for fine-grained control.</div>
+<div class="callout hood"><span>Under the hood</span>Artists are divided into PrimitiveArtist (Line2D, Rectangle, Text) and CompositeArtist (Axes, Figure). Drawing walks the Artist tree, calling draw() on each, which delegates to the backend renderer.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Line, Scatter, Bar, and Histogram Plots</h3>
+<p><strong>What &amp; why.</strong> These four chart types cover the vast majority of visualization needs. Line plots show trends over continuous axes, scatter plots reveal correlations and clusters, bar charts compare discrete categories, and histograms display distributions. Mastering their parameters is the foundation of all charting work.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+rng = np.random.default_rng(0)
+x = np.linspace(0, 10, 50)
+
+axes[0, 0].plot(x, np.sin(x), '-o', markersize=3, label='sin')
+axes[0, 0].plot(x, np.cos(x), '--', label='cos')
+axes[0, 0].legend(); axes[0, 0].set_title("Line Plot")
+
+axes[0, 1].scatter(rng.uniform(0, 10, 80), rng.uniform(0, 10, 80),
+                   c=rng.random(80), s=rng.uniform(20, 200, 80), alpha=0.7)
+axes[0, 1].set_title("Scatter Plot")
+
+categories = ['A', 'B', 'C', 'D', 'E']
+values = [23, 45, 12, 67, 34]
+axes[1, 0].bar(categories, values, color=['#2b6fd4', '#1f8f63', '#d9a441', '#c8434f', '#7442c8'])
+axes[1, 0].set_title("Bar Chart")
+
+data = rng.normal(50, 15, 500)
+axes[1, 1].hist(data, bins=30, edgecolor='white', alpha=0.8)
+axes[1, 1].set_title("Histogram")
+plt.tight_layout()
+plt.savefig("basic_charts.png", dpi=150)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every exploratory analysis, monitoring dashboard, and scientific paper relies on these four primitives as building blocks for more complex visualizations.</div>
+<div class="callout hood"><span>Under the hood</span>plt.plot() creates Line2D artists, plt.scatter() creates PathCollection, plt.bar() creates Rectangle artists, and plt.hist() calls np.histogram() then draws bars. All are Artists added to the Axes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Labels, Legends, Ticks, and Titles</h3>
+<p><strong>What &amp; why.</strong> A chart without proper annotation is meaningless to anyone except its creator. Labels explain what axes represent, legends decode multiple series, ticks provide scale reference, and titles summarize the chart's message. These elements are technically Artists that you can position, format, and style with full programmatic control.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+
+fig, ax = plt.subplots(figsize=(9, 6))
+x = np.linspace(0, 2 * np.pi, 100)
+ax.plot(x, np.sin(x), label='sin(x)', color='#2b6fd4')
+ax.plot(x, np.cos(x), label='cos(x)', color='#c8434f')
+
+ax.set_xlabel('Angle (radians)', fontsize=12, labelpad=10)
+ax.set_ylabel('Value', fontsize=12, labelpad=10)
+ax.set_title('Trigonometric Functions', fontsize=16, fontweight='bold', pad=15)
+
+ax.set_xticks([0, np.pi/2, np.pi, 3*np.pi/2, 2*np.pi])
+ax.set_xticklabels(['0', 'pi/2', 'pi', '3pi/2', '2pi'], fontsize=11)
+ax.set_yticks([-1, -0.5, 0, 0.5, 1])
+ax.tick_params(axis='both', which='major', labelsize=10, length=6)
+ax.legend(loc='upper right', fontsize=11, framealpha=0.9, edgecolor='#dfe3ee')
+ax.grid(True, alpha=0.3, linestyle='--')
+plt.tight_layout()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every chart in reports, dashboards, and publications requires thoughtful annotation. Automated report generators must set these programmatically for consistent branding.</div>
+<div class="callout hood"><span>Under the hood</span>set_xlabel() creates a Text Artist positioned via the Axes coordinate system. Ticks are Tick objects containing Line2D (tick marks) and Text (labels). Legends create a composite Artist with offset calculations for overlap avoidance.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Subplots and Grid Layouts</h3>
+<p><strong>What &amp; why.</strong> Multi-panel figures let you compare related views side by side. plt.subplots() creates regular grids; add_axes() enables arbitrary positioning. Consistent sizing and spacing across panels is critical for publication-quality multi-panel figures.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+
+fig, axes = plt.subplots(2, 3, figsize=(16, 10))
+rng = np.random.default_rng(42)
+titles = ['Normal', 'Uniform', 'Exponential',
+          'Poisson', 'Beta', 'Log-Normal']
+distributions = [
+    rng.normal(0, 1, 1000), rng.uniform(0, 1, 1000),
+    rng.exponential(1, 1000), rng.poisson(5, 1000),
+    rng.beta(2, 5, 1000), rng.lognormal(0, 1, 1000)]
+
+for ax, data, title in zip(axes.flat, distributions, titles):
+    ax.hist(data, bins=40, edgecolor='white', alpha=0.85)
+    ax.set_title(title, fontsize=13, fontweight='bold')
+    ax.set_ylabel('Count')
+
+fig.suptitle('Common Probability Distributions', fontsize=18, y=1.02)
+plt.tight_layout()
+plt.savefig("distributions_grid.png", dpi=150, bbox_inches='tight')</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Comparative model evaluation panels, multi-metric dashboards, and scientific figure panels for papers with supplementary materials.</div>
+<div class="callout hood"><span>Under the hood</span>plt.subplots() internally creates a SubplotSpec via gridspec, then adds Axes to the Figure at calculated positions. bbox_inches='tight' recomputes the bounding box to crop whitespace.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Colors, Markers, and Line Styles</h3>
+<p><strong>What &amp; why.</strong> Color encodes meaning in every chart. Matplotlib supports named colors, hex codes, RGB tuples, and colormaps. Markers distinguish data points; line styles differentiate series without relying on color alone (critical for colorblind accessibility).</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 10, 30)
+fig, ax = plt.subplots(figsize=(10, 6))
+
+styles = [
+    ('solid', '-', 'o', '#2b6fd4', 'Series A'),
+    ('dashed', '--', 's', '#1f8f63', 'Series B'),
+    ('dotted', ':', '^', '#c8434f', 'Series C'),
+    ('dashdot', '-.', 'D', '#d9a441', 'Series D')]
+
+for name, ls, mk, color, label in styles:
+    ax.plot(x, np.sin(x) + np.random.normal(0, 0.1, len(x)),
+            linestyle=ls, marker=mk, color=color,
+            markersize=7, linewidth=2, label=label, alpha=0.85)
+
+ax.legend(fontsize=12, ncol=2, loc='upper right')
+ax.set_title('Styling Channels: Color + Marker + Linestyle', fontsize=14)
+ax.axhline(y=0, color=(0.4, 0.4, 0.4), linestyle='--', alpha=0.5)
+plt.tight_layout()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Accessible dashboards, black-and-white print-friendly charts, and any visualization where multiple series must be distinguishable at a glance.</div>
+<div class="callout hood"><span>Under the hood</span>Matplotlib's color cycle (prop_cycler on Axes) automatically advances through colors. The colorConverter registry maps names, hex, and RGB to internal 0-1 float tuples. Markers are rendered as Path objects with configurable size and edge properties.</div>
+</article>
+<article class="topic-card">
+<h3><span class="tnum">7</span>savefig: Formats, DPI, and Output Control</h3>
+<p><strong>What &amp; why.</strong> Producing the right output format is as important as creating the chart itself. Vector formats (SVG, PDF) scale infinitely for publications; raster formats (PNG, JPEG) are required for web and presentations. DPI controls resolution; bbox_inches controls whitespace. Transparent backgrounds adapt charts to dark themes.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.bar(['Q1', 'Q2', 'Q3', 'Q4'], [120, 195, 145, 230],
+       color='#2b6fd4', edgecolor='white')
+ax.set_title('Quarterly Revenue', fontsize=14)
+ax.set_ylabel('Revenue ($K)')
+
+fig.savefig('chart.png', dpi=150, bbox_inches='tight', facecolor='white')
+fig.savefig('chart.svg', bbox_inches='tight')
+fig.savefig('chart.pdf', bbox_inches='tight')
+fig.savefig('chart_transparent.png', dpi=300, transparent=True,
+            bbox_inches='tight', pad_inches=0.2)
+plt.close(fig)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Report pipelines generating both web thumbnails and print-ready PDFs, CI/CD jobs that produce chart artifacts, and badge image generation.</div>
+<div class="callout hood"><span>Under the hood</span>savefig delegates to the backend renderer. Agg produces raster output; PDF/SVG backends produce vector output. bbox_inches='tight' calls get_tightbbox() on all Artists to compute the minimal bounding rectangle.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Styles, rcParams, and Theme Management</h3>
+<p><strong>What &amp; why.</strong> rcParams is matplotlib's global configuration dictionary controlling defaults for every visual property: fonts, colors, linewidths, figure size, and more. Built-in stylesheets apply curated rcParams sets. Creating custom style dictionaries ensures consistent branding across all charts.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+
+print(plt.style.available)
+plt.style.use('seaborn-v0_8-whitegrid')
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.plot(np.random.randn(50).cumsum(), linewidth=2)
+ax.set_title('Using Built-in Style')
+plt.savefig('styled_chart.png', dpi=150)
+plt.close()
+
+plt.rcParams.update({
+    'font.family': 'sans-serif',
+    'font.sans-serif': ['Arial', 'DejaVu Sans'],
+    'font.size': 12, 'axes.titlesize': 16,
+    'axes.labelsize': 13,
+    'axes.spines.top': False, 'axes.spines.right': False,
+    'axes.prop_cycle': plt.cycler(color=['#2b6fd4', '#1f8f63', '#d9a441']),
+})
+
+fig, ax = plt.subplots(figsize=(9, 5))
+ax.plot(np.random.randn(50).cumsum(), label='Metric A')
+ax.plot(np.random.randn(50).cumsum(), label='Metric B')
+ax.legend()
+ax.set_title('Custom Branded Theme')
+plt.savefig('branded_chart.png', bbox_inches='tight')
+plt.close()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Enterprise dashboards, journal submission pipelines, and any multi-chart project where visual consistency is a requirement.</div>
+<div class="callout hood"><span>Under the hood</span>rcParams is a dict-like RcParams object that validates values on set. Stylesheets are Python files that call plt.rcParams.update(). The style context manager (with plt.style.context('x')) temporarily applies styles and restores originals on exit.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Annotations, Arrows, and Text Overlay</h3>
+<p><strong>What &amp; why.</strong> Annotations guide the viewer's attention to specific data points. ax.annotate() places text at arbitrary data coordinates with optional arrows. Combined with ax.text() and FancyBboxPatch, annotations transform a chart from a passive display into an active explanatory tool.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+
+fig, ax = plt.subplots(figsize=(10, 6))
+x = np.linspace(0, 10, 200)
+y = np.sin(x) * np.exp(-x / 10)
+ax.plot(x, y, color='#2b6fd4', linewidth=2)
+
+peak_idx = np.argmax(y)
+ax.annotate('Global Maximum',
+            xy=(x[peak_idx], y[peak_idx]),
+            xytext=(x[peak_idx] + 2, y[peak_idx] + 0.15),
+            fontsize=12, fontweight='bold',
+            arrowprops=dict(arrowstyle='->', color='#c8434f', lw=2),
+            bbox=dict(boxstyle='round,pad=0.4', fc='#fdeaec', ec='#c8434f'))
+
+ax.text(8, 0.15, 'Damped Oscillation',
+        fontsize=11, style='italic', color='#4a5468',
+        bbox=dict(boxstyle='round', facecolor='#e3edfc', alpha=0.8))
+ax.set_title('Annotated Damped Sine Wave', fontsize=15)
+plt.tight_layout()
+plt.savefig('annotated_chart.png', dpi=150)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Scientific figures with callouts, dashboard alerts highlighting threshold breaches, and educational materials explaining chart features.</div>
+<div class="callout hood"><span>Under the hood</span>annotate() creates a FancyArrowPatch connecting xy to xytext using the annotation's coordinate transform. Text positioning supports 'data', 'axes', 'figure', and 'offset' coordinate systems.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Seaborn: Statistical Plots in One Line</h3>
+<p><strong>What &amp; why.</strong> Seaborn builds on matplotlib to provide high-level functions for statistical visualization: distribution plots, regression fits, categorical comparisons, and pairwise relationships. It integrates directly with pandas DataFrames and handles aggregation internally.</p>
+<pre class="code"><code>import seaborn as sns
+import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
+
+rng = np.random.default_rng(42)
+df = pd.DataFrame({
+    'score': rng.normal(70, 15, 300),
+    'hours': rng.exponential(5, 300),
+    'group': rng.choice(['Control', 'Treatment A', 'Treatment B'], 300)
+})
+df['score'] = np.clip(df['score'] + (df['group'] != 'Control') * 10, 0, 100)
+
+fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+sns.histplot(data=df, x='score', hue='group', kde=True, ax=axes[0])
+axes[0].set_title('Distribution by Group')
+sns.boxplot(data=df, x='group', y='score', ax=axes[1], palette='Set2')
+axes[1].set_title('Score by Group')
+sns.regplot(data=df, x='hours', y='score', ax=axes[2],
+            scatter_kws={'alpha': 0.4}, line_kws={'color': '#c8434f'})
+axes[2].set_title('Hours vs Score')
+plt.tight_layout()
+plt.savefig('seaborn_stats.png', dpi=150)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Exploratory data analysis, A/B test result visualization, and any workflow where statistical summaries need immediate visual representation from DataFrames.</div>
+<div class="callout hood"><span>Under the hood</span>Seaborn's plotting functions parse DataFrame columns, perform internal aggregation (groupby, KDE estimation, bootstrapped CIs), then call matplotlib primitives. The seaborn axes style temporarily overrides rcParams for consistent aesthetics.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>PIL Image: Open, Transform, Save</h3>
+<p><strong>What &amp; why.</strong> Pillow (PIL) is Python's standard library for raster image manipulation: resizing, cropping, color space conversion, filtering, and format conversion. Unlike matplotlib, PIL operates directly on pixel data. It is essential for preprocessing images for ML, generating thumbnails, and compositing watermarks.</p>
+<pre class="code"><code>from PIL import Image, ImageFilter, ImageEnhance
+import numpy as np
+
+arr = np.zeros((400, 600, 3), dtype=np.uint8)
+arr[:, :200] = [43, 111, 212]
+arr[:, 200:400] = [31, 143, 99]
+arr[:, 400:] = [217, 164, 65]
+img = Image.fromarray(arr)
+
+img_resized = img.resize((300, 200), Image.Resampling.LANCZOS)
+img_rotated = img.rotate(45, expand=True, fillcolor=(255, 255, 255))
+img_cropped = img.crop((100, 50, 500, 350))
+enhancer = ImageEnhance.Contrast(img)
+img_contrasted = enhancer.enhance(1.5)
+img_blurred = img.filter(ImageFilter.GaussianBlur(radius=3))
+
+img.save('output.png', 'PNG')
+img.save('output.webp', 'WEBP', quality=85)
+img.save('output.tiff', 'TIFF', compression='tiff_lzw')</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Image preprocessing for ML pipelines, thumbnail generation for web apps, watermarking, screenshot processing, and pixel-level image manipulation in production.</div>
+<div class="callout hood"><span>Under the hood</span>PIL delegates to C extensions (libjpeg, libpng, zlib) for codec operations. ImageFilter convolves kernels via numpy arrays. Resampling filters (LANCZOS, BILINEAR) implement different interpolation algorithms for pixel resampling.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Pygame Window and Game Loop Skeleton</h3>
+<p><strong>What &amp; why.</strong> Pygame provides the foundation for 2D game development: window management, event handling, sprite systems, and audio. The game loop (process input, update state, render frame) is the universal pattern for all real-time interactive applications.</p>
+<pre class="code"><code>import pygame, sys
+
+pygame.init()
+SCREEN_W, SCREEN_H = 800, 600
+screen = pygame.display.set_mode((SCREEN_W, SCREEN_H))
+pygame.display.set_caption("Game Loop Skeleton")
+clock = pygame.time.Clock()
+
+x, y = SCREEN_W // 2, SCREEN_H // 2
+speed = 5
+running = True
+
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                running = False
+
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT]:  x -= speed
+    if keys[pygame.K_RIGHT]: x += speed
+    if keys[pygame.K_UP]:    y -= speed
+    if keys[pygame.K_DOWN]:  y += speed
+
+    x = max(15, min(SCREEN_W - 15, x))
+    y = max(15, min(SCREEN_H - 15, y))
+
+    screen.fill((20, 26, 51))
+    pygame.draw.circle(screen, (43, 111, 212), (int(x), int(y)), 15)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+sys.exit()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Game prototypes, interactive educational tools, real-time data visualization demos, and any application requiring a continuous render loop with user input.</div>
+<div class="callout hood"><span>Under the hood</span>Pygame wraps SDL2. display.flip() swaps the double buffer. clock.tick(FPS) enforces a frame cap by sleeping the remaining time. Events are pulled from an OS-level queue managed by SDL.</div>
+</article>
+
+</section>
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Advanced charts, animation, interactivity, and dashboard integration</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Twin Axes and Secondary Scales</h3>
+<p><strong>What &amp; why.</strong> When two related metrics have different scales (e.g., revenue vs. percentage growth), twin axes let you plot both on the same chart without distorting either. ax.twinx() creates a second y-axis sharing the x-axis.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.arange(1, 13)
+revenue = [45, 62, 55, 71, 80, 76, 89, 95, 88, 102, 110, 118]
+growth = [None, 0.38, -0.11, 0.29, 0.13, -0.05, 0.17, 0.07,
+          -0.07, 0.16, 0.08, 0.07]
+
+fig, ax1 = plt.subplots(figsize=(10, 6))
+color1 = '#2b6fd4'
+ax1.bar(x, revenue, color=color1, alpha=0.7, label='Revenue')
+ax1.set_xlabel('Month')
+ax1.set_ylabel('Revenue ($K)', color=color1)
+ax1.tick_params(axis='y', labelcolor=color1)
+ax1.set_xticks(x)
+ax1.set_xticklabels([f'M{i}' for i in x])
+
+ax2 = ax1.twinx()
+color2 = '#c8434f'
+ax2.plot(x[1:], growth[1:], color=color2, marker='o', linewidth=2.5)
+ax2.set_ylabel('MoM Growth', color=color2)
+ax2.tick_params(axis='y', labelcolor=color2)
+ax2.axhline(y=0, color=color2, linestyle='--', alpha=0.4)
+ax1.set_title('Revenue and Growth Rate (Dual Axis)', fontsize=14)
+plt.tight_layout()
+plt.savefig('twin_axis.png', dpi=150)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Financial dashboards comparing absolute and relative metrics, weather data overlays, and any KPI visualization where two metrics share a time axis but differ in magnitude.</div>
+<div class="callout hood"><span>Under the hood</span>twinx() creates a new Axes sharing the x-axis with independent y-axis scaling. The second Axes is rendered on top with a transparent background. Care must be taken to match colors and legends to the correct axis.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Histogram Bins, Density, and KDE Overlay</h3>
+<p><strong>What &amp; why.</strong> Choosing the right bin count and normalization for histograms dramatically affects interpretation. Too few bins mask multimodality; too many create noise. Density normalization lets you compare distributions of different sample sizes. Overlaying a KDE provides both discrete and continuous distribution views.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+from scipy import stats
+
+rng = np.random.default_rng(42)
+data_a = rng.normal(100, 15, 500)
+data_b = rng.normal(110, 20, 300)
+
+fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+
+axes[0].hist(data_a, bins=30, alpha=0.7, color='#2b6fd4', edgecolor='white')
+axes[0].set_title('Fixed Bins (30)')
+
+axes[1].hist(data_a, bins=30, density=True, alpha=0.7,
+             color='#1f8f63', edgecolor='white')
+kde_x = np.linspace(50, 150, 200)
+kde = stats.gaussian_kde(data_a)
+axes[1].plot(kde_x, kde(kde_x), color='#c8434f', linewidth=2)
+axes[1].set_title('Density + KDE Overlay')
+
+axes[2].hist(data_a, bins=30, density=True, alpha=0.6, color='#2b6fd4', label='A')
+axes[2].hist(data_b, bins=30, density=True, alpha=0.6, color='#d9a441', label='B')
+axes[2].legend(fontsize=11)
+axes[2].set_title('Overlaid Distributions')
+fig.suptitle('Histogram Best Practices', fontsize=15, y=1.02)
+plt.tight_layout()
+plt.savefig('histogram_binning.png', dpi=150, bbox_inches='tight')</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Distribution analysis in EDA, model error analysis, feature engineering validation, and comparing train/test distributions to detect data drift.</div>
+<div class="callout hood"><span>Under the hood</span>np.histogram() computes bin edges via Sturges' rule (default) or FD. Density mode divides counts by (N * bin_width) to produce a probability density. scipy.stats.gaussian_kde fits a Gaussian kernel at each data point and sums them.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Box Plots and Violin Plots</h3>
+<p><strong>What &amp; why.</strong> Box plots summarize distributions via five-number summary plus outlier detection. Violin plots add a KDE on each side, revealing the full shape including bimodality that box plots hide. Together they are the standard for comparing distributions across groups.</p>
+<pre class="code"><code>import seaborn as sns
+import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
+
+rng = np.random.default_rng(42)
+df = pd.DataFrame({
+    'score': np.concatenate([rng.normal(72, 10, 200),
+        rng.normal(78, 12, 200), rng.normal(65, 15, 200)]),
+    'method': np.repeat(['Baseline', 'Model A', 'Model B'], 200)})
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+sns.boxplot(data=df, x='method', y='score', ax=axes[0], palette='Set2',
+            showmeans=True,
+            meanprops={'marker': 'D', 'markerfacecolor': 'red', 'markersize': 8})
+axes[0].set_title('Box Plot', fontsize=14)
+sns.violinplot(data=df, x='method', y='score', ax=axes[1],
+               palette='Set2', inner='quartile', cut=0)
+axes[1].set_title('Violin Plot', fontsize=14)
+fig.suptitle('Comparing Model Score Distributions', fontsize=16, y=1.02)
+plt.tight_layout()
+plt.savefig('box_violin.png', dpi=150, bbox_inches='tight')</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Model comparison reports, A/B test analysis, feature distribution auditing, and any context where distributional differences between groups must be communicated clearly.</div>
+<div class="callout hood"><span>Under the hood</span>Seaborn's boxplot computes quartiles and fences (1.5 * IQR rule) then draws Rectangle and Line2D artists. Violinplot calls scipy.stats.gaussian_kde for each group, scales the KDE to fit within the violin width, and mirrors it via fill_between.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Heatmaps with imshow and pcolormesh</h3>
+<p><strong>What &amp; why.</strong> Heatmaps encode matrix values as colors, making patterns in correlation matrices, confusion matrices, and spatial data immediately visible. imshow() renders any 2D array as an image; pcolormesh() handles irregular grids and is more flexible.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+features = ['Temp', 'Humidity', 'Pressure', 'Wind', 'UV']
+corr = np.array([
+    [1.00, -0.65, -0.12, 0.18, 0.82],
+    [-0.65, 1.00, 0.22, -0.31, -0.58],
+    [-0.12, 0.22, 1.00, -0.44, -0.05],
+    [0.18, -0.31, -0.44, 1.00, 0.15],
+    [0.82, -0.58, -0.05, 0.15, 1.00]])
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+sns.heatmap(corr, annot=True, fmt='.2f', cmap='RdBu_r',
+            center=0, vmin=-1, vmax=1, ax=axes[0],
+            xticklabels=features, yticklabels=features,
+            square=True, linewidths=0.5)
+axes[0].set_title('Correlation Heatmap')
+
+rng = np.random.default_rng(42)
+data = rng.normal(0, 1, (10, 10))
+im = axes[1].imshow(data, cmap='viridis', aspect='auto')
+axes[1].set_title('imshow Matrix')
+plt.colorbar(im, ax=axes[1], shrink=0.8)
+plt.tight_layout()
+plt.savefig('heatmaps.png', dpi=150)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Correlation analysis, confusion matrices, hyperparameter search results, time-series activity maps, and spatial data visualization.</div>
+<div class="callout hood"><span>Under the hood</span>imshow maps array values to colormap indices via Normalize. pcolormesh builds a QuadMesh from cell boundaries and is more efficient for large irregular grids. Both support vmin/vmax for value clamping.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Error Bars and Confidence Intervals</h3>
+<p><strong>What &amp; why.</strong> Error bars communicate measurement uncertainty, variability, or statistical confidence. Without them, bar charts misrepresent the precision of estimates. Matplotlib supports symmetric/asymmetric errors, multiple error sources, and cap sizing.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+
+methods = ['CNN', 'RNN', 'Transformer', 'GPT-Fine', 'Ensemble']
+accuracy = [0.891, 0.845, 0.923, 0.938, 0.952]
+stderr = [0.012, 0.018, 0.009, 0.007, 0.005]
+
+fig, ax = plt.subplots(figsize=(10, 6))
+colors = ['#2b6fd4', '#1f8f63', '#7442c8', '#d96b1f', '#d9a441']
+ax.bar(methods, accuracy, color=colors, edgecolor='white',
+       yerr=stderr, capsize=8, error_kw={'linewidth': 2, 'color': '#1c2333'})
+ax.set_ylim(0.80, 1.0)
+ax.set_ylabel('Accuracy', fontsize=13)
+ax.set_title('Model Comparison with Standard Error Bars', fontsize=15)
+ax.annotate(f'{accuracy[-1]:.1%}', xy=(4, accuracy[-1] + stderr[-1]),
+            xytext=(4, accuracy[-1] + stderr[-1] + 0.015),
+            ha='center', fontsize=12, fontweight='bold',
+            arrowprops=dict(arrowstyle='->', color='#c8434f'))
+plt.tight_layout()
+plt.savefig('error_bars.png', dpi=150)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Scientific publications, ML model comparison tables, charts showing measured vs. estimated values, and experimental result dashboards.</div>
+<div class="callout hood"><span>Under the hood</span>yerr accepts arrays for symmetric errors or 2-row arrays for asymmetric (lower, upper). capsize adds perpendicular caps at error endpoints. The errorbar() function provides more flexible control with ecolor, elinewidth, and errorevery parameters.</div>
+</article>
+<article class="topic-card">
+<h3><span class="tnum">18</span>Pie and Donut Charts: Best Practices</h3>
+<p><strong>What &amp; why.</strong> Pie charts are frequently abused but remain useful for showing parts-of-a-whole when there are 5 or fewer categories and differences are large. Donut charts improve readability by placing a label in the center. Key practices: sort slices by size, limit categories, avoid 3D effects, label directly.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+
+labels = ['Cloud Services', 'On-Prem', 'Hybrid', 'Edge']
+sizes = [42, 25, 22, 11]
+colors = ['#2b6fd4', '#1f8f63', '#7442c8', '#d9a441']
+explode = (0.05, 0, 0, 0.08)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+wedges, texts, autotexts = axes[0].pie(
+    sizes, explode=explode, labels=labels, colors=colors,
+    autopct='%1.1f%%', startangle=140, pctdistance=0.75,
+    textprops={'fontsize': 11})
+for t in autotexts:
+    t.set_fontweight('bold'); t.set_color('white')
+axes[0].set_title('Deployment Distribution', fontsize=14)
+
+wedges2, _, autotexts2 = axes[1].pie(
+    sizes, labels=None, colors=colors, autopct='%1.0f%%',
+    startangle=140, pctdistance=0.8, wedgeprops={'width': 0.4})
+axes[1].legend(wedges2, labels, loc='center left',
+               bbox_to_anchor=(0.9, 0.5), fontsize=11)
+centre = plt.Circle((0, 0), 0.35, fc='white')
+axes[1].add_artist(centre)
+axes[1].text(0, 0, f'Total\n{sum(sizes)}%', ha='center',
+             va='center', fontsize=14, fontweight='bold')
+axes[1].set_title('Donut Chart', fontsize=14)
+plt.tight_layout()
+plt.savefig('pie_donut.png', dpi=150)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Market share summaries, budget allocation dashboards, and executive reports where simple proportional comparisons are needed.</div>
+<div class="callout hood"><span>Under the hood</span>plt.pie() creates Wedge artists (subclasses of Path). explode offsets each wedge radially. Donut effect is achieved by setting wedgeprops['width'] &lt; 1.0, leaving a ring of the background color in the center.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Pandas .plot Integration</h3>
+<p><strong>What &amp; why.</strong> Every pandas DataFrame has a .plot() method that wraps matplotlib, letting you produce charts directly from data structures without importing pyplot. df.plot.line(), df.plot.bar(), df.plot.scatter() work with column names as axis labels automatically.</p>
+<pre class="code"><code>import pandas as pd
+import numpy as np
+
+rng = np.random.default_rng(42)
+dates = pd.date_range('2024-01-01', periods=12, freq='MS')
+df = pd.DataFrame({
+    'Revenue': [120, 135, 128, 155, 170, 162, 185, 195, 188, 210, 225, 240],
+    'Costs': [80, 82, 85, 88, 90, 92, 95, 98, 100, 105, 108, 112]},
+    index=dates)
+df['Profit'] = df['Revenue'] - df['Costs']
+
+ax = df[['Revenue', 'Costs', 'Profit']].plot(
+    kind='line', figsize=(12, 6), linewidth=2.5,
+    color=['#2b6fd4', '#c8434f', '#1f8f63'],
+    title='Monthly Financials (pandas .plot)')
+ax.set_ylabel('Amount ($K)')
+ax.grid(True, alpha=0.3)
+ax.figure.savefig('pandas_line.png', dpi=150, bbox_inches='tight')</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Quick EDA in notebooks, Jupyter reports, and any workflow where matplotlib boilerplate would slow down exploration.</div>
+<div class="callout hood"><span>Under the hood</span>DataFrame.plot is implemented via pandas.plotting._core, which translates keyword arguments to matplotlib calls. It handles index-to-x-axis mapping, column-to-series mapping, and legend construction automatically.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>FuncAnimation and Matplotlib Animation Basics</h3>
+<p><strong>What &amp; why.</strong> Animations bring static charts to life by updating artists frame-by-frame. FuncAnimation is matplotlib's primary animation tool: you provide an init function and an update function called each frame. This enables real-time sensor displays and time-series playback.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import numpy as np
+
+fig, ax = plt.subplots(figsize=(10, 5))
+x = np.linspace(0, 4 * np.pi, 200)
+line, = ax.plot([], [], color='#2b6fd4', linewidth=2)
+ax.set_xlim(0, 4 * np.pi)
+ax.set_ylim(-1.5, 1.5)
+ax.set_title('Traveling Sine Wave')
+ax.grid(True, alpha=0.3)
+
+def init():
+    line.set_data([], [])
+    return (line,)
+
+def update(frame):
+    phase = frame * 0.1
+    y = np.sin(x + phase) * np.exp(-x / 15)
+    line.set_data(x, y)
+    return (line,)
+
+anim = animation.FuncAnimation(
+    fig, update, init_func=init, frames=200, interval=30, blit=True)
+anim.write('wave.gif', writer='pillow', fps=30)
+plt.close(fig)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Time-series dashboards, physics simulations, educational animations, and real-time monitoring displays that update at fixed intervals.</div>
+<div class="callout hood"><span>Under the hood</span>FuncAnimation stores a reference to the figure and calls update(frame_number) on each frame. blit=True redraws only changed Artists (via get_animated()) rather than the full figure, significantly improving frame rates.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Blitting for High-Performance Animation</h3>
+<p><strong>What &amp; why.</strong> Without blitting, every frame redraws the entire figure. Blitting copies the static background once, then blits only the changed artists on top. This can improve frame rates by 5-10x, enabling smooth 60fps animations in matplotlib.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import numpy as np
+
+fig, ax = plt.subplots(figsize=(10, 6))
+x = np.linspace(0, 2 * np.pi, 100)
+scatter = ax.scatter([], [], s=50, c=[], cmap='plasma',
+                     edgecolors='k', linewidths=0.5)
+ax.set_xlim(-2, 2); ax.set_ylim(-2, 2)
+ax.set_aspect('equal')
+ax.set_title('Blitted Particle System')
+
+fig.canvas.draw()
+background = fig.canvas.copy_from_bbox(ax.bbox)
+
+def update(frame):
+    fig.canvas.restore_region(background)
+    t = frame * 0.05
+    n = 80
+    angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    radii = 0.5 + 0.3 * np.sin(angles * 3 + t)
+    xs = radii * np.cos(angles + t * 0.5)
+    ys = radii * np.sin(angles + t * 0.5)
+    colors = (radii - 0.2) / 0.8
+    scatter.set_offsets(np.column_stack([xs, ys]))
+    scatter.set_array(colors)
+    ax.draw_artist(scatter)
+    fig.canvas.blit(ax.bbox)
+    return []
+
+anim = animation.FuncAnimation(fig, update, frames=300,
+                               interval=16, blit=True)
+anim.write('particles.gif', writer='pillow', fps=60)
+plt.close()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Real-time data visualization dashboards, particle simulations, interactive training visualizations, and any matplotlib animation where frame rate matters.</div>
+<div class="callout hood"><span>Under the hood</span>copy_from_bbox captures rendered pixels of a bounding box into an internal buffer. restore_region paints that buffer back. Only draw_artist() for changed artists is called, then blit() copies the Axes region to the display, bypassing the full Artist tree traversal.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Plotly Express: Interactive Figures with One Line</h3>
+<p><strong>What &amp; why.</strong> Plotly Express creates fully interactive charts (hover, zoom, pan, toggle) with a pandas-native API. Unlike matplotlib's static output, Plotly figures are HTML/JavaScript objects that run in browsers. Export to standalone HTML enables sharing without a server.</p>
+<pre class="code"><code>import plotly.express as px
+import pandas as pd
+import numpy as np
+
+rng = np.random.default_rng(42)
+df = pd.DataFrame({
+    'x': rng.uniform(0, 10, 200), 'y': rng.uniform(0, 10, 200),
+    'size': rng.uniform(10, 100, 200),
+    'category': rng.choice(['Alpha', 'Beta', 'Gamma'], 200),
+    'score': rng.normal(50, 15, 200)})
+
+fig = px.scatter(df, x='x', y='y', size='size', color='category',
+    hover_data={'score': ':.1f', 'size': ':.0f'},
+    title='Interactive Scatter: Hover for Details',
+    template='plotly_white', width=900, height=550)
+fig.write_html('interactive_scatter.html', include_plotlyjs=True)
+fig.show()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Interactive data exploration in notebooks, standalone HTML reports for stakeholders, dashboard embedding, and contexts where users need to zoom, filter, or inspect data points.</div>
+<div class="callout hood"><span>Under the hood</span>Plotly Express builds a Plotly figure dictionary (go.Figure) serialized to JSON and rendered by plotly.js in the browser. WebGL acceleration is available via renderers='webgl' for large datasets.</div>
+</article>
+
+</section>
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Custom artists, complex layouts, 3D, Dash, Bokeh, GPU rendering, shaders</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Matplotlib OO API Deep Dive</h3>
+<p><strong>What &amp; why.</strong> The object-oriented API (fig, ax = plt.subplots()) gives explicit control over every element. Complex visualizations require managing multiple axes, coordinate transforms, and artist lifecycles. Understanding the OO hierarchy (Figure - Axes - Axis - Ticks) enables building custom plot types.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import matplotlib.transforms as mtransforms
+import numpy as np
+
+fig = plt.figure(figsize=(10, 7))
+ax = fig.add_axes([0.08, 0.08, 0.85, 0.85])
+
+x = np.linspace(0, 2 * np.pi, 150)
+ax.plot(x, np.sin(x), color='#2b6fd4', linewidth=2, label='sin(x)')
+ax.fill_between(x, 0, np.sin(x), alpha=0.15, color='#2b6fd4')
+
+disp = ax.transData.transform((np.pi, 0))
+print(f"Data (pi, 0) in display pixels: {disp}")
+
+secax = ax.secondary_yaxis('right', functions=(np.degrees, np.radians))
+secax.set_ylabel('Degrees')
+ax.set_xlabel('Radians'); ax.set_ylabel('Amplitude')
+ax.set_title('OO API with Secondary Axis')
+ax.legend(); ax.grid(True, alpha=0.2)
+plt.savefig('oo_api.png', dpi=150, bbox_inches='tight')
+plt.close()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Building custom visualization libraries, reusable chart components, and any project requiring fine-grained control over layout, transforms, or artist lifecycle.</div>
+<div class="callout hood"><span>Under the hood</span>Each Axes contains two Axis objects, each holding a set of Ticks. Transforms chain: data - axes - figure - display. The blended transform (BlendedAffine2D) mixes data and axes coordinates for annotations anchored in one system but positioned in another.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Custom Artists and Patches</h3>
+<p><strong>What &amp; why.</strong> Matplotlib's standard chart types may not cover every need. Custom Artists (inheriting from Artist or Patch) let you create entirely new visual elements: custom shapes, gradient fills, or domain-specific glyphs. Patches (Rectangle, FancyBboxPatch, Polygon, Wedge) form the building blocks.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.collections import PatchCollection
+import numpy as np
+
+fig, ax = plt.subplots(figsize=(10, 7))
+ax.set_xlim(0, 10); ax.set_ylim(0, 8); ax.set_aspect('equal')
+
+rounded = mpatches.FancyBboxPatch(
+    (1, 5), 3, 2, boxstyle='round,pad=0.2',
+    facecolor='#e3edfc', edgecolor='#2b6fd4', linewidth=2)
+ax.add_patch(rounded)
+ax.text(2.5, 6, 'Custom\nPatch', ha='center', va='center',
+        fontsize=12, fontweight='bold')
+
+theta = np.linspace(0, 2 * np.pi, 7)[:-1]
+r = 1.5
+xs = 7 + r * np.cos(theta); ys = 4 + r * np.sin(theta)
+hexagon = plt.Polygon(list(zip(xs, ys)),
+                      facecolor='#1f8f63', edgecolor='white',
+                      linewidth=2, alpha=0.8)
+ax.add_patch(hexagon)
+ax.text(7, 4, 'Hex', ha='center', va='center',
+        fontsize=14, color='white', fontweight='bold')
+
+patches = []
+rng = np.random.default_rng(42)
+for _ in range(50):
+    cx, cy = rng.uniform(0.5, 9.5), rng.uniform(0.5, 7.5)
+    patches.append(mpatches.Circle((cx, cy), 0.2, fc='#d9a441',
+                                    ec='white', lw=1))
+collection = PatchCollection(patches, alpha=0.6)
+ax.add_collection(collection)
+ax.set_title('Custom Patches and Collections', fontsize=15)
+plt.savefig('custom_patches.png', dpi=150, bbox_inches='tight')
+plt.close()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Custom chart types (sankey, treemap, chord diagrams), UI widget visualization, game asset rendering, and domain-specific scientific figures.</div>
+<div class="callout hood"><span>Under the hood</span>Patches implement get_path() returning a Path object (vertices + codes). PatchCollection batches many patches into a single draw call, dramatically reducing rendering time for hundreds of similar shapes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>GridSpec for Complex Multi-Axes Layouts</h3>
+<p><strong>What &amp; why.</strong> plt.subplots() creates only uniform grids. GridSpec enables arbitrary multi-axes layouts: spanning cells, variable-sized panels, and nested sub-grids. Essential for publication figures with main plots, insets, colorbars, and marginal distributions.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
+
+fig = plt.figure(figsize=(14, 10))
+gs = gridspec.GridSpec(3, 3, figure=fig,
+    height_ratios=[1, 2, 1], width_ratios=[1, 2, 1],
+    hspace=0.35, wspace=0.3)
+
+ax_main = fig.add_subplot(gs[1, 1])
+rng = np.random.default_rng(42)
+x = rng.normal(0, 1, 500); y = 0.8 * x + rng.normal(0, 0.5, 500)
+ax_main.scatter(x, y, alpha=0.4, s=20, c='#2b6fd4')
+
+ax_top = fig.add_subplot(gs[0, 1], sharex=ax_main)
+ax_top.hist(x, bins=40, color='#2b6fd4', alpha=0.7, edgecolor='white')
+
+ax_right = fig.add_subplot(gs[1, 2], sharey=ax_main)
+ax_right.hist(y, bins=40, color='#1f8f63', alpha=0.7,
+              orientation='horizontal', edgecolor='white')
+
+ax_info = fig.add_subplot(gs[0, 0]); ax_info.axis('off')
+ax_info.text(0.1, 0.7, f'N = {len(x)}', fontsize=14, fontweight='bold')
+ax_info.text(0.1, 0.5, f'r = {np.corrcoef(x, y)[0,1]:.3f}', fontsize=14)
+
+fig.suptitle('GridSpec Complex Layout', fontsize=18, y=0.98)
+plt.savefig('gridspec_layout.png', dpi=150, bbox_inches='tight')
+plt.close()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Publication-quality figures with marginal distributions, dashboard layouts with synchronized panels, and non-uniform axes arrangements.</div>
+<div class="callout hood"><span>Under the hood</span>GridSpec defines a grid of SubplotSpec objects. Each computes the actual bounding box as fractions of the figure. height_ratios/width_ratios control relative sizing. add_subplot(gs[row, col]) creates an Axes at that computed position.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>mpl_toolkits: 3D Surfaces and Scatter</h3>
+<p><strong>What &amp; why.</strong> mpl_toolkits.mplot3d extends matplotlib with 3D axes for surface plots, 3D scatter, wireframes, and contour projections. While not suitable for production 3D rendering, it is invaluable for quick 3D EDA of loss surfaces and spatial data.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import cm
+
+fig = plt.figure(figsize=(14, 6))
+
+ax1 = fig.add_subplot(121, projection='3d')
+x = np.linspace(-3, 3, 100); y = np.linspace(-3, 3, 100)
+X, Y = np.meshgrid(x, y)
+Z = np.sin(np.sqrt(X**2 + Y**2))
+surf = ax1.plot_surface(X, Y, Z, cmap=cm.viridis, edgecolor='none', alpha=0.9)
+ax1.set_xlabel('X'); ax1.set_ylabel('Y'); ax1.set_zlabel('Z')
+ax1.set_title('Surface Plot')
+fig.colorbar(surf, ax=ax1, shrink=0.5, label='Z value')
+
+ax2 = fig.add_subplot(122, projection='3d')
+rng = np.random.default_rng(42)
+n = 300
+xs = rng.normal(0, 1, n); ys = rng.normal(0, 1, n); zs = rng.normal(0, 1, n)
+colors = rng.choice(['#2b6fd4', '#c8434f', '#1f8f63'], n)
+ax2.scatter(xs, ys, zs, c=colors, s=30, alpha=0.7)
+ax2.set_xlabel('X'); ax2.set_ylabel('Y'); ax2.set_zlabel('Z')
+ax2.view_init(elev=25, azim=135)
+plt.tight_layout()
+plt.savefig('3d_plots.png', dpi=150, bbox_inches='tight')
+plt.close()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Loss surface visualization for neural network optimization, spatial data exploration, mathematical function plotting, and 3D model comparison in research.</div>
+<div class="callout hood"><span>Under the hood</span>Axes3D extends Axes with zaxis and adds depth sorting for correct painter's algorithm rendering. plot_surface builds a Poly3DCollection from meshgrid vertices. elev and azim control the camera angles for perspective/orthographic views.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Colormaps: Science, Perceptual Uniformity, and Custom Maps</h3>
+<p><strong>What &amp; why.</strong> Choosing the right colormap is critical: diverging maps highlight deviations from zero, sequential maps encode magnitude, and qualitative maps distinguish categories. Perceptually uniform colormaps (viridis, cividis) ensure equal data differences produce equal perceptual differences.</p>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import numpy as np
+
+fig, axes = plt.subplots(2, 4, figsize=(16, 8))
+rng = np.random.default_rng(42)
+data = rng.random((10, 10))
+
+axes[0, 0].imshow(data, cmap='viridis'); axes[0, 0].set_title('viridis')
+axes[0, 1].imshow(data, cmap='cividis'); axes[0, 1].set_title('cividis')
+div = rng.normal(0, 1, (10, 10))
+axes[0, 2].imshow(div, cmap='RdBu_r', vmin=-3, vmax=3)
+axes[0, 2].set_title('RdBu_r (diverging)')
+cat = rng.integers(0, 5, (10, 10))
+axes[0, 3].imshow(cat, cmap='Set1'); axes[0, 3].set_title('Set1')
+
+colors_list = ['#1a1a2e', '#16213e', '#0f3460', '#533483', '#e94560']
+custom = mcolors.LinearSegmentedColormap.from_list('custom', colors_list)
+axes[1, 0].imshow(data, cmap=custom); axes[1, 0].set_title('Custom Linear')
+
+bounds = [0, 0.25, 0.5, 0.75, 1.0]
+disc = mcolors.ListedColormap(['#fee5d9', '#fcae91', '#fb6a4a', '#cb181d'])
+norm = mcolors.BoundaryNorm(bounds, disc.N)
+axes[1, 1].imshow(data, cmap=disc, norm=norm); axes[1, 1].set_title('Discrete')
+
+gradient = np.linspace(0, 1, 256).reshape(1, -1)
+for i, name in enumerate(['viridis', 'plasma', 'inferno', 'magma']):
+    axes[1, min(i + 2, 3)].imshow(gradient, aspect='auto', cmap=name)
+    axes[1, min(i + 2, 3)].set_yticks([]); axes[1, min(i + 2, 3)].set_xticks([])
+    axes[1, min(i + 2, 3)].set_title(name)
+plt.tight_layout()
+plt.savefig('colormaps.png', dpi=150, bbox_inches='tight')
+plt.close()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Publication figures requiring colorblind-safe maps, heatmaps with meaningful color scales, and visualizations where color choice affects data interpretation.</div>
+<div class="callout hood"><span>Under the hood</span>Colormaps implement __call__(X) returning RGBA tuples. ListedColormap uses discrete colors; LinearSegmentedColormap interpolates between control points in RGB or lab space. Perceptually uniform maps are designed in CIELAB space.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Plotly Dash App Architecture</h3>
+<p><strong>What &amp; why.</strong> Dash is Plotly's framework for building analytical web applications entirely in Python. An app consists of a layout (HTML/React components) and callbacks (Python functions triggered by user interactions). No JavaScript required. Dash bridges notebook analysis and production dashboards.</p>
+<pre class="code"><code>import dash
+from dash import dcc, html, Input, Output, callback
+import plotly.express as px
+import pandas as pd
+import numpy as np
+
+app = dash.Dash(__name__)
+rng = np.random.default_rng(42)
+df = pd.DataFrame({
+    'x': rng.uniform(0, 10, 300), 'y': rng.uniform(0, 10, 300),
+    'category': rng.choice(['A', 'B', 'C'], 300),
+    'value': rng.exponential(5, 300)})
+
+app.layout = html.Div([
+    html.H1("Interactive Data Explorer", style={'textAlign': 'center'}),
+    html.Div([
+        dcc.Dropdown(id='category-filter',
+            options=[{'label': c, 'value': c} for c in df['category'].unique()] +
+                    [{'label': 'All', 'value': 'ALL'}],
+            value='ALL', clearable=False),
+        dcc.Slider(id='x-slider', min=0, max=10, value=10,
+                   step=0.5, marks={i: str(i) for i in range(11)})
+    ]),
+    dcc.Graph(id='main-scatter', style={'height': '600px'}),
+    html.Div(id='stats-output')
+], style={'maxWidth': '1100px', 'margin': 'auto'})
+
+@callback(
+    Output('main-scatter', 'figure'),
+    Output('stats-output', 'children'),
+    Input('category-filter', 'value'),
+    Input('x-slider', 'value'))
+def update_dashboard(category, max_x):
+    filtered = df[df['x'] &lt;= max_x]
+    if category != 'ALL':
+        filtered = filtered[filtered['category'] == category]
+    fig = px.scatter(filtered, x='x', y='y', color='category',
+                     size='value', title=f'Filtered: {len(filtered)} points')
+    stats = f"Mean: {filtered['value'].mean():.2f}"
+    return fig, stats
+
+if __name__ == '__main__':
+    app.run(debug=True)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Internal analytics dashboards, data exploration tools for non-technical users, model evaluation UIs, and analytical applications requiring interactive filtering.</div>
+<div class="callout hood"><span>Under the hood</span>Dash uses Flask as the web server and React for frontend rendering. Callbacks are serialized as JSON messages between browser and server. dcc wraps React components. State is ephemeral per session unless Redis/caching is configured.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Dash Callbacks: Reactive Inputs and Multi-Output</h3>
+<p><strong>What &amp; why.</strong> Callbacks are the reactive core of Dash: Python functions that fire when Input properties change, returning new values for Output properties. Multi-output callbacks, State dependencies, and pattern-matching callbacks enable complex UIs where charts, tables, and controls synchronize.</p>
+<pre class="code"><code>import dash
+from dash import dcc, html, Input, Output, State, callback
+import plotly.express as px
+import pandas as pd
+import numpy as np
+
+app = dash.Dash(__name__)
+rng = np.random.default_rng(42)
+df = pd.DataFrame({
+    'date': pd.date_range('2024-01-01', periods=365),
+    'sales': rng.normal(100, 20, 365).cumsum(),
+    'region': rng.choice(['North', 'South', 'East', 'West'], 365)})
+
+app.layout = html.Div([
+    html.H1("Sales Dashboard"),
+    dcc.DatePickerRange(id='date-range', start_date=df['date'].min(),
+                        end_date=df['date'].max()),
+    dcc.Dropdown(id='region-select',
+        options=[{'label': r, 'value': r} for r in df['region'].unique()] +
+                [{'label': 'All', 'value': 'ALL'}], value='ALL'),
+    dcc.Graph(id='sales-chart'),
+    dcc.Graph(id='region-bar'),
+    html.Div(id='kpi-cards')])
+
+@callback(
+    Output('sales-chart', 'figure'),
+    Output('region-bar', 'figure'),
+    Output('kpi-cards', 'children'),
+    Input('date-range', 'start_date'),
+    Input('date-range', 'end_date'),
+    Input('region-select', 'value'))
+def update_all(start, end, region):
+    mask = (df['date'] &gt;= start) & (df['date'] &lt;= end)
+    filtered = df[mask]
+    if region != 'ALL':
+        filtered = filtered[filtered['region'] == region]
+    line_fig = px.line(filtered, x='date', y='sales', title='Sales Trend')
+    bar_fig = px.bar(filtered.groupby('region')['sales'].mean().reset_index(),
+                     x='region', y='sales', title='Avg by Region')
+    kpis = html.Div([
+        html.Span(f"Total: ${filtered['sales'].sum():,.0f}",
+                  style={'margin': '0 20px', 'fontSize': '20px'}),
+        html.Span(f"Avg: ${filtered['sales'].mean():,.0f}",
+                  style={'margin': '0 20px', 'fontSize': '20px'})])
+    return line_fig, bar_fig, kpis
+
+if __name__ == '__main__':
+    app.run(debug=True)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-panel dashboards with synchronized filters, drill-down report interfaces, and applications where multiple views respond to shared user inputs.</div>
+<div class="callout hood"><span>Under the hood</span>Dash resolves callback dependencies as a directed acyclic graph. When an Input changes, all downstream callbacks fire. State inputs are read but do not trigger. long_callback runs in background processes for expensive computations.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Bokeh Streaming Plots</h3>
+<p><strong>What &amp; why.</strong> Bokeh specializes in browser-based interactive visualization with streaming (real-time data push) capabilities. Its streaming API (ColumnDataSource.stream()) appends data without re-rendering the full chart, enabling live monitoring dashboards.</p>
+<pre class="code"><code>from bokeh.plotting import figure
+from bokeh.models import ColumnDataSource
+from bokeh.layouts import column
+from bokeh.io import curdoc
+import numpy as np
+from datetime import datetime
+
+source = ColumnDataSource(data=dict(time=[], value=[], smoothed=[]))
+
+p = figure(title="Live Sensor Feed", x_axis_label='Time',
+           y_axis_label='Value', width=900, height=400,
+           x_axis_type='datetime')
+p.line('time', 'value', source=source, color='#2b6fd4',
+       line_width=2, alpha=0.6, legend_label='Raw')
+p.line('time', 'smoothed', source=source, color='#c8434f',
+       line_width=2.5, legend_label='Smoothed')
+p.legend.location = 'top_left'
+
+smooth_window = []
+rng = np.random.default_rng(42)
+
+def update():
+    value = rng.normal(50, 10) + 10 * np.sin(len(smooth_window) * 0.1)
+    smooth_window.append(value)
+    if len(smooth_window) > 20:
+        smooth_window.pop(0)
+    smoothed = np.mean(smooth_window)
+    source.stream(dict(time=[datetime.now()], value=[value],
+                       smoothed=[smoothed]), rollover=200)
+
+doc = curdoc()
+doc.add_root(column(p))
+doc.add_periodic_callback(update, 500)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Live sensor monitoring, real-time financial dashboards, streaming log analysis, and continuous data push to browser-based charts.</div>
+<div class="callout hood"><span>Under the hood</span>Bokeh uses a server (Bokeh Server or Tornado) maintaining a Python process per session. ColumnDataSource syncs data between Python and browser via WebSocket. stream() appends rows; patch() modifies cells. BokehJS handles rendering via Canvas/WebGL.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Datashader: Big-Data Rendering for Millions of Points</h3>
+<p><strong>What &amp; why.</strong> Standard scatter plots fail at scale: rendering millions of points causes browser lag and occlusion. Datashader rasterizes data into fixed-size images before display, adapting aggregation to the viewport. It enables interactive exploration of billion-row datasets without data transfer to the browser.</p>
+<pre class="code"><code>import datashader as ds
+import datashader.transfer_functions as tf
+import pandas as pd
+import numpy as np
+
+rng = np.random.default_rng(42)
+n = 2_000_000
+df = pd.DataFrame({
+    'x': rng.normal(0, 1, n).cumsum() + rng.normal(0, 0.1, n),
+    'y': rng.normal(0, 1, n).cumsum() + rng.normal(0, 0.1, n),
+    'val': rng.exponential(1, n)})
+
+canvas = ds.Canvas(plot_width=800, plot_height=600,
+    x_range=(df['x'].min(), df['x'].max()),
+    y_range=(df['y'].min(), df['y'].max()))
+
+agg = canvas.points(df, 'x', 'y', ds.count())
+image = tf.shade(agg, cmap='viridis', how='eq_hist')
+image.to_pil().save('datashader_output.png')</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Exploring large sensor datasets, geospatial data with millions of GPS points, network traffic analysis, and visualizations where data volume exceeds browser rendering capacity.</div>
+<div class="callout hood"><span>Under the hood</span>Datashader builds a fixed-resolution array by binning data points into pixels. Aggregation functions (count, sum, mean) reduce many points to one value per pixel. Transfer functions map aggregates to colors. Re-renders on pan/zoom keep only viewport data.</div>
+</article>
+
+</section>
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — OpenGL, shaders, physics, GPU-viz, profiling</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>OpenGL Pipeline Stages Explained</h3>
+<p><strong>What &amp; why.</strong> Understanding the GPU rendering pipeline is essential for custom visualization and game development. The pipeline transforms vertex data through fixed and programmable stages: vertex processing, primitive assembly, rasterization, fragment processing, and framebuffer output. Each stage can be customized via shaders.</p>
+<pre class="code"><code>import moderngl
+import struct
+
+ctx = moderngl.create_standalone_context()
+print(f"GL Version: {ctx.info['GL_VERSION']}")
+
+vertex_shader = '''
+#version 330
+in vec2 in_position;
+in vec3 in_color;
+out vec3 v_color;
+void main() {
+    gl_Position = vec4(in_position, 0.0, 1.0);
+    v_color = in_color;
+}'''
+
+fragment_shader = '''
+#version 330
+in vec3 v_color;
+out vec4 fragColor;
+void main() {
+    fragColor = vec4(v_color, 1.0);
+}'''
+
+prog = ctx.program(vertex_shader=vertex_shader,
+                   fragment_shader=fragment_shader)
+
+vertices = [0.0,  0.5,  1.0, 0.0, 0.0,
+           -0.5, -0.5,  0.0, 1.0, 0.0,
+            0.5, -0.5,  0.0, 0.0, 1.0]
+
+vbo = ctx.buffer(struct.pack(f'{len(vertices)}f', *vertices))
+vao = ctx.vertex_array(prog, [(vbo, '2f 3f', 'in_position', 'in_color')])
+
+fbo = ctx.simple_framebuffer((512, 512))
+fbo.use()
+fbo.clear(0.1, 0.1, 0.15, 1.0)
+vao.render(moderngl.TRIANGLES)
+pixels = fbo.read(components=3)
+print(f"Rendered {len(pixels)} bytes of pixel data")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Custom visualization engines, real-time scientific rendering, GPU-accelerated chart rendering, and game engine development in Python.</div>
+<div class="callout hood"><span>Under the hood</span>The vertex shader runs per vertex on the GPU (thousands of cores in parallel). The fragment shader runs per pixel of covered fragments. Both are written in GLSL and compiled by the GPU driver. ModernGL wraps OpenGL 3.3+ core profile.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>MVP Transformation Matrices</h3>
+<p><strong>What &amp; why.</strong> The Model-View-Projection (MVP) matrix stack transforms 3D world coordinates to 2D screen coordinates. Model transforms object-local to world space; View positions the camera; Projection applies perspective or orthographic mapping. Understanding MVP = Projection * View * Model is fundamental to 3D rendering.</p>
+<pre class="code"><code>import numpy as np
+
+def perspective(fov_deg, aspect, near, far):
+    f = 1.0 / np.tan(np.radians(fov_deg) / 2.0)
+    m = np.zeros((4, 4))
+    m[0, 0] = f / aspect; m[1, 1] = f
+    m[2, 2] = (far + near) / (near - far)
+    m[2, 3] = (2 * far * near) / (near - far)
+    m[3, 2] = -1.0
+    return m
+
+def look_at(eye, target, up):
+    eye, target, up = map(np.array, [eye, target, up])
+    f = target - eye; f = f / np.linalg.norm(f)
+    s = np.cross(f, up); s = s / np.linalg.norm(s)
+    u = np.cross(s, f)
+    m = np.eye(4)
+    m[:3, 0] = s; m[:3, 1] = u; m[:3, 2] = -f
+    m[:3, 3] = -m[:3, :3] @ eye
+    return m
+
+def translation(x, y, z):
+    m = np.eye(4); m[:3, 3] = [x, y, z]; return m
+
+def rotation_y(angle_deg):
+    a = np.radians(angle_deg)
+    m = np.eye(4)
+    m[0, 0] = np.cos(a);  m[0, 2] = np.sin(a)
+    m[2, 0] = -np.sin(a); m[2, 2] = np.cos(a)
+    return m
+
+proj = perspective(45.0, 800/600, 0.1, 100.0)
+view = look_at([0, 2, 5], [0, 0, 0], [0, 1, 0])
+model = translation(0, 0, -3) @ rotation_y(45)
+mvp = proj @ view @ model
+
+point = np.array([1.0, 0.0, 0.0, 1.0])
+clip = mvp @ point
+ndc = clip[:3] / clip[3]
+screen = (ndc[:2] + 1) * np.array([400, 300])
+print(f"3D point projected to screen: {screen}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>3D visualization libraries, custom renderers, augmented reality overlays, and any application converting between coordinate systems.</div>
+<div class="callout hood"><span>Under the hood</span>Perspective projection divides by w (homogeneous divide) to create foreshortening. The look_at matrix is the inverse of the camera's world transform. Matrix multiplication order matters: MVP is applied right-to-left (point * Model * View * Projection).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Camera Projection Math</h3>
+<p><strong>What &amp; why.</strong> Camera projection converts 3D world coordinates to 2D screen positions. Perspective projection creates depth foreshortening (distant objects appear smaller); orthographic preserves parallel lines. Understanding focal length, field of view, and viewport mapping is essential for rendering and AR applications.</p>
+<pre class="code"><code>import numpy as np
+
+def project_3d_to_2d(points_3d, camera_pos, camera_target,
+                     up, fov_deg, width, height):
+    eye = np.array(camera_pos, dtype=float)
+    target = np.array(camera_target, dtype=float)
+    up_v = np.array(up, dtype=float)
+
+    forward = target - eye
+    forward = forward / np.linalg.norm(forward)
+    right = np.cross(forward, up_v)
+    right = right / np.linalg.norm(right)
+    actual_up = np.cross(right, forward)
+
+    f = 1.0 / np.tan(np.radians(fov_deg) / 2.0)
+    aspect = width / height
+
+    projected = []
+    for pt in points_3d:
+        v = pt - eye
+        x = np.dot(v, right) * f / aspect
+        y = np.dot(v, actual_up) * f
+        z = np.dot(v, forward)
+
+        if z &lt;= 0:
+            projected.append(None)
+            continue
+        ndc_x = x / z
+        ndc_y = y / z
+        sx = (ndc_x + 1) * width / 2
+        sy = (1 - ndc_y) * height / 2
+        projected.append((sx, sy, z))
+    return projected
+
+pts = [np.array([1, 0, -5]), np.array([-1, 1, -4]),
+       np.array([0, -1, -3]), np.array([2, 2, -6])]
+result = project_3d_to_2d(pts, [0, 0, 0], [0, 0, -1],
+                          [0, 1, 0], 60, 800, 600)
+for i, r in enumerate(result):
+    print(f"Point {i}: screen={r[:2]}, depth={r[2]:.2f}" if r else f"Point {i}: behind camera")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>AR/VR rendering, custom 3D visualization engines, camera calibration, and projecting ML model outputs onto real-world coordinates.</div>
+<div class="callout hood"><span>Under the hood</span>Perspective projection is equivalent to a 4x4 matrix that maps the view frustum to a unit cube (NDC). The focal length f = 1/tan(FOV/2) determines how much the scene is "zoomed". Clipping happens before the divide-by-w to avoid division by zero or negative depth.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Pygame Sprites and Collision Detection</h3>
+<p><strong>What &amp; why.</strong> Sprites are the fundamental game objects in pygame: any visible entity with position, image, and behavior. The Sprite class and Group system manage updates and rendering in bulk. Collision detection (rect-based, circle-based, pixel-perfect) enables gameplay mechanics like picking up items or avoiding obstacles.</p>
+<pre class="code"><code>import pygame
+import random
+import sys
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface((40, 40), pygame.SRCALPHA)
+        pygame.draw.circle(self.image, (43, 111, 212), (20, 20), 20)
+        self.rect = self.image.get_rect(center=(400, 300))
+        self.speed = 5
+
+    def update(self, keys):
+        if keys[pygame.K_LEFT]:  self.rect.x -= self.speed
+        if keys[pygame.K_RIGHT]: self.rect.x += self.speed
+        if keys[pygame.K_UP]:    self.rect.y -= self.speed
+        if keys[pygame.K_DOWN]:  self.rect.y += self.speed
+        self.rect.clamp_ip(screen.get_rect())
+
+class Coin(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface((20, 20), pygame.SRCALPHA)
+        pygame.draw.circle(self.image, (217, 164, 65), (10, 10), 10)
+        self.rect = self.image.get_rect(
+            center=(random.randint(50, 750), random.randint(50, 550)))
+
+player = Player()
+coins = pygame.sprite.Group([Coin() for _ in range(15)])
+score = 0
+all_sprites = pygame.sprite.Group(player)
+all_sprites.add(coins)
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT: running = False
+
+    keys = pygame.key.get_pressed()
+    all_sprites.update(keys)
+
+    collected = pygame.sprite.spritecollide(player, coins, True)
+    score += len(collected)
+
+    screen.fill((20, 26, 51))
+    all_sprites.draw(screen)
+
+    font = pygame.font.SysFont(None, 36)
+    text = font.render(f'Score: {score}', True, (255, 255, 255))
+    screen.blit(text, (10, 10))
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+sys.exit()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>2D games, interactive simulations, educational tools with clickable objects, and prototyping collision-based mechanics.</div>
+<div class="callout hood"><span>Under the hood</span>pygame.spritecollide uses AABB (Axis-Aligned Bounding Box) overlap by default. collide_circle uses distance-based circular collision. collide_mask checks per-pixel alpha masks for pixel-perfect detection. Groups batch update() and draw() calls.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Euler Physics Integration for Simple Simulations</h3>
+<p><strong>What &amp; why.</strong> Euler integration is the simplest numerical method for simulating physics: velocity += acceleration * dt; position += velocity * dt. While not the most accurate, it is sufficient for many game mechanics and visualization demos. Understanding dt (delta time) and stability is the gateway to more advanced integrators.</p>
+<pre class="code"><code>import numpy as np
+import matplotlib.pyplot as plt
+
+dt = 0.01
+steps = 1000
+g = -9.81
+
+pos_euler = np.zeros(steps)
+vel_euler = np.zeros(steps)
+pos_euler[0] = 100.0  # Drop from 100m
+
+for i in range(1, steps):
+    vel_euler[i] = vel_euler[i-1] + g * dt
+    pos_euler[i] = pos_euler[i-1] + vel_euler[i] * dt
+    if pos_euler[i] &lt;= 0:
+        pos_euler[i] = 0; vel_euler[i] = -vel_euler[i] * 0.7  # bounce
+
+time = np.arange(steps) * dt
+analytical = np.maximum(100 + 0.5 * g * time**2, 0)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.plot(time, pos_euler, label='Euler', linewidth=2, color='#2b6fd4')
+ax.plot(time, analytical, '--', label='Analytical', color='#c8434f')
+ax.set_xlabel('Time (s)'); ax.set_ylabel('Height (m)')
+ax.set_title('Euler vs Analytical Free Fall')
+ax.legend(); ax.grid(True, alpha=0.3)
+plt.savefig('euler_physics.png', dpi=150)
+plt.close()
+
+# Semi-implicit Euler (more stable)
+pos_si = np.zeros(steps); vel_si = np.zeros(steps)
+pos_si[0] = 100.0
+for i in range(1, steps):
+    vel_si[i] = vel_si[i-1] + g * dt
+    pos_si[i] = pos_si[i-1] + vel_si[i] * dt  # uses new velocity
+    if pos_si[i] &lt;= 0:
+        pos_si[i] = 0; vel_si[i] = -vel_si[i] * 0.7
+print(f"Euler max error: {np.max(np.abs(pos_euler - analytical)):.4f}")
+print(f"Semi-implicit max error: {np.max(np.abs(pos_si - analytical)):.4f}")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Game physics prototypes, particle systems, educational physics simulations, and any real-time system requiring simple continuous dynamics.</div>
+<div class="callout hood"><span>Under the hood</span>Euler method is a first-order ODE solver with error O(dt^2) per step. Semi-implicit Euler (symplectic) uses the updated velocity for position, providing better energy conservation. Verlet integration eliminates velocity storage and is more stable for constraints.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Frame-Rate Independence and Delta Time</h3>
+<p><strong>What &amp; why.</strong> Games and simulations must produce identical behavior regardless of frame rate. Delta time (dt) is the elapsed time since the last frame. Multiplying all movement and physics by dt ensures that a character moving at 200 pixels/second travels the same distance whether running at 30fps or 144fps.</p>
+<pre class="code"><code>import pygame
+import sys
+import time
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+
+class Ball:
+    def __init__(self):
+        self.x, self.y = 400.0, 300.0
+        self.vx, self.vy = 150.0, 200.0  # pixels per second
+        self.radius = 20
+
+    def update(self, dt):
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+        if self.x - self.radius &lt; 0 or self.x + self.radius &gt; 800:
+            self.vx *= -1
+            self.x = max(self.radius, min(800 - self.radius, self.x))
+        if self.y - self.radius &lt; 0 or self.y + self.radius &gt; 600:
+            self.vy *= -1
+            self.y = max(self.radius, min(600 - self.radius, self.y))
+
+ball = Ball()
+font = pygame.font.SysFont(None, 30)
+running = True
+frame_times = []
+
+while running:
+    start = time.perf_counter()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT: running = False
+
+    dt = clock.tick(60) / 1000.0  # cap at 60, get dt in seconds
+    dt = min(dt, 0.05)  # clamp to prevent spiral of death
+
+    ball.update(dt)
+
+    screen.fill((20, 26, 51))
+    pygame.draw.circle(screen, (43, 111, 212),
+                       (int(ball.x), int(ball.y)), ball.radius)
+    fps_text = font.render(f'FPS: {clock.get_fps():.0f}  dt: {dt*1000:.1f}ms',
+                           True, (255, 255, 255))
+    screen.blit(fps_text, (10, 10))
+    pygame.display.flip()
+
+pygame.quit()
+sys.exit()</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every real-time game, physics simulation, animation system, and any application where frame rate varies but behavior must remain deterministic.</div>
+<div class="callout hood"><span>Under the hood</span>dt = (current_time - previous_time) in seconds. Clock.tick(FPS) returns milliseconds since last call. The "spiral of death" occurs when dt grows large (e.g., during GC pauses), causing larger steps that take even longer; clamping dt prevents this.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>GPU-Accelerated Visualization with CuPy</h3>
+<p><strong>What &amp; why.</strong> CuPy is a drop-in numpy replacement that runs on NVIDIA GPUs. For visualization, it accelerates the data processing pipeline (aggregation, filtering, statistical computations) that feeds into matplotlib. Combined with headless rendering via Agg, it enables server-side chart generation at scale.</p>
+<pre class="code"><code>import cupy as cp
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # headless backend
+import matplotlib.pyplot as plt
+from matplotlib import cm
+
+# GPU-accelerated data generation and computation
+n = 5_000_000
+rng = cp.random.default_rng(42)
+x_gpu = rng.uniform(-3, 3, n)
+y_gpu = rng.uniform(-3, 3, n)
+
+# GPU computation of density
+grid_size = 200
+xedges = cp.linspace(-3, 3, grid_size + 1)
+yedges = cp.linspace(-3, 3, grid_size + 1)
+
+density = cp.zeros((grid_size, grid_size), dtype=cp.float32)
+for i in range(grid_size):
+    for j in range(grid_size):
+        mask = ((x_gpu &gt;= xedges[i]) & (x_gpu &lt; xedges[i+1]) &amp;
+                (y_gpu &gt;= yedges[j]) & (y_gpu &lt; yedges[j+1]))
+        density[i, j] = mask.sum()
+
+# Transfer to CPU for plotting
+density_cpu = cp.asnumpy(density)
+
+fig, ax = plt.subplots(figsize=(10, 8))
+im = ax.imshow(density_cpu, origin='lower', cmap='hot',
+               extent=[-3, 3, -3, 3], aspect='equal')
+plt.colorbar(im, ax=ax, label='Count')
+ax.set_title(f'GPU-Accelerated 2D Density ({n:,} points)')
+ax.set_xlabel('X'); ax.set_ylabel('Y')
+plt.savefig('cupy_density.png', dpi=150, bbox_inches='tight')
+plt.close()
+print("GPU density map rendered successfully")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Large-scale data visualization pipelines, real-time analytics on streaming GPU data, and server-side chart generation where CPU-bound aggregation is the bottleneck.</div>
+<div class="callout hood"><span>Under the hood</span>CuPy mirrors the numpy API but dispatches operations to CUDA kernels on the GPU. cp.asnumpy() transfers results back to CPU. For large datasets, the GPU aggregation is 10-100x faster than CPU. Combined with the Agg backend, the full pipeline stays efficient.</div>
+</article>
+
+</section>
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Real-Time Sensor Dashboard with Animation and Queue</h3>
+<p>Build a live-updating dashboard that ingests simulated IoT sensor data via a thread-safe queue, renders animated matplotlib charts, and persists historical data. Target user: operations engineer monitoring temperature, humidity, and vibration across a factory floor.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Design a SensorData dataclass with timestamp, sensor_id, temperature, humidity, vibration fields.</li>
+<li>Create a producer thread that generates realistic sensor readings at configurable intervals and pushes them into a collections.deque with maxlen=500.</li>
+<li>Build a consumer thread that reads from the deque and maintains a rolling pandas DataFrame for aggregation.</li>
+<li>Create the matplotlib figure with 3 subplots (one per metric) using plt.subplots(3, 1, figsize=(12, 8)).</li>
+<li>Implement an animation update function using FuncAnimation that reads the latest data from the deque and updates line data on each axes.</li>
+<li>Add threshold annotations (horizontal lines) that change color when values exceed safe ranges.</li>
+<li>Implement a mini KPI panel in a shared figure region showing current min/max/mean via ax.text artists.</li>
+<li>Add graceful shutdown via threading.Event and save a final summary CSV on exit.</li>
+</ol>
+<pre class="code"><code>import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from collections import deque
+from dataclasses import dataclass, astuple
+import threading, time, random
+from datetime import datetime
+
+@dataclass
+class SensorData:
+    ts: float; temp: float; humid: float; vib: float
+
+buffer = deque(maxlen=200)
+stop_event = threading.Event()
+
+def producer():
+    while not stop_event.is_set():
+        d = SensorData(time.time(), 22 + random.gauss(0, 2),
+                       55 + random.gauss(0, 5), random.uniform(0, 1))
+        buffer.append(d)
+        time.sleep(0.05)
+
+t = threading.Thread(target=producer, daemon=True)
+t.start()
+
+fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
+lines = [ax.plot([], [], lw=2)[0] for ax in axes]
+for ax, label in zip(axes, ['Temp', 'Humidity', 'Vibration']):
+    ax.set_ylabel(label); ax.grid(True, alpha=0.3)
+
+def update(frame):
+    if len(buffer) &lt; 2: return lines
+    data = list(buffer)
+    ts = [d.ts - data[0].ts for d in data]
+    for i, attr in enumerate(['temp', 'humid', 'vib']):
+        vals = [getattr(d, attr) for d in data]
+        lines[i].set_data(ts, vals)
+    return lines
+
+ani = animation.FuncAnimation(fig, update, interval=50, blit=True)
+plt.tight_layout()
+plt.savefig('sensor_dashboard.png', dpi=150)
+plt.show()
+stop_event.set()</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Thread-safe data pipelines with deque and locks</li>
+<li>FuncAnimation for real-time chart updates with blitting</li>
+<li>Producer-consumer architecture for streaming data</li>
+<li>Multi-axis synchronized dashboard layouts</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>Interactive Sales Explorer — Plotly Dash App</h3>
+<p>Create a multi-page Dash application that lets business analysts drill into regional sales data with interactive filters, dynamic charts, and exportable summaries. Target user: sales operations team needing self-service exploration without writing SQL.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Generate a synthetic dataset of 10,000 sales records with date, region, product, revenue, units, and rep_name columns using faker and numpy.</li>
+<li>Set up the Dash app with a multi-page layout using dcc.Tabs for Overview, Detail, and Export pages.</li>
+<li>Build the Overview page with a county-level choropleth map (px.choropleth_mapbox) and a time-series line chart.</li>
+<li>Add interactive filters: region dropdown, date range picker, product multi-select, and revenue slider.</li>
+<li>Implement a multi-output callback that updates the map, line chart, KPI cards, and data table simultaneously.</li>
+<li>Build the Detail page with a data table (dash_table.DataTable) that supports sorting, filtering, and pagination.</li>
+<li>Add the Export page with a download button that generates a formatted Excel report using openpyxl.</li>
+<li>Deploy configuration via environment variables for database URL, secret key, and debug mode.</li>
+</ol>
+<pre class="code"><code>import dash
+from dash import dcc, html, dash_table, Input, Output, callback
+import plotly.express as px
+import pandas as pd
+import numpy as np
+
+app = dash.Dash(__name__, suppress_callback_exceptions=True)
+rng = np.random.default_rng(42)
+n = 5000
+df = pd.DataFrame({
+    'date': pd.date_range('2023-01-01', periods=n, freq='h'),
+    'region': rng.choice(['North', 'South', 'East', 'West'], n),
+    'product': rng.choice(['Widget', 'Gadget', 'Doohickey'], n),
+    'revenue': rng.exponential(200, n),
+    'units': rng.poisson(5, n)})
+
+app.layout = html.Div([
+    dcc.Tabs(id='tabs', value='overview', children=[
+        dcc.Tab(label='Overview', value='overview'),
+        dcc.Tab(label='Detail', value='detail')]),
+    html.Div(id='tab-content')])
+
+@callback(Output('tab-content', 'children'), Input('tabs', 'value'))
+def render_tab(tab):
+    if tab == 'overview':
+        return html.Div([
+            dcc.Graph(id='map', figure=px.scatter(
+                df.groupby('region')['revenue'].sum().reset_index(),
+                x='region', y='revenue', color='region',
+                title='Revenue by Region')),
+            dcc.Graph(id='ts', figure=px.line(
+                df.groupby(df['date'].dt.date)['revenue'].sum().reset_index(),
+                x='date', y='revenue', title='Daily Revenue'))])
+    return dash_table.DataTable(
+        data=df.head(100).to_dict('records'),
+        columns=[{'name': c, 'id': c} for c in df.columns],
+        page_size=20, sort_action='native')
+
+if __name__ == '__main__':
+    app.run(debug=True)</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Multi-page Dash architecture with tabs and routing</li>
+<li>Multi-output callbacks for synchronized dashboard panels</li>
+<li>Interactive Plotly figures with drill-down capability</li>
+<li>Data export pipelines with openpyxl integration</li>
+</ul>
+</article>
+
+<article class="proj-card">
+<h3>2D Arcade Game — Sprites, Sound, and Score</h3>
+<p>Build a complete 2D arcade game with player movement, enemy waves, collectible power-ups, background music, sound effects, and a persistent high-score leaderboard. Target user: casual gamers; educational showcase for game development fundamentals in Python.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol>
+<li>Design the game assets: create 48x48 pixel sprites for player, enemy, and coin using PIL programmatically.</li>
+<li>Set up the pygame project structure with separate modules: settings.py, sprites.py, game.py, and assets/.</li>
+<li>Implement the Player sprite with WASD movement, cooldown-based shooting, and health bar rendering.</li>
+<li>Create an EnemyManager class that spawns waves with increasing difficulty (speed, count, health).</li>
+<li>Implement bullet-enemy collision with spritecollide and add explosion particle effects using a ParticleSystem class.</li>
+<li>Add sound effects using pygame.mixer for shooting, hit, coin collect, and background music loop.</li>
+<li>Build a HUD overlay showing score, wave number, health bar, and a combo multiplier for consecutive hits.</li>
+<li>Implement a high-score system using JSON file persistence with a leaderboard screen between waves.</li>
+</ol>
+<pre class="code"><code>import pygame
+import json
+import os
+
+class HighScoreManager:
+    def __init__(self, path='scores.json'):
+        self.path = path
+        self.scores = self._load()
+
+    def _load(self):
+        if os.path.exists(self.path):
+            with open(self.path) as f: return json.load(f)
+        return []
+
+    def _save(self):
+        with open(self.path, 'w') as f: json.dump(self.scores, f)
+
+    def add(self, name, score):
+        self.scores.append({'name': name, 'score': score})
+        self.scores.sort(key=lambda x: x['score'], reverse=True)
+        self.scores = self.scores[:10]
+        self._save()
+
+    def get_top(self, n=5):
+        return self.scores[:n]
+
+class ParticleSystem:
+    def __init__(self):
+        self.particles = []
+
+    def emit(self, x, y, color, count=10):
+        import random
+        for _ in range(count):
+            vx = random.uniform(-3, 3)
+            vy = random.uniform(-3, 3)
+            life = random.randint(15, 40)
+            self.particles.append({'x': x, 'y': y, 'vx': vx,
+                                   'vy': vy, 'life': life, 'color': color})
+
+    def update(self):
+        for p in self.particles:
+            p['x'] += p['vx']; p['y'] += p['vy']
+            p['life'] -= 1; p['vy'] += 0.1
+        self.particles = [p for p in self.particles if p['life'] &gt; 0]
+
+    def draw(self, surface):
+        for p in self.particles:
+            alpha = max(0, p['life'] / 40)
+            s = pygame.Surface((4, 4), pygame.SRCALPHA)
+            s.fill((*p['color'], int(alpha * 255)))
+            surface.blit(s, (int(p['x']), int(p['y'])))</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul>
+<li>Sprite-based game architecture with collision detection</li>
+<li>Particle systems for visual effects</li>
+<li>Audio integration with pygame.mixer</li>
+<li>Data persistence for game state and leaderboards</li>
+</ul>
+</article>
+
+</section>
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Figure/Axes/Artist</td><td>Three-layer hierarchy: canvas, plot area, rendered elements</td><td>fig.add_axes(); ax.get_children()</td></tr>
+<tr><td>subplot</td><td>Multi-panel figure from a grid layout</td><td>plt.subplots(r, c); fig.add_subplot(gs[i,j])</td></tr>
+<tr><td>scatter</td><td>Plot individual data points with optional size/color encoding</td><td>ax.scatter(x, y, c=colors, s=sizes)</td></tr>
+<tr><td>hist</td><td>Distribution histogram with optional density and KDE</td><td>ax.hist(data, bins=30, density=True)</td></tr>
+<tr><td>box/violin</td><td>Distribution summary with quartiles or KDE shape</td><td>sns.boxplot(); sns.violinplot()</td></tr>
+<tr><td>heatmap</td><td>Matrix visualization via color mapping</td><td>sns.heatmap(); ax.imshow(data, cmap=)</td></tr>
+<tr><td>twinx</td><td>Secondary y-axis for dual-scale charts</td><td>ax2 = ax.twinx()</td></tr>
+<tr><td>annotate</td><td>Text with arrow pointing to data coordinates</td><td>ax.annotate('text', xy=(), xytext=())</td></tr>
+<tr><td>savefig</td><td>Export figure to PNG/SVG/PDF with DPI control</td><td>fig.savefig('file.png', dpi=150, bbox_inches='tight')</td></tr>
+<tr><td>rcParams</td><td>Global matplotlib configuration dictionary</td><td>plt.rcParams.update({...})</td></tr>
+<tr><td>FuncAnimation</td><td>Frame-by-frame animation with update function</td><td>animation.FuncAnimation(fig, update, blit=True)</td></tr>
+<tr><td>blitting</td><td>Redraw only changed Artists for 5-10x speedup</td><td>canvas.copy_from_bbox(); canvas.blit()</td></tr>
+<tr><td>PIL transforms</td><td>Resize, crop, filter, enhance raster images</td><td>Image.open(); img.resize(); img.filter()</td></tr>
+<tr><td>Plotly Express</td><td>One-line interactive charts with hover/zoom</td><td>px.scatter(); fig.write_html()</td></tr>
+<tr><td>Dash layout</td><td>Python-only web dashboard with React frontend</td><td>app.layout = html.Div([...])</td></tr>
+<tr><td>Dash callbacks</td><td>Reactive Python functions triggered by UI changes</td><td>@callback(Output(), Input())</td></tr>
+<tr><td>GridSpec</td><td>Non-uniform multi-axes layout with ratios</td><td>GridSpec(r, c, height_ratios=[...])</td></tr>
+<tr><td>3D axes</td><td>Surface, scatter, and wireframe in matplotlib</td><td>fig.add_subplot(projection='3d')</td></tr>
+<tr><td>colormaps</td><td>Sequential/diverging/qualitative color encoding</td><td>cmap='viridis'; LinearSegmentedColormap</td></tr>
+<tr><td>Bokeh streaming</td><td>Real-time data push to browser charts</td><td>ColumnDataSource.stream(data, rollover=N)</td></tr>
+<tr><td>Datashader</td><td>Render millions of points via pixel aggregation</td><td>canvas.points(); tf.shade(agg)</td></tr>
+<tr><td>ModernGL</td><td>Pythonic OpenGL 3.3+ core profile wrapper</td><td>ctx.program(); ctx.vertex_array()</td></tr>
+<tr><td>MVP matrices</td><td>Model-View-Projection transforms 3D to 2D</td><td>mvp = proj @ view @ model</td></tr>
+<tr><td>Euler integration</td><td>Simple numerical physics: v += a*dt; x += v*dt</td><td>vel += accel * dt; pos += vel * dt</td></tr>
+<tr><td>Delta time</td><td>Frame-rate-independent movement via elapsed seconds</td><td>dt = clock.tick(FPS) / 1000.0</td></tr>
+<tr><td>Pygame sprites</td><td>Sprite class + Group for batch update/draw</td><td>pygame.sprite.Sprite; spritecollide()</td></tr>
+<tr><td>CuPy GPU viz</td><td>GPU-accelerated numpy for large data aggregation</td><td>cupy array ops; cp.asnumpy()</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="nextjs.html">&larr; Next.js</a><a href="ml-fundamentals.html">ML Fundamentals &rarr;</a></footer>
+</body></html>

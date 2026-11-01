@@ -96,57 +96,99 @@ export async function searchAll(query) {
   }
 }
 
-export async function getImages() {
-  // Try the backend /api/files endpoint first so newly added files are picked up
-  // even without restarting Vite. Fall back to the embedded manifest if the
-  // backend is offline (self-contained mode).
-  try {
-    const res = await fetch('/api/files', { cache: 'no-store' })
-    if (res.ok) {
-      const data = await res.json()
-      return {
-        images: data.images || [],
-        pdfs: data.pdfs || [],
-        documents: data.documents || [],
-        dataFiles: data.dataFiles || [],
-        allFiles: data.allFiles || [],
-        scanPaths: data.scanPaths || [],
-        perSource: data.perSource || {},
-        generatedAt: data.generatedAt,
-        totals: data.totals,
-        source: 'backend',
-        total: (data.images || []).length,
-        pdf_count: (data.pdfs || []).length,
-        doc_count: (data.documents || []).length
+function mergeFileRecords(primary = [], fallback = []) {
+  const merged = new Map()
+  for (const file of fallback) {
+    if (!file || typeof file !== 'object') continue
+    const key = `${file.folder || file.source_label || ''}::${file.name || file.display_name || file.url || ''}`
+    merged.set(key, file)
+  }
+  for (const file of primary) {
+    if (!file || typeof file !== 'object') continue
+    const key = `${file.folder || file.source_label || ''}::${file.name || file.display_name || file.url || ''}`
+    merged.set(key, file)
+  }
+  return [...merged.values()]
+}
+
+function manifestFileData() {
+  const images = fileManifest.images || []
+  const pdfs = fileManifest.pdfs || []
+  const documents = fileManifest.documents || []
+  const dataFiles = fileManifest.dataFiles || []
+  return {
+    images,
+    pdfs,
+    documents,
+    dataFiles,
+    allFiles: fileManifest.allFiles || mergeFileRecords([...images, ...pdfs, ...documents, ...dataFiles]),
+    scanPaths: fileManifest.scanPaths || [],
+    perSource: fileManifest.perSource || {},
+    generatedAt: fileManifest.generatedAt,
+  }
+}
+
+function buildPerSource(records) {
+  const result = {}
+  for (const file of records) {
+    const slug = file.folder || file.source_label || 'unknown'
+    if (!result[slug]) {
+      result[slug] = {
+        images: 0, pdfs: 0, documents: 0, dataFiles: 0,
+        label: file.source_label || slug,
+        kind: file.source_kind || 'public',
       }
     }
+    const bucket = file.bucket || 'dataFiles'
+    result[slug][bucket] = (result[slug][bucket] || 0) + 1
+  }
+  return result
+}
+
+function normalizeFileData(data, source) {
+  const fallback = manifestFileData()
+  const images = mergeFileRecords(data.images || [], fallback.images)
+  const pdfs = mergeFileRecords(data.pdfs || [], fallback.pdfs)
+  const documents = mergeFileRecords(data.documents || [], fallback.documents)
+  const dataFiles = mergeFileRecords(data.dataFiles || [], fallback.dataFiles)
+  const allFiles = mergeFileRecords(
+    [...(data.allFiles || []), ...images, ...pdfs, ...documents, ...dataFiles],
+    fallback.allFiles
+  )
+  return {
+    images,
+    pdfs,
+    documents,
+    dataFiles,
+    allFiles,
+    scanPaths: data.scanPaths?.length ? data.scanPaths : fallback.scanPaths,
+    perSource: buildPerSource(allFiles),
+    generatedAt: data.generatedAt || fallback.generatedAt,
+    totals: {
+      images: images.length,
+      pdfs: pdfs.length,
+      documents: documents.length,
+      dataFiles: dataFiles.length,
+      total: allFiles.length,
+    },
+    source,
+    total: images.length,
+    pdf_count: pdfs.length,
+    doc_count: documents.length,
+  }
+}
+
+export async function getImages() {
+  // Merge the live scan with the bundled manifest. This keeps the gallery
+  // complete when a dev server has a stale manifest or only scans public files.
+  try {
+    const res = await fetch('/api/files', { cache: 'no-store' })
+    if (res.ok) return normalizeFileData(await res.json(), 'backend')
   } catch (_e) {
     // backend offline, fall through to embedded manifest
   }
   await delay(50)
-  // `fileManifest.scanPaths` can be either an array of strings (older shape)
-  // or an array of {slug, dir, kind, label} objects (newer shape). Keep it raw.
-  return {
-    images: fileManifest.images || [],
-    pdfs: fileManifest.pdfs || [],
-    documents: fileManifest.documents || [],
-    dataFiles: fileManifest.dataFiles || [],
-    allFiles: fileManifest.allFiles || [],
-    scanPaths: fileManifest.scanPaths || [],
-    perSource: fileManifest.perSource || {},
-    generatedAt: fileManifest.generatedAt,
-    totals: {
-      images: (fileManifest.images || []).length,
-      pdfs: (fileManifest.pdfs || []).length,
-      documents: (fileManifest.documents || []).length,
-      dataFiles: (fileManifest.dataFiles || []).length,
-      total: (fileManifest.allFiles || []).length
-    },
-    source: 'manifest',
-    total: (fileManifest.images || []).length,
-    pdf_count: (fileManifest.pdfs || []).length,
-    doc_count: (fileManifest.documents || []).length
-  }
+  return normalizeFileData(manifestFileData(), 'manifest')
 }
 
 export async function getAllFiles() {
@@ -178,17 +220,7 @@ export async function refreshFiles() {
         source: 'backend',
         persisted: payload?.persisted,
         fetchedAt: payload?.fetchedAt,
-        data: {
-          images: data.images || [],
-          pdfs: data.pdfs || [],
-          documents: data.documents || [],
-          dataFiles: data.dataFiles || [],
-          allFiles: data.allFiles || [],
-          scanPaths: data.scanPaths || [],
-          perSource: data.perSource || {},
-          generatedAt: data.generatedAt,
-          totals: data.totals
-        }
+        data: normalizeFileData(data, 'backend')
       }
     }
   } catch (_e) {
@@ -200,16 +232,7 @@ export async function refreshFiles() {
     ok: true,
     source: 'manifest',
     persisted: { attempted: false, ok: false, error: 'Backend offline - manifest is static' },
-    data: {
-      images: fileManifest.images || [],
-      pdfs: fileManifest.pdfs || [],
-      documents: fileManifest.documents || [],
-      dataFiles: fileManifest.dataFiles || [],
-      allFiles: fileManifest.allFiles || [],
-      scanPaths: fileManifest.scanPaths || [],
-      perSource: fileManifest.perSource || {},
-      generatedAt: fileManifest.generatedAt
-    }
+    data: normalizeFileData(manifestFileData(), 'manifest')
   }
 }
 
@@ -217,7 +240,7 @@ export async function searchGitHubRepos({ topics = [], query = '', sort = 'stars
   try {
     const params = new URLSearchParams()
     if (query) params.set('q', query)
-    if (topics.length) params.set('topics', topics.join(','))
+    if (topics && (Array.isArray(topics) ? topics.length : topics)) params.set('topics', (Array.isArray(topics) ? topics : [topics]).join(','))
     params.set('sort', sort)
     params.set('per_page', String(perPage))
     const res = await fetch(`/api/github/search?${params.toString()}`, { cache: 'no-store' })
@@ -321,4 +344,390 @@ export async function chatWithHub(message) {
   }
 
   return { answer, sources }
+}
+
+// ---------------------------------------------------------------------------
+// Live refresh helpers for the "Fetch Latest" buttons
+// ---------------------------------------------------------------------------
+
+// Message shown by FetchButtons in staticMode (catalogs baked in at build time).
+export function staticMessage(label = 'This catalog') {
+  return `Static catalog — built into the app`
+}
+
+// Re-pull chapters from the FastAPI backend, falling back to the embedded data.
+export async function fetchLiveChapters() {
+  try {
+    const res = await fetch('/api/chapters', { cache: 'no-store' })
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data) && data.length) return data
+    }
+  } catch (_e) { /* fall through to local copy */ }
+  return localChapters
+}
+
+export async function fetchLiveDeepDives() {
+  try {
+    const res = await fetch('/api/deep-dive', { cache: 'no-store' })
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data) && data.length) return data
+    }
+  } catch (_e) { /* fall through to local copy */ }
+  return localDeepDives
+}
+
+export async function fetchLiveChapter(id) {
+  try {
+    const res = await fetch(`/api/chapters/${encodeURIComponent(id)}`, { cache: 'no-store' })
+    if (res.ok) {
+      const d = await res.json()
+      if (d && !d.error) return d
+    }
+  } catch (_e) { /* fall through to local copy */ }
+  return getChapter(id)
+}
+
+export async function fetchLiveDeepDive(id) {
+  try {
+    const res = await fetch(`/api/deep-dive/${encodeURIComponent(id)}`, { cache: 'no-store' })
+    if (res.ok) {
+      const d = await res.json()
+      if (d && !d.error) return d
+    }
+  } catch (_e) { /* fall through to local copy */ }
+  return getDeepDive(id)
+}
+
+// Pull the latest merged jobs from the backend (/api/jobs). Throws on failure.
+export async function refreshLiveJobs() {
+  const res = await fetch('/api/jobs?limit=6000', { cache: 'no-store' })
+  if (!res.ok) {
+    let message = `Jobs API failed (HTTP ${res.status})`
+    try {
+      const payload = await res.json()
+      if (payload && payload.error) message = payload.error
+    } catch (_e) { /* keep default message */ }
+    throw new Error(message)
+  }
+  const data = await res.json()
+  const jobs = Array.isArray(data) ? data : (data.jobs || [])
+  if (!Array.isArray(jobs) || jobs.length === 0) throw new Error('No jobs returned from backend')
+  return { jobs, total: data.total ?? jobs.length, generatedAt: data.generatedAt || null }
+}
+
+// Re-run the backend file scan for a file/knowledge catalog label.
+export async function refreshFileCatalog(label = 'File catalog') {
+  const r = await refreshFiles()
+  const total = r?.data?.allFiles?.length || r?.data?.total || 0
+  const source = r?.source === 'backend' ? 'backend scan' : 'bundled manifest'
+  return `Synced ${label}: ${total} files (${source})`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily LinkedIn-style AI posts (deterministic curated topic catalog)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const LINKEDIN_DAILY_TOPICS = [
+  'ai', 'ml', 'agents', 'multi_agents', 'python', 'fastapi',
+  'reactjs', 'nextjs', 'rag', 'mcp', 'langchain', 'langgraph',
+  'vectordb', 'workflows', 'crewai', 'tool_calling', 'memory',
+  'agent_gateway', 'agent_loops', 'ai_graphs', 'spring_ai',
+  'evaluations', 'observability', 'awareness', 'guardrails',
+  'react', 'design_patterns', 'autogen', 'lora', 'mlops',
+  'embeddings', 'llamaindex', 'llms', 'prompting', 'fine_tuning',
+  'governance', 'looping', 'graphics', 'quantum', 'semiconductor',
+  'iot', 'agi', 'asi', 'super_ai',
+]
+
+export async function fetchDailyLinkedInPosts(date, topic = 'all', { profile = 'all', perDay = 4 } = {}) {
+  const params = new URLSearchParams({ date })
+  if (topic && topic !== 'all') params.set('topic', topic)
+  if (profile && profile !== 'all') params.set('profile', profile)
+  if (perDay && perDay !== 4) params.set('per_day', String(perDay))
+  const res = await fetch(`/api/linkedin-posts/daily?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `Daily posts failed (HTTP ${res.status})`)
+  if (!Array.isArray(data.posts)) throw new Error('No posts returned from the daily generator')
+  return data
+}
+
+export async function fetchLiveLinkedInPosts(topic = 'mixed', maxResults = 6, refresh = false, all = false, timeRange = 'month', date = '') {
+  const params = new URLSearchParams()
+  if (topic && topic !== 'mixed') params.set('topic', topic)
+  if (maxResults && maxResults !== 6) params.set('max_results', String(maxResults))
+  if (refresh) params.set('refresh', 'true')
+  if (all) params.set('all', 'true')
+  if (timeRange && timeRange !== 'month') params.set('time_range', timeRange)
+  if (date) params.set('date', date)
+  const qs = params.toString()
+  const res = await fetch(`/api/linkedin-posts/live${qs ? `?${qs}` : ''}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `Live fetch failed (HTTP ${res.status})`)
+  if (!Array.isArray(data.posts)) throw new Error('No live posts returned')
+  return data
+}
+
+// LinkedIn CDN blocks cross-site image hotlinking (403) — load via backend proxy.
+// Prefers the Go accelerator's cached proxy (fast + 7-day browser cache);
+// falls back to the Python proxy when the Go service is down.
+let _goServiceOk = null // null = unchecked, true/false after first probe
+async function _probeGoService() {
+  if (_goServiceOk !== null) return _goServiceOk
+  try {
+    const r = await fetch('/api/li/health', { cache: 'no-store' })
+    _goServiceOk = r.ok
+  } catch {
+    _goServiceOk = false
+  }
+  return _goServiceOk
+}
+export async function linkedinImgProxyAsync(url) {
+  const useGo = await _probeGoService()
+  return useGo
+    ? `/api/li/img?url=${encodeURIComponent(url)}`
+    : `/api/linkedin-posts/img?url=${encodeURIComponent(url)}`
+}
+export const linkedinImgProxy = (url) =>
+  url ? (_goServiceOk === false
+    ? `/api/linkedin-posts/img?url=${encodeURIComponent(url)}`
+    : `/api/li/img?url=${encodeURIComponent(url)}`) : ''
+
+export async function fetchLinkedInProfiles() {
+  try {
+    const res = await fetch('/api/linkedin-posts/profiles', { cache: 'no-store' })
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data.profiles) ? data.profiles : []
+  } catch {
+    return []
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily LinkedIn posts — Go accelerator (5-year ranges, ~33ms) with Python
+// fallback. Response shape is identical either way.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchDailyLinkedInRangeGo(start, end, topic = 'all', { profile = 'all', perDay = 4 } = {}) {
+  const params = new URLSearchParams({ start, end, topic, profile, per_day: String(perDay) })
+  const res = await fetch(`/api/li/daily-range?${params.toString()}`, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`Go accelerator HTTP ${res.status}`)
+  const data = await res.json()
+  if (!Array.isArray(data.days)) throw new Error('Go accelerator returned no days')
+  return data
+}
+
+export async function fetchDailyLinkedInRange(start, end, topic = 'all', { profile = 'all', perDay = 4 } = {}) {
+  try {
+    return await fetchDailyLinkedInRangeGo(start, end, topic, { profile, perDay })
+  } catch (goErr) {
+    // Fallback: original Python backend path (capped at 5 years as well now).
+    const params = new URLSearchParams({ start, end })
+    if (topic && topic !== 'all') params.set('topic', topic)
+    if (profile && profile !== 'all') params.set('profile', profile)
+    if (perDay && perDay !== 4) params.set('per_day', String(perDay))
+    const res = await fetch(`/api/linkedin-posts/range?${params.toString()}`, { cache: 'no-store' })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data?.error || goErr.message || `Daily range failed (HTTP ${res.status})`)
+    if (!Array.isArray(data.days)) throw new Error('No days returned from the daily generator')
+    return data
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Video Hub — multi-platform discovery, metadata, embeds, downloads
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function fetchVideoTopics() {
+  try {
+    const res = await fetch('/api/videos/topics', { cache: 'no-store' })
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data.topics) ? data.topics : []
+  } catch {
+    return []
+  }
+}
+
+export async function fetchVideoDiscover(topic = '', start = '', end = '', maxResults = 24, pageToken = '', kind = 'all', country = 'global', lang = 'auto') {
+  const params = new URLSearchParams()
+  if (topic) params.set('topic', topic)
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  params.set('max_results', String(maxResults))
+  if (pageToken) params.set('page_token', pageToken)
+  if (kind && kind !== 'all') params.set('kind', kind)
+  if (country && country !== 'global') params.set('country', country)
+  if (lang && lang !== 'auto') params.set('lang', lang)
+  const res = await fetch(`/api/videos/discover?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `Video discovery failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoCountries() {
+  const res = await fetch('/api/videos/countries', { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `Countries failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoLanguages() {
+  try {
+    const res = await fetch('/api/videos/languages', { cache: 'no-store' })
+    const data = await res.json()
+    if (!res.ok) return []
+    return Array.isArray(data.languages) ? data.languages : []
+  } catch {
+    return []
+  }
+}
+
+export async function fetchVideoDiscoverAll(start = '', end = '', kind = 'all', maxResults = 240, country = 'global', lang = 'auto') {
+  const params = new URLSearchParams()
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  params.set('kind', kind)
+  params.set('max_results', String(maxResults))
+  if (country && country !== 'global') params.set('country', country)
+  if (lang && lang !== 'auto') params.set('lang', lang)
+  const res = await fetch(`/api/videos/discover-all?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `Discover-all failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoDiscoverTiktok(tag = 'ai', maxResults = 24, start = '', end = '', country = 'global', lang = 'auto') {
+  const params = new URLSearchParams({ tag, max_results: String(maxResults) })
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  if (country && country !== 'global') params.set('country', country)
+  if (lang && lang !== 'auto') params.set('lang', lang)
+  const res = await fetch(`/api/videos/discover-tiktok?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `TikTok discovery failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoDiscoverFacebook(tag = 'ai', maxResults = 24, start = '', end = '', country = 'global', lang = 'auto') {
+  const params = new URLSearchParams({ tag, max_results: String(maxResults) })
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  if (country && country !== 'global') params.set('country', country)
+  if (lang && lang !== 'auto') params.set('lang', lang)
+  const res = await fetch(`/api/videos/discover-facebook?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `Facebook discovery failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoDiscoverAllTiktok(maxResults = 120, perTopic = 6, start = '', end = '', country = 'global', lang = 'auto') {
+  const params = new URLSearchParams({ max_results: String(maxResults), per_topic: String(perTopic) })
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  if (country && country !== 'global') params.set('country', country)
+  if (lang && lang !== 'auto') params.set('lang', lang)
+  const res = await fetch(`/api/videos/discover-all-tiktok?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `TikTok load-all failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoDiscoverAllFacebook(maxResults = 120, perTopic = 6, start = '', end = '', country = 'global', lang = 'auto') {
+  const params = new URLSearchParams({ max_results: String(maxResults), per_topic: String(perTopic) })
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  if (country && country !== 'global') params.set('country', country)
+  if (lang && lang !== 'auto') params.set('lang', lang)
+  const res = await fetch(`/api/videos/discover-all-facebook?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `Facebook load-all failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoDiscoverX(tag = 'ai', maxResults = 24, start = '', end = '', country = 'global', lang = 'auto') {
+  const params = new URLSearchParams({ tag, max_results: String(maxResults) })
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  if (country && country !== 'global') params.set('country', country)
+  if (lang && lang !== 'auto') params.set('lang', lang)
+  const res = await fetch(`/api/videos/discover-x?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `X discovery failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoDiscoverAllX(maxResults = 120, perTopic = 6, start = '', end = '', country = 'global', lang = 'auto') {
+  const params = new URLSearchParams({ max_results: String(maxResults), per_topic: String(perTopic) })
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  if (country && country !== 'global') params.set('country', country)
+  if (lang && lang !== 'auto') params.set('lang', lang)
+  const res = await fetch(`/api/videos/discover-all-x?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `X load-all failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoDiscoverInstagram(tag = 'ai', maxResults = 24, start = '', end = '', country = 'global', lang = 'auto') {
+  const params = new URLSearchParams({ tag, max_results: String(maxResults) })
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  if (country && country !== 'global') params.set('country', country)
+  if (lang && lang !== 'auto') params.set('lang', lang)
+  const res = await fetch(`/api/videos/discover-instagram?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `Instagram discovery failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoDiscoverAllInstagram(maxResults = 120, perTopic = 6, start = '', end = '', country = 'global', lang = 'auto') {
+  const params = new URLSearchParams({ max_results: String(maxResults), per_topic: String(perTopic) })
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  if (country && country !== 'global') params.set('country', country)
+  if (lang && lang !== 'auto') params.set('lang', lang)
+  const res = await fetch(`/api/videos/discover-all-instagram?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `Instagram load-all failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoDiscoverAllNetworks(maxPerNetwork = 120, perTopic = 6, start = '', end = '', country = 'global') {
+  const params = new URLSearchParams({ max_per_network: String(maxPerNetwork), per_topic: String(perTopic) })
+  if (start) params.set('start', start)
+  if (end) params.set('end', end)
+  if (country && country !== 'global') params.set('country', country)
+  const res = await fetch(`/api/videos/discover-all-networks?${params.toString()}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `All-networks load failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoMetadata(url) {
+  const res = await fetch(`/api/videos/metadata?url=${encodeURIComponent(url)}`, { cache: 'no-store' })
+  const data = await res.json()
+  if (!res.ok && !data.embedUrl) throw new Error(data?.error || `Metadata failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function startVideoDownload(url, quality = '720p') {
+  const res = await fetch(`/api/videos/download?url=${encodeURIComponent(url)}&quality=${encodeURIComponent(quality)}`, { method: 'POST' })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data?.error || `Download failed (HTTP ${res.status})`)
+  return data
+}
+
+export async function fetchVideoDownloadStatus(jobId) {
+  const res = await fetch(`/api/videos/download-status?job_id=${encodeURIComponent(jobId)}`, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`Status failed (HTTP ${res.status})`)
+  return res.json()
+}
+
+export async function fetchVideoDownloads() {
+  const res = await fetch('/api/videos/downloads', { cache: 'no-store' })
+  if (!res.ok) throw new Error(`Library failed (HTTP ${res.status})`)
+  return res.json()
 }

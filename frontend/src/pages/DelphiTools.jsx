@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import FetchButton from '../components/FetchButton'
+import { useLang } from '../i18n'
 import './DelphiTools.css'
 
 const TOOL_CATEGORIES = [
@@ -117,6 +119,7 @@ const TOOL_CATEGORIES = [
 const TOOL_COUNT = TOOL_CATEGORIES.reduce((sum, c) => sum + c.tools.length, 0)
 
 export default function DelphiTools() {
+  const { t } = useLang()
   const [activeCat, setActiveCat] = useState(null)
   const [search, setSearch] = useState('')
 
@@ -135,16 +138,19 @@ export default function DelphiTools() {
     <div className="delphi-page">
       <div className="delphi-hero">
         <div className="delphi-hero-icon">🛠️</div>
-        <h1>delphitools</h1>
+        <div className="page-header-row">
+          <h1>{t('delphitools')}</h1>
+          <FetchButton onFetch={() => setSearch('')} label={t('Fetch Latest')} staticMode />
+        </div>
         <p className="delphi-subtitle">
           {TOOL_COUNT} privacy-first browser tools · No logins · No tracking · Long live the handmade web
         </p>
         <div className="delphi-meta">
-          <span className="delphi-badge">🌐 All Client-Side</span>
-          <span className="delphi-badge">🔒 No Data Collection</span>
-          <span className="delphi-badge">📱 iOS App Available</span>
+          <span className="delphi-badge">🌐 {t('All Client-Side')}</span>
+          <span className="delphi-badge">🔒 {t('No Data Collection')}</span>
+          <span className="delphi-badge">📱 {t('iOS App Available')}</span>
           <a href="https://github.com/1612elphi/delphitools" target="_blank" rel="noopener noreferrer" className="delphi-badge delphi-badge-link">
-            💻 Open Source
+            💻 {t('Open Source')}
           </a>
         </div>
       </div>
@@ -158,7 +164,7 @@ export default function DelphiTools() {
           className="delphi-search"
         />
         {search && (
-          <button className="delphi-clear" onClick={() => setSearch('')}>✕ Clear</button>
+          <button className="delphi-clear" onClick={() => setSearch('')}>✕ {t('Clear')}</button>
         )}
       </div>
 
@@ -167,7 +173,7 @@ export default function DelphiTools() {
           className={`delphi-cat-tab ${!activeCat ? 'active' : ''}`}
           onClick={() => setActiveCat(null)}
         >
-          🌐 All ({TOOL_COUNT})
+          🌐 {t('All')} ({TOOL_COUNT})
         </button>
         {TOOL_CATEGORIES.map(c => (
           <button

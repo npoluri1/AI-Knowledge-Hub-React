@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReactJS — Component Engineering — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / ReactJS — Component Engineering</span><span class="spacer"></span>
+<a class="navlink" href="fastapi.html">&larr; FastAPI</a> <a class="navlink" href="nextjs.html">Next.js &rarr;</a></nav>
+<header class="hero"><div class="mono">RJ</div><div><h1>ReactJS — Component Engineering</h1>
+<p class="tagline">Master component-based UI development with hooks, state management, performance optimization, and modern testing patterns.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>React is the dominant UI library for building interactive web applications. This chapter covers everything from JSX fundamentals through fiber internals, performance profiling, testing, and advanced patterns used in production at scale.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</th></tr>
+<tr><td>Tier 1</td><td>JSX, components, props, hooks basics, events, conditional rendering</td><td>You can build and render interactive component trees</td></tr>
+<tr><td>Tier 2</td><td>Composition, state lifting, useRef/Reducer/Context, custom hooks, error boundaries, TypeScript</td><td>You can architect scalable component hierarchies</td></tr>
+<tr><td>Tier 3</td><td>Reconciliation, fiber, transitions, Suspense, performance, React Router, accessibility</td><td>You can optimize rendering and build accessible, performant UIs</td></tr>
+<tr><td>Tier 4</td><td>Render phases, profiling, SSR, state management libraries, testing, advanced patterns</td><td>You can debug performance issues and implement expert patterns</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have portfolio-ready React applications</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — JSX, components, props, hooks, and events</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Virtual DOM Concept</h3>
+<p><strong>What &amp; why.</strong> The Virtual DOM is a lightweight JavaScript representation of the real DOM. React diffs the VDOM against the previous version to compute minimal DOM mutations, avoiding expensive full-page repaints. This gives you a declarative programming model with high performance.</p>
+<pre class="code"><code>// Declarative: describe what the UI should look like
+function Counter({ initialCount }) {
+  const [count, setCount] = React.useState(initialCount);
+  return (
+    &lt;div&gt;
+      &lt;p&gt;Count: {count}&lt;/p&gt;
+      &lt;button onClick={() =&gt; setCount(count + 1)}&gt;+1&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}
+// React computes the diff and updates only the changed text node</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every React component uses the VDOM concept. You write components returning JSX, and React efficiently updates the real DOM.</div>
+<div class="callout hood"><span>Under the hood</span>React 18 uses Fiber for incremental rendering. The VDOM diffing uses heuristics: same-type elements update attributes; different types replace subtrees; keys optimize list reordering.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>JSX Rules</h3>
+<p><strong>What &amp; why.</strong> JSX is a syntax extension compiling to React.createElement() calls. It lets you write HTML-like structures in JavaScript with type safety and expression interpolation.</p>
+<pre class="code"><code>// Must return a single root element (fragments for multiple)
+function UserCard({ name, role }) {
+  return (
+    &lt;&gt;
+      &lt;h2&gt;{name}&lt;/h2&gt;
+      &lt;p&gt;Role: {role}&lt;/p&gt;
+    &lt;/&gt;
+  );
+}
+// className instead of class, htmlFor instead of for
+// Self-closing tags required: &lt;img /&gt;, &lt;input /&gt;
+// Expressions in curly braces: {count + 1}
+// Inline styles: style={{ color: 'red' }}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>JSX is the foundation of every React component.</div>
+<div class="callout hood"><span>Under the hood</span>Babel transforms JSX into React.createElement(type, props, ...children) calls. The new JSX transform (React 17+) auto-imports React.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Components and Props</h3>
+<p><strong>What &amp; why.</strong> Components are reusable, self-contained UI pieces that receive data via props (read-only). Props flow one way: parent to child, making data flow predictable.</p>
+<pre class="code"><code>function ProductCard({ name, price, inStock = true }) {
+  return (
+    &lt;div className="product-card"&gt;
+      &lt;h3&gt;{name}&lt;/h3&gt;
+      &lt;p&gt;${price.toFixed(2)}&lt;/p&gt;
+      {!inStock &amp;&amp; &lt;span className="badge"&gt;Out of Stock&lt;/span&gt;}
+    &lt;/div&gt;
+  );
+}
+
+function ProductList() {
+  const products = [
+    { id: 1, name: 'Widget', price: 9.99, inStock: true },
+    { id: 2, name: 'Gadget', price: 24.99, inStock: false },
+  ];
+  return (
+    &lt;div&gt;
+      {products.map(p =&gt; (
+        &lt;ProductCard key={p.id} name={p.name} price={p.price} inStock={p.inStock} /&gt;
+      ))}
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every UI is built from composable components receiving data through props.</div>
+<div class="callout hood"><span>Under the hood</span>Props are shallow-frozen. When a parent re-renders, all children re-render unless wrapped in React.memo.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Lists and Keys</h3>
+<p><strong>What &amp; why.</strong> Keys help React identify which items have changed, been added, or removed. Without stable keys, React cannot optimize reordering.</p>
+<pre class="code"><code>function TodoList({ items }) {
+  return (
+    &lt;ul&gt;
+      {items.map(item =&gt; (
+        &lt;li key={item.id}&gt;
+          &lt;input type="checkbox" checked={item.done} /&gt;
+          {item.text}
+        &lt;/li&gt;
+      ))}
+    &lt;/ul&gt;
+  );
+}
+// BAD: index keys break on reorder
+// GOOD: stable unique IDs from database</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every list rendering requires stable keys. Database IDs, UUIDs, or slugs are ideal.</div>
+<div class="callout hood"><span>Under the hood</span>React's reconciliation matches old and new children by key. New keys create components; missing keys remove them. This enables O(n) list diffing.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Conditional Rendering</h3>
+<p><strong>What &amp; why.</strong> React provides multiple patterns for conditionally rendering elements: ternaries, logical AND, early returns, and variable assignment.</p>
+<pre class="code"><code>function Dashboard({ user, notifications, isAdmin }) {
+  const greeting = user ? `Hello, ${user.name}` : 'Hello, Guest';
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;{greeting}&lt;/h1&gt;
+      {notifications.length &gt; 0 &amp;&amp; (
+        &lt;div&gt;{notifications.length} new notifications&lt;/div&gt;
+      )}
+      {isAdmin ? &lt;AdminPanel /&gt; : &lt;UserPanel /&gt;}
+      {!user &amp;&amp; &lt;Redirect to="/login" /&gt;}
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every component uses conditional rendering for loading states, error messages, and role-based UI.</div>
+<div class="callout hood"><span>Under the hood</span>Expressions returning null/undefined render nothing. Logical AND short-circuits. Ternary always renders one of two branches.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Event Handling</h3>
+<p><strong>What &amp; why.</strong> React uses SyntheticEvents wrapping native DOM events for cross-browser consistency. Event handlers are passed as camelCase props.</p>
+<pre class="code"><code>function SearchForm({ onSearch }) {
+  function handleSubmit(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    onSearch(formData.get('query'));
+  }
+  function handleKeyDown(e) {
+    if (e.key === 'Escape') {
+      e.target.value = '';
+      onSearch('');
+    }
+  }
+  return (
+    &lt;form onSubmit={handleSubmit}&gt;
+      &lt;input name="query" type="search" onKeyDown={handleKeyDown} /&gt;
+      &lt;button type="submit"&gt;Search&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Forms, buttons, keyboard shortcuts, and drag-and-drop all use event handling.</div>
+<div class="callout hood"><span>Under the hood</span>React attaches event listeners to the root node via event delegation. SyntheticEvents normalize cross-browser differences.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>useState Hook</h3>
+<p><strong>What &amp; why.</strong> useState declares a state variable and setter. When the setter is called, React re-renders the component. State updates are batched and asynchronous.</p>
+<pre class="code"><code>import { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+  const [user, setUser] = useState({ name: '', role: 'user' });
+
+  // Functional update (always correct for prev-dependent updates)
+  const safeIncrement = () =&gt; setCount(prev =&gt; prev + 1);
+
+  // Object state: spread to avoid mutation
+  const updateName = (name) =&gt; setUser(prev =&gt; ({ ...prev, name }));
+
+  // Lazy initialization
+  const [data] = useState(() =&gt;
+    JSON.parse(localStorage.getItem('data')) ?? []
+  );
+
+  return &lt;div&gt;&lt;p&gt;Count: {count}&lt;/p&gt;&lt;button onClick={safeIncrement}&gt;+1&lt;/button&gt;&lt;/div&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every component with interactive state uses useState.</div>
+<div class="callout hood"><span>Under the hood</span>React 18 batches all state updates. The functional update form ensures correctness with multiple prev-dependent updates.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Controlled Forms</h3>
+<p><strong>What &amp; why.</strong> Controlled forms bind input values to React state, giving full control over every keystroke for real-time validation and formatting.</p>
+<pre class="code"><code>import { useState } from 'react';
+
+function ContactForm() {
+  const [form, setForm] = useState({ name: '', email: '', message: '' });
+  const [errors, setErrors] = useState({});
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm(prev =&gt; ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev =&gt; ({ ...prev, [name]: null }));
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const errs = {};
+    if (!form.name.trim()) errs.name = 'Name is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Invalid email';
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    console.log('Submitting:', form);
+  }
+
+  return (
+    &lt;form onSubmit={handleSubmit}&gt;
+      &lt;input name="name" value={form.name} onChange={handleChange} /&gt;
+      {errors.name &amp;&amp; &lt;span&gt;{errors.name}&lt;/span&gt;}
+      &lt;input name="email" value={form.email} onChange={handleChange} /&gt;
+      &lt;button type="submit"&gt;Send&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every form in React should be controlled for predictable state management.</div>
+<div class="callout hood"><span>Under the hood</span>Controlled inputs trigger a re-render on every keystroke. For performance-critical inputs, consider react-hook-form.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>useEffect Introduction</h3>
+<p><strong>What &amp; why.</strong> useEffect handles side effects: data fetching, subscriptions, timers. It runs after render with a dependency array controlling when it re-runs.</p>
+<pre class="code"><code>import { useState, useEffect } from 'react';
+
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() =&gt; {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/users/${userId}`)
+      .then(r =&gt; r.json())
+      .then(data =&gt; { if (!cancelled) { setUser(data); setLoading(false); } });
+    return () =&gt; { cancelled = true; };  // Cleanup
+  }, [userId]);  // Re-run only when userId changes
+
+  useEffect(() =&gt; {
+    document.title = 'User Profile';
+    return () =&gt; { document.title = 'My App'; };
+  }, []);  // Empty deps: runs once on mount
+
+  if (loading) return &lt;p&gt;Loading...&lt;/p&gt;;
+  return &lt;h1&gt;{user?.name}&lt;/h1&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>useEffect handles data fetching, subscriptions, and document title updates.</div>
+<div class="callout hood"><span>Under the hood</span>Effects run after browser paint. The cleanup function prevents stale updates. React compares deps by Object.is.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Styling Options</h3>
+<p><strong>What &amp; why.</strong> React supports inline styles, CSS Modules, and Tailwind CSS. Each has trade-offs in specificity, performance, and DX.</p>
+<pre class="code"><code>/* CSS Modules: scoped class names */
+.card { border: 1px solid #ddd; border-radius: 8px; }
+.primary { background: #0066ff; color: white; }
+
+import styles from './components.module.css';
+import clsx from 'clsx';
+
+&lt;div className={styles.card}&gt;
+  &lt;h2 className={styles.cardTitle}&gt;Scoped CSS&lt;/h2&gt;
+&lt;/div&gt;
+
+&lt;button className={clsx(styles.btn, isActive &amp;&amp; styles.primary)}&gt;
+  Dynamic Class
+&lt;/button&gt;
+
+// Tailwind CSS (utility-first)
+&lt;button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"&gt;
+  Tailwind Button
+&lt;/button&gt;</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>CSS Modules for component libraries. Tailwind for rapid prototyping.</div>
+<div class="callout hood"><span>Under the hood</span>CSS Modules generate unique class names at build time. Tailwind purges unused classes, resulting in tiny CSS bundles.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Children Prop and Composition</h3>
+<p><strong>What &amp; why.</strong> The children prop is React's composition primitive, letting you create wrapper components that don't know about their content.</p>
+<pre class="code"><code>function Card({ children, title }) {
+  return (
+    &lt;div className="card"&gt;
+      {title &amp;&amp; &lt;h3 className="card-title"&gt;{title}&lt;/h3&gt;}
+      &lt;div className="card-body"&gt;{children}&lt;/div&gt;
+    &lt;/div&gt;
+  );
+}
+
+function Dashboard() {
+  return (
+    &lt;Card title="User Stats"&gt;
+      &lt;p&gt;Total users: 1,234&lt;/p&gt;
+      &lt;Chart data={userStats} /&gt;
+    &lt;/Card&gt;
+  );
+}
+
+// Multiple children slots
+function Modal({ header, children, footer }) {
+  return (
+    &lt;div className="modal"&gt;
+      &lt;div className="modal-header"&gt;{header}&lt;/div&gt;
+      &lt;div className="modal-body"&gt;{children}&lt;/div&gt;
+      &lt;div className="modal-footer"&gt;{footer}&lt;/div&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Layout components, card wrappers, modals, and accordions use children for composition.</div>
+<div class="callout hood"><span>Under the hood</span>children is passed as the third argument to React.createElement. React.memo does not shallow-compare children by default.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Lifting State</h3>
+<p><strong>What &amp; why.</strong> When two components need shared state, lift it to their closest common ancestor. The parent owns state and passes it down via props with callbacks.</p>
+<pre class="code"><code>function TemperatureConverter() {
+  const [temp, setTemp] = useState('');
+  const [scale, setScale] = useState('celsius');
+
+  const celsius = scale === 'fahrenheit'
+    ? (parseFloat(temp) - 32) * 5 / 9 : parseFloat(temp);
+  const fahrenheit = scale === 'celsius'
+    ? parseFloat(temp) * 9 / 5 + 32 : parseFloat(temp);
+
+  return (
+    &lt;div&gt;
+      &lt;TemperatureInput scale="celsius"
+        value={isNaN(celsius) ? '' : celsius.toFixed(1)}
+        onChange={(v) =&gt; { setTemp(v); setScale('celsius'); }} /&gt;
+      &lt;TemperatureInput scale="fahrenheit"
+        value={isNaN(fahrenheit) ? '' : fahrenheit.toFixed(1)}
+        onChange={(v) =&gt; { setTemp(v); setScale('fahrenheit'); }} /&gt;
+    &lt;/div&gt;
+  );
+}
+
+function TemperatureInput({ scale, value, onChange }) {
+  return (
+    &lt;fieldset&gt;
+      &lt;legend&gt;{scale}&lt;/legend&gt;
+      &lt;input type="number" value={value}
+        onChange={(e) =&gt; onChange(e.target.value)} /&gt;
+    &lt;/fieldset&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any time sibling components need to share data: linked form fields, filter + display panels.</div>
+<div class="callout hood"><span>Under the hood</span>Lifting state is the simplest sharing pattern. For deeper sharing, use Context or state management libraries.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Hooks, error boundaries, TypeScript, and data fetching</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>useRef for Mutable References</h3>
+<p><strong>What &amp; why.</strong> useRef creates a mutable container whose .current persists across renders without triggering re-renders. Used for DOM access, storing previous values, and holding non-render-triggering values.</p>
+<pre class="code"><code>import { useRef, useEffect } from 'react';
+
+function AutoFocusInput() {
+  const inputRef = useRef(null);
+  const renderCount = useRef(0);
+  useEffect(() =&gt; { inputRef.current?.focus(); }, []);
+  renderCount.current += 1;
+  return (
+    &lt;div&gt;
+      &lt;input ref={inputRef} placeholder="Auto-focused" /&gt;
+      &lt;p&gt;Rendered {renderCount.current} times&lt;/p&gt;
+    &lt;/div&gt;
+  );
+}
+
+// Storing previous value
+function usePrevious(value) {
+  const ref = useRef();
+  useEffect(() =&gt; { ref.current = value; });
+  return ref.current;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>DOM refs for focus management, measuring dimensions, storing timeout IDs.</div>
+<div class="callout hood"><span>Under the hood</span>useRef returns the same object across renders. Mutating .current doesn't trigger re-renders.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>useReducer for Complex State</h3>
+<p><strong>What &amp; why.</strong> useReducer externalizes state transitions into a reducer function, making complex state logic testable and predictable.</p>
+<pre class="code"><code>import { useReducer } from 'react';
+
+function cartReducer(state, action) {
+  switch (action.type) {
+    case 'ADD_ITEM': return { ...state, items: [...state.items, action.payload] };
+    case 'REMOVE_ITEM':
+      return { ...state, items: state.items.filter(i =&gt; i.id !== action.payload) };
+    case 'CLEAR_CART': return { ...state, items: [] };
+    default: throw new Error(`Unknown action: ${action.type}`);
+  }
+}
+
+function ShoppingCart() {
+  const [state, dispatch] = useReducer(cartReducer, { items: [] });
+  const total = state.items.reduce((sum, i) =&gt; sum + i.price, 0);
+  return (
+    &lt;div&gt;
+      &lt;p&gt;{state.items.length} items — ${total}&lt;/p&gt;
+      &lt;button onClick={() =&gt; dispatch({ type: 'ADD_ITEM', payload: { id: 1, price: 9.99 } })}&gt;Add&lt;/button&gt;
+      &lt;button onClick={() =&gt; dispatch({ type: 'CLEAR_CART' })}&gt;Clear&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Shopping carts, multi-step forms, undo/redo systems, and related state transitions.</div>
+<div class="callout hood"><span>Under the hood</span>useReducer is built on useState. Reducers must be pure functions with no side effects.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>useContext for Global State</h3>
+<p><strong>What &amp; why.</strong> useContext reads values from React Context without prop drilling. Combined with useReducer, it creates a lightweight global state store.</p>
+<pre class="code"><code>import { createContext, useContext, useState, useMemo } from 'react';
+
+const AuthContext = createContext(null);
+
+function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const value = useMemo(() =&gt; ({
+    user,
+    login: (credentials) =&gt; setUser({ name: credentials.name }),
+    logout: () =&gt; setUser(null),
+    isAuthenticated: !!user,
+  }), [user]);
+  return &lt;AuthContext.Provider value={value}&gt;{children}&lt;/AuthContext.Provider&gt;;
+}
+
+function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be within AuthProvider');
+  return ctx;
+}
+
+function Navbar() {
+  const { user, logout, isAuthenticated } = useAuth();
+  return (
+    &lt;nav&gt;
+      {isAuthenticated
+        ? &lt;&gt;&lt;span&gt;{user.name}&lt;/span&gt;&lt;button onClick={logout}&gt;Logout&lt;/button&gt;&lt;/&gt;
+        : &lt;a href="/login"&gt;Login&lt;/a&gt;}
+    &lt;/nav&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Auth state, theme preferences, locale, and feature flags.</div>
+<div class="callout hood"><span>Under the hood</span>Context re-renders all consumers when value changes. useMemo prevents unnecessary re-renders.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Custom Hooks</h3>
+<p><strong>What &amp; why.</strong> Custom hooks extract reusable stateful logic. They follow the use* convention and can call other hooks.</p>
+<pre class="code"><code>import { useState, useEffect } from 'react';
+
+function useFetch(url) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  useEffect(() =&gt; {
+    let cancelled = false;
+    setLoading(true);
+    fetch(url).then(r =&gt; { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(data =&gt; { if (!cancelled) { setData(data); setLoading(false); } })
+      .catch(err =&gt; { if (!cancelled) { setError(err); setLoading(false); } });
+    return () =&gt; { cancelled = true; };
+  }, [url]);
+  return { data, loading, error };
+}
+
+function useDebounce(value, delay = 300) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() =&gt; {
+    const timer = setTimeout(() =&gt; setDebounced(value), delay);
+    return () =&gt; clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
+// Usage
+function UserSearch() {
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounce(query);
+  const { data, loading } = useFetch(`/api/search?q=${debouncedQuery}`);
+  return (
+    &lt;div&gt;
+      &lt;input value={query} onChange={e =&gt; setQuery(e.target.value)} /&gt;
+      {loading ? &lt;p&gt;Searching...&lt;/p&gt; : &lt;pre&gt;{JSON.stringify(data)}&lt;/pre&gt;}
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>useFetch, useDebounce, useLocalStorage, useMediaQuery are reusable custom hooks.</div>
+<div class="callout hood"><span>Under the hood</span>Custom hooks are functions calling built-in hooks. Hooks must not be called conditionally.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Effect Dependencies and Cleanup</h3>
+<p><strong>What &amp; why.</strong> Incorrect dependencies cause stale closures, infinite re-renders, and memory leaks. Every external value used in an effect must be in the dependency array.</p>
+<pre class="code"><code>import { useState, useEffect } from 'react';
+
+function useOnlineStatus() {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  useEffect(() =&gt; {
+    function handleOnline() { setIsOnline(true); }
+    function handleOffline() { setIsOnline(false); }
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () =&gt; {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);  // Empty deps: listeners don't change
+  return isOnline;
+}
+
+// Correct timer with functional update
+function useTimer(interval) {
+  const [count, setCount] = useState(0);
+  useEffect(() =&gt; {
+    const id = setInterval(() =&gt; setCount(c =&gt; c + 1), interval);
+    return () =&gt; clearInterval(id);
+  }, [interval]);
+  return count;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every useEffect must have correct deps (exhaustive-deps ESLint rule) and cleanup.</div>
+<div class="callout hood"><span>Under the hood</span>React compares deps using Object.is for each element. If changed, old effect is cleaned up and new effect runs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>useMemo and useCallback</h3>
+<p><strong>What &amp; why.</strong> useMemo caches expensive computations; useCallback caches function references. Both prevent unnecessary work when children are memoized.</p>
+<pre class="code"><code>import { useState, useMemo, useCallback } from 'react';
+
+function FilteredList({ data }) {
+  const [filter, setFilter] = useState('');
+  const [selected, setSelected] = useState(null);
+
+  const filtered = useMemo(() =&gt;
+    data.filter(item =&gt;
+      item.name.toLowerCase().includes(filter.toLowerCase())
+    ), [data, filter]);
+
+  const handleSelect = useCallback((id) =&gt; {
+    setSelected(id);
+  }, []);
+
+  return (
+    &lt;div&gt;
+      &lt;input value={filter} onChange={e =&gt; setFilter(e.target.value)} /&gt;
+      &lt;ExpensiveList items={filtered} onSelect={handleSelect} /&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>useMemo for expensive computations. useCallback for callbacks passed to memoized children.</div>
+<div class="callout hood"><span>Under the hood</span>useMemo stores [deps, value] tuple. useCallback(fn, deps) is equivalent to useMemo(() =&gt; fn, deps). Only use when profiling shows a bottleneck.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Error Boundaries</h3>
+<p><strong>What &amp; why.</strong> Error boundaries catch JavaScript errors in child components, display fallback UI, and prevent full app crashes. They only catch rendering-phase errors.</p>
+<pre class="code"><code>import { Component } from 'react';
+
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error('ErrorBoundary caught:', error, info.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        &lt;div className="error-fallback"&gt;
+          &lt;h2&gt;Something went wrong&lt;/h2&gt;
+          &lt;p&gt;{this.state.error?.message}&lt;/p&gt;
+          &lt;button onClick={() =&gt; this.setState({ hasError: false })}&gt;Try again&lt;/button&gt;
+        &lt;/div&gt;
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function App() {
+  return &lt;ErrorBoundary&gt;&lt;Dashboard /&gt;&lt;/ErrorBoundary&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Wrap critical UI sections: route-level boundaries for page isolation, widget boundaries for dashboards.</div>
+<div class="callout hood"><span>Under the hood</span>Error boundaries catch errors in rendering, lifecycle methods, and constructors. They don't catch event handler or async errors.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Fragments, Portals, and TypeScript Props</h3>
+<p><strong>What &amp; why.</strong> Fragments group elements without DOM nodes. Portals render into different DOM nodes. TypeScript provides compile-time type safety for component interfaces.</p>
+<pre class="code"><code>import { createPortal } from 'react';
+
+function UserRow({ user }) {
+  return (
+    &lt;&gt;
+      &lt;td&gt;{user.name}&lt;/td&gt;
+      &lt;td&gt;{user.email}&lt;/td&gt;
+    &lt;/&gt;
+  );
+}
+
+function Modal({ isOpen, onClose, children }) {
+  if (!isOpen) return null;
+  return createPortal(
+    &lt;div className="modal-overlay" onClick={onClose}&gt;
+      &lt;div className="modal-content" onClick={e =&gt; e.stopPropagation()}&gt;
+        {children}
+      &lt;/div&gt;
+    &lt;/div&gt;,
+    document.body
+  );
+}
+
+// TypeScript props
+interface ButtonProps {
+  variant: 'primary' | 'secondary' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  disabled?: boolean;
+  onClick: () =&gt; void;
+  children: React.ReactNode;
+}
+
+function Button({ variant, size = 'md', disabled, onClick, children }: ButtonProps) {
+  return (
+    &lt;button className={`btn btn-${variant} btn-${size}`} disabled={disabled} onClick={onClick}&gt;
+      {children}
+    &lt;/button&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fragments for table rows. Portals for modals and tooltips. TypeScript props for every component.</div>
+<div class="callout hood"><span>Under the hood</span>Fragments don't produce DOM nodes. Portals maintain React context. TypeScript props are erased at compile time with zero runtime cost.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Fetch Loading and Error Patterns</h3>
+<p><strong>What &amp; why.</strong> Every data-fetching component needs loading, error, and success states for consistent UX.</p>
+<pre class="code"><code>import { useState, useEffect } from 'react';
+
+function UserList() {
+  const [state, setState] = useState({ data: null, loading: true, error: null });
+  useEffect(() =&gt; {
+    let cancelled = false;
+    fetch('/api/users')
+      .then(r =&gt; { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(data =&gt; { if (!cancelled) setState({ data, loading: false, error: null }); })
+      .catch(error =&gt; { if (!cancelled) setState({ data: null, loading: false, error }); });
+    return () =&gt; { cancelled = true; };
+  }, []);
+  if (state.loading) return &lt;Spinner /&gt;;
+  if (state.error) return &lt;ErrorAlert message={state.error.message} /&gt;;
+  return &lt;ul&gt;{state.data.map(u =&gt; &lt;li key={u.id}&gt;{u.name}&lt;/li&gt;)}&lt;/ul&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every component fetching data needs this three-state pattern.</div>
+<div class="callout hood"><span>Under the hood</span>The cancelled flag prevents state updates on unmounted components (memory leak prevention).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>TanStack Query Basics</h3>
+<p><strong>What &amp; why.</strong> TanStack Query manages server state with automatic caching, background refetching, and deduplication, eliminating manual fetch boilerplate.</p>
+<pre class="code"><code>import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 2 } },
+});
+
+function App() {
+  return &lt;QueryClientProvider client={queryClient}&gt;&lt;UserDashboard /&gt;&lt;/QueryClientProvider&gt;;
+}
+
+function UserDashboard() {
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['users'],
+    queryFn: () =&gt; fetch('/api/users').then(r =&gt; r.json()),
+    staleTime: 30000,
+  });
+  if (isLoading) return &lt;Spinner /&gt;;
+  if (error) return &lt;ErrorAlert error={error} /&gt;;
+  return (
+    &lt;div&gt;
+      &lt;button onClick={() =&gt; refetch()}&gt;Refresh&lt;/button&gt;
+      {data.map(user =&gt; &lt;UserCard key={user.id} user={user} /&gt;)}
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any app with server data benefits from TanStack Query's caching, deduplication, and stale-while-revalidate.</div>
+<div class="callout hood"><span>Under the hood</span>Query cache is keyed by queryKey arrays. Background refetching happens on window focus and interval.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Reconciliation, performance, routing, accessibility</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Reconciliation and Diffing Algorithm</h3>
+<p><strong>What &amp; why.</strong> React's reconciliation compares old and new VDOM trees to compute minimal DOM updates. Understanding its assumptions helps you write components that avoid unnecessary re-renders.</p>
+<pre class="code"><code>// Diffing heuristics:
+// 1. Same type? Update attributes, recurse into children
+// 2. Different type? Unmount old, mount new
+// 3. Keys? Match children by key for list optimization
+
+// BETTER: use CSS to hide instead of unmount (preserves state)
+function TabContentImproved({ activeTab }) {
+  return (
+    &lt;div&gt;
+      &lt;div style={{ display: activeTab === 'profile' ? 'block' : 'none' }}&gt;
+        &lt;ProfilePanel /&gt;
+      &lt;/div&gt;
+      &lt;div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}&gt;
+        &lt;SettingsPanel /&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding diffing helps choose show/hide vs mount/unmount based on state preservation needs.</div>
+<div class="callout hood"><span>Under the hood</span>The algorithm runs in O(n) using two assumptions: different types produce different trees, and keys identify stable elements.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Fiber Architecture Overview</h3>
+<p><strong>What &amp; why.</strong> React Fiber is the reconciliation engine enabling concurrent rendering. It breaks work into small units that can be paused, keeping the UI responsive.</p>
+<pre class="code"><code>// Two phases:
+// 1. Render phase (can be paused): builds fiber tree, computes effects
+// 2. Commit phase (synchronous): applies DOM mutations
+
+// Fiber node: stateNode, child/sibling/return pointers,
+// pendingProps/memoizedProps, effectTag (Placement/Update/Deletion)
+
+// Concurrent rendering (React 18):
+// startTransition marks low-priority updates
+// React can interrupt rendering for high-priority updates</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fiber is internal, but understanding it explains why concurrent features exist.</div>
+<div class="callout hood"><span>Under the hood</span>Fiber uses linked list traversal (no recursion), enabling pausing. The scheduler assigns priorities to fibers.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>useTransition and useDeferredValue</h3>
+<p><strong>What &amp; why.</strong> useTransition marks updates as low-priority for responsiveness. useDeferredValue defers rendering of non-urgent content.</p>
+<pre class="code"><code>import { useState, useTransition, useDeferredValue } from 'react';
+
+function SearchResults() {
+  const [query, setQuery] = useState('');
+  const [isPending, startTransition] = useTransition();
+
+  function handleSearch(e) {
+    const value = e.target.value;
+    setQuery(value);  // High priority: update input immediately
+    startTransition(() =&gt; {
+      setFilteredResults(filterLargeList(value));  // Low priority: interruptible
+    });
+  }
+  return (
+    &lt;div&gt;
+      &lt;input value={query} onChange={handleSearch} /&gt;
+      {isPending &amp;&amp; &lt;p&gt;Updating...&lt;/p&gt;}
+      &lt;ResultList items={filteredResults} /&gt;
+    &lt;/div&gt;
+  );
+}
+
+// useDeferredValue: defers child re-render
+function App({ query }) {
+  const deferredQuery = useDeferredValue(query);
+  return &lt;HeavyList filter={deferredQuery} /&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Search filtering, autocomplete, and large list rendering where input must stay responsive.</div>
+<div class="callout hood"><span>Under the hood</span>startTransition tells the scheduler this update can be deprioritized. useDeferredValue creates a lagging value, rendering when idle.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Suspense for Data Loading</h3>
+<p><strong>What &amp; why.</strong> Suspense declaratively handles loading states by wrapping components in a boundary with a fallback.</p>
+<pre class="code"><code>import { Suspense, use } from 'react';
+
+function UserProfile({ userPromise }) {
+  const user = use(userPromise);  // Suspends until resolved
+  return &lt;h1&gt;{user.name}&lt;/h1&gt;;
+}
+
+function Dashboard() {
+  return (
+    &lt;div&gt;
+      &lt;Suspense fallback={&lt;PageSkeleton /&gt;}&gt;
+        &lt;UserProfile userPromise={userPromise} /&gt;
+        &lt;Suspense fallback={&lt;Spinner /&gt;}&gt;
+          &lt;Comments commentsPromise={commentsPromise} /&gt;
+        &lt;/Suspense&gt;
+      &lt;/Suspense&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Suspense enables streaming SSR in Next.js and fine-grained loading states in component trees.</div>
+<div class="callout hood"><span>Under the hood</span>When a component suspends, React unwinds to the nearest boundary and renders the fallback. When the Promise resolves, React retries.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Context Performance Pitfalls</h3>
+<p><strong>What &amp; why.</strong> React Context re-renders all consumers when value changes. In large apps, this causes performance issues requiring optimization strategies.</p>
+<pre class="code"><code>// FIX 1: useMemo on the value
+function App() {
+  const [count, setCount] = useState(0);
+  const value = useMemo(() =&gt; ({ count, setCount }), [count]);
+  return (
+    &lt;MyContext.Provider value={value}&gt;
+      &lt;ChildA /&gt;
+    &lt;/MyContext.Provider&gt;
+  );
+}
+
+// FIX 2: Split read/write contexts
+const CountContext = createContext(0);
+const DispatchContext = createContext(() =&gt; {});
+
+function App() {
+  const [count, setCount] = useState(0);
+  return (
+    &lt;DispatchContext.Provider value={setCount}&gt;
+      &lt;CountContext.Provider value={count}&gt;
+        &lt;ChildA /&gt;
+      &lt;/CountContext.Provider&gt;
+    &lt;/DispatchContext.Provider&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Any Context with many consumers must be optimized. Split read/write contexts, memoize values.</div>
+<div class="callout hood"><span>Under the hood</span>Context uses a subscriber model. No built-in selector mechanism; each consumer gets the full value.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Reducer State Machines</h3>
+<p><strong>What &amp; why.</strong> State machines formalize component states as explicit states and transitions, preventing impossible state combinations.</p>
+<pre class="code"><code>import { useReducer } from 'react';
+
+const transitions = {
+  idle: { SUBMIT: 'submitting' },
+  submitting: { SUCCESS: 'success', ERROR: 'error' },
+  success: { RESET: 'idle' },
+  error: { RETRY: 'submitting', RESET: 'idle' },
+};
+
+function formReducer(state, action) {
+  const next = transitions[state.status]?.[action.type];
+  if (!next) return state;
+  return { ...state, status: next,
+    ...(action.type === 'SUCCESS' &amp;&amp; { data: action.payload }),
+    ...(action.type === 'ERROR' &amp;&amp; { error: action.payload }),
+  };
+}
+
+function SubmitForm() {
+  const [state, dispatch] = useReducer(formReducer, { status: 'idle', data: null, error: null });
+  async function handleSubmit() {
+    dispatch({ type: 'SUBMIT' });
+    try {
+      const result = await api.submit();
+      dispatch({ type: 'SUCCESS', payload: result });
+    } catch (err) {
+      dispatch({ type: 'ERROR', payload: err.message });
+    }
+  }
+  return (
+    &lt;div&gt;
+      &lt;button onClick={handleSubmit} disabled={state.status === 'submitting'}&gt;
+        {state.status === 'submitting' ? 'Saving...' : 'Submit'}
+      &lt;/button&gt;
+      {state.status === 'error' &amp;&amp; &lt;p&gt;Error: {state.error}&lt;/p&gt;}
+    &lt;/div&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-step forms, payment flows, and UIs with clear states (idle/loading/success/error).</div>
+<div class="callout hood"><span>Under the hood</span>State machines eliminate impossible combinations. The transitions table is data-driven and easy to test.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>React Router v6 Loaders</h3>
+<p><strong>What &amp; why.</strong> React Router v6 loaders fetch data before rendering, eliminating waterfalls and enabling instant page transitions.</p>
+<pre class="code"><code>import { createBrowserRouter, RouterProvider, useLoaderData } from 'react-router-dom';
+
+async function userLoader({ params }) {
+  const res = await fetch(`/api/users/${params.userId}`);
+  if (!res.ok) throw new Response('Not Found', { status: 404 });
+  return res.json();
+}
+
+function UserPage() {
+  const user = useLoaderData();
+  return &lt;div&gt;&lt;h1&gt;{user.name}&lt;/h1&gt;&lt;/div&gt;;
+}
+
+const router = createBrowserRouter([{
+  path: '/users/:userId',
+  element: &lt;UserPage /&gt;,
+  loader: userLoader,
+  errorElement: &lt;ErrorPage /&gt;,
+}]);
+
+function App() {
+  return &lt;RouterProvider router={router} /&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every route should have a loader for data-dependent pages.</div>
+<div class="callout hood"><span>Under the hood</span>Loaders run before render at the router level. If they throw, errorElement renders. Loaders support revalidation via useRevalidator.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>react-hook-form and Zod Validation</h3>
+<p><strong>What &amp; why.</strong> react-hook-form minimizes re-renders using uncontrolled inputs. Zod provides schema-based type-safe validation. Together they create performant, type-safe forms.</p>
+<pre class="code"><code>import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const schema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email'),
+  age: z.number().min(18, 'Must be 18+'),
+});
+
+type FormData = z.infer&lt;typeof schema&gt;;
+
+function RegisterForm() {
+  const { register, handleSubmit, formState: { errors, isSubmitting } } =
+    useForm&lt;FormData&gt;({ resolver: zodResolver(schema) });
+
+  async function onSubmit(data: FormData) {
+    await fetch('/api/register', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  return (
+    &lt;form onSubmit={handleSubmit(onSubmit)}&gt;
+      &lt;input {...register('name')} /&gt;
+      {errors.name &amp;&amp; &lt;span&gt;{errors.name.message}&lt;/span&gt;}
+      &lt;input {...register('email')} /&gt;
+      {errors.email &amp;&amp; &lt;span&gt;{errors.email.message}&lt;/span&gt;}
+      &lt;input type="number" {...register('age', { valueAsNumber: true })} /&gt;
+      &lt;button disabled={isSubmitting}&gt;Register&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every complex form benefits from react-hook-form's uncontrolled approach.</div>
+<div class="callout hood"><span>Under the hood</span>react-hook-form registers inputs via ref, avoiding controlled component re-renders. Zod schemas provide both validation and TypeScript type inference.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Accessibility with ARIA and Focus Management</h3>
+<p><strong>What &amp; why.</strong> Accessible apps use semantic HTML, ARIA attributes, keyboard navigation, and focus management for screen reader and assistive technology users.</p>
+<pre class="code"><code>function AccessibleModal({ isOpen, onClose, title, children }) {
+  const closeRef = useRef(null);
+  useEffect(() =&gt; { if (isOpen) closeRef.current?.focus(); }, [isOpen]);
+  if (!isOpen) return null;
+  return (
+    &lt;div role="dialog" aria-modal="true" aria-labelledby="modal-title"
+      onKeyDown={(e) =&gt; { if (e.key === 'Escape') onClose(); }}&gt;
+      &lt;div className="modal-backdrop" onClick={onClose} /&gt;
+      &lt;div className="modal-content"&gt;
+        &lt;h2 id="modal-title"&gt;{title}&lt;/h2&gt;
+        {children}
+        &lt;button ref={closeRef} onClick={onClose}&gt;Close&lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}
+
+// Accessible form
+function AccessibleForm() {
+  return (
+    &lt;form aria-label="Contact form"&gt;
+      &lt;div&gt;
+        &lt;label htmlFor="name"&gt;Name&lt;/label&gt;
+        &lt;input id="name" aria-required="true" /&gt;
+      &lt;/div&gt;
+    &lt;/form&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Every public-facing app needs accessibility. Modals must trap focus; forms must have labels.</div>
+<div class="callout hood"><span>Under the hood</span>ARIA attributes describe semantics to screen readers. Focus management ensures keyboard navigation in dynamic content.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — Render phases, profiling, SSR, state libraries, testing</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Render vs Commit Phases</h3>
+<p><strong>What &amp; why.</strong> React's pipeline has two phases: render (pure computation, can be interrupted) and commit (synchronous DOM mutation). Understanding this explains useEffect timing and concurrent behavior.</p>
+<pre class="code"><code>function Component() {
+  const computed = useMemo(() =&gt; expensiveCalc(data), [data]);
+
+  // Runs after commit (pre-paint) - synchronous DOM reads
+  useLayoutEffect(() =&gt; {
+    const height = ref.current.offsetHeight;
+    setHeight(height);
+  }, []);
+
+  // Runs after paint - safe for subscriptions
+  useEffect(() =&gt; {
+    const unsub = api.subscribe(handleEvent);
+    return unsub;
+  }, []);
+
+  return &lt;div ref={ref}&gt;{computed}&lt;/div&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding phases explains why useEffect is async, useLayoutEffect is sync, and side effects in render cause bugs.</div>
+<div class="callout hood"><span>Under the hood</span>The render phase calls components and runs hooks. The commit phase applies effects: useLayoutEffect, DOM mutations, then useEffect (post-paint).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>React DevTools Profiling</h3>
+<p><strong>What &amp; why.</strong> React DevTools profiler visualizes render times, identifies unnecessary re-renders, and measures commit durations. It's the primary tool for diagnosing performance.</p>
+<pre class="code"><code>// Install React DevTools browser extension
+// Open DevTools &gt; Profiler tab &gt; Record &gt; Interact &gt; Stop
+
+// Programmatic profiling with Profiler component
+import { Profiler } from 'react';
+
+function onRenderCallback(id, phase, actualDuration, baseDuration) {
+  console.log(`${id} ${phase}: ${actualDuration.toFixed(1)}ms`);
+}
+
+function App() {
+  return (
+    &lt;Profiler id="Dashboard" onRender={onRenderCallback}&gt;
+      &lt;Dashboard /&gt;
+    &lt;/Profiler&gt;
+  );
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The profiler identifies which components re-render and why. Always measure before optimizing.</div>
+<div class="callout hood"><span>Under the hood</span>The profiler hooks into the commit phase. Yellow/orange bars indicate re-renders; gray bars are memoized.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>SSR and Hydration Basics</h3>
+<p><strong>What &amp; why.</strong> SSR sends fully rendered HTML from the server. Hydration attaches React's event listeners and state to the server HTML, making it interactive.</p>
+<pre class="code"><code>// Server: renderToString produces static HTML
+import { renderToString } from 'react-dom/server';
+const html = renderToString(&lt;App /&gt;);
+
+// Client: hydrateRoot attaches interactivity
+import { hydrateRoot } from 'react-dom/client';
+hydrateRoot(document.getElementById('root'), &lt;App /&gt;);
+
+// Hydration mismatch: server HTML differs from client render
+// Common causes: Date/time, browser-only APIs, random values
+// Solution: useEffect for browser-only code</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>SSR is critical for SEO and initial load. Next.js handles SSR automatically.</div>
+<div class="callout hood"><span>Under the hood</span>If server and client HTML match, React attaches listeners without re-rendering. Mismatches cause warnings and re-rendering penalties.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Zustand and Jotai State Management</h3>
+<p><strong>What &amp; why.</strong> Zustand and Jotai are lightweight Redux alternatives. Zustand: simple stores. Jotai: atomic bottom-up state. Both avoid Redux verbosity.</p>
+<pre class="code"><code>// Zustand: global store with persistence
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+const useStore = create(
+  persist(
+    (set, get) =&gt; ({
+      count: 0,
+      user: null,
+      increment: () =&gt; set(state =&gt; ({ count: state.count + 1 })),
+      setUser: (user) =&gt; set({ user }),
+    }),
+    { name: 'app-store' }
+  )
+);
+
+function Counter() {
+  const count = useStore(state =&gt; state.count);  // Selector: re-renders only on count change
+  const increment = useStore(state =&gt; state.increment);
+  return &lt;button onClick={increment}&gt;{count}&lt;/button&gt;;
+}
+
+// Jotai: atomic state
+import { atom, useAtom } from 'jotai';
+const countAtom = atom(0);
+const doubledAtom = atom(get =&gt; get(countAtom) * 2);  // Derived
+
+function Counter() {
+  const [count, setCount] = useAtom(countAtom);
+  return &lt;button onClick={() =&gt; setCount(c =&gt; c + 1)}&gt;{count}&lt;/button&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Zustand for global stores. Jotai for fine-grained reactive state. Both are simpler than Redux for most use cases.</div>
+<div class="callout hood"><span>Under the hood</span>Zustand uses useSyncExternalStore. Jotai uses a dependency graph for derived atoms. Both avoid Context re-render issues.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>React Testing Library and MSW</h3>
+<p><strong>What &amp; why.</strong> RTL tests components the way users interact with them. MSW intercepts network requests for realistic API mocking without changing app code.</p>
+<pre class="code"><code>import { render, screen, userEvent } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
+
+const server = setupServer(
+  http.get('/api/users', () =&gt; {
+    return HttpResponse.json([{ id: 1, name: 'Alice' }]);
+  }),
+);
+
+beforeAll(() =&gt; server.listen());
+afterEach(() =&gt; server.resetHandlers());
+afterAll(() =&gt; server.close());
+
+test('renders user list', async () =&gt; {
+  render(&lt;UserList /&gt;);
+  expect(await screen.findByRole('heading', { name: /alice/i })).toBeInTheDocument();
+});
+
+test('handles form submission', async () =&gt; {
+  const user = userEvent.setup();
+  render(&lt;ContactForm /&gt;);
+  await user.type(screen.getByLabelText(/name/i), 'Charlie');
+  await user.click(screen.getByRole('button', { name: /submit/i }));
+  expect(await screen.findByText(/sent/i)).toBeInTheDocument();
+});</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>RTL + MSW is the standard testing stack. Tests focus on user behavior, not implementation.</div>
+<div class="callout hood"><span>Under the hood</span>RTL queries the real DOM. MSW uses a ServiceWorker to intercept requests at the network level.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Optimistic Updates</h3>
+<p><strong>What &amp; why.</strong> Optimistic updates immediately reflect changes before server confirmation, rolling back on failure. This makes apps feel instant.</p>
+<pre class="code"><code>import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+function LikeButton({ postId, isLiked }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: () =&gt; fetch(`/api/posts/${postId}/like`, { method: 'POST' }),
+    onMutate: async () =&gt; {
+      await queryClient.cancelQueries({ queryKey: ['post', postId] });
+      const previous = queryClient.getQueryData(['post', postId]);
+      queryClient.setQueryData(['post', postId], old =&gt; ({
+        ...old, likes: old.likes + (isLiked ? -1 : 1), isLiked: !isLiked,
+      }));
+      return { previous };
+    },
+    onError: (err, vars, context) =&gt; {
+      queryClient.setQueryData(['post', postId], context.previous);
+    },
+    onSettled: () =&gt; queryClient.invalidateQueries({ queryKey: ['post', postId] }),
+  });
+  return &lt;button onClick={() =&gt; mutation.mutate()}&gt;{isLiked ? 'Unlike' : 'Like'}&lt;/button&gt;;
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Likes, bookmarks, follow/unfollow, and task completion where success rate is high.</div>
+<div class="callout hood"><span>Under the hood</span>onMutate captures current state for rollback. onError rolls back; onSettled refetches for consistency.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>WebSocket Hook and React 19 Patterns</h3>
+<p><strong>What &amp; why.</strong> A custom WebSocket hook encapsulates connection lifecycle. React 19 introduces useOptimistic for simplified async state transitions.</p>
+<pre class="code"><code>import { useState, useEffect, useRef, useCallback } from 'react';
+
+function useWebSocket(url) {
+  const [messages, setMessages] = useState([]);
+  const [connected, setConnected] = useState(false);
+  const wsRef = useRef(null);
+
+  useEffect(() =&gt; {
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+    ws.onopen = () =&gt; setConnected(true);
+    ws.onclose = () =&gt; {
+      setConnected(false);
+      setTimeout(() =&gt; { wsRef.current = new WebSocket(url); }, 3000);
+    };
+    ws.onmessage = (e) =&gt; setMessages(prev =&gt; [...prev, JSON.parse(e.data)]);
+    return () =&gt; ws.close();
+  }, [url]);
+
+  const send = useCallback((data) =&gt; wsRef.current?.send(JSON.stringify(data)), []);
+  return { messages, connected, send };
+}
+
+// React 19: useOptimistic
+import { useOptimistic } from 'react';
+
+function TodoList({ todos, addTodo }) {
+  const [optimisticTodos, addOptimistic] = useOptimistic(
+    todos, (state, newTodo) =&gt; [...state, { ...newTodo, sending: true }]
+  );
+  async function handleAdd(text) {
+    addOptimistic({ id: Date.now(), text, done: false });
+    await addTodo(text);
+  }
+  return optimisticTodos.map(t =&gt; (
+    &lt;li key={t.id} style={{ opacity: t.sending ? 0.5 : 1 }}&gt;{t.text}&lt;/li&gt;
+  ));
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Real-time features use WebSocket hooks. useOptimistic simplifies optimistic update patterns.</div>
+<div class="callout hood"><span>Under the hood</span>useWebSocket manages lifecycle in useEffect cleanup. useOptimistic provides temporary state replaced on async completion.</div>
+</article>
+
+</section>
+
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Kanban Board with Drag-and-Drop</h3>
+<p>Build a Trello-like kanban board with drag-and-drop columns and cards, persisted to localStorage.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Set up Vite + React + TypeScript with Zustand and localStorage persistence middleware</li>
+<li>Define Board state: columns array with id, title, cards; moveCard reducer for drag operations</li>
+<li>Build Card component with inline editing (useRef for focus), delete button, HTML5 drag handle</li>
+<li>Create Column component with Droppable zone, card count badge, and "Add Card" form</li>
+<li>Implement drag handlers (onDragStart, onDragOver, onDrop) with same-column reorder and cross-column moves</li>
+<li>Add Undo using useReducer with action history stack for Ctrl+Z revert</li>
+<li>Style with CSS Modules: column shadows, drag preview opacity, smooth transitions</li>
+<li>Test persistence: add cards, refresh page, verify localStorage persistence</li></ol>
+<pre class="code"><code>function useBoardStore() {
+  return create(
+    persist(
+      (set) =&gt; ({
+        columns: [
+          { id: 'todo', title: 'To Do', cards: [] },
+          { id: 'in-progress', title: 'In Progress', cards: [] },
+          { id: 'done', title: 'Done', cards: [] },
+        ],
+        moveCard: (cardId, sourceCol, targetCol, targetIndex) =&gt;
+          set(state =&gt; {
+            const cols = [...state.columns];
+            const card = cols[sourceCol].cards.find(c =&gt; c.id === cardId);
+            cols[sourceCol].cards = cols[sourceCol].cards.filter(c =&gt; c.id !== cardId);
+            cols[targetCol].cards.splice(targetIndex, 0, card);
+            return { columns: cols };
+          }),
+      }),
+      { name: 'kanban-board' }
+    )
+  );
+}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>HTML5 Drag and Drop API with React state</li><li>Zustand with persist middleware</li><li>Reducer patterns for complex state transitions</li><li>CSS Modules for scoped styling</li><li>useRef for DOM focus management</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Realtime Chat UI over WebSocket</h3>
+<p>Build a chat interface with WebSocket connectivity, typing indicators, online presence, and message reactions.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Set up React with custom useWebSocket hook for connection, reconnection, and message parsing</li>
+<li>Implement ChatContext providing current user, active room, and WebSocket send function</li>
+<li>Build MessageList with useRef for scroll anchoring, auto-scroll on new messages, scroll-up for history</li>
+<li>Create MessageInput with typing detection (debounced onKeyPress), Enter to send, Shift+Enter for newlines</li>
+<li>Implement RoomSidebar with unread badges using useReducer for notification state</li>
+<li>Add presence system: WebSocket heartbeat, online/offline status dots, typing indicators with timeout</li>
+<li>Build message reactions: toggle emoji, optimistic update, broadcast via WebSocket</li>
+<li>Add message grouping by sender (single avatar for consecutive), timestamps, date separators</li></ol>
+<pre class="code"><code>function useWebSocket(url) {
+  const [messages, setMessages] = useState([]);
+  const [status, setStatus] = useState('disconnected');
+  const wsRef = useRef(null);
+  const reconnectTimeout = useRef(null);
+
+  const connect = useCallback(() =&gt; {
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+    ws.onopen = () =&gt; setStatus('connected');
+    ws.onclose = () =&gt; {
+      setStatus('disconnected');
+      reconnectTimeout.current = setTimeout(connect, 3000);
+    };
+    ws.onmessage = (e) =&gt; {
+      const data = JSON.parse(e.data);
+      if (data.type === 'message') setMessages(prev =&gt; [...prev, data]);
+    };
+  }, [url]);
+
+  useEffect(() =&gt; {
+    connect();
+    return () =&gt; { wsRef.current?.close(); clearTimeout(reconnectTimeout.current); };
+  }, [connect]);
+
+  const send = useCallback((data) =&gt; wsRef.current?.send(JSON.stringify(data)), []);
+  return { messages, status, send };
+}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Custom WebSocket hook with auto-reconnect</li><li>Real-time broadcasting and presence</li><li>Scroll management with auto-scroll</li><li>Optimistic updates for reactions</li><li>Typing indicators with debounce</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Analytics Dashboard with Charts and Virtualized Table</h3>
+<p>Build a dashboard with Recharts, virtualized table for 100k+ rows, real-time filters, and date range selection.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Set up with TanStack Query, Recharts, @tanstack/react-virtual, and date-fns</li>
+<li>Build DateRangePicker with react-hook-form and Zod validation for start/end dates</li>
+<li>Create MetricCard with KPI values, trend arrows, sparklines, and Suspense loading skeletons</li>
+<li>Implement ChartPanel: line (trends), bar (comparisons), pie (distributions) — all responsive</li>
+<li>Build VirtualTable with @tanstack/react-virtual: column resizing, sortable headers, row selection</li>
+<li>Create FilterBar with debounced search (useDebounce), category multi-select, status dropdown</li>
+<li>Implement useAnalyticsQuery with TanStack Query for fetching, caching, background refetch, retry</li>
+<li>Add ExportButton for CSV from table and PNG from charts with loading state</li></ol>
+<pre class="code"><code>function VirtualTable({ data, columns }) {
+  const parentRef = useRef(null);
+  const rowVirtualizer = useVirtualizer({
+    count: data.length,
+    getScrollElement: () =&gt; parentRef.current,
+    estimateSize: () =&gt; 48,
+    overscan: 20,
+  });
+  return (
+    &lt;div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}&gt;
+      &lt;div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}&gt;
+        {rowVirtualizer.getVirtualItems().map(vRow =&gt; (
+          &lt;div key={vRow.key} style={{
+            position: 'absolute', top: `${vRow.start}px`,
+            height: `${vRow.size}px`, width: '100%',
+            display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
+          }}&gt;
+            {columns.map(col =&gt; &lt;span key={col.key}&gt;{data[vRow.index][col.key]}&lt;/span&gt;)}
+          &lt;/div&gt;
+        ))}
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Virtualized table rendering for 100k+ rows</li><li>TanStack Query for server state</li><li>Recharts for responsive data visualization</li><li>Debounced search and filter patterns</li><li>Suspense-based loading skeletons</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>VDOM</td><td>Lightweight JS tree diffed against previous version for minimal DOM updates</td><td>React.createElement / JSX</td></tr>
+<tr><td>JSX</td><td>Syntax extension compiling to createElement calls</td><td>className, htmlFor, {} for expressions</td></tr>
+<tr><td>Props</td><td>Read-only data passed from parent to child</td><td>function Child({ name }) { }</td></tr>
+<tr><td>Keys</td><td>Stable identifiers for list item reconciliation</td><td>key={item.id}</td></tr>
+<tr><td>useState</td><td>State hook with setter that triggers re-render</td><td>const [val, setVal] = useState(init)</td></tr>
+<tr><td>useEffect</td><td>Side-effect hook with dependency array and cleanup</td><td>useEffect(() =&gt; {}, [deps])</td></tr>
+<tr><td>useRef</td><td>Mutable container persisting across renders without re-render</td><td>useRef(initialValue)</td></tr>
+<tr><td>useReducer</td><td>Complex state with reducer dispatch pattern</td><td>useReducer(reducer, init)</td></tr>
+<tr><td>useContext</td><td>Read values from React Context without prop drilling</td><td>useContext(MyContext)</td></tr>
+<tr><td>Custom hooks</td><td>Extract reusable stateful logic (must start with use)</td><td>function useFetch(url) { }</td></tr>
+<tr><td>Error boundaries</td><td>Catch render errors with fallback UI (class component)</td><td>getDerivedStateFromError</td></tr>
+<tr><td>Fragments</td><td>Group elements without wrapper DOM nodes</td><td>&lt;&gt;...&lt;/&gt;</td></tr>
+<tr><td>Portals</td><td>Render children into different DOM node</td><td>createPortal(children, node)</td></tr>
+<tr><td>Suspense</td><td>Declarative loading fallback for async components</td><td>&lt;Suspense fallback={...}&gt;</td></tr>
+<tr><td>useTransition</td><td>Mark state updates as low-priority for responsiveness</td><td>startTransition(() =&gt; { })</td></tr>
+<tr><td>TanStack Query</td><td>Server state caching, refetching, deduplication</td><td>useQuery({ queryKey, queryFn })</td></tr>
+<tr><td>Zustand</td><td>Lightweight global store with selectors</td><td>create((set) =&gt; ({ }))</td></tr>
+<tr><td>react-hook-form</td><td>Performance forms with uncontrolled inputs</td><td>useForm({ resolver: zodResolver })</td></tr>
+<tr><td>RTL</td><td>Component tests querying by role/text</td><td>render(), screen.getByRole()</td></tr>
+<tr><td>MSW</td><td>Network request mocking via ServiceWorker</td><td>http.get('/api', handler)</td></tr>
+<tr><td>useOptimistic</td><td>React 19 instant UI updates with rollback</td><td>useOptimistic(state, reducer)</td></tr>
+<tr><td>Lazy loading</td><td>Code split components with Suspense</td><td>lazy(() =&gt; import('./Comp'))</td></tr>
+<tr><td>useMemo</td><td>Cache expensive computation between renders</td><td>useMemo(() =&gt; compute(deps), [deps])</td></tr>
+<tr><td>useCallback</td><td>Cache function reference for memo children</td><td>useCallback(fn, [deps])</td></tr>
+<tr><td>useDeferredValue</td><td>Defers rendering of non-urgent content</td><td>useDeferredValue(value)</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="fastapi.html">&larr; FastAPI</a><a href="nextjs.html">Next.js &rarr;</a></footer>
+</body></html>

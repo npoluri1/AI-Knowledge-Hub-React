@@ -2532,7 +2532,7 @@ chapters.append({
     "id": "ai-agent-architecture",
     "num": "25",
     "title": "AI Agent Architecture — 13 Steps from Prompt to Production",
-    "icon": "\ud83e\udde0",
+    "icon": "🧠",
     "files": ["ai_agent_architecture.html"],
     "preview": "Reference 13-step architecture every production AI agent follows: Input \u2192 Safety \u2192 Understanding \u2192 Memory \u2192 Reasoning \u2192 Decision \u2192 Planning \u2192 Task Queue \u2192 Action/Tools \u2192 MCP \u2192 Result Check \u2192 Output \u2192 Monitoring. Python code for each step + a complete orchestrator class + project ideas + real-world use cases + common pitfalls.",
     "tags": ["Agents", "Architecture", "ReAct", "MCP", "Planning", "Memory", "Production", "Monitoring", "Tools"],

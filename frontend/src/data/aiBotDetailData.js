@@ -1,0 +1,19 @@
+const clean = value => String(value || '').replace(/[^A-Za-z0-9]/g, '') || 'Bot'
+
+export function getBotDetails(bot) {
+  const name = bot.name
+  const id = clean(name)
+  const channel = bot.deployment || 'cloud'
+  return {
+    purpose: `${name} is designed to support ${bot.industry || 'business'} workflows for ${bot.company || 'an organization'} in ${bot.country || 'its market'}. It receives a user request, identifies intent, retrieves approved context, and either answers, starts a workflow, or escalates to a human.`,
+    flow: ['Receive and authenticate the request', 'Classify intent and risk', 'Retrieve current business context', 'Generate or select a response', 'Apply policy and human-review gates', 'Record outcome and delivery telemetry'],
+    scenarios: [`A user asks a time-sensitive ${bot.industry || 'service'} question and the bot responds with a verified answer or routes the case to a specialist.`, `A peak event creates a queue spike; the service applies rate limits, retries safely, and reports degraded status instead of dropping requests.`, `A policy, model, or knowledge-base change is released gradually while quality, latency, cost, and escalation rate are compared with the previous version.`],
+    codeExamples: [{ title: 'Safe request router', language: 'python', code: `from dataclasses import dataclass\n\n@dataclass\nclass Reply:\n    text: str\n    needs_human: bool\n    reason: str\n\ndef route_${id.toLowerCase()}(message: str) -> Reply:\n    text = message.strip()\n    if not text:\n        raise ValueError("message is required")\n\n    high_risk = any(word in text.lower() for word in (\n        "urgent", "complaint", "medical", "legal", "fraud"\n    ))\n    if high_risk:\n        return Reply("Your request is being reviewed by a specialist.", True, "risk gate")\n    return Reply(f"${name}: request accepted", False, "standard flow")\n\nprint(route_${id.toLowerCase()}("How do I get help?"))` }, { title: 'Webhook contract', language: 'javascript', code: `export async function handle${id}(request) {\n  const payload = await request.json();\n  if (!payload.userId || !payload.message?.trim()) {\n    return Response.json({ error: 'Invalid request' }, { status: 422 });\n  }\n\n  // Verify provider signature and authorize the tenant in production.\n  const result = await queue.publish({\n    bot: '${name}', channel: '${channel}',\n    userId: payload.userId, message: payload.message.trim(),\n  });\n  return Response.json({ accepted: true, jobId: result.id });\n}` }],
+    projectIdeas: [`Build a ${name} simulator with canned intents and escalation states.`, `Create a monitoring dashboard for ${name} latency, unanswered questions, and issue frequency.`, `Add a knowledge-review workflow so domain owners approve changes before deployment.`],
+    useCases: bot.useCases || ['Customer support', 'Workflow guidance', 'Status notifications'],
+    advantages: ['Always-on access to common information and workflows.', 'Can connect a conversational interface to approved business systems.', 'Structured telemetry makes improvement and capacity planning possible.'],
+    disadvantages: ['Incorrect answers can create financial, legal, safety, or reputational harm.', 'Provider outages, rate limits, model changes, and stale data create operational risk.', 'Privacy, consent, retention, localization, and bias controls require continuous ownership.'],
+    issues: bot.issues || ['Latency under load', 'Knowledge freshness', 'Integration failures'],
+    production: ['Verify identity, authorization, webhook signatures, and tenant boundaries.', 'Use queues, idempotency keys, timeout budgets, retries, and dead-letter queues.', 'Protect PII and secrets; define retention, deletion, and regional data controls.', 'Monitor quality, fallback rate, latency, token or provider cost, and user outcomes.', 'Use staging evaluation, feature flags, canary rollout, and documented rollback.'],
+  }
+}

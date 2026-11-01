@@ -1,0 +1,2454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Agent Systems — Topologies &amp; Teams — AI-Python MasterHub</title><link rel="stylesheet" href="assets/style.css"></head>
+<body>
+<nav class="topnav"><a class="brand" href="index.html">MasterHub</a>
+<span class="crumb"><a href="index.html">Library</a> / Multi-Agent Systems — Topologies &amp; Teams</span><span class="spacer"></span>
+<a class="navlink" href="mcp.html">&larr; MCP</a> <a class="navlink" href="crewai.html">CrewAI &rarr;</a></nav>
+<header class="hero"><div class="mono">MA</div><div><h1>Multi-Agent Systems — Topologies &amp; Teams</h1>
+<p class="tagline">Designing collections of specialized AI agents that collaborate through defined communication patterns to solve tasks beyond any single agent's capability, with careful attention to cost, reliability, and emergent behavior.</p>
+<div class="chips"><span class="chip t1">Tier 1 · Foundations</span><span class="chip t2">Tier 2 · Intermediate</span><span class="chip t3">Tier 3 · Advanced</span><span class="chip t4">Tier 4 · Expert</span><span class="chip t5">Tier 5 · Projects</span></div></div></header>
+<main class="book">
+<section class="intro"><h2>How to Use This Chapter</h2><p>Single-agent systems hit limits when tasks require multiple specializations, perspectives, or sequential transformations. Multi-agent systems decompose complex work across collaborating agents. This chapter covers topologies, communication patterns, coordination mechanisms, and the trade-offs of adding more agents.</p>
+<table class="tbl"><tr><th>Stage</th><th>Focus</th><th>Outcome</td></tr>
+<tr><td>Tier 1</td><td>Single-agent limits, role specialization, supervisor, pipeline, group chat, topology basics</td><td>You can design basic multi-agent architectures with two or more agents</td></tr>
+<tr><td>Tier 2</td><td>Handoff protocols, hierarchical delegation, debate, voting, peer review, async fan-out</td><td>You can implement complex multi-agent coordination patterns</td></tr>
+<tr><td>Tier 3</td><td>Emergent behavior, negotiation protocols, trust scores, scaling laws, verification gates</td><td>You can reason about and steer multi-agent system behavior</td></tr>
+<tr><td>Tier 4</td><td>BDI models, game theory, Byzantine tolerance, swarm intelligence, organizational design</td><td>You can apply formal frameworks to multi-agent system design</td></tr>
+<tr><td>Tier 5</td><td>Three end-to-end projects combining all tiers</td><td>You have production-ready multi-agent system implementations</td></tr>
+</table></section>
+
+<section><h2 class="part p1">Part I · Foundations<small>Tier 1 — Limits, roles, supervisor, pipeline, topology, termination</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">1</span>Single-Agent Limits: Context, Focus, and Reliability</h3>
+<p><strong>What &amp; why.</strong> A single agent handling everything suffers from context overload (too many tools and instructions), role confusion (being both researcher and writer), and reliability degradation (more steps = more failure points). Multi-agent systems address these by distributing work across specialized agents, each with a narrow scope and focused context.</p>
+<pre class="code"><code># Single agent: overloaded with responsibilities
+single_agent_prompt = """
+You are a researcher, writer, editor, fact-checker, and SEO specialist.
+Analyze the topic, find sources, write the article, edit it,
+check facts, optimize for SEO, and format the final output.
+You have 15 tools available.
+"""
+
+# Multi-agent: specialized roles
+researcher_prompt = """
+You are a research specialist. Find and summarize authoritative sources.
+You have 3 tools: web_search, academic_search, internal_docs.
+Output: structured research brief with citations.
+"""
+
+writer_prompt = """
+You are a technical writer. Transform research briefs into clear articles.
+You have 1 tool: format_article.
+Input: research brief. Output: polished article draft.
+"""
+
+editor_prompt = """
+You are an editor. Review articles for clarity, accuracy, and flow.
+You have 1 tool: suggest_edits.
+Input: article draft. Output: edited version with change notes.
+"""</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-agent decomposition works best when tasks have natural boundaries (research then write then edit) or when different specializations are needed (data analysis, visualization, narrative).</div>
+<div class="callout hood"><span>Under the hood</span>Each agent runs its own LLM call with a focused prompt and limited tools. This reduces context size per call, improves tool selection accuracy, and enables independent failure handling.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">2</span>Roles and Specialization: Researcher, Writer, Critic</h3>
+<p><strong>What &amp; why.</strong> Role specialization assigns each agent a distinct persona with specific capabilities, constraints, and quality standards. A researcher gathers facts, a writer composes prose, and a critic evaluates quality. Each agent's prompt is optimized for its role, with domain-specific instructions and evaluation criteria.</p>
+<pre class="code"><code>from dataclasses import dataclass
+
+@dataclass
+class AgentRole:
+    name: str
+    system_prompt: str
+    tools: list[str]
+    max_tokens: int
+    temperature: float
+
+ROLES = {
+    "researcher": AgentRole(
+        name="Research Specialist",
+        system_prompt="You gather facts from authoritative sources. "
+                      "Always cite sources. Never speculate. "
+                      "Output structured research briefs.",
+        tools=["web_search", "academic_search"],
+        max_tokens=2000,
+        temperature=0.1
+    ),
+    "writer": AgentRole(
+        name="Technical Writer",
+        system_prompt="You transform research into clear, engaging prose. "
+                      "Follow the house style guide. Use active voice. "
+                      "Break complex ideas into digestible paragraphs.",
+        tools=["format_check", "word_count"],
+        max_tokens=4000,
+        temperature=0.7
+    ),
+    "critic": AgentRole(
+        name="Quality Critic",
+        system_prompt="You evaluate content for accuracy, clarity, and completeness. "
+                      "Identify logical gaps, unsupported claims, and unclear passages. "
+                      "Provide specific, actionable feedback.",
+        tools=["fact_check", "plagiarism_scan"],
+        max_tokens=1500,
+        temperature=0.3
+    )
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Role specialization improves quality because each agent's entire context is dedicated to one task. A researcher's context is full of sources, not writing guidelines. A writer's context is full of prose, not search results.</div>
+<div class="callout hood"><span>Under the hood</span>Each role's system prompt is carefully crafted with domain-specific instructions, constraints, and evaluation criteria. Temperature is tuned per role: low for research (factual), medium for writing (creative), medium-low for critique (precise).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">3</span>Supervisor Pattern: Central Router for Task Distribution</h3>
+<p><strong>What &amp; why.</strong> The supervisor pattern places a central agent that receives all tasks, analyzes them, and routes to the appropriate specialist agent. The supervisor decides which agent handles each subtask, monitors progress, and assembles the final result. It's the simplest multi-agent topology.</p>
+<pre class="code"><code>from langgraph.graph import StateGraph, MessagesState
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="gpt-4o")
+
+def supervisor(state: MessagesState):
+    """Central router that decides which agent handles the task."""
+    response = llm.invoke([
+        {"role": "system", "content": """You are a supervisor. Route tasks:
+        - For research questions: say "route to researcher"
+        - For writing tasks: say "route to writer"
+        - For review/feedback: say "route to critic"
+        - For complete: say "done" """},
+        *state["messages"]
+    ])
+    return {"messages": [response]}
+
+def researcher(state: MessagesState):
+    """Handles research tasks."""
+    response = llm.invoke([
+        {"role": "system", "content": "You are a research specialist. "
+         "Find and summarize authoritative information."},
+        *state["messages"]
+    ])
+    return {"messages": [response]}
+
+def writer(state: MessagesState):
+    """Handles writing tasks."""
+    response = llm.invoke([
+        {"role": "system", "content": "You are a writer. "
+         "Transform inputs into clear, engaging prose."},
+        *state["messages"]
+    ])
+    return {"messages": [response]}
+
+# Build the graph
+graph = StateGraph(MessagesState)
+graph.add_node("supervisor", supervisor)
+graph.add_node("researcher", researcher)
+graph.add_node("writer", writer)
+graph.set_entry_point("supervisor")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The supervisor pattern is the starting point for multi-agent systems. It's simple to implement and debug. The supervisor makes all routing decisions, making the system's behavior predictable.</div>
+<div class="callout hood"><span>Under the hood</span>The supervisor is itself an LLM call. It parses the task and returns a routing decision. More sophisticated supervisors maintain a task queue and can split complex tasks into subtasks.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">4</span>Sequential Pipeline: Handoffs Between Agents</h3>
+<p><strong>What &amp; why.</strong> A sequential pipeline passes output from one agent directly to the next. Agent A produces a result, which becomes the input for Agent B, whose output feeds Agent C. This is the simplest coordination pattern: no shared state, no routing decisions, just linear flow.</p>
+<pre class="code"><code>class SequentialPipeline:
+    def __init__(self, agents: list):
+        self.agents = agents
+
+    async def run(self, initial_input: str) -> str:
+        """Run agents in sequence, passing output to next."""
+        current_input = initial_input
+        for agent in self.agents:
+            current_input = await agent.process(current_input)
+            print(f"[{agent.name}] -> {current_input[:100]}...")
+        return current_input
+
+# Pipeline: research -> write -> edit -> format
+pipeline = SequentialPipeline([
+    Agent(name="Researcher", prompt="Gather facts on: {input}"),
+    Agent(name="Writer", prompt="Write article from: {input}"),
+    Agent(name="Editor", prompt="Edit for quality: {input}"),
+    Agent(name="Formatter", prompt="Format as blog post: {input}")
+])
+
+result = await pipeline.run("The impact of AI on healthcare")
+
+# Flow: "The impact of AI on healthcare"
+#   -> Researcher: research brief with sources
+#   -> Writer: article draft
+#   -> Editor: polished article with corrections
+#   -> Formatter: HTML blog post</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Pipelines are ideal for content production (research-write-edit-publish), data processing (extract-transform-load), and any workflow with clear sequential stages.</div>
+<div class="callout hood"><span>Under the hood</span>Pipelines are deterministic: the same input always follows the same path. This makes them easy to debug and test. Each agent sees only the output of the previous agent, not the full history.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">5</span>Group Chat Basics: Broadcast and Collect</h3>
+<p><strong>What &amp; why.</strong> Group chat broadcasts a message to all agents and collects their responses. Each agent contributes from its specialty. The supervisor or a coordinator aggregates responses. This is useful for brainstorming, where multiple perspectives are valuable simultaneously.</p>
+<pre class="code"><code>class GroupChat:
+    def __init__(self, agents: list):
+        self.agents = agents
+
+    async def discuss(self, topic: str) -> dict:
+        """Broadcast topic to all agents, collect responses."""
+        responses = {}
+        for agent in self.agents:
+            response = await agent.process(
+                f"Topic: {topic}\n\nProvide your perspective as {agent.role}."
+            )
+            responses[agent.name] = response
+
+        # Aggregate responses
+        return {
+            "topic": topic,
+            "perspectives": responses,
+            "consensus": self._find_consensus(responses),
+            "disagreements": self._find_disagreements(responses)
+        }
+
+    def _find_consensus(self, responses: dict) -> list[str]:
+        """Find points where all agents agree."""
+        # Compare response themes for common ground
+        pass
+
+    def _find_disagreements(self, responses: dict) -> list[str]:
+        """Find points where agents disagree."""
+        # Identify conflicting recommendations
+        pass
+
+# Group discussion
+chat = GroupChat([
+    Agent(name="Cost Analyst", role="financial perspective"),
+    Agent(name="Engineer", role="technical feasibility"),
+    Agent(name="PM", role="user value and timeline"),
+    Agent(name="Legal", role="compliance and risk")
+])
+
+result = await chat.discuss("Should we build a custom LLM?")
+# Each agent provides their perspective
+# Aggregator identifies consensus and disagreements</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Group chat is valuable for decision-making, brainstorming, and review processes where multiple expert perspectives improve the outcome.</div>
+<div class="callout hood"><span>Under the hood</span>Group chat agents run in parallel (async) for efficiency. The aggregator uses LLM-based comparison to identify agreements and disagreements across responses.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">6</span>Shared Task List: The Blackboard Pattern</h3>
+<p><strong>What &amp; why.</strong> The blackboard pattern uses a shared data structure (the blackboard) that all agents can read from and write to. Agents post tasks, results, and status updates to the blackboard. Other agents monitor it and pick up tasks they can handle. This decouples agents from each other.</p>
+<pre class="code"><code>import asyncio
+from dataclasses import dataclass, field
+
+@dataclass
+class Blackboard:
+    tasks: list[dict] = field(default_factory=list)
+    results: list[dict] = field(default_factory=list)
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+    async def post_task(self, task: dict):
+        async with self.lock:
+            self.tasks.append(task)
+
+    async def post_result(self, result: dict):
+        async with self.lock:
+            self.results.append(result)
+
+    async def get_pending_tasks(self) -> list[dict]:
+        async with self.lock:
+            return [t for t in self.tasks if t["status"] == "pending"]
+
+    async def claim_task(self, task_id: str, agent_name: str) -> bool:
+        async with self.lock:
+            for task in self.tasks:
+                if task["id"] == task_id and task["status"] == "pending":
+                    task["status"] = "claimed"
+                    task["claimed_by"] = agent_name
+                    return True
+            return False
+
+# Agent loop
+async def agent_worker(agent, blackboard):
+    while True:
+        tasks = await blackboard.get_pending_tasks()
+        for task in tasks:
+            if agent.can_handle(task["type"]):
+                if await blackboard.claim_task(task["id"], agent.name):
+                    result = await agent.process(task["content"])
+                    await blackboard.post_result({
+                        "task_id": task["id"],
+                        "agent": agent.name,
+                        "result": result
+                    })
+        await asyncio.sleep(1)  # poll interval</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The blackboard pattern is ideal for dynamic task allocation where tasks have different requirements and agents have different capabilities. It naturally load-balances across agents.</div>
+<div class="callout hood"><span>Under the hood</span>The blackboard is a shared state with locking for concurrency. Agents poll for tasks, claim them atomically, and post results. The pattern decouples task creation from task execution.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">7</span>Message Envelope: from, to, content</h3>
+<p><strong>What &amp; why.</strong> The message envelope is the standard communication format between agents. It contains who sent it (from), who receives it (to), the content, metadata (timestamp, correlation ID, priority), and optionally structured data. Standardizing the envelope ensures all agents can interoperate regardless of implementation.</p>
+<pre class="code"><code>from dataclasses import dataclass, field
+from datetime import datetime
+import uuid
+
+@dataclass
+class MessageEnvelope:
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    from_agent: str = ""
+    to_agent: str = ""
+    content: str = ""
+    message_type: str = "task"  # task, result, feedback, system
+    correlation_id: str = ""  # groups related messages
+    priority: int = 0  # higher = more urgent
+    timestamp: datetime = field(default_factory=datetime.now)
+    metadata: dict = field(default_factory=dict)
+
+    def create_reply(self, content: str) -> "MessageEnvelope":
+        """Create a reply message maintaining correlation."""
+        return MessageEnvelope(
+            from_agent=self.to_agent,
+            to_agent=self.from_agent,
+            content=content,
+            message_type="result",
+            correlation_id=self.correlation_id,
+            metadata={"reply_to": self.id}
+        )
+
+# Usage
+task = MessageEnvelope(
+    from_agent="supervisor",
+    to_agent="researcher",
+    content="Research the impact of MCP on enterprise tooling",
+    message_type="task",
+    priority=1
+)
+
+result = task.create_reply(
+    content="MCP reduces integration complexity from MxN to M+N..."
+)
+# result.correlation_id == task.correlation_id
+# result.from_agent == "researcher"
+# result.to_agent == "supervisor"</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Standard message envelopes enable tracing, debugging, and logging in multi-agent systems. The correlation ID groups all messages related to one task across multiple agents.</div>
+<div class="callout hood"><span>Under the hood</span>The envelope pattern is similar to enterprise messaging (JMS, AMQP). It provides a uniform interface for agent communication regardless of the underlying transport.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">8</span>Topology: Star vs. Chain vs. Mesh</h3>
+<p><strong>What &amp; why.</strong> Agent topology defines how agents are connected. Star topology has one coordinator connected to all workers. Chain topology passes work linearly. Mesh topology connects all agents to all others. Each topology has trade-offs in complexity, fault tolerance, and communication overhead.</p>
+<pre class="code"><code># Topology definitions and trade-offs
+
+topologies = {
+    "star": {
+        "description": "One coordinator, N workers",
+        "communication": "Coordinator <-> Worker (hub-spoke)",
+        "pros": ["Simple routing", "Centralized control", "Easy debugging"],
+        "cons": ["Coordinator is SPOF", "Coordinator is bottleneck"],
+        "best_for": "Task routing, small teams (< 5 agents)"
+    },
+    "chain": {
+        "description": "Linear pipeline A -> B -> C -> D",
+        "communication": "Each agent talks only to next/prev",
+        "pros": ["Simple flow", "Clear responsibility", "Easy to reason about"],
+        "cons": ["Single point of failure per link", "No parallelism"],
+        "best_for": "Sequential processing, content pipelines"
+    },
+    "mesh": {
+        "description": "All agents connected to all others",
+        "communication": "Any agent can message any other",
+        "pros": ["Maximum flexibility", "No SPOF", "Parallel collaboration"],
+        "cons": ["Complex routing", "Message explosion", "Hard to debug"],
+        "best_for": "Debate, brainstorming, collaborative problem-solving"
+    },
+    "hierarchical": {
+        "description": "Tree structure: manager -> team leads -> workers",
+        "communication": "Up and down the tree",
+        "pros": ["Scalable", "Clear delegation", "Natural org alignment"],
+        "cons": ["Manager bottleneck", "Cross-team coordination hard"],
+        "best_for": "Large teams, complex projects with sub-components"
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Start with star topology for simplicity. Move to chain for sequential workflows. Use mesh sparingly (communication overhead grows quadratically). Hierarchical for large-scale systems.</div>
+<div class="callout hood"><span>Under the hood</span>Most production systems combine topologies: a hierarchical structure where each team uses a star or chain internally. The choice affects message routing, fault tolerance, and debugging complexity.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">9</span>Demo: Two-Agent Translator and Reviewer Loop</h3>
+<p><strong>What &amp; why.</strong> A minimal multi-agent system with two agents: a translator that converts text between languages, and a reviewer that checks translation quality. They loop until the reviewer approves the translation. This demonstrates the core patterns: role specialization, message passing, termination conditions, and quality feedback.</p>
+<pre class="code"><code>from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="gpt-4o")
+
+def translator(text: str, feedback: str = "") -> str:
+    """Translate English to French, incorporating reviewer feedback."""
+    prompt = f"""You are an expert French translator.
+Translate the following English text to French.
+{f"Incorporate this feedback: {feedback}" if feedback else ""}
+
+English: {text}
+French translation:"""
+    return llm.invoke(prompt).content
+
+def reviewer(english: str, french: str) -> tuple[bool, str]:
+    """Review translation quality. Returns (approved, feedback)."""
+    prompt = f"""You are a French translation quality reviewer.
+Evaluate this translation:
+
+English: {english}
+French: {french}
+
+Is the translation accurate, natural, and culturally appropriate?
+Reply with APPROVED if good, or REVISION_NEEDED with specific feedback."""
+    response = llm.invoke(prompt).content
+    approved = "APPROVED" in response.upper()
+    return approved, response
+
+# Translation loop
+def translate_with_review(text: str, max_iterations: int = 3) -> str:
+    """Translate with iterative review."""
+    feedback = ""
+    for i in range(max_iterations):
+        french = translator(text, feedback)
+        approved, feedback = reviewer(text, french)
+        print(f"Iteration {i+1}: {'APPROVED' if approved else 'NEEDS REVISION'}")
+        if approved:
+            return french
+    print("Max iterations reached, returning best attempt")
+    return french
+
+result = translate_with_review("The quick brown fox jumps over the lazy dog.")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>The translator-reviewer loop is a template for any quality improvement workflow: generate, evaluate, refine. It works for code review, content editing, and design iteration.</div>
+<div class="callout hood"><span>Under the hood</span>The loop demonstrates key multi-agent concepts: specialized agents, structured feedback, termination conditions, and bounded iteration. The max_iterations prevents infinite loops.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">10</span>Cost Multiplication Awareness</h3>
+<p><strong>What &amp; why.</strong> Multi-agent systems multiply costs. A pipeline of 3 agents means 3x the LLM calls. A debate between 5 agents means 5x per round. Before adding agents, calculate the cost multiplier and determine if the quality improvement justifies the expense. Profile real costs before committing to an architecture.</p>
+<pre class="code"><code># Cost multiplier analysis
+def estimate_multiagent_cost(
+    task_count: int,
+    agents_per_task: float,
+    rounds_per_task: float,
+    avg_tokens_per_call: int,
+    cost_per_1k_tokens: float
+) -> dict:
+    """Estimate total cost of a multi-agent system."""
+    total_calls = task_count * agents_per_task * rounds_per_task
+    total_tokens = total_calls * avg_tokens_per_call
+    total_cost = (total_tokens / 1000) * cost_per_1k_tokens
+
+    single_agent_calls = task_count
+    single_agent_tokens = single_agent_calls * avg_tokens_per_call * 3  # 3x for retries
+    single_agent_cost = (single_agent_tokens / 1000) * cost_per_1k_tokens
+
+    return {
+        "multi_agent": {
+            "total_calls": total_calls,
+            "total_tokens": total_tokens,
+            "total_cost": total_cost
+        },
+        "single_agent": {
+            "total_calls": single_agent_calls,
+            "total_tokens": single_agent_tokens,
+            "total_cost": single_agent_cost
+        },
+        "cost_multiplier": total_cost / single_agent_cost if single_agent_cost > 0 else float("inf")
+    }
+
+# Example: 100 tasks, 3 agents, 2 rounds
+# Multi-agent: 600 calls, ~$12.00
+# Single-agent: 300 calls, ~$6.00
+# Cost multiplier: 2.0x
+# Question: Is 2x cost worth the quality improvement?</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Cost multiplication is the most overlooked multi-agent trade-off. Always calculate cost multiplier before committing to an architecture. Start with fewer agents and add only when quality justifies cost.</div>
+<div class="callout hood"><span>Under the hood</span>The cost multiplier depends on agents per task and rounds of interaction. A 2-agent pipeline is 2x cost. A 5-agent debate with 3 rounds is 15x cost. Profile actual token usage to get accurate estimates.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">11</span>Termination: Votes and Done Flags</h3>
+<p><strong>What &amp; why.</strong> Multi-agent systems need clear termination conditions. Without them, agents can loop indefinitely. Common patterns: done flags (agent signals completion), majority vote (most agents agree to stop), max iterations (hard limit), and quality thresholds (stop when quality score exceeds threshold).</p>
+<pre class="code"><code>class MultiAgentOrchestrator:
+    def __init__(self, agents: list, max_rounds: int = 5):
+        self.agents = agents
+        self.max_rounds = max_rounds
+
+    async def run(self, task: str) -> dict:
+        context = {"task": task, "round": 0, "done_votes": 0}
+
+        for round_num in range(self.max_rounds):
+            context["round"] = round_num
+            votes = []
+
+            for agent in self.agents:
+                result = await agent.process(task, context)
+                votes.append(result.get("vote_done", False))
+                context["results"] = context.get("results", [])
+                context["results"].append(result)
+
+            # Check termination conditions
+            if all(votes):
+                return {"status": "consensus", "result": context["results"]}
+
+            done_count = sum(votes)
+            if done_count > len(self.agents) / 2:
+                return {"status": "majority", "result": context["results"]}
+
+        return {"status": "max_rounds", "result": context["results"]}
+
+# Termination conditions:
+# 1. All agents vote done (unanimous)
+# 2. Majority vote done
+# 3. Max rounds reached (hard limit)
+# 4. Quality score above threshold
+# 5. No improvement between rounds</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Termination conditions prevent runaway costs and infinite loops. Always set a max_rounds as a safety net, even with other termination conditions.</div>
+<div class="callout hood"><span>Under the hood</span>The orchestrator collects termination votes from each agent. Agents vote "done" when they believe the task is complete or no further improvement is possible. The orchestrator decides based on the voting strategy.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">12</span>Common Pitfalls: Role Bleed and Coordination Failures</h3>
+<p><strong>What &amp; why.</strong> Role bleed occurs when an agent takes on responsibilities outside its assigned role (e.g., the researcher starts writing prose). Coordination failures include duplicate work (two agents doing the same task), missed handoffs (output not passed to next agent), and circular dependencies (agents waiting for each other).</p>
+<pre class="code"><code># Common pitfalls and mitigations
+
+pitfalls = {
+    "role_bleed": {
+        "description": "Agent performs actions outside its role",
+        "example": "Researcher starts writing the article instead of gathering facts",
+        "mitigation": "Explicit role boundaries in system prompt. "
+                     "Constrained tool access. Output format validation."
+    },
+    "duplicate_work": {
+        "description": "Multiple agents perform the same task",
+        "example": "Two researcher agents both search for the same information",
+        "mitigation": "Task ownership tracking. Blackboard pattern with claiming. "
+                     "Supervisor deduplication."
+    },
+    "missed_handoff": {
+        "description": "Output not passed to next agent in pipeline",
+        "example": "Writer receives empty input because researcher output was lost",
+        "mitigation": "Structured message envelopes with correlation IDs. "
+                     "Explicit handoff confirmation."
+    },
+    "circular_dependency": {
+        "description": "Agents wait for each other indefinitely",
+        "example": "Agent A waits for Agent B, Agent B waits for Agent A",
+        "mitigation": "Deadlock detection. Timeout on all waits. "
+                     "Dependency graph analysis before execution."
+    },
+    "context_loss": {
+        "description": "Information lost between agent handoffs",
+        "example": "Writer doesn't see the original research sources",
+        "mitigation": "Shared context objects. Blackboard pattern. "
+                     "Attach source materials to task envelopes."
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>These pitfalls are the most common causes of multi-agent system failures. Address them proactively in the architecture rather than debugging after deployment.</div>
+<div class="callout hood"><span>Under the hood</span>Role bleed is the most common issue. It happens when the agent's context contains information about other roles. Constrained tool access and explicit role boundaries in the system prompt prevent it.</div>
+</article>
+
+</section>
+<section><h2 class="part p2">Part II · Intermediate<small>Tier 2 — Handoff, delegation, debate, voting, peer review, async patterns</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">13</span>Handoff Protocol: Structured Transfer Payload</h3>
+<p><strong>What &amp; why.</strong> A structured handoff protocol ensures that when work passes between agents, all necessary context travels with it. The handoff payload includes the original task, accumulated work, decisions made, constraints, and what the next agent should focus on. This prevents context loss at handoff boundaries.</p>
+<pre class="code"><code>from dataclasses import dataclass, field
+
+@dataclass
+class HandoffPayload:
+    task_id: str
+    original_task: str
+    current_output: str
+    completed_steps: list[str]
+    pending_steps: list[str]
+    decisions: list[dict]
+    constraints: list[str]
+    context: dict = field(default_factory=dict)
+
+    def for_next_agent(self, agent_role: str) -> str:
+        """Format handoff for the next agent."""
+        return f"""HANDOFF from {self.completed_steps[-1] if self.completed_steps else 'start'}
+
+Original task: {self.original_task}
+
+Current work:
+{self.current_output}
+
+What you should focus on as {agent_role}:
+{chr(10).join(f'- {step}' for step in self.pending_steps[:1])}
+
+Constraints:
+{chr(10).join(f'- {c}' for c in self.constraints)}
+
+Decisions made:
+{chr(10).join(f'- {d["decision"]}: {d["rationale"]}' for d in self.decisions)}
+"""
+
+# Pipeline with structured handoffs
+payload = HandoffPayload(
+    task_id="task-001",
+    original_task="Write a technical blog post about MCP",
+    current_output="",
+    completed_steps=[],
+    pending_steps=["Research MCP protocol", "Write draft", "Edit and review"],
+    decisions=[],
+    constraints=["Max 2000 words", "Include code examples", "Target: developers"]
+)
+
+# Researcher receives:
+research_handoff = payload.for_next_agent("Research Specialist")
+# Researcher produces output, creates new payload for writer
+payload.completed_steps.append("Research MCP protocol")
+payload.current_output = "Research brief: MCP is..."
+payload.pending_steps = ["Write draft", "Edit and review"]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Structured handoffs prevent the most common multi-agent failure: the next agent doesn't have enough context. The payload is self-contained; the next agent doesn't need to query previous agents.</div>
+<div class="callout hood"><span>Under the hood</span>The handoff payload is a structured contract between agents. It includes what was done, what's pending, and what constraints apply. This makes handoffs explicit and debuggable.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">14</span>Hierarchical Manager-Workers: Delegation Trees</h3>
+<p><strong>What &amp; why.</strong> Hierarchical systems mirror human organizations: a manager agent decomposes tasks and delegates to worker agents. Workers report results back to the manager, who aggregates and decides next steps. This scales better than flat topologies because the manager handles coordination, not the workers.</p>
+<pre class="code"><code>class ManagerAgent:
+    def __init__(self, workers: dict):
+        self.workers = workers  # role -> agent
+        self.llm = ChatOpenAI(model="gpt-4o")
+
+    async def decompose(self, task: str) -> list[dict]:
+        """Break task into subtasks with role assignments."""
+        response = await self.llm.ainvoke([{
+            "role": "system",
+            "content": f"""Decpose this task into subtasks.
+Available workers: {list(self.workers.keys())}
+Return JSON array of: {{"role": "...", "subtask": "...", "depends_on": [...]}}"""
+        }, {"role": "user", "content": task}])
+        return parse_json(response.content)
+
+    async def coordinate(self, task: str) -> str:
+        """Decompose, delegate, aggregate."""
+        subtasks = await self.decompose(task)
+        results = {}
+
+        # Execute independent tasks in parallel
+        independent = [s for s in subtasks if not s.get("depends_on")]
+        parallel_results = await asyncio.gather(*[
+            self.workers[s["role"]].process(s["subtask"])
+            for s in independent
+        ])
+        for s, r in zip(independent, parallel_results):
+            results[s["role"]] = r
+
+        # Execute dependent tasks sequentially
+        dependent = [s for s in subtasks if s.get("depends_on")]
+        for s in dependent:
+            context = {dep: results[dep] for dep in s["depends_on"]}
+            results[s["role"]] = await self.workers[s["role"]].process(
+                s["subtask"], context=context
+            )
+
+        # Aggregate results
+        return await self.aggregate(results)
+
+    async def aggregate(self, results: dict) -> str:
+        """Combine worker results into final output."""
+        response = await self.llm.ainvoke([{
+            "role": "system",
+            "content": "Combine these results into a coherent final output."
+        }, {"role": "user", "content": str(results)}])
+        return response.content</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Manager-worker hierarchies are the standard for complex projects. The manager handles planning and coordination; workers focus on execution. This scales to many workers without coordination complexity per worker.</div>
+<div class="callout hood"><span>Under the hood</strong>The manager uses LLM-based planning to decompose tasks and resolve dependencies. Parallel execution of independent subtasks reduces total latency. The manager aggregates results into a coherent output.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">15</span>Debate Pattern: Pro/Con Rounds Then Judge</h3>
+<p><strong>What &amp; why.</strong> The debate pattern has agents argue opposing positions for several rounds, then a judge agent evaluates the arguments and produces a final decision. This forces consideration of multiple perspectives and often produces more nuanced, well-reasoned conclusions than a single-pass approach.</p>
+<pre class="code"><code>async def debate_rounds(
+    topic: str,
+    pro_agent, con_agent, judge_agent,
+    num_rounds: int = 3
+) -> str:
+    """Run a structured debate and get a judged conclusion."""
+    pro_arguments = []
+    con_arguments = []
+
+    for round_num in range(num_rounds):
+        # Pro agent argues
+        pro_context = f"""Topic: {topic}
+Round {round_num + 1} of {num_rounds}.
+Previous con arguments: {con_arguments}
+Make your strongest argument FOR this topic."""
+        pro = await pro_agent.process(pro_context)
+        pro_arguments.append(pro)
+
+        # Con agent rebuts
+        con_context = f"""Topic: {topic}
+Round {round_num + 1} of {num_rounds}.
+Previous pro arguments: {pro_arguments}
+Make your strongest argument AGAINST this topic."""
+        con = await con_agent.process(con_context)
+        con_arguments.append(con)
+
+    # Judge evaluates
+    judgment_context = f"""Topic: {topic}
+
+PRO arguments (all rounds):
+{chr(10).join(f'Round {i+1}: {a}' for i, a in enumerate(pro_arguments))}
+
+CON arguments (all rounds):
+{chr(10).join(f'Round {i+1}: {a}' for i, a in enumerate(con_arguments))}
+
+Evaluate both sides. Consider:
+1. Which arguments are strongest?
+2. What evidence supports each side?
+3. What are the risks of each position?
+
+Provide a balanced, reasoned conclusion."""
+    return await judge_agent.process(judgment_context)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Debate is valuable for high-stakes decisions where groupthink is a risk. It forces consideration of counterarguments and produces more robust conclusions than simple voting.</div>
+<div class="callout hood"><span>Under the hood</span>Each round builds on previous arguments, allowing agents to address specific points. The judge has access to all rounds, providing comprehensive context for the final decision.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">16</span>Voting Ensemble: Majority and Self-Consistency Across Personas</h3>
+<p><strong>What &amp; why.</strong> Voting ensembles run the same task through multiple agents (or the same agent with different personas/temperatures) and take the majority answer. Self-consistency checks that the same reasoning path is followed multiple times. This improves reliability for factual questions and reduces hallucination.</p>
+<pre class="code"><code>async def voting_ensemble(
+    task: str,
+    agents: list,
+    vote_threshold: float = 0.6
+) -> dict:
+    """Run task through multiple agents, take majority vote."""
+    responses = []
+    for agent in agents:
+        response = await agent.process(task)
+        responses.append(response)
+
+    # Extract final answers
+    answers = [extract_answer(r) for r in responses]
+
+    # Count votes per answer
+    vote_counts = {}
+    for answer in answers:
+        normalized = normalize_answer(answer)
+        vote_counts[normalized] = vote_counts.get(normalized, 0) + 1
+
+    # Find majority
+    total = len(answers)
+    for answer, count in vote_counts.items():
+        if count / total >= vote_threshold:
+            return {
+                "answer": answer,
+                "confidence": count / total,
+                "votes": vote_counts,
+                "individual_responses": responses
+            }
+
+    # No majority: return most common with low confidence
+    best = max(vote_counts, key=vote_counts.get)
+    return {
+        "answer": best,
+        "confidence": vote_counts[best] / total,
+        "votes": vote_counts,
+        "warning": "No clear majority"
+    }
+
+# Usage: 5 agents with different personas
+result = await voting_ensemble(
+    "Is Python better than Rust for web servers?",
+    agents=[
+        Agent(persona="performance-focused", temperature=0.3),
+        Agent(persona="developer-experience", temperature=0.5),
+        Agent(persona="security-focused", temperature=0.3),
+        Agent(persona="startup-founder", temperature=0.7),
+        Agent(persona="enterprise-architect", temperature=0.3)
+    ]
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Voting ensembles are effective for factual questions, classification tasks, and decision-making. They reduce individual agent bias and improve reliability through redundancy.</div>
+<div class="callout hood"><span>Under the hood</span>Self-consistency uses temperature variation to generate diverse reasoning paths. When multiple paths converge on the same answer, confidence is high. Divergence indicates uncertainty.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">17</span>Market/Negotiation: Bidding for Tasks</h3>
+<p><strong>What &amp; why.</strong> Market-based coordination has agents bid on tasks based on their capabilities, cost, and availability. The supervisor accepts the best bid. This is more efficient than fixed assignment because agents self-select tasks they're best at, and the system adapts to agent availability.</p>
+<pre class="code"><code>@dataclass
+class TaskBid:
+    agent_name: str
+    task_id: str
+    estimated_cost: float
+    estimated_quality: float  # 0-1, agent's self-assessed quality
+    confidence: float  # 0-1, how confident in estimate
+    completion_time: int  # estimated seconds
+
+class MarketOrchestrator:
+    def __init__(self, agents: list):
+        self.agents = agents
+
+    async def auction(self, task: str, task_type: str) -> str:
+        """Collect bids and select best agent."""
+        bids = []
+        for agent in self.agents:
+            if agent.can_handle(task_type):
+                bid = await agent.bid_on_task(task)
+                bids.append(bid)
+
+        if not bids:
+            return "No agent available for this task"
+
+        # Score bids: quality * confidence / cost
+        scored = [
+            (bid, bid.estimated_quality * bid.confidence / max(bid.estimated_cost, 0.001))
+            for bid in bids
+        ]
+        scored.sort(key=lambda x: x[1], reverse=True)
+
+        # Winner executes
+        winner = scored[0][0]
+        result = await self.get_agent(winner.agent_name).process(task)
+        return result
+
+    def get_agent(self, name: str):
+        return next(a for a in self.agents if a.name == name)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Market-based coordination works when agents have different cost-quality profiles. It naturally allocates tasks to the most cost-effective agent.</div>
+<div class="callout hood"><span>Under the hood</span>Agents bid with their estimated cost, quality, and confidence. The scoring function balances quality against cost. This creates competition that drives efficiency.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">18</span>Peer Review Cycles: Revise and Resubmit</h3>
+<p><strong>What &amp; why.</strong> Peer review has agents evaluate each other's work, provide feedback, and revise based on that feedback. This iterative cycle improves quality through multiple perspectives. Unlike the debate pattern, peer review focuses on improving a single artifact rather than arguing positions.</p>
+<pre class="code"><code>async def peer_review_cycle(
+    artifact: str,
+    author_agent,
+    reviewer_agents: list,
+    max_cycles: int = 3,
+    approval_threshold: int = 2  # minimum approvals needed
+) -> str:
+    """Iterative peer review with revision cycles."""
+    current = artifact
+
+    for cycle in range(max_cycles):
+        reviews = []
+        for reviewer in reviewer_agents:
+            review = await reviewer.process(
+                f"Review this work and provide specific feedback:\n\n{current}"
+            )
+            reviews.append(review)
+
+        # Count approvals
+        approvals = sum(1 for r in reviews if "APPROVED" in r.upper())
+
+        if approvals >= approval_threshold:
+            return current  # Sufficient approvals
+
+        # Author revises based on feedback
+        feedback_summary = "\n\n".join(
+            f"Reviewer feedback:\n{r}" for r in reviews
+        )
+        current = await author_agent.process(
+            f"Revise your work based on this feedback:\n\n{feedback_summary}"
+        )
+
+    return current  # Max cycles reached
+
+# Content production with peer review
+result = await peer_review_cycle(
+    article_draft,
+    author_agent=writer,
+    reviewer_agents=[editor, fact_checker, domain_expert],
+    max_cycles=3,
+    approval_threshold=2
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Peer review cycles improve quality for content, code, and design artifacts. The approval threshold prevents endless revision loops while ensuring quality standards are met.</div>
+<div class="callout hood"><span>Under the hood</span>Each review cycle provides structured feedback. The author agent incorporates feedback into revisions. The cycle continues until quality standards are met or max cycles are reached.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">19</span>Shared Memory vs. Message Passing</h3>
+<p><strong>What &amp; why.</strong> Multi-agent systems coordinate through either shared memory (all agents read/write a common store) or message passing (agents communicate directly). Shared memory is simpler but creates coupling. Message passing is more flexible but adds communication overhead. The choice depends on coordination complexity.</p>
+<pre class="code"><code># Shared memory approach
+class SharedMemory:
+    def __init__(self):
+        self.store = {}
+        self.lock = asyncio.Lock()
+
+    async def read(self, key: str):
+        async with self.lock:
+            return self.store.get(key)
+
+    async def write(self, key: str, value):
+        async with self.lock:
+            self.store[key] = value
+
+    async def list_keys(self, prefix: str = ""):
+        async with self.lock:
+            return [k for k in self.store if k.startswith(prefix)]
+
+# Message passing approach
+class MessageBus:
+    def __init__(self):
+        self.queues = {}  # agent_name -> asyncio.Queue
+
+    async def send(self, to_agent: str, message: MessageEnvelope):
+        if to_agent not in self.queues:
+            self.queues[to_agent] = asyncio.Queue()
+        await self.queues[to_agent].put(message)
+
+    async def receive(self, agent_name: str) -> MessageEnvelope:
+        if agent_name not in self.queues:
+            self.queues[agent_name] = asyncio.Queue()
+        return await self.queues[agent_name].get()
+
+# Trade-offs:
+# Shared memory:
+# + Simple, fast reads
+# + Natural for shared state
+# - Coupling (agents depend on shared schema)
+# - Concurrency issues (locks, race conditions)
+
+# Message passing:
+# + Decoupled (agents don't share state)
+# + Scalable (messages can be queued, replayed)
+# - Higher latency (serialization, routing)
+# - More complex (message format, error handling)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Use shared memory for small, tightly-coupled agent teams. Use message passing for large systems, cross-process agents, or when agents need to be independently deployable.</div>
+<div class="callout hood"><span>Under the hood</span>Most production systems use both: shared memory for fast local coordination, message passing for cross-service communication. The choice is per-interaction, not per-system.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">20</span>Async Fan-Out and Gather: Specialists in Parallel</h3>
+<p><strong>What &amp; why.</strong> Fan-out sends the same task to multiple specialist agents simultaneously. Gather collects all results. This is faster than sequential execution and leverages each agent's specialization. The results can be merged, voted on, or selected based on quality metrics.</p>
+<pre class="code"><code>import asyncio
+
+async def fan_out_gather(
+    task: str,
+    specialists: list[dict]
+) -> dict:
+    """Send task to multiple specialists in parallel, collect results."""
+    async def call_specialist(spec):
+        agent = spec["agent"]
+        result = await agent.process(task)
+        return {
+            "specialist": spec["name"],
+            "result": result,
+            "quality_hint": spec.get("quality_hint", 0.5)
+        }
+
+    # Fan-out: send to all specialists simultaneously
+    tasks = [call_specialist(spec) for spec in specialists]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Gather: collect successful results
+    successful = [r for r in results if not isinstance(r, Exception)]
+    failed = [r for r in results if isinstance(r, Exception)]
+
+    return {
+        "task": task,
+        "results": successful,
+        "failed_count": len(failed),
+        "success_count": len(successful)
+    }
+
+# Parallel specialists
+result = await fan_out_gather(
+    "Analyze this code for security vulnerabilities",
+    specialists=[
+        {"name": "static-analyzer", "agent": static_agent, "quality_hint": 0.8},
+        {"name": "dependency-scanner", "agent": dep_agent, "quality_hint": 0.9},
+        {"name": "pattern-detector", "agent": pattern_agent, "quality_hint": 0.7},
+        {"name": "ai-security", "agent": ai_agent, "quality_hint": 0.6}
+    ]
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Fan-out-gather is ideal for analysis tasks where multiple perspectives improve coverage. It's faster than sequential analysis and provides redundancy if one specialist fails.</div>
+<div class="callout hood"><span>Under the hood</span>asyncio.gather runs all specialists concurrently. return_exceptions=True prevents one failure from canceling others. Results are filtered for successful responses.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">21</span>Failure Isolation: Try Per Agent, Fallback to Solo</h3>
+<p><strong>What &amp; why.</strong> In multi-agent systems, one agent's failure shouldn't cascade. Failure isolation catches per-agent errors and falls back to a simpler execution path (single agent). This ensures the system degrades gracefully rather than failing completely.</p>
+<pre class="code"><code>class ResilientOrchestrator:
+    def __init__(self, agents: dict, fallback_agent=None):
+        self.agents = agents
+        self.fallback = fallback_agent
+
+    async def execute(self, task: str) -> str:
+        """Try multi-agent execution, fallback to single agent."""
+        try:
+            return await self._multi_agent_execute(task)
+        except Exception as e:
+            print(f"Multi-agent execution failed: {e}")
+            if self.fallback:
+                print("Falling back to single agent")
+                return await self.fallback.process(task)
+            raise
+
+    async def _multi_agent_execute(self, task: str) -> str:
+        """Execute with failure isolation per agent."""
+        results = {}
+        for name, agent in self.agents.items():
+            try:
+                results[name] = await agent.process(task)
+            except Exception as e:
+                print(f"Agent {name} failed: {e}")
+                results[name] = f"Agent {name} failed: {e}"
+                continue  # Skip failed agent, continue with others
+
+        # Aggregate available results
+        successful = {k: v for k, v in results.items()
+                      if not v.startswith("Agent") or "failed" not in v}
+        return await self._aggregate(successful)
+
+# Usage
+orchestrator = ResilientOrchestrator(
+    agents={
+        "researcher": researcher_agent,
+        "writer": writer_agent,
+        "editor": editor_agent
+    },
+    fallback_agent=single_capable_agent
+)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Failure isolation is essential for production multi-agent systems. Without it, one agent failure breaks the entire pipeline. The fallback ensures users always get a response.</div>
+<div class="callout hood"><span>Under the hood</span>Each agent call is wrapped in try/except. Failed agents are logged and skipped. The orchestrator aggregates results from successful agents only. The fallback agent handles cases where multi-agent execution fails entirely.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">22</span>Tracing Multi-Hop Conversations</h3>
+<p><strong>What &amp; why.</strong> Multi-hop conversations involve messages passing through multiple agents. Tracing records the full path: which agent processed which message, what decisions were made, and how the final result was assembled. This is essential for debugging and understanding system behavior.</p>
+<pre class="code"><code>import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+
+@dataclass
+class TraceSpan:
+    trace_id: str
+    span_id: str
+    parent_span_id: str | None
+    agent_name: str
+    operation: str
+    start_time: datetime
+    end_time: datetime | None = None
+    status: str = "running"
+    metadata: dict = field(default_factory=dict)
+
+class MultiHopTracer:
+    def __init__(self):
+        self.spans = []
+
+    def start_span(self, trace_id: str, parent_id: str | None,
+                    agent: str, operation: str) -> str:
+        span_id = str(uuid.uuid4())[:8]
+        self.spans.append(TraceSpan(
+            trace_id=trace_id,
+            span_id=span_id,
+            parent_span_id=parent_id,
+            agent_name=agent,
+            operation=operation,
+            start_time=datetime.now()
+        ))
+        return span_id
+
+    def end_span(self, span_id: str, status: str = "ok"):
+        for span in self.spans:
+            if span.span_id == span_id:
+                span.end_time = datetime.now()
+                span.status = status
+
+    def get_trace(self, trace_id: str) -> list[TraceSpan]:
+        return [s for s in self.spans if s.trace_id == trace_id]
+
+# Usage
+tracer = MultiHopTracer()
+trace_id = str(uuid.uuid4())[:8]
+
+# Supervisor span
+s_span = tracer.start_span(trace_id, None, "supervisor", "route_task")
+
+# Researcher span (child of supervisor)
+r_span = tracer.start_span(trace_id, s_span, "researcher", "gather_facts")
+# ... researcher works ...
+tracer.end_span(r_span, "ok")
+
+# Writer span (child of supervisor)
+w_span = tracer.start_span(trace_id, s_span, "writer", "compose_article")
+# ... writer works ...
+tracer.end_span(w_span, "ok")
+
+tracer.end_span(s_span, "ok")
+
+# Trace output shows full conversation path with timings</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Multi-hop tracing is essential for debugging multi-agent systems. When a result is wrong, tracing shows exactly which agent produced it and what context it had.</div>
+<div class="callout hood"><span>Under the hood</span>The tracer uses a tree structure (trace_id + parent_span_id) to represent the conversation flow. Each span records the agent, operation, timing, and status. This maps directly to OpenTelemetry spans.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">23</span>Budget Caps Per Agent Role</h3>
+<p><strong>What &amp; why.</strong> Budget caps limit how much each agent role can spend on LLM calls. A researcher might have a $5 cap per task, while a writer has $10. This prevents any single role from consuming the entire task budget and forces cost-conscious agent design.</p>
+<pre class="code"><code>class BudgetCappedAgent:
+    def __init__(self, name: str, role: str, budget_per_task: float):
+        self.name = name
+        self.role = role
+        self.budget = budget_per_task
+        self.spent = 0
+
+    async def process(self, task: str, **kwargs) -> str:
+        if self.spent >= self.budget:
+            return f"[Budget exhausted: ${self.spent:.2f} / ${self.budget:.2f}]"
+
+        response = await self.llm.ainvoke([
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": task}
+        ])
+
+        # Calculate cost
+        tokens = response.usage.total_tokens
+        cost = (tokens / 1000) * self.cost_per_1k
+        self.spent += cost
+
+        if self.spent > self.budget * 0.8:
+            # Warning at 80% budget
+            print(f"WARNING: {self.name} at {self.spent/self.budget*100:.0f}% budget")
+
+        return response.content
+
+# Budget allocation per role
+budgets = {
+    "researcher": 5.00,   # Can search extensively
+    "writer": 10.00,      # Needs more tokens for composition
+    "editor": 3.00,       # Focused review, fewer tokens
+    "critic": 2.00,       # Brief evaluation
+}
+
+# Total task budget: $20.00
+# Each agent tracks its own spend
+# Supervisor can adjust budgets based on task complexity</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Budget caps prevent cost overruns in multi-agent systems. They force agents to be efficient and provide visibility into per-role cost distribution.</div>
+<div class="callout hood"><span>Under the hood</span>Each agent tracks its token usage and cost. When the budget is exhausted, the agent returns a budget-exceeded message. The supervisor handles this gracefully (skip the role, use cached results).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">24</span>Deterministic Orchestrator Wrapper</h3>
+<p><strong>What &amp; why.</strong> Multi-agent systems are inherently non-deterministic due to LLM randomness. A deterministic wrapper records decisions, seeds randomness, and can replay executions. This is essential for debugging, testing, and regression detection in production multi-agent systems.</p>
+<pre class="code"><code>import json, hashlib
+
+class DeterministicOrchestrator:
+    def __init__(self, orchestrator, seed: int = 42):
+        self.orchestrator = orchestrator
+        self.seed = seed
+        self.execution_log = []
+
+    async def execute(self, task: str, deterministic: bool = True) -> dict:
+        """Execute with optional determinism."""
+        execution_id = hashlib.sha256(task.encode()).hexdigest()[:12]
+
+        if deterministic:
+            # Set seed for reproducibility
+            import random
+            random.seed(self.seed)
+            # Note: LLM APIs don't support seeds directly,
+            # but temperature=0 improves determinism
+
+        result = await self.orchestrator.execute(task)
+
+        # Log execution for replay
+        self.execution_log.append({
+            "execution_id": execution_id,
+            "task": task,
+            "result": result,
+            "seed": self.seed,
+            "agents_called": self._get_agents_called(),
+            "total_cost": self._get_total_cost()
+        })
+
+        return {
+            "result": result,
+            "execution_id": execution_id,
+            "replay_command": f"replay('{execution_id}')"
+        }
+
+    def replay(self, execution_id: str) -> dict:
+        """Replay a previous execution."""
+        log = next(e for e in self.execution_log if e["execution_id"] == execution_id)
+        return log</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Deterministic wrappers are essential for testing and debugging. They let you reproduce exact executions, compare outputs across versions, and regression-test multi-agent systems.</div>
+<div class="callout hood"><span>Under the hood</span>True determinism requires temperature=0 and seed support (not available in all APIs). The wrapper logs all inputs, outputs, and agent calls for faithful replay. Execution IDs enable quick lookup.</div>
+</article>
+
+</section>
+<section><h2 class="part p3">Part III · Advanced<small>Tier 3 — Emergent behavior, negotiation, trust, scaling, verification, observability</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">25</span>Emergent vs. Designed Behavior: Steering Multi-Agent Systems</h3>
+<p><strong>What &amp; why.</strong> Designed behavior follows explicitly programmed rules. Emergent behavior arises from agent interactions in unexpected ways. Some emergence is beneficial (creative solutions, cross-pollination). Some is harmful (role confusion, feedback loops). The challenge is amplifying beneficial emergence while containing harmful patterns.</p>
+<pre class="code"><code># Designed behavior: explicit rules
+designed_rules = {
+    "task_assignment": "Supervisor assigns tasks based on role match",
+    "termination": "Stop after max_rounds or majority vote",
+    "quality_check": "Editor reviews all output before delivery"
+}
+
+# Emergent behavior: arises from interactions
+emergent_examples = {
+    "positive": [
+        "Agents develop complementary strategies",
+        "Unexpected cross-role insights improve quality",
+        "Natural specialization beyond assigned roles"
+    ],
+    "negative": [
+        "Agents agree too easily (groupthink)",
+        "Circular feedback loops between agents",
+        "One agent dominates others' contributions"
+    ]
+}
+
+# Steering techniques
+steering = {
+    "diversity_pressure": "Assign agents with different perspectives",
+    "disagreement_reward": "Value constructive disagreement in scoring",
+    "budget_constraints": "Limit tokens to force concise contributions",
+    "time_pressure": "Set strict time limits per agent",
+    "rotation": "Rotate agent roles to prevent dominance",
+    "external_review": "Periodic external quality check"
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding emergence helps you design systems that produce beneficial emergent behavior while mitigating harmful patterns. Diversity pressure and disagreement rewards are the most effective steering levers.</div>
+<div class="callout hood"><span>Under the hood</span>Emergent behavior is harder to test than designed behavior. Production monitoring must track not just outputs but interaction patterns to detect harmful emergence early.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">26</span>Communication Protocols: Schemas and Contracts</h3>
+<p><strong>What &amp; why.</strong> Formal communication schemas define what messages agents can send and what structure they must follow. Contracts specify the expected format, content, and quality of inter-agent messages. This reduces miscommunication and enables validation at protocol boundaries.</p>
+<pre class="code"><code>from pydantic import BaseModel, Field
+from enum import Enum
+
+class MessageType(str, Enum):
+    TASK = "task"
+    RESULT = "result"
+    FEEDBACK = "feedback"
+    CLARIFICATION = "clarification"
+    STATUS = "status"
+
+class AgentMessage(BaseModel):
+    message_type: MessageType
+    from_agent: str
+    to_agent: str
+    content: str
+    correlation_id: str
+    metadata: dict = Field(default_factory=dict)
+
+class TaskAssignment(BaseModel):
+    task_type: str
+    description: str
+    constraints: list[str]
+    expected_output_format: str
+    deadline_seconds: int | None = None
+
+class TaskResult(BaseModel):
+    output: str
+    confidence: float = Field(ge=0, le=1)
+    tokens_used: int
+    decisions_made: list[dict]
+    warnings: list[str] = Field(default_factory=list)
+
+# Validation at protocol boundaries
+def validate_message(msg: dict) -> AgentMessage:
+    """Validate message format before delivery."""
+    return AgentMessage(**msg)  # Pydantic validation
+
+def validate_result(result: dict) -> TaskResult:
+    """Validate task result format."""
+    return TaskResult(**result)  # Ensures required fields</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Formal schemas catch miscommunication at protocol boundaries. If an agent sends a malformed message, it's caught before delivery, preventing cascading errors.</div>
+<div class="callout hood"><span>Under the hood</span>Pydantic models provide automatic validation, serialization, and documentation. The schemas serve as both documentation and runtime validation.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">27</span>Negotiation Protocols: Contract-Net Pattern</h3>
+<p><strong>What &amp; why.</strong> The Contract-Net Protocol (CNP) is a distributed task allocation mechanism. A manager broadcasts a task announcement, agents submit bids, and the manager awards the contract to the best bidder. This decentralizes task assignment and lets agents self-select based on capability and cost.</p>
+<pre class="code"><code>class ContractNetManager:
+    def __init__(self):
+        self.agents = {}
+        self.contracts = {}
+
+    def announce_task(self, task: dict) -> list:
+        """Broadcast task to all agents, collect bids."""
+        bids = []
+        for name, agent in self.agents.items():
+            if agent.can_handle(task["type"]):
+                bid = agent.submit_bid(task)
+                bids.append(bid)
+        return bids
+
+    def award_contract(self, task: dict, bids: list) -> dict:
+        """Award contract to best bidder."""
+        scored = sorted(bids, key=lambda b: b.score, reverse=True)
+        winner = scored[0]
+
+        self.contracts[task["id"]] = {
+            "task": task,
+            "winner": winner.agent_name,
+            "bid": winner,
+            "status": "awarded"
+        }
+
+        # Notify winner and losers
+        for bid in scored[1:]:
+            self.notify_LOSER(bid.agent_name, task["id"])
+
+        return self.contracts[task["id"]]
+
+    def submit_bid(self, task: dict) -> "Bid":
+        """Agent submits a bid for a task."""
+        estimated_cost = self.estimate_cost(task)
+        estimated_quality = self.estimate_quality(task)
+        return Bid(
+            agent_name=self.name,
+            task_id=task["id"],
+            cost=estimated_cost,
+            quality=estimated_quality,
+            score=estimated_quality / max(estimated_cost, 0.001)
+        )</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>CNP is effective for heterogeneous agent pools where different agents have different capabilities and costs. It's a well-studied pattern from distributed AI research.</div>
+<div class="callout hood"><span>Under the hood</strong>CNP adds communication overhead (broadcast + bids + award). It's most efficient when agents have significantly different capabilities, making the bid process worthwhile.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">28</span>Coalition Formation: Dynamic Teams</h3>
+<p><strong>What &amp; why.</strong> Coalition formation creates ad-hoc teams based on task requirements. Unlike fixed teams, coalitions dissolve after the task is complete and reform for the next task. This provides flexibility: each task gets the optimal team composition.</p>
+<pre class="code"><code>class CoalitionFormation:
+    def __init__(self, agent_pool: list):
+        self.pool = agent_pool
+
+    def form_coalition(self, task: dict) -> list:
+        """Select optimal team for a specific task."""
+        required_capabilities = set(task.get("required_capabilities", []))
+        budget = task.get("budget", float("inf"))
+
+        # Find all agents with required capabilities
+        eligible = [
+            a for a in self.pool
+            if required_capabilities.issubset(set(a.capabilities))
+        ]
+
+        # Score combinations by cost-effectiveness
+        best_coalition = None
+        best_score = -1
+
+        for size in range(1, min(len(eligible) + 1, 6)):
+            for combo in itertools.combinations(eligible, size):
+                total_cost = sum(a.cost_per_task for a in combo)
+                if total_cost > budget:
+                    continue
+                capability_score = len(set().union(*[a.capabilities for a in combo]))
+                score = capability_score / total_cost
+                if score > best_score:
+                    best_score = score
+                    best_coalition = list(combo)
+
+        return best_coalition or eligible[:1]  # Fallback to single agent
+
+    def dissolve(self, coalition: list):
+        """Release agents back to the pool."""
+        # Agents become available for new coalitions
+        pass</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Coalition formation is valuable when tasks vary widely in requirements. It ensures each task gets exactly the capabilities it needs without maintaining permanent specialized teams.</div>
+<div class="callout hood"><span>Under the hood</span>The formation algorithm evaluates all possible team combinations within budget. For large agent pools, heuristics (greedy selection, genetic algorithms) replace exhaustive search.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">29</span>Conflict Resolution: Arbitration Strategies</h3>
+<p><strong>What &amp; why.</strong> When agents disagree on output, strategy, or priorities, conflict resolution mechanisms determine the outcome. Strategies include majority vote, weighted vote (by expertise), escalation to a senior agent, and domain-based arbitration (most relevant expert decides).</p>
+<pre class="code"><code>class ConflictResolver:
+    def __init__(self, agents: dict):
+        self.agents = agents
+        self.expertise_scores = {}  # agent -> domain -> expertise
+
+    def resolve(self, conflict: dict) -> str:
+        """Resolve a conflict between agents."""
+        strategy = conflict.get("resolution_strategy", "weighted_vote")
+
+        if strategy == "majority_vote":
+            return self._majority_vote(conflict["disagreements"])
+
+        elif strategy == "weighted_vote":
+            return self._weighted_vote(conflict["disagreements"], conflict["domain"])
+
+        elif strategy == "domain_arbitration":
+            return self._domain_arbitration(conflict["disagreements"], conflict["domain"])
+
+        elif strategy == "escalate":
+            return self._escalate_to_senior(conflict)
+
+    def _weighted_vote(self, disagreements: list, domain: str) -> str:
+        """Weight votes by domain expertise."""
+        votes = {}
+        for d in disagreements:
+            agent = d["agent"]
+            weight = self.expertise_scores.get(agent, {}).get(domain, 0.5)
+            answer = d["position"]
+            votes[answer] = votes.get(answer, 0) + weight
+
+        return max(votes, key=votes.get)
+
+    def _domain_arbitration(self, disagreements: list, domain: str) -> str:
+        """Most relevant expert decides."""
+        experts = sorted(
+            disagreements,
+            key=lambda d: self.expertise_scores.get(d["agent"], {}).get(domain, 0),
+            reverse=True
+        )
+        return experts[0]["position"]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Conflict resolution prevents deadlocks in multi-agent systems. The strategy should be chosen based on the conflict type: factual disagreements use domain arbitration, preference disagreements use voting.</div>
+<div class="callout hood"><span>Under the hood</span>Expertise scores are maintained based on historical performance. Agents with higher accuracy in a domain get more weight in that domain's decisions.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">30</span>Trust Scores Between Agents: Updating Over Time</h3>
+<p><strong>What &amp; why.</strong> Trust scores quantify how reliable an agent's output is. They update based on historical performance: successful tasks increase trust, failures decrease it. Trust scores influence task assignment, voting weight, and conflict resolution. They adapt to changing agent capabilities.</p>
+<pre class="code"><code>class TrustManager:
+    def __init__(self, decay_rate: float = 0.95):
+        self.scores = {}  # agent -> domain -> trust_score
+        self.decay_rate = decay_rate
+        self.history = []
+
+    def get_trust(self, agent: str, domain: str) -> float:
+        """Get current trust score for agent in domain."""
+        return self.scores.get(agent, {}).get(domain, 0.5)
+
+    def update_trust(self, agent: str, domain: str,
+                     success: bool, confidence: float):
+        """Update trust based on task outcome."""
+        current = self.get_trust(agent, domain)
+
+        if success:
+            # Increase trust, weighted by confidence
+            new_score = current + (1 - current) * confidence * 0.1
+        else:
+            # Decrease trust, weighted by failure severity
+            new_score = current * (1 - confidence * 0.2)
+
+        self.scores.setdefault(agent, {})[domain] = max(0.1, min(0.99, new_score))
+
+        # Apply decay to all scores (trust degrades over time)
+        self._apply_decay()
+
+    def _apply_decay(self):
+        """Gradually reduce all trust scores toward baseline."""
+        for agent in self.scores:
+            for domain in self.scores[agent]:
+                current = self.scores[agent][domain]
+                self.scores[agent][domain] = (
+                    current * self.decay_rate + 0.5 * (1 - self.decay_rate)
+                )</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Trust scores prevent consistently poor-performing agents from dominating. They also recover naturally (decay toward baseline) if an agent improves over time.</div>
+<div class="callout hood"><span>Under the hood</span>Trust scores use exponential moving averages with decay. This means recent performance matters more than historical performance. The decay rate controls how quickly trust resets toward baseline.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">31</span>Scaling Laws: When More Agents Hurt</h3>
+<p><strong>What &amp; why.</strong> Adding agents improves capability only up to a point. Beyond a threshold, more agents increase coordination overhead, communication latency, cost, and contradiction probability. The optimal number depends on task decomposition quality, coordination mechanism, and agent heterogeneity.</p>
+<pre class="code"><code># Scaling analysis
+scaling_analysis = {
+    "benefits_per_agent": {
+        1: {"coverage": 1.0, "specialization": 1.0, "redundancy": 1.0},
+        2: {"coverage": 1.8, "specialization": 1.5, "redundancy": 1.2},
+        3: {"coverage": 2.5, "specialization": 2.0, "redundancy": 1.5},
+        5: {"coverage": 3.5, "specialization": 2.5, "redundancy": 2.0},
+        10: {"coverage": 5.0, "specialization": 3.0, "redundancy": 3.0},
+    },
+    "costs_per_agent": {
+        1: {"coordination": 1.0, "communication": 1.0, "contradiction": 0.0},
+        2: {"coordination": 1.2, "communication": 1.5, "contradiction": 0.1},
+        3: {"coordination": 1.8, "communication": 2.5, "contradiction": 0.2},
+        5: {"coordination": 3.0, "communication": 5.0, "contradiction": 0.4},
+        10: {"coordination": 8.0, "communication": 15.0, "contradiction": 0.7},
+    },
+    # Net benefit peaks around 3-5 agents for most tasks
+    # Beyond 5, coordination costs dominate for simple tasks
+    # 10+ agents only justified for highly parallel, independent subtasks
+}
+
+# Rules of thumb:
+# - Simple tasks: 1-2 agents max
+# - Content production: 3-4 (research, write, edit, format)
+# - Complex analysis: 3-5 specialists
+# - Brainstorming: 3-6 diverse perspectives
+# - Beyond 6: only with strong coordination (hierarchical, blackboard)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Understanding scaling laws prevents over-engineering. Start with 2-3 agents. Add more only when you can demonstrate measurable quality improvement that justifies the cost and complexity increase.</div>
+<div class="callout hood"><span>Under the hood</span>The coordination cost grows combinatorially with agent count (O(n^2) for mesh topologies). The benefit grows sub-linearly (diminishing returns). The intersection is the optimal agent count.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">32</span>Verification Gates: Independent Auditor Agent</h3>
+<p><strong>What &amp; why.</strong> Verification gates are checkpoints where an independent auditor agent reviews the work produced by other agents. The auditor has no stake in the output and evaluates against objective criteria. This prevents groupthink, catches errors, and ensures quality standards are met.</p>
+<pre class="code"><code>class VerificationGate:
+    def __init__(self, auditor_agent, criteria: list[str]):
+        self.auditor = auditor_agent
+        self.criteria = criteria
+
+    async def verify(self, work_product: dict, original_task: str) -> dict:
+        """Run verification gate on work product."""
+        audit_prompt = f"""You are an independent quality auditor.
+Review this work product against the original task and quality criteria.
+
+Original task: {original_task}
+
+Work product:
+{json.dumps(work_product, indent=2)}
+
+Quality criteria:
+{chr(10).join(f'- {c}' for c in self.criteria)}
+
+For each criterion, provide:
+- PASS/FAIL/NEEDS_IMPROVEMENT
+- Specific evidence or concerns
+- Suggested improvements
+
+Be rigorous and specific. Do not rubber-stamp."""
+
+        audit_result = await self.auditor.process(audit_prompt)
+
+        return {
+            "audit_result": audit_result,
+            "passed": "PASS" in audit_result.upper() and "FAIL" not in audit_result.upper(),
+            "work_product": work_product
+        }
+
+# Usage in pipeline
+gate = VerificationGate(
+    auditor_agent=quality_auditor,
+    criteria=[
+        "All claims are factually accurate",
+        "Output format matches requirements",
+        "No contradictions or logical gaps",
+        "Appropriate for target audience",
+        "Completeness: all parts of the task addressed"
+    ]
+)
+
+result = await gate.verify(pipeline_output, original_task)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Verification gates catch errors that slip through peer review. The independent auditor has no ownership bias and evaluates against objective criteria.</div>
+<div class="callout hood"><span>Under the hood</span>The auditor runs a separate LLM call with a focused prompt on quality evaluation. It provides structured feedback (pass/fail per criterion) that's easy to aggregate and act on.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">33</span>Plan-of-Plans: Hierarchical Decomposition</h3>
+<p><strong>What &amp; why.</strong> Complex tasks require multi-level planning. A top-level plan breaks the task into phases. Each phase has a detailed plan. Each detailed plan has step-by-step execution. Hierarchical decomposition manages complexity by addressing one level at a time.</p>
+<pre class="code"><code>class HierarchicalPlanner:
+    def __init__(self, planner_llm):
+        self.llm = planner_llm
+
+    async def create_plan(self, task: str, depth: int = 3) -> dict:
+        """Create a hierarchical plan with specified depth."""
+        plan = {"task": task, "subplans": []}
+
+        # Level 1: High-level phases
+        phases = await self._decompose(task, "phase")
+        plan["phases"] = phases
+
+        # Level 2: Detailed plan per phase
+        for phase in phases:
+            detailed = await self._decompose(
+                f"Phase: {phase['description']}", "step"
+            )
+            phase["steps"] = detailed
+
+            # Level 3: Execution details per step
+            if depth > 2:
+                for step in detailed:
+                    execution = await self._decompose(
+                        f"Step: {step['description']}", "action"
+                    )
+                    step["actions"] = execution
+
+        return plan
+
+    async def _decompose(self, task: str, level: str) -> list:
+        """Decompose task into sub-components."""
+        response = await self.llm.ainvoke([{
+            "role": "system",
+            "content": f"Decompose into {level}s. Return JSON array."
+        }, {"role": "user", "content": task}])
+        return parse_json(response.content)
+
+# Example: "Write a technical blog post about MCP"
+# Level 1: [Research, Write, Edit, Publish]
+# Level 2: Research steps: [Find sources, Read papers, Extract key points]
+# Level 3: Find sources actions: [Search arxiv, Check MCP docs, Search GitHub]</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Hierarchical planning manages complexity. Each level addresses a different abstraction, preventing information overload. The plan can be distributed to specialized agents at each level.</div>
+<div class="callout hood"><span>Under the hood</span>Each decomposition level uses an LLM call with a focused prompt. The number of levels depends on task complexity: 2 levels for simple tasks, 3-4 for complex projects.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">34</span>Observability: Span Trees for Nested Agent Runs</h3>
+<p><strong>What &amp; why.</span> Multi-agent observability requires nested span trees that capture the full hierarchy of agent interactions. Each agent call is a span; child spans represent sub-calls. The tree structure shows which agent called which, timing breakdown, and cost attribution per span.</p>
+<pre class="code"><code>from opentelemetry import trace
+from dataclasses import dataclass
+
+tracer = trace.get_tracer("multi-agent-system")
+
+class AgentTracer:
+    def __init__(self):
+        self.active_spans = {}
+
+    def trace_agent_call(self, agent_name: str, task: str):
+        """Create a traced agent call context."""
+        return tracer.start_as_current_span(
+            f"agent.{agent_name}",
+            attributes={
+                "agent.name": agent_name,
+                "task.description": task[:200],
+                "agent.tokens_used": 0,
+                "agent.cost_usd": 0.0
+            }
+        )
+
+# Usage in orchestrator
+async def traced_orchestrate(task: str):
+    with tracer.start_as_current_span("orchestration") as root:
+        root.set_attribute("task", task)
+
+        # Supervisor decision
+        with tracer.start_as_current_span("supervisor.route") as route_span:
+            route = await supervisor.route(task)
+            route_span.set_attribute("route.target", route)
+
+        # Researcher call (child of orchestration)
+        with tracer.start_as_current_span("agent.researcher") as research_span:
+            research = await researcher.process(task)
+            research_span.set_attribute("agent.tokens_used", 1500)
+
+        # Writer call (child of orchestration, sibling of researcher)
+        with tracer.start_as_current_span("agent.writer") as writer_span:
+            writer_span.add_event("input_received", {"from": "researcher"})
+            article = await writer.process(research)
+            writer_span.set_attribute("agent.tokens_used", 2500)
+
+        # Aggregation
+        with tracer.start_as_current_span("orchestration.aggregate") as agg_span:
+            final = await aggregate(research, article)
+            agg_span.set_attribute("total_cost_usd", 0.08)
+
+        return final</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Nested span trees are the standard for multi-agent observability. They integrate with existing OTel infrastructure (Jaeger, Datadog, Grafana Tempo) and provide cost attribution per agent.</div>
+<div class="callout hood"><span>Under the hood</span>Each span records the agent name, task, tokens, cost, and timing. Parent-child relationships show the call hierarchy. The tree can be visualized in any OTel-compatible UI.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">35</span>Evaluation: End-Task vs. Per-Role Rubrics</h3>
+<p><strong>What &amp; why.</strong> Multi-agent evaluation requires two dimensions: end-task quality (did the final output meet requirements?) and per-role quality (did each agent perform its role well?). Per-role evaluation identifies bottlenecks. End-task evaluation determines overall system quality.</p>
+<pre class="code"><code>class MultiAgentEvaluator:
+    def __init__(self):
+        self.end_task_rubric = {
+            "accuracy": "Are all facts correct?",
+            "completeness": "Does it address all aspects of the task?",
+            "quality": "Is the output well-written and professional?",
+            "format": "Does it match the required format?"
+        }
+        self.role_rubrics = {
+            "researcher": {
+                "source_quality": "Are sources authoritative?",
+                "relevance": "Is the research focused on the task?",
+                "completeness": "Are all angles covered?"
+            },
+            "writer": {
+                "clarity": "Is the writing clear and engaging?",
+                "structure": "Is the article well-organized?",
+                "voice": "Is the tone appropriate?"
+            },
+            "editor": {
+                "error_detection": "Were errors caught and fixed?",
+                "improvement": "Did the edit improve quality?",
+                "preservation": "Was the author's voice preserved?"
+            }
+        }
+
+    async def evaluate(self, task: str, result: dict, agent_outputs: dict) -> dict:
+        """Evaluate both end-task and per-role quality."""
+        end_task = await self._evaluate_end_task(task, result)
+        role_scores = {}
+        for role, output in agent_outputs.items():
+            role_scores[role] = await self._evaluate_role(role, output)
+
+        return {
+            "end_task": end_task,
+            "role_scores": role_scores,
+            "bottleneck": self._find_bottleneck(role_scores),
+            "overall_score": (end_task["score"] + sum(r["score"] for r in role_scores.values()) / len(role_scores)) / 2
+        }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Per-role evaluation identifies which agent is the quality bottleneck. If the researcher produces poor sources, improving the writer won't help. Target improvements where they matter most.</div>
+<div class="callout hood"><span>Under the hood</span>Evaluation uses LLM-as-judge: a separate LLM call evaluates each dimension against the rubric. This is cheaper than human evaluation and scales to many tasks.</div>
+</article>
+
+</section>
+<section><h2 class="part p4">Part IV · Very Advanced / Expert<small>Tier 4 — BDI, game theory, Byzantine, swarm, consensus, organizational design</small></h2>
+
+<article class="topic-card">
+<h3><span class="tnum">36</span>Formal Models: BDI (Beliefs-Desires-Intentions) Mapping</h3>
+<p><strong>What &amp; why.</strong> BDI is a model of practical reasoning borrowed from philosophy and AI. Agents maintain beliefs (what they know), desires (what they want), and intentions (what they're committed to doing). Mapping LLM agents to BDI provides a formal framework for agent decision-making and inter-agent communication.</p>
+<pre class="code"><code>@dataclass
+class BDIAgent:
+    beliefs: dict      # What the agent knows about the world
+    desires: list      # Goals the agent wants to achieve
+    intentions: list   # Commitments the agent has made
+
+    def reason(self, observation: dict) -> str:
+        """BDI reasoning cycle."""
+        # 1. Update beliefs from observation
+        self.beliefs.update(observation)
+
+        # 2. Filter desires by current beliefs
+        achievable = [d for d in self.desires if self._can_achieve(d)]
+
+        # 3. Select intentions based on beliefs and desires
+        if not self.intentions:
+            self.intentions = self._deliberate(achievable)
+
+        # 4. Execute current intentions
+        if self.intentions:
+            action = self._plan_action(self.intentions[0])
+            if self._achieved(self.intentions[0]):
+                self.intentions.pop(0)
+            return action
+
+        return "idle"
+
+    def _can_achieve(self, desire):
+        """Check if current beliefs support achieving this desire."""
+        return all(
+            self.beliefs.get(req, False) for req in desire.get("requires", [])
+        )
+
+    def _deliberate(self, achievable):
+        """Select which desires to commit to."""
+        return sorted(achievable, key=lambda d: d.get("priority", 0), reverse=True)[:3]
+
+# Mapping to LLM agents:
+# beliefs = context window (what the agent knows)
+# desires = system prompt goals (what the agent should do)
+# intentions = current task list (what the agent is committed to)</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>BDI provides a formal framework for reasoning about agent behavior. It helps identify why agents make certain decisions and how to change their behavior by modifying beliefs, desires, or intentions.</div>
+<div class="callout hood"><span>Under the hood</span>BDI reasoning cycles: perceive -> update beliefs -> deliberate -> select intentions -> act. LLM agents implement this implicitly through prompt engineering and context management.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">37</span>Game-Theoretic Incentives: Mechanism Design Lite</h3>
+<p><strong>What &amp; why.</strong> Game theory studies strategic interactions between rational agents. Mechanism design designs the rules of the game to achieve desired outcomes. In multi-agent systems, incentive alignment ensures agents act in the system's interest, not just their own. This prevents gaming, free-riding, and adversarial behavior.</p>
+<pre class="code"><code># Incentive design for multi-agent systems
+incentive_mechanisms = {
+    "quality_reward": {
+        "description": "Reward agents based on output quality",
+        "formula": "reward = base_reward * quality_score",
+        "prevents": "Low-effort outputs"
+    },
+    "cost_efficiency": {
+        "description": "Reward agents that achieve quality at lower cost",
+        "formula": "reward = quality_score / (cost + epsilon)",
+        "prevents": "Token waste, excessive LLM calls"
+    },
+    "truthful_reporting": {
+        "description": "Reward honest self-assessment of capabilities",
+        "formula": "reward = quality_score if bid_accurate else penalty",
+        "prevents": "Over-promising, bid manipulation"
+    },
+    "collaboration_bonus": {
+        "description": "Reward agents that help other agents succeed",
+        "formula": "reward = individual_score + collaboration_score",
+        "prevents": "Hoarding information, refusing to help"
+    }
+}
+
+# Example: Agent bidding mechanism
+def calculate_bid_score(bid, actual_quality, actual_cost):
+    """Score that incentivizes truthful bidding."""
+    bid_accuracy = 1 - abs(bid.estimated_quality - actual_quality)
+    cost_efficiency = actual_quality / max(actual_cost, 0.001)
+    return bid_accuracy * 0.3 + cost_efficiency * 0.7</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Incentive design prevents agents from gaming the system. Without proper incentives, agents may produce low-quality outputs, waste tokens, or refuse to collaborate.</div>
+<div class="callout hood"><span>Under the hood</span>Mechanism design borrows from economics: auction theory, voting theory, and contract theory. The key insight is that agent behavior follows incentives; design incentives to align with desired outcomes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">38</span>Byzantine Tolerance: Malicious Agent Defense</h3>
+<p><strong>What &amp; why.</strong> Byzantine fault tolerance (BFT) ensures a system functions correctly even when some agents are faulty or malicious. In multi-agent systems, this means detecting and isolating agents that produce incorrect, contradictory, or adversarial outputs. BFT requires 3f+1 agents to tolerate f faulty agents.</p>
+<pre class="code"><code>class ByzantineDetector:
+    def __init__(self, min_agreement: float = 0.6):
+        self.min_agreement = min_agreement
+
+    def detect_byzantine(self, agent_outputs: dict) -> list[str]:
+        """Identify agents with outputs far from consensus."""
+        outputs = list(agent_outputs.values())
+        if len(outputs) < 3:
+            return []  # Need at least 3 for detection
+
+        # Find consensus using embedding similarity
+        embeddings = [get_embedding(o) for o in outputs]
+        consensus = np.mean(embeddings, axis=0)
+
+        byzantine_agents = []
+        for agent, embedding in zip(agent_outputs.keys(), embeddings):
+            similarity = cosine_similarity(embedding, consensus)
+            if similarity < self.min_agreement:
+                byzantine_agents.append(agent)
+
+        return byzantine_agents
+
+    def tolerate_byzantine(self, agent_outputs: dict, threshold: int) -> dict:
+        """Return outputs excluding Byzantine agents."""
+        byzantine = self.detect_byzantine(agent_outputs)
+        clean = {k: v for k, v in agent_outputs.items() if k not in byzantine}
+
+        if len(clean) < threshold:
+            raise InsufficientHealthyAgents(
+                f"Only {len(clean)} healthy agents, need {threshold}"
+            )
+
+        return clean
+
+# BFT rule: 3f+1 agents needed to tolerate f Byzantine agents
+# Example: To tolerate 2 malicious agents, need at least 7 agents</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Byzantine tolerance is essential when agents come from untrusted sources or when adversarial injection is possible. It's a defense-in-depth measure for high-security systems.</div>
+<div class="callout hood"><span>Under the hood</strong>Byzantine detection uses output similarity analysis. Agents whose outputs diverge significantly from consensus are flagged. The threshold is tuned based on the expected variance of legitimate outputs.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">39</span>Swarm Intelligence: Stigmergy and Ant-Colony Inspiration</h3>
+<p><strong>What &amp; why.</strong> Swarm intelligence uses decentralized, self-organized behavior inspired by ant colonies and bird flocks. Stigmergy is indirect communication through environmental modification (ants leave pheromone trails). In multi-agent systems, shared state (the environment) serves as the stigmergic medium for coordination.</p>
+<pre class="code"><code># Stigmergic multi-agent system
+class StigmergicEnvironment:
+    def __init__(self):
+        self.pheromones = {}  # task_id -> strength
+        self.deposits = []    # agent contributions
+
+    def deposit(self, agent_id: str, task_id: str, quality: float):
+        """Agent deposits 'pheromone' on a task (signals quality)."""
+        current = self.pheromones.get(task_id, 0)
+        # Pheromone accumulates with quality
+        self.pheromones[task_id] = current + quality * 0.1
+        self.deposits.append({
+            "agent": agent_id,
+            "task": task_id,
+            "quality": quality
+        })
+
+    def evaporate(self, rate: float = 0.05):
+        """Pheromones evaporate over time."""
+        for task_id in self.pheromones:
+            self.pheromones[task_id] *= (1 - rate)
+
+    def sense(self) -> list[tuple[str, float]]:
+        """Agents sense pheromone levels to find promising tasks."""
+        return sorted(
+            self.pheromones.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
+
+# Ant-colony inspired task allocation:
+# 1. Agents explore tasks randomly (exploration)
+# 2. High-quality work deposits pheromones (exploitation)
+# 3. Pheromones attract more agents to promising tasks
+# 4. Pheromone evaporation prevents path lock-in</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Swarm intelligence enables emergent task allocation without central coordination. It's effective for large numbers of simple agents working on parallel, similar tasks.</div>
+<div class="callout hood"><span>Under the hood</span>Stigmergic systems are self-organizing: global patterns emerge from local interactions. The pheromone mechanism creates positive feedback loops (good tasks attract more workers) with evaporation providing negative feedback (preventing lock-in).</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">40</span>Distributed Consensus: Raft Analogy for Decisions</h3>
+<p><strong>What &amp; why.</strong> Consensus algorithms ensure all agents agree on a shared state or decision. Raft is a practical consensus algorithm: one leader proposes decisions, followers vote, and majority approval commits the decision. In multi-agent systems, Raft-like consensus ensures all agents agree on task assignments, priorities, and shared facts.</p>
+<pre class="code"><code>class RaftConsensus:
+    def __init__(self, agents: list):
+        self.agents = agents
+        self.leader = None
+        self.current_term = 0
+        self.votes_received = {}
+
+    def elect_leader(self) -> str:
+        """Simple leader election."""
+        self.current_term += 1
+        # In practice: random timeout, request_vote RPCs
+        # For simplicity: round-robin leader
+        leader_idx = self.current_term % len(self.agents)
+        self.leader = self.agents[leader_idx]
+        return self.leader
+
+    async def propose(self, proposal: dict) -> dict:
+        """Leader proposes, followers vote."""
+        if not self.leader:
+            self.elect_leader()
+
+        votes = {"yes": 0, "no": 0}
+        for agent in self.agents:
+            if agent == self.leader:
+                votes["yes"] += 1  # Leader votes yes
+                continue
+
+            # Follower evaluates proposal
+            vote = await agent.vote_on(proposal)
+            votes[vote] = votes.get(vote, 0) + 1
+
+        majority_needed = len(self.agents) // 2 + 1
+        committed = votes["yes"] >= majority_needed
+
+        return {
+            "proposal": proposal,
+            "committed": committed,
+            "votes": votes,
+            "leader": self.leader,
+            "term": self.current_term
+        }
+
+# Usage: agents vote on shared decisions
+consensus = RaftConsensus(agents=[agent1, agent2, agent3, agent4, agent5])
+result = await consensus.propose({
+    "type": "task_assignment",
+    "task": "Analyze security vulnerabilities",
+    "assigned_to": "security_specialist"
+})</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Consensus ensures all agents agree on shared state. Without it, agents may have inconsistent views of task assignments, priorities, or completed work.</div>
+<div class="callout hood"><span>Under the hood</span>Raft provides leader election, log replication, and safety guarantees. In multi-agent systems, it's simplified: leaders propose, followers vote, majority commits. The full Raft protocol handles network partitions and leader failures.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">41</span>Organizational Design: Mirroring Human Orgs with RACI</h3>
+<p><strong>What &amp; why.</strong> Multi-agent systems can mirror human organizational structures. RACI (Responsible, Accountable, Consulted, Informed) maps agent roles to organizational responsibilities. This provides clear ownership, prevents duplicate work, and ensures appropriate oversight for each task type.</p>
+<pre class="code"><code># RACI mapping for multi-agent system
+raci_matrix = {
+    "content_creation": {
+        "researcher": "R",   # Responsible: does the work
+        "writer": "R",       # Responsible: does the work
+        "editor": "A",       # Accountable: owns the outcome
+        "supervisor": "C",   # Consulted: provides input
+        "auditor": "I"       # Informed: notified of completion
+    },
+    "architecture_decision": {
+        "architect_agent": "R",
+        "engineering_lead": "A",
+        "security_agent": "C",
+        "compliance_agent": "C",
+        "pm_agent": "I"
+    },
+    "incident_response": {
+        "triage_agent": "R",
+        "incident_commander": "A",
+        "diagnostics_agent": "R",
+        "communication_agent": "I"
+    }
+}
+
+def get_raci(task_type: str, agent_role: str) -> str:
+    """Get RACI assignment for agent in task type."""
+    return raci_matrix.get(task_type, {}).get(agent_role, "I")
+
+# RACI rules:
+# R (Responsible): Does the work. Multiple agents can be R.
+# A (Accountable): Owns the outcome. Exactly ONE agent per task.
+# C (Consulted): Provides input before decision. Two-way communication.
+# I (Informed): Notified after decision. One-way communication.</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>RACI provides clear role definitions that prevent confusion, duplication, and accountability gaps. It's directly transferable from human org design to multi-agent systems.</div>
+<div class="callout hood"><span>Under the hood</span>RACI maps naturally to multi-agent patterns: the A (Accountable) is typically the supervisor or manager agent, R (Responsible) agents are workers, C (Consulted) agents provide expertise, and I (Informed) agents receive notifications.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">42</span>Safety in Swarms: Containment and Kill-Switches</h3>
+<p><strong>What &amp; why.</strong> Large multi-agent systems can exhibit unexpected behavior. Safety mechanisms include containment (limiting what agents can do), kill-switches (emergency shutdown), and behavioral boundaries (hard limits on agent actions). These prevent runaway agents, cascading failures, and adversarial exploitation.</p>
+<pre class="code"><code>class SwarmSafety:
+    def __init__(self, agents: list):
+        self.agents = agents
+        self.kill_switch_active = False
+        self.containment_rules = {}
+        self.action_limits = {}
+
+    def activate_kill_switch(self, reason: str):
+        """Emergency shutdown of all agents."""
+        self.kill_switch_active = True
+        for agent in self.agents:
+            agent.pause()
+        print(f"KILL SWITCH ACTIVATED: {reason}")
+
+    def set_containment(self, agent_name: str, rules: dict):
+        """Set behavioral boundaries for an agent."""
+        self.containment_rules[agent_name] = {
+            "max_tokens_per_call": rules.get("max_tokens", 4000),
+            "max_calls_per_minute": rules.get("rpm", 10),
+            "allowed_tools": rules.get("tools", []),
+            "blocked_patterns": rules.get("blocked", []),
+            "max_cost_per_hour": rules.get("cost_limit", 5.0)
+        }
+
+    def check_action(self, agent_name: str, action: dict) -> bool:
+        """Validate agent action against containment rules."""
+        if self.kill_switch_active:
+            return False
+
+        rules = self.containment_rules.get(agent_name, {})
+        if action.get("tokens", 0) > rules.get("max_tokens_per_call", 4000):
+            return False
+        if action.get("tool") not in rules.get("allowed_tools", []):
+            return False
+        return True
+
+    def monitor_anomalies(self):
+        """Detect and respond to anomalous agent behavior."""
+        for agent in self.agents:
+            metrics = agent.get_metrics()
+            if metrics["calls_per_minute"] > 100:
+                self.activate_kill_switch(f"Agent {agent.name} exceeded call limit")
+            if metrics["error_rate"] > 0.5:
+                self.activate_kill_switch(f"Agent {agent.name} error rate too high")</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Safety mechanisms are mandatory for production multi-agent systems. Kill-switches prevent runaway costs and cascading failures. Containment limits prevent agents from exceeding their authorized scope.</div>
+<div class="callout hood"><span>Under the hood</span>Containment rules are enforced at the agent wrapper level. Every action passes through the safety check before execution. Anomaly monitoring runs on a separate thread and can trigger kill-switches.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">43</span>Economics: ROI Per Added Agent Curve</h3>
+<p><strong>What &amp; why.</strong> Each additional agent has a marginal benefit (improved quality, coverage, or speed) and marginal cost (LLM tokens, coordination overhead, latency). The ROI curve shows the point where adding more agents costs more than the value they provide. This is the fundamental economic constraint on multi-agent systems.</p>
+<pre class="code"><code># ROI analysis per agent count
+def analyze_roi(task_count: int, base_cost_per_task: float):
+    """Analyze ROI as agents are added."""
+    results = []
+    for n_agents in range(1, 11):
+        # Quality improvement (diminishing returns)
+        quality = 1 - (0.5 ** n_agents)  # approaches 1.0
+
+        # Cost multiplier (super-linear)
+        if n_agents <= 3:
+            cost_mult = n_agents
+        else:
+            cost_mult = 3 + (n_agents - 3) ** 1.5
+
+        total_cost = task_count * base_cost_per_task * cost_mult
+        quality_value = task_count * quality * 100  # $100 per quality unit
+
+        roi = (quality_value - total_cost) / total_cost * 100
+
+        results.append({
+            "agents": n_agents,
+            "quality": quality,
+            "cost_multiplier": cost_mult,
+            "total_cost": total_cost,
+            "quality_value": quality_value,
+            "roi_pct": roi
+        })
+
+    return results
+
+# Typical ROI curve:
+# 1 agent:  ROI = 100% (baseline)
+# 2 agents: ROI = 150% (good improvement)
+# 3 agents: ROI = 120% (still positive)
+# 4 agents: ROI = 80%  (declining)
+# 5 agents: ROI = 40%  (marginal)
+# 6+ agents: ROI negative (cost exceeds benefit)
+
+# Sweet spot: 2-4 agents for most tasks</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>ROI analysis prevents over-investment in multi-agent systems. The optimal agent count is where marginal benefit equals marginal cost, typically 2-4 agents.</div>
+<div class="callout hood"><span>Under the hood</span>The ROI curve depends on task complexity and agent specialization quality. Well-specialized agents have steeper quality improvements; poorly-specialized agents add cost without quality gains.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">44</span>Benchmark Suites: Multi-Agent Coordination Metrics</h3>
+<p><strong>What &amp; why.</strong> Multi-agent benchmarks measure coordination quality, not just task quality. Metrics include: communication efficiency (messages per task), coordination overhead (time spent coordinating vs. executing), role adherence (did agents stay in their roles?), and scalability (how performance degrades with more agents).</p>
+<pre class="code"><code>class MultiAgentBenchmark:
+    def __init__(self):
+        self.metrics = {}
+
+    def evaluate(self, system, tasks: list) -> dict:
+        """Run benchmark suite on multi-agent system."""
+        results = []
+        for task in tasks:
+            result = system.execute(task)
+            metrics = self._compute_metrics(result)
+            results.append(metrics)
+
+        return self._aggregate(results)
+
+    def _compute_metrics(self, result) -> dict:
+        return {
+            # Quality metrics
+            "task_quality": result["quality_score"],
+            "completeness": result["completeness"],
+
+            # Efficiency metrics
+            "total_messages": result["message_count"],
+            "messages_per_task": result["message_count"],
+            "coordination_time_pct": result["coord_overhead"],
+
+            # Cost metrics
+            "total_tokens": result["total_tokens"],
+            "total_cost": result["total_cost"],
+            "cost_per_quality_point": result["total_cost"] / max(result["quality_score"], 0.01),
+
+            # Reliability metrics
+            "agent_failures": result["failure_count"],
+            "fallback_triggered": result["used_fallback"],
+            "retry_count": result["retries"],
+
+            # Behavioral metrics
+            "role_adherence": result["role_scores"],
+            "consensus_reached": result["consensus"],
+            "conflict_resolved": result["conflicts_resolved"]
+        }</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Benchmarks enable objective comparison of multi-agent architectures. They reveal trade-offs that aren't visible from task quality alone (e.g., high quality but extreme cost).</div>
+<div class="callout hood"><span>Under the hood</span>Benchmark suites should include tasks of varying complexity, size, and type. Run each task multiple times to account for LLM non-determinism. Report mean and standard deviation for all metrics.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">45</span>Production War Stories: Anti-Patterns</h3>
+<p><strong>What &amp; why.</strong> Common anti-patterns in production multi-agent systems: supervisor bottleneck (all decisions go through one LLM call), infinite loops (agents keep revising without progress), context explosion (passing full history to every agent), and cost blindness (no per-agent tracking). These patterns cause failures at scale.</p>
+<pre class="code"><code># Anti-patterns and their solutions
+
+anti_patterns = {
+    "supervisor_bottleneck": {
+        "problem": "Supervisor LLM call becomes the latency bottleneck",
+        "symptom": "High latency, low throughput despite parallel agents",
+        "solution": "Pre-compute routing rules. Use ML classifier for routing "
+                   "instead of LLM call. Cache routing decisions."
+    },
+    "infinite_revision_loops": {
+        "problem": "Editor and writer keep revising without converging",
+        "symptom": "Task never completes, costs spiral",
+        "solution": "Set max iterations. Use quality score threshold. "
+                   "Track improvement between rounds; stop if delta < threshold."
+    },
+    "context_explosion": {
+        "problem": "Each agent receives full conversation history",
+        "symptom": "Token counts explode, costs multiply, latency increases",
+        "solution": "Pass only relevant context. Use handoff payloads. "
+                   "Summarize previous agent outputs before passing."
+    },
+    "cost_blindness": {
+        "problem": "No per-agent cost tracking",
+        "symptom": "Surprise bills, no way to optimize",
+        "solution": "Track tokens and cost per agent role. Set budget caps. "
+                   "Generate per-role cost reports."
+    },
+    "role_bleed_cascade": {
+        "problem": "Agent takes on another agent's role, causing downstream confusion",
+        "symptom": "Output doesn't match expected format for next agent",
+        "solution": "Strict tool constraints. Output format validation. "
+                   "Role boundaries enforced in system prompts."
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>These anti-patterns are the most common causes of multi-agent production failures. Recognizing them early prevents costly debugging and redesign.</div>
+<div class="callout hood"><span>Under the hood</span>Most anti-patterns stem from insufficient observability. Without per-agent tracing and cost tracking, these issues manifest as mysterious performance degradation or cost spikes.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">46</span>Research Frontier: LLM Societies and Governance</h3>
+<p><strong>What &amp; why.</strong> Research on LLM societies explores how language models interact in social simulations (generative agents, Stanford town). Governance research studies how to regulate, audit, and control multi-agent systems. These areas inform future production multi-agent system design.</p>
+<pre class="code"><code># Research areas in multi-agent LLM systems
+research_frontier = {
+    "generative_agents": {
+        "paper": "Generative Agents: Interactive Simulacra of Human Behavior",
+        "key_idea": "25 LLM agents in a town, observe emergent social behavior",
+        "production_relevance": "Social simulation, game NPCs, training scenarios"
+    },
+    "societal_simulations": {
+        "paper": "AI Societies and Future of Human Simulation",
+        "key_idea": "Large-scale agent societies for policy testing",
+        "production_relevance": "Urban planning, social policy modeling"
+    },
+    "multi_agent_debate": {
+        "paper": "Improving Factuality via Multi-Agent Debate",
+        "key_idea": "Agents debate to improve factual accuracy",
+        "production_relevance": "Fact-checking, research, decision support"
+    },
+    "agent_communication_protocols": {
+        "paper": "Communicative Agents for Software Development",
+        "key_idea": "Structured agent communication for complex tasks",
+        "production_relevance": "Software engineering, project management"
+    },
+    "governance_frameworks": {
+        "paper": "Governing AI Agent Societies",
+        "key_idea": "Rules, norms, and enforcement for agent societies",
+        "production_relevance": "Compliance, safety, accountability"
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Research insights inform production design. Multi-agent debate for factuality, structured communication for coordination, and governance frameworks for compliance are directly applicable.</div>
+<div class="callout hood"><span>Under the hood</span>The field is evolving rapidly. Key trends: larger agent societies (100+ agents), emergent behavior analysis, and governance frameworks for autonomous agent systems.</div>
+</article>
+
+<article class="topic-card">
+<h3><span class="tnum">47</span>Build vs. Framework: CrewAI, AutoGen, LangGraph Comparison</h3>
+<p><strong>What &amp; why.</strong> Frameworks like CrewAI, AutoGen, and LangGraph provide multi-agent abstractions. CrewAI focuses on role-based teams. AutoGen focuses on conversable agents. LangGraph focuses on stateful graphs. Each has trade-offs in flexibility, learning curve, and feature completeness.</p>
+<pre class="code"><code># Framework comparison
+frameworks = {
+    "crewai": {
+        "abstraction": "Role-based agent teams",
+        "api": "Decorator-based (@agent, @task, @crew)",
+        "strengths": ["Simple API", "Built-in roles", "Easy to start"],
+        "weaknesses": ["Less flexible", "Limited state management"],
+        "best_for": "Content production, research tasks, simple pipelines",
+        "learning_curve": "Low",
+        "example": """
+from crewai import Agent, Task, Crew
+
+researcher = Agent(role="Researcher", goal="Find accurate information")
+writer = Agent(role="Writer", goal="Write engaging content")
+
+research_task = Task(description="Research MCP", agent=researcher)
+write_task = Task(description="Write article", agent=writer)
+
+crew = Crew(agents=[researcher, writer], tasks=[research_task, write_task])
+result = crew.kickoff()
+"""
+    },
+    "autogen": {
+        "abstraction": "Conversable agents with message passing",
+        "api": "Agent classes with .initiate_chat()",
+        "strengths": ["Flexible conversation patterns", "Multi-agent chat"],
+        "weaknesses": ["More boilerplate", "Less structured"],
+        "best_for": "Conversational agents, debate, brainstorming",
+        "learning_curve": "Medium",
+        "example": """
+from autogen import AssistantAgent, UserProxyAgent
+
+assistant = AssistantAgent("assistant", llm_config=config)
+user_proxy = UserProxyAgent("user", human_input_mode="NEVER")
+
+user_proxy.initiate_chat(assistant, message="Research MCP")
+"""
+    },
+    "langgraph": {
+        "abstraction": "Stateful graphs with nodes and edges",
+        "api": "StateGraph with add_node(), add_edge()",
+        "strengths": ["Full control", "Conditional routing", "Persistence"],
+        "weaknesses": ["Verbose", "Steep learning curve"],
+        "best_for": "Complex workflows, custom coordination, production systems",
+        "learning_curve": "High",
+        "example": """
+from langgraph.graph import StateGraph, MessagesState
+
+graph = StateGraph(MessagesState)
+graph.add_node("researcher", researcher_fn)
+graph.add_node("writer", writer_fn)
+graph.add_edge("researcher", "writer")
+graph.set_entry_point("researcher")
+app = graph.compile()
+"""
+    }
+}</code></pre>
+<div class="callout usage"><span>Where you'll use it</span>Choose CrewAI for simple role-based teams. Choose AutoGen for conversational patterns. Choose LangGraph for complex workflows requiring full control. Start with the simplest that fits.</div>
+<div class="callout hood"><span>Under the hood</span>All three frameworks ultimately make LLM calls and manage message passing. The difference is the abstraction level: CrewAI hides complexity, LangGraph exposes it. Match framework to project complexity.</div>
+</article>
+
+</section>
+<section><h2 class="part p5">Part V · Real-Time Projects &amp; Use Cases<small>Tier 5 — build to remember</small></h2>
+
+<article class="proj-card">
+<h3>Content Factory: Researcher-Writer-Editor with Approvals</h3>
+<p>A content production pipeline with three specialized agents: a researcher gathers sources and facts, a writer composes the article, and an editor reviews for quality. Includes approval gates where a human must approve the research brief before writing begins and the draft before publication.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define three agent roles with specialized system prompts, tools, and temperature settings</li><li>Build a sequential pipeline: researcher -> approval gate -> writer -> editor -> approval gate -> publish</li><li>Implement structured handoff payloads with research briefs, decisions, and constraints</li><li>Add approval gates: human reviews research brief and final draft before proceeding</li><li>Set budget caps per role: researcher $5, writer $10, editor $3</li><li>Implement quality verification gate after editor review</li><li>Add tracing: span tree for full pipeline observability</li><li>Build retry loop: if editor rejects, writer revises up to 2 times</li></ol>
+<pre class="code"><code>from langgraph.graph import StateGraph, MessagesState
+
+class ContentState(MessagesState):
+    research_brief: str = ""
+    article_draft: str = ""
+    edited_version: str = ""
+    approved: bool = False
+    iteration: int = 0
+
+def researcher(state: ContentState):
+    """Gather research brief on the topic."""
+    topic = state["messages"][-1].content
+    brief = await research_agent.process(f"Research: {topic}")
+    return {"research_brief": brief, "messages": [
+        {"role": "assistant", "content": f"Research complete. Brief:\n{brief}"}
+    ]}
+
+def writer(state: ContentState):
+    """Write article from research brief."""
+    draft = await writer_agent.process(
+        f"Write article from this research:\n\n{state['research_brief']}"
+    )
+    return {"article_draft": draft, "iteration": state.get("iteration", 0) + 1}
+
+def editor(state: ContentState):
+    """Review and edit the article."""
+    edited = await editor_agent.process(
+        f"Edit this article:\n\n{state['article_draft']}"
+    )
+    return {"edited_version": edited}
+
+def quality_check(state: ContentState):
+    """Check if quality meets threshold."""
+    score = await quality_agent.process(state["edited_version"])
+    approved = float(score) >= 0.8
+    return {"approved": approved}
+
+# Build pipeline with conditional retry
+graph = StateGraph(ContentState)
+graph.add_node("researcher", researcher)
+graph.add_node("writer", writer)
+graph.add_node("editor", editor)
+graph.add_node("quality_check", quality_check)
+
+graph.add_edge("researcher", "writer")
+graph.add_edge("writer", "editor")
+graph.add_edge("editor", "quality_check")
+graph.add_conditional_edges("quality_check",
+    lambda s: "writer" if not s["approved"] and s["iteration"] < 3 else "end",
+    {"writer": "writer", "end": "__end__"}
+)
+graph.set_entry_point("researcher")</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Role-based agent design with specialized prompts and tools</li><li>Sequential pipeline with structured handoff payloads</li><li>Approval gates for human-in-the-loop workflows</li><li>Budget caps and quality verification gates</li><li>Conditional retry loops for quality improvement</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Incident Response Triage Swarm Over Alerts</h3>
+<p>An incident response system where multiple specialized agents triage incoming alerts simultaneously. A triage agent classifies severity, a diagnostics agent identifies root cause, a runbook agent suggests remediation, and a communication agent drafts status updates. They operate as a swarm with a blackboard for shared state.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Build alert ingestion pipeline: receive alerts from monitoring systems (Prometheus, Datadog)</li><li>Implement triage agent: classify severity (P1-P4), identify affected services, deduplicate</li><li>Add diagnostics agent: correlate alert with recent deployments, logs, metrics</li><li>Build runbook agent: match alert pattern to known runbooks, suggest remediation steps</li><li>Create communication agent: draft status updates for different audiences (engineering, leadership, customers)</li><li>Implement blackboard pattern: shared state for alert context, agent findings, and decisions</li><li>Add escalation rules: P1 alerts automatically page on-call, P2 create tickets</li><li>Build verification loop: after remediation, diagnostics agent confirms resolution</li></ol>
+<pre class="code"><code>class IncidentSwarm:
+    def __init__(self):
+        self.blackboard = Blackboard()
+        self.agents = {
+            "triage": TriageAgent(),
+            "diagnostics": DiagnosticsAgent(),
+            "runbook": RunbookAgent(),
+            "comms": CommunicationAgent()
+        }
+
+    async def handle_alert(self, alert: dict) -> dict:
+        """Process alert through agent swarm."""
+        # Post alert to blackboard
+        await self.blackboard.post_task({
+            "id": alert["id"],
+            "type": "alert",
+            "content": alert,
+            "status": "pending"
+        })
+
+        # Triage agent classifies
+        triage_result = await self.agents["triage"].process(alert)
+        await self.blackboard.post_result({
+            "agent": "triage",
+            "severity": triage_result["severity"],
+            "affected_services": triage_result["services"]
+        })
+
+        # Diagnostics agent correlates
+        context = await self.blackboard.get_context(alert["id"])
+        diag_result = await self.agents["diagnostics"].process(context)
+
+        # Runbook agent suggests remediation
+        runbook = await self.agents["runbook"].process({
+            "alert": alert,
+            "diagnosis": diag_result
+        })
+
+        # Communication agent drafts updates
+        if triage_result["severity"] in ["P1", "P2"]:
+            status_update = await self.agents["comms"].process({
+                "alert": alert,
+                "diagnosis": diag_result,
+                "remediation": runbook
+            })
+
+        return {
+            "severity": triage_result["severity"],
+            "diagnosis": diag_result,
+            "remediation": runbook,
+            "status_update": status_update
+        }</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Swarm-based alert processing with specialized agents</li><li>Blackboard pattern for shared incident context</li><li>Automated triage, diagnosis, and remediation suggestion</li><li>Multi-audience communication generation</li><li>Verification loop for incident resolution confirmation</li></ul>
+</article>
+
+<article class="proj-card">
+<h3>Mock Boardroom: Decision Panel Debating Proposals</h3>
+<p>A multi-agent decision panel that debates business proposals from different perspectives. A CEO agent focuses on strategy, a CFO agent on financials, a CTO agent on technical feasibility, and a CMO agent on market fit. They debate in rounds, then a chair agent synthesizes a final recommendation.</p>
+<p><strong>Architecture steps.</strong></p>
+<ol><li>Define four executive agent personas with distinct perspectives and evaluation criteria</li><li>Implement debate protocol: each agent presents their perspective on the proposal</li><li>Build cross-examination: agents respond to each other's points (mesh communication)</li><li>Add voting mechanism: each agent votes approve/reject/conditional with rationale</li><li>Implement chair agent: synthesizes all perspectives into a balanced recommendation</li><li>Build evidence tracking: agents cite data and precedents to support their positions</li><li>Add confidence scoring: each agent rates its confidence in its assessment</li><li>Create decision record: full debate transcript with final recommendation and dissent notes</li></ol>
+<pre class="code"><code>class MockBoardroom:
+    def __init__(self):
+        self.executives = {
+            "ceo": {"focus": "strategy", "persona": "You are the CEO. Focus on strategic alignment, market position, and long-term vision."},
+            "cfo": {"focus": "finance", "persona": "You are the CFO. Focus on ROI, cost analysis, budget impact, and financial risk."},
+            "cto": {"focus": "technology", "persona": "You are the CTO. Focus on technical feasibility, architecture, scalability, and tech debt."},
+            "cmo": {"focus": "market", "persona": "You are the CMO. Focus on customer needs, market fit, competitive landscape, and brand impact."}
+        }
+        self.chair = Agent(name="Chair", persona="You are the board chair. Synthesize all perspectives into a balanced recommendation.")
+
+    async def deliberate(self, proposal: str, rounds: int = 3) -> dict:
+        """Run boardroom deliberation."""
+        debate_transcript = []
+
+        for round_num in range(rounds):
+            round_perspectives = {}
+            for role, config in self.executives.items():
+                perspective = await self.run_agent(
+                    config["persona"],
+                    f"Proposal: {proposal}\nRound {round_num + 1}\n"
+                    f"Previous perspectives: {round_perspectives}\n\n"
+                    f"Provide your assessment as {role.upper()}."
+                )
+                round_perspectives[role] = perspective
+                debate_transcript.append({"round": round_num, "agent": role, "content": perspective})
+
+        # Chair synthesizes
+        recommendation = await self.chair.process(
+            f"Proposal: {proposal}\n\nFull debate:\n{json.dumps(debate_transcript, indent=2)}\n\n"
+            "Synthesize into a final recommendation with reasoning."
+        )
+
+        return {"debate": debate_transcript, "recommendation": recommendation}</code></pre>
+<p><strong>Skills unlocked.</strong></p>
+<ul><li>Persona-based multi-perspective deliberation</li><li>Structured debate protocol with cross-examination</li><li>Multi-round iterative discussion with convergence</li><li>Chair-based synthesis of diverse viewpoints</li><li>Decision records with full debate transcripts</li></ul>
+</article>
+
+</section>
+
+<section class="quickrev"><h2 style="color:#101a33">Quick Revision Board</h2>
+<table class="tbl"><tr><th>Concept</th><th>One-liner</th><th>Key syntax / API</th></tr>
+<tr><td>Single-Agent Limits</td><td>Context overload, role confusion, reliability degradation</td><td>Split into focused agents with narrow scope</td></tr>
+<tr><td>Role Specialization</td><td>Researcher, writer, critic with tailored prompts</td><td>AgentRole(name, system_prompt, tools, temperature)</td></tr>
+<tr><td>Supervisor Pattern</td><td>Central router dispatches to specialist agents</td><td>supervisor() returns routing decision</td></tr>
+<tr><td>Sequential Pipeline</td><td>Linear handoff: A -> B -> C</td><td>SequentialPipeline([agent_a, agent_b])</td></tr>
+<tr><td>Group Chat</td><td>Broadcast to all agents, collect perspectives</td><td>GroupChat.discuss(topic)</td></tr>
+<tr><td>Blackboard Pattern</td><td>Shared task list, agents claim and post</td><td>Blackboard.post_task(), claim_task()</td></tr>
+<tr><td>Message Envelope</td><td>Standard from/to/content/metadata format</td><td>MessageEnvelope(from_agent, to_agent, content)</td></tr>
+<tr><td>Star Topology</td><td>One coordinator, N workers (hub-spoke)</td><td>Coordinator routes to workers</td></tr>
+<tr><td>Chain Topology</td><td>Linear pipeline A -> B -> C -> D</td><td>Sequential edge connections</td></tr>
+<tr><td>Mesh Topology</td><td>All agents connected to all others</td><td>Full communication graph</td></tr>
+<tr><td>Translator-Reviewer Loop</td><td>Generate, evaluate, refine until approved</td><td>while not approved: revise()</td></tr>
+<tr><td>Cost Multiplication</td><td>Multi-agent = multiple LLM calls per task</td><td>estimate_multiagent_cost()</td></tr>
+<tr><td>Termination</td><td>Done flags, majority vote, max iterations</td><td>max_rounds, vote_threshold</td></tr>
+<tr><td>Role Bleed</td><td>Agent takes actions outside its assigned role</td><td>Constrained tools, explicit boundaries</td></tr>
+<tr><td>Handoff Protocol</td><td>Structured payload: task, output, decisions, constraints</td><td>HandoffPayload.for_next_agent(role)</td></tr>
+<tr><td>Manager-Workers</td><td>Hierarchical decomposition and delegation</td><td>Manager.decompose() -> workers.process()</td></tr>
+<tr><td>Debate Pattern</td><td>Pro/Con rounds then judge synthesizes</td><td>debate_rounds(topic, pro, con, judge)</td></tr>
+<tr><td>Voting Ensemble</td><td>Majority vote across multiple agents/personas</td><td>voting_ensemble(task, agents, threshold)</td></tr>
+<tr><td>Market Bidding</td><td>Agents bid on tasks, best bid wins</td><td>auction(task) -> best_bid.agent</td></tr>
+<tr><td>Peer Review</td><td>Iterative review with approval threshold</td><td>peer_review_cycle(artifact, author, reviewers)</td></tr>
+<tr><td>Shared Memory</td><td>All agents read/write common store</td><td>SharedMemory.read(key), write(key, value)</td></tr>
+<tr><td>Message Passing</td><td>Agents communicate via message bus</td><td>MessageBus.send(to, message), receive(agent)</td></tr>
+<tr><td>Fan-Out Gather</td><td>Parallel specialist execution, collect results</td><td>asyncio.gather(*tasks)</td></tr>
+<tr><td>Failure Isolation</td><td>Per-agent error handling, fallback to solo</td><td>try/except per agent, fallback_agent</td></tr>
+<tr><td>Multi-Hop Tracing</td><td>Span tree for nested agent interactions</td><td>tracer.start_span(trace_id, parent_id, agent)</td></tr>
+<tr><td>Budget Caps</td><td>Per-role spending limits</td><td>BudgetCappedAgent(name, budget_per_task)</td></tr>
+<tr><td>Deterministic Wrapper</td><td>Replay executions for debugging</td><td>DeterministicOrchestrator.execute(task)</td></tr>
+<tr><td>Emergent Behavior</td><td>Unexpected patterns from agent interactions</td><td>Steering: diversity pressure, disagreement reward</td></tr>
+<tr><td>Communication Schemas</td><td>Pydantic models for message validation</td><td>AgentMessage, TaskResult models</td></tr>
+<tr><td>Contract-Net</td><td>Broadcast task, collect bids, award contract</td><td>announce_task() -> award_contract()</td></tr>
+<tr><td>Coalition Formation</td><td>Dynamic teams based on task requirements</td><td>form_coalition(task) -> best_team</td></tr>
+<tr><td>Conflict Resolution</td><td>Majority vote, weighted vote, domain arbitration</td><td>resolve(conflict, strategy)</td></tr>
+<tr><td>Trust Scores</td><td>Updated reliability scores per agent per domain</td><td>update_trust(agent, domain, success)</td></tr>
+<tr><td>Scaling Laws</td><td>Optimal agent count: 3-5 for most tasks</td><td>Cost grows O(n^2), benefit sub-linear</td></tr>
+<tr><td>Verification Gate</td><td>Independent auditor checks work quality</td><td>VerificationGate.verify(work, task)</td></tr>
+<tr><td>Plan-of-Plans</td><td>Multi-level hierarchical decomposition</td><td>HierarchicalPlanner.create_plan(task, depth)</td></tr>
+<tr><td>Span Trees</td><td>Nested OpenTelemetry spans per agent call</td><td>tracer.start_as_current_span("agent.name")</td></tr>
+<tr><td>Per-Role Evaluation</td><td>Assess each agent's contribution quality</td><td>evaluate_role(role, output, rubric)</td></tr>
+<tr><td>BDI Model</td><td>Beliefs, desires, intentions framework</td><td>BDIAgent.reason(observation) -> action</td></tr>
+<tr><td>Mechanism Design</td><td>Incentive alignment through reward design</td><td>reward = quality * accuracy / cost</td></tr>
+<tr><td>Byzantine Tolerance</td><td>Detect and isolate malicious agents (3f+1)</td><td>detect_byzantine(outputs) -> agent_list</td></tr>
+<tr><td>Swarm Intelligence</td><td>Stigmergy: indirect communication via environment</td><td>deposit(agent, task, quality)</td></tr>
+<tr><td>Raft Consensus</td><td>Leader proposes, majority votes to commit</td><td>propose(proposal) -> committed bool</td></tr>
+<tr><td>RACI Matrix</td><td>Responsible, Accountable, Consulted, Informed</td><td>get_raci(task_type, agent_role)</td></tr>
+<tr><td>Kill-Switches</td><td>Emergency shutdown for runaway agents</td><td>activate_kill_switch(reason)</td></tr>
+<tr><td>ROI Curve</td><td>Diminishing returns per added agent</td><td>analyze_roi(task_count, cost_per_task)</td></tr>
+<tr><td>Benchmarks</td><td>Coordination, efficiency, cost, reliability metrics</td><td>MultiAgentBenchmark.evaluate(system, tasks)</td></tr>
+<tr><td>Anti-Patterns</td><td>Supervisor bottleneck, infinite loops, context explosion</td><td>Monitor: latency, cost, iteration count</td></tr>
+<tr><td>CrewAI</td><td>Role-based teams with decorator API</td><td>@agent, @task, @crew, crew.kickoff()</td></tr>
+<tr><td>AutoGen</td><td>Conversable agents with message passing</td><td>initiate_chat(message=...)</td></tr>
+<tr><td>LangGraph</td><td>Stateful graphs with nodes and edges</td><td>StateGraph, add_node(), add_edge()</td></tr>
+</table></section>
+</main>
+<footer class="pager"><a href="mcp.html">&larr; MCP</a><a href="crewai.html">CrewAI &rarr;</a></footer>
+</body></html>

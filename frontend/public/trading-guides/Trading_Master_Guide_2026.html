@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Complete Trading Master Guide - SG, US & India Markets 2026</title>
+<style>
+  :root {
+    --primary: #1a1a2e;
+    --secondary: #16213e;
+    --accent: #0f3460;
+    --gold: #e9b825;
+    --green: #00c853;
+    --red: #ff1744;
+    --blue: #2979ff;
+    --orange: #ff9100;
+    --purple: #7c4dff;
+    --cyan: #00e5ff;
+    --pink: #ff4081;
+    --white: #ffffff;
+    --light: #e8eaf6;
+    --dark: #0d0d1a;
+    --card-bg: #1e1e3a;
+    --card-border: #3a3a5c;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--dark);
+    color: var(--white);
+    line-height: 1.7;
+  }
+
+  /* HEADER */
+  .hero {
+    background: linear-gradient(135deg, #0d0d1a 0%, #1a1a3e 30%, #0f3460 60%, #1a1a2e 100%);
+    padding: 60px 40px;
+    text-align: center;
+    border-bottom: 4px solid var(--gold);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(233,184,37,0.05) 0%, transparent 70%);
+    animation: pulse 4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+  .hero h1 { font-size: 2.8em; color: var(--gold); text-shadow: 0 0 20px rgba(233,184,37,0.3); position: relative; }
+  .hero h2 { font-size: 1.3em; color: var(--cyan); margin-top: 10px; position: relative; }
+  .hero p { color: #aaa; margin-top: 15px; font-size: 0.95em; position: relative; }
+
+  /* NAVIGATION */
+  .nav { background: var(--primary); padding: 15px 40px; border-bottom: 2px solid var(--card-border); position: sticky; top: 0; z-index: 100; }
+  .nav a { color: var(--gold); text-decoration: none; margin: 0 12px; font-size: 0.85em; font-weight: 600; transition: 0.3s; }
+  .nav a:hover { color: var(--cyan); text-decoration: underline; }
+
+  /* SECTIONS */
+  .section { max-width: 1400px; margin: 30px auto; padding: 0 30px; }
+  .section-title {
+    font-size: 2em;
+    color: var(--gold);
+    border-left: 6px solid var(--gold);
+    padding-left: 20px;
+    margin: 50px 0 25px 0;
+    text-shadow: 0 0 10px rgba(233,184,37,0.2);
+  }
+  .sub-title {
+    font-size: 1.4em;
+    color: var(--cyan);
+    margin: 30px 0 15px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent);
+  }
+  .mini-title {
+    font-size: 1.1em;
+    color: var(--green);
+    margin: 20px 0 10px 0;
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 25px;
+    margin: 15px 0;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  }
+  .card-green { border-left: 5px solid var(--green); }
+  .card-red { border-left: 5px solid var(--red); }
+  .card-gold { border-left: 5px solid var(--gold); }
+  .card-blue { border-left: 5px solid var(--blue); }
+  .card-purple { border-left: 5px solid var(--purple); }
+  .card-orange { border-left: 5px solid var(--orange); }
+  .card-cyan { border-left: 5px solid var(--cyan); }
+  .card-pink { border-left: 5px solid var(--pink); }
+
+  /* TABLES */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 0.9em;
+  }
+  th {
+    background: linear-gradient(135deg, var(--accent), var(--primary));
+    color: var(--gold);
+    padding: 14px 16px;
+    text-align: left;
+    border: 2px solid var(--card-border);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    letter-spacing: 0.5px;
+  }
+  td {
+    padding: 12px 16px;
+    border: 1px solid #2a2a4a;
+    background: rgba(30,30,58,0.5);
+    transition: 0.2s;
+  }
+  tr:hover td { background: rgba(41,121,255,0.08); }
+  tr:nth-child(even) td { background: rgba(15,52,96,0.2); }
+
+  /* BADGES */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.78em;
+    font-weight: 700;
+    margin: 2px;
+  }
+  .badge-green { background: rgba(0,200,83,0.2); color: var(--green); border: 1px solid var(--green); }
+  .badge-red { background: rgba(255,23,68,0.2); color: var(--red); border: 1px solid var(--red); }
+  .badge-gold { background: rgba(233,184,37,0.2); color: var(--gold); border: 1px solid var(--gold); }
+  .badge-blue { background: rgba(41,121,255,0.2); color: var(--blue); border: 1px solid var(--blue); }
+  .badge-purple { background: rgba(124,77,255,0.2); color: var(--purple); border: 1px solid var(--purple); }
+  .badge-orange { background: rgba(255,145,0,0.2); color: var(--orange); border: 1px solid var(--orange); }
+  .badge-cyan { background: rgba(0,229,255,0.2); color: var(--cyan); border: 1px solid var(--cyan); }
+
+  /* HIGHLIGHTS */
+  .price-up { color: var(--green); font-weight: 700; }
+  .price-down { color: var(--red); font-weight: 700; }
+  .price-flat { color: var(--gold); font-weight: 700; }
+  .highlight { background: rgba(233,184,37,0.15); padding: 2px 8px; border-radius: 4px; color: var(--gold); }
+  .warn { background: rgba(255,23,68,0.15); padding: 2px 8px; border-radius: 4px; color: var(--red); }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; }
+
+  /* STAT BOX */
+  .stat-box {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+  }
+  .stat-box .label { font-size: 0.8em; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+  .stat-box .value { font-size: 1.8em; font-weight: 700; margin: 8px 0; }
+  .stat-box .change { font-size: 0.9em; }
+
+  /* GLOSSARY */
+  .term {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 15px;
+    padding: 12px 0;
+    border-bottom: 1px solid #2a2a4a;
+  }
+  .term-word { color: var(--cyan); font-weight: 700; font-size: 1em; }
+  .term-meaning { color: #ccc; }
+
+  /* LINKS */
+  a { color: var(--cyan); text-decoration: none; transition: 0.3s; }
+  a:hover { color: var(--gold); text-decoration: underline; }
+
+  .link-card {
+    display: block;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin: 8px 0;
+    transition: 0.3s;
+    text-decoration: none;
+  }
+  .link-card:hover { border-color: var(--gold); background: rgba(233,184,37,0.05); transform: translateX(5px); }
+  .link-card .link-title { color: var(--gold); font-weight: 700; font-size: 1.05em; }
+  .link-card .link-desc { color: #aaa; font-size: 0.85em; margin-top: 4px; }
+
+  /* ALERT BOXES */
+  .alert {
+    padding: 18px 25px;
+    border-radius: 10px;
+    margin: 15px 0;
+    font-size: 0.95em;
+  }
+  .alert-warning { background: rgba(255,145,0,0.12); border: 1px solid var(--orange); color: var(--orange); }
+  .alert-danger { background: rgba(255,23,68,0.12); border: 1px solid var(--red); color: var(--red); }
+  .alert-info { background: rgba(0,229,255,0.1); border: 1px solid var(--cyan); color: var(--cyan); }
+  .alert-success { background: rgba(0,200,83,0.1); border: 1px solid var(--green); color: var(--green); }
+
+  /* TOC */
+  .toc { columns: 3; column-gap: 30px; }
+  .toc a { display: block; padding: 5px 0; color: #bbb; font-size: 0.9em; }
+  .toc a:hover { color: var(--gold); }
+
+  /* EXAMPLE BOX */
+  .example {
+    background: rgba(0,229,255,0.06);
+    border: 1px dashed var(--cyan);
+    border-radius: 8px;
+    padding: 18px;
+    margin: 12px 0;
+  }
+  .example-label {
+    font-size: 0.8em;
+    color: var(--cyan);
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  ul { margin-left: 20px; }
+  li { margin: 5px 0; color: #ccc; }
+  li strong { color: var(--gold); }
+
+  .divider { border: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold), transparent); margin: 40px 0; }
+
+  .footer {
+    background: var(--primary);
+    padding: 30px;
+    text-align: center;
+    border-top: 3px solid var(--gold);
+    color: #666;
+    margin-top: 50px;
+  }
+
+  @media (max-width: 900px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .toc { columns: 1; }
+    .term { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 1.8em; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== HERO ========== -->
+<div class="hero">
+  <h1>&#x1F4C8; COMPLETE TRADING MASTER GUIDE 2026</h1>
+  <h2>Singapore + USA + India Markets | Sep - Dec 2026</h2>
+  <p>From Beginner to Pro &mdash; Everything you need to know about trading, investing, stocks, ETFs, gold, bonds &amp; more</p>
+  <p style="color:#ff9100; margin-top:10px; font-size:0.85em;">&#9888; NOT FINANCIAL ADVICE &mdash; For educational purposes only. Always do your own research.</p>
+</div>
+
+<!-- ========== NAVIGATION ========== -->
+<div class="nav">
+  <a href="#today">Today's Market</a>
+  <a href="#glossary">Trading Words</a>
+  <a href="#howto">How Trading Works</a>
+  <a href="#stocks">Stocks</a>
+  <a href="#etfs">ETFs</a>
+  <a href="#gold">Gold</a>
+  <a href="#bonds">Bonds</a>
+  <a href="#mutual">Mutual Funds</a>
+  <a href="#india">India</a>
+  <a href="#sg">Singapore</a>
+  <a href="#us">USA</a>
+  <a href="#outlook">Monthly Outlook</a>
+  <a href="#news">Live News Links</a>
+  <a href="#strategy">Strategies</a>
+  <a href="#risks">Risks</a>
+  <a href="#2027">2027 Outlook</a>
+  <a href="#options">Options</a>
+  <a href="#ta">Technical Analysis</a>
+  <a href="#paper">Paper Trading</a>
+</div>
+
+<div class="section">
+
+<!-- ================================================================ -->
+<!-- SECTION 1: TODAY'S MARKET SNAPSHOT -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="today">&#x1F4CA; SECTION 1: TODAY'S MARKET SNAPSHOT &mdash; 2 SEPTEMBER 2026</h2>
+
+<div class="alert alert-info">&#128339; All prices as of market close 1 September 2026 (markets closed Sep 2 = Labour Day in some regions). This is the latest available data.</div>
+
+<h3 class="sub-title">&#x1F1FA;&#x1F1F8; US MARKETS</h3>
+<div class="grid-4">
+  <div class="stat-box">
+    <div class="label">S&P 500</div>
+    <div class="value price-down">7,631.95</div>
+    <div class="change price-down">&#9660; -0.71% (-54 pts)</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">Nasdaq</div>
+    <div class="value price-down">26,099.77</div>
+    <div class="change price-down">&#9660; -1.01% (-271 pts)</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">Dow Jones</div>
+    <div class="value price-down">52,772.49</div>
+    <div class="change price-down">&#9660; -0.78% (-413 pts)</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">VIX Fear Index</div>
+    <div class="value" style="color:var(--orange);">~20</div>
+    <div class="change" style="color:var(--orange);">Elevated</div>
+  </div>
+</div>
+
+<h3 class="sub-title">&#x1F1F8;&#x1F1EC; SINGAPORE MARKETS</h3>
+<div class="grid-3">
+  <div class="stat-box">
+    <div class="label">Straits Times Index</div>
+    <div class="value price-flat">~4,780</div>
+    <div class="change price-flat">Range-bound</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">DBS Group (D05)</div>
+    <div class="value price-up">S$46.00</div>
+    <div class="change price-up">&#9650; +8% YTD</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">S-REITs Index</div>
+    <div class="value price-up">~850</div>
+    <div class="change price-up">&#9650; +8% YTD</div>
+  </div>
+</div>
+
+<h3 class="sub-title">&#x1F1EE;&#x1F1F3; INDIA MARKETS</h3>
+<div class="grid-3">
+  <div class="stat-box">
+    <div class="label">Nifty 50</div>
+    <div class="value price-down">24,100</div>
+    <div class="change price-down">&#9660; -1.5% YTD</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">BSE Sensex</div>
+    <div class="value price-down">77,000</div>
+    <div class="change price-down">&#9660; -2% YTD</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">USD/INR</div>
+    <div class="value" style="color:var(--orange);">95.73</div>
+    <div class="change" style="color:var(--orange);">Rupee weak</div>
+  </div>
+</div>
+
+<h3 class="sub-title">&#x1F4B0; COMMODITIES & CRYPTO</h3>
+<div class="grid-4">
+  <div class="stat-box">
+    <div class="label">Gold (XAU)</div>
+    <div class="value price-down">$4,320/oz</div>
+    <div class="change price-down">&#9660; -30% from ATH</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">WTI Crude Oil</div>
+    <div class="value price-up">$87.58</div>
+    <div class="change price-up">&#9650; +33% YTD</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">Bitcoin</div>
+    <div class="value price-flat">$78,090</div>
+    <div class="change price-flat">~Flat YTD</div>
+  </div>
+  <div class="stat-box">
+    <div class="label">US 10Y Treasury</div>
+    <div class="value" style="color:var(--red);">4.68%</div>
+    <div class="change" style="color:var(--red);">Highest since 2007</div>
+  </div>
+</div>
+
+<h3 class="sub-title">&#x1F3E0; KEY US STOCKS</h3>
+<table>
+  <tr><th>Stock</th><th>Price</th><th>Change</th><th>Market Cap</th><th>P/E</th><th>52W Range</th><th>Trend</th></tr>
+  <tr><td><strong>NVIDIA (NVDA)</strong></td><td>$217.44</td><td class="price-down">-1.51%</td><td>$5.24T</td><td>27.5</td><td>$164 - $236</td><td><span class="badge badge-gold">CONSOLIDATING</span></td></tr>
+  <tr><td><strong>Apple (AAPL)</strong></td><td>$325.13</td><td class="price-up">+2.61%</td><td>$3.0T</td><td>32.0</td><td>$258 - $340</td><td><span class="badge badge-green">UP</span></td></tr>
+  <tr><td><strong>Microsoft (MSFT)</strong></td><td>~$490</td><td class="price-flat">~Flat</td><td>$3.6T</td><td>35.0</td><td>$400 - $520</td><td><span class="badge badge-blue">FLAT</span></td></tr>
+  <tr><td><strong>Tesla (TSLA)</strong></td><td>$356.09</td><td class="price-down">-3.22%</td><td>$1.1T</td><td>120+</td><td>$220 - $430</td><td><span class="badge badge-orange">VOLATILE</span></td></tr>
+  <tr><td><strong>Amazon (AMZN)</strong></td><td>~$266</td><td class="price-up">+3.97%</td><td>$2.7T</td><td>42.0</td><td>$200 - $285</td><td><span class="badge badge-green">UP</span></td></tr>
+  <tr><td><strong>Alphabet (GOOGL)</strong></td><td>$346.59</td><td class="price-up">+1.74%</td><td>$4.1T</td><td>25.0</td><td>$200 - $360</td><td><span class="badge badge-green">STRONG</span></td></tr>
+  <tr><td><strong>Meta (META)</strong></td><td>~$720</td><td class="price-flat">~Flat</td><td>$1.8T</td><td>28.0</td><td>$480 - $760</td><td><span class="badge badge-blue">FLAT</span></td></tr>
+  <tr><td><strong>Broadcom (AVGO)</strong></td><td>$369.68</td><td class="price-down">-0.18%</td><td>$1.7T</td><td>38.0</td><td>$220 - $390</td><td><span class="badge badge-gold">CONSOLIDATING</span></td></tr>
+</table>
+
+<h3 class="sub-title">&#x1F1F8;&#x1F1EC; KEY SINGAPORE STOCKS</h3>
+<table>
+  <tr><th>Stock</th><th>Price (SGD)</th><th>Div Yield</th><th>Sector</th><th>Outlook</th></tr>
+  <tr><td><strong>DBS Group (D05)</strong></td><td>S$46.00</td><td class="price-up">4.5%</td><td>Banking</td><td><span class="badge badge-green">BUY ON DIP</span></td></tr>
+  <tr><td><strong>OCBC (O39)</strong></td><td>S$16.50</td><td class="price-up">5.0%</td><td>Banking</td><td><span class="badge badge-green">HOLD</span></td></tr>
+  <tr><td><strong>UOB (U11)</strong></td><td>S$40.00</td><td class="price-up">4.8%</td><td>Banking</td><td><span class="badge badge-green">HOLD</span></td></tr>
+  <tr><td><strong>Singtel (Z74)</strong></td><td>S$3.80</td><td class="price-up">5.2%</td><td>Telecom</td><td><span class="badge badge-blue">HOLD</span></td></tr>
+  <tr><td><strong>CapitaLand (C31)</strong></td><td>S$7.50</td><td>2.8%</td><td>Property</td><td><span class="badge badge-gold">WATCH</span></td></tr>
+  <tr><td><strong>Keppel DC REIT (AJBU)</strong></td><td>S$2.40</td><td class="price-up">4.2%</td><td>Data Center</td><td><span class="badge badge-green">BUY</span></td></tr>
+  <tr><td><strong>SGX (S68)</strong></td><td>S$10.50</td><td class="price-up">5.5%</td><td>Exchange</td><td><span class="badge badge-green">BUY</span></td></tr>
+</table>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 2: TRADING GLOSSARY - ALL DAILY WORDS -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="glossary">&#x1F4D6; SECTION 2: TRADING GLOSSARY &mdash; Every Word You Need to Know</h2>
+
+<div class="card card-cyan">
+<p>Below is a complete dictionary of words used daily in trading. These are the terms you will see on Bloomberg, CNBC, broker apps, and financial news every single day.</p>
+</div>
+
+<h3 class="sub-title">&#x1F4B1; Basic Trading Terms</h3>
+<table>
+  <tr><th style="width:220px;">WORD</th><th>MEANING (Simple English)</th><th>EXAMPLE</th></tr>
+  <tr><td><strong>STOCK / SHARE</strong></td><td>A small piece of ownership in a company. When you buy 1 share of Apple, you own a tiny part of Apple.</td><td>"I bought 10 shares of Apple at $325 each = $3,250 invested."</td></tr>
+  <tr><td><strong>BULL</strong></td><td>Market is going UP. Prices are rising. Optimism. Named after how a bull attacks &mdash; horns thrust upward.</td><td>"This is a bull market &mdash; S&P 500 is up 20% this year."</td></tr>
+  <tr><td><strong>BEAR</strong></td><td>Market is going DOWN. Prices are falling. Fear. Named after how a bear attacks &mdash; paws swipe downward.</td><td>"We are in a bear market &mdash; stocks have fallen 25% from highs."</td></tr>
+  <tr><td><strong>BULL MARKET</strong></td><td>A prolonged period where stock prices rise 20%+ from recent lows.</td><td>"The US has been in a bull market since 2023."</td></tr>
+  <tr><td><strong>BEAR MARKET</strong></td><td>A period where stock prices fall 20%+ from recent highs.</td><td>"Crypto entered a bear market after hitting $100K."</td></tr>
+  <tr><td><strong>RECESSION</strong></td><td>Economic activity shrinks for 2+ consecutive quarters (6 months). GDP falls. Jobs are lost.</td><td>"If oil keeps rising, a recession is possible in Q4."</td></tr>
+  <tr><td><strong>CRASH</strong></td><td>Sudden, sharp drop in prices (10%+ in a short time). Panic selling.</td><td>"The market crashed 8% in one day during COVID."</td></tr>
+  <tr><td><strong>CORRECTION</strong></td><td>Stock market falls 10% from its recent high. Normal and healthy. Happens ~1-2 times per year.</td><td>"S&P 500 entered correction after falling from 8,000 to 7,200."</td></tr>
+  <tr><td><strong>RALLY</strong></td><td>A strong upward move in prices over days or weeks.</td><td>"Stocks rallied 5% after the Fed held rates steady."</td></tr>
+  <tr><td><strong>PULLBACK</strong></td><td>A small decline (3-10%) from recent highs. Not as severe as a correction.</td><td>"Expect a pullback before the next leg up."</td></tr>
+  <tr><td><strong>VOLATILITY</strong></td><td>How much prices move up and down. High volatility = big swings. Low volatility = calm markets.</td><td>"VIX at 30 means high volatility &mdash; big daily moves expected."</td></tr>
+  <tr><td><strong>Liquidity</strong></td><td>How easily you can buy or sell an asset without affecting its price. Cash is the most liquid.</td><td>"Apple has high liquidity &mdash; millions of shares trade daily."</td></tr>
+  <tr><td><strong>Market Cap</strong></td><td>Total value of a company = Share Price x Number of Shares. Shows company size.</td><td>"NVIDIA market cap is $5.2 trillion &mdash; world's 3rd largest company."</td></tr>
+  <tr><td><strong>VOLUME</strong></td><td>Number of shares traded in a day. High volume = lots of interest. Low volume = quiet.</td><td>"NVDA traded 130M shares today &mdash; very high volume."</td></tr>
+</table>
+
+<h3 class="sub-title">&#x1F4B5; Order Types (How to Buy/Sell)</h3>
+<table>
+  <tr><th style="width:220px;">ORDER TYPE</th><th>MEANING</th><th>WHEN TO USE</th></tr>
+  <tr><td><strong>MARKET ORDER</strong></td><td>Buy/sell IMMEDIATELY at the current market price. Fast but you might get a slightly different price than expected.</td><td>When you want to enter/exit NOW and don't care about small price differences.</td></tr>
+  <tr><td><strong>LIMIT ORDER</strong></td><td>Buy/sell at a SPECIFIC price you set. Order only executes when price reaches your target.</td><td>When you want to buy at a specific price: "Buy NVDA at $210" (not at current $217).</td></tr>
+  <tr><td><strong>STOP LOSS ORDER</strong></td><td>Automatically sell if price drops to a certain level. Protects you from big losses.</td><td>Buy NVDA at $217, set stop loss at $195. If NVDA falls to $195, auto-sell to limit loss.</td></tr>
+  <tr><td><strong>STOP LIMIT ORDER</strong></td><td>A combination &mdash; trigger a limit order when price hits your stop level.</td><td>More control than stop loss. Avoids selling at bad prices during flash crashes.</td></tr>
+  <tr><td><strong>TRAILING STOP</strong></td><td>Stop loss that moves UP as price moves up. Locks in profits automatically.</td><td>Buy at $200, trailing stop $20. If stock goes to $250, stop moves to $230. If it drops to $230, auto-sell.</td></tr>
+  <tr><td><strong>FRACTIONAL ORDER</strong></td><td>Buy a FRACTION of a share (not whole). E.g., 0.5 shares of Berkshire at $700K = $350K.</td><td>When share price is too high to buy whole shares. Moomoo, Syfe support this.</td></tr>
+</table>
+
+<h3 class="sub-title">&#x1F4C8; Price Terms You See Daily</h3>
+<table>
+  <tr><th style="width:220px;">TERM</th><th>MEANING</th><th>EXAMPLE</th></tr>
+  <tr><td><strong>BID PRICE</strong></td><td>The highest price a buyer is willing to pay right now.</td><td>NVDA bid: $217.30 (someone wants to buy at this price)</td></tr>
+  <tr><td><strong>ASK PRICE</strong></td><td>The lowest price a seller is willing to accept right now.</td><td>NVDA ask: $217.50 (someone wants to sell at this price)</td></tr>
+  <tr><td><strong>SPREAD</strong></td><td>Difference between bid and ask. Small spread = liquid market.</td><td>Spread = $217.50 - $217.30 = $0.20 (tight, good)</td></tr>
+  <tr><td><strong>OPEN</strong></td><td>Price when market opened today.</td><td>NVDA opened at $216.75</td></tr>
+  <tr><td><strong>CLOSE</strong></td><td>Final price when market closed today.</td><td>NVDA closed at $217.44</td></tr>
+  <tr><td><strong>HIGH</strong></td><td>Highest price reached during the trading day.</td><td>NVDA high today: $220.41</td></tr>
+  <tr><td><strong>LOW</strong></td><td>Lowest price reached during the trading day.</td><td>NVDA low today: $215.10</td></tr>
+  <tr><td><strong>52-WEEK HIGH/LOW</strong></td><td>Highest and lowest price in the last 12 months.</td><td>NVDA 52W: High $236.54 / Low $164.07</td></tr>
+  <tr><td><strong>P/E RATIO</strong></td><td>Price-to-Earnings. How much you pay per $1 of profit. Lower = cheaper relative to earnings.</td><td>NVDA P/E = 27.5x. Means you pay $27.50 for every $1 of NVDA profit.</td></tr>
+  <tr><td><strong>EPS</strong></td><td>Earnings Per Share. How much profit the company makes per share.</td><td>NVDA EPS = $7.91 per share</td></tr>
+  <tr><td><strong>DIVIDEND</strong></td><td>Cash payment companies give to shareholders (usually quarterly). Like interest on your stock.</td><td>DBS pays S$1.50 dividend per year = 4.5% yield on S$46 stock.</td></tr>
+  <tr><td><strong>EX-DIVIDEND DATE</strong></td><td>Date by which you must own the stock to receive the upcoming dividend. Buy BEFORE this date.</td><td>"NVDA ex-div June 4 &mdash; must own by June 3 to get $0.25 dividend."</td></tr>
+  <tr><td><strong>YIELD</strong></td><td>Annual dividend as a percentage of stock price. Yield = Dividend / Price x 100.</td><td>DBS: S$1.50 / S$46 = 3.26% current yield (rough)</td></tr>
+</table>
+
+<h3 class="sub-title">&#x1F4CA; Chart & Technical Analysis Words</h3>
+<table>
+  <tr><th style="width:220px;">TERM</th><th>MEANING</th><th>WHY IT MATTERS</th></tr>
+  <tr><td><strong>SUPPORT LEVEL</strong></td><td>Price level where stock has historically STOPPED falling. Buyers step in.</td><td>"NVDA support at $200 &mdash; if it stays above, the trend is intact."</td></tr>
+  <tr><td><strong>RESISTANCE LEVEL</strong></td><td>Price level where stock has historically STOPPED rising. Sellers step in.</td><td>"NVDA resistance at $230 &mdash; needs to break this to go higher."</td></tr>
+  <tr><td><strong>MOVING AVERAGE</strong></td><td>Average price over a set period (50-day, 200-day). Smooths out noise.</td><td>"NVDA is above its 200-day MA = long-term uptrend intact."</td></tr>
+  <tr><td><strong>RSI (Relative Strength Index)</strong></td><td>Measures if stock is overbought (>70) or oversold (<30). Scale 0-100.</td><td>"NVDA RSI at 45 = neutral. Not overbought or oversold."</td></tr>
+  <tr><td><strong>MACD</strong></td><td>Shows momentum and trend direction. When MACD line crosses signal line = buy/sell signal.</td><td>"MACD just turned positive = bullish momentum building."</td></tr>
+  <tr><td><strong>GAP UP / GAP DOWN</strong></td><td>When stock opens significantly higher/lower than yesterday's close.</td><td>"NVDA gapped up 8% on earnings beat."</td></tr>
+  <tr><td><strong>CANDLESTICK</strong></td><td>Visual representation of open, high, low, close on a chart. Green = up day, red = down day.</td><td>"Doji candle = indecision, possible reversal coming."</td></tr>
+</table>
+
+<h3 class="sub-title">&#x1F3ED; Market Hours</h3>
+<table>
+  <tr><th>MARKET</th><th>EXCHANGE</th><th>TRADING HOURS (LOCAL)</th><th>TRADING HOURS (SG TIME)</th></tr>
+  <tr><td>New York (NYSE/NASDAQ)</td><td>USA</td><td>9:30 AM - 4:00 PM ET</td><td>9:30 PM - 4:00 AM SGT</td></tr>
+  <tr><td>Singapore (SGX)</td><td>Singapore</td><td>9:00 AM - 5:00 PM SGT</td><td>Same timezone</td></tr>
+  <tr><td>Bombay (NSE/BSE)</td><td>India</td><td>9:15 AM - 3:30 PM IST</td><td>11:45 AM - 6:00 PM SGT</td></tr>
+  <tr><td>London (LSE)</td><td>UK</td><td>8:00 AM - 4:30 PM GMT</td><td>4:00 PM - 12:30 AM SGT</td></tr>
+  <tr><td>Hong Kong (HKEX)</td><td>Hong Kong</td><td>9:30 AM - 4:00 PM HKT</td><td>9:30 AM - 4:00 PM SGT</td></tr>
+</table>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 3: HOW TRADING ACTUALLY WORKS -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="howto">&#x1F680; SECTION 3: HOW TRADING ACTUALLY WORKS &mdash; Step by Step</h2>
+
+<div class="card card-gold">
+  <h3>The Complete Journey from Zero to Trading</h3>
+</div>
+
+<div class="grid-2">
+<div class="card card-green">
+  <h3 style="color:var(--green);">STEP 1: Open a Brokerage Account</h3>
+  <p>A <strong>brokerage account</strong> is like a bank account, but for buying stocks instead of saving money. You deposit cash, then use it to buy investments.</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>You open a Moomoo account &rarr; Verify with Singpass (3 minutes) &rarr; Transfer SGD 1,000 via FAST &rarr; Now you have SGD 1,000 to invest.</p>
+  </div>
+
+  <p style="margin-top:10px;"><strong>Best brokers for beginners in Singapore:</strong></p>
+  <ul>
+    <li><strong>Moomoo SG</strong> &mdash; Easiest app, zero US commission, SG stores</li>
+    <li><strong>Syfe Brokerage</strong> &mdash; SGD 1 minimum, simplest onboarding</li>
+    <li><strong>Webull SG</strong> &mdash; Zero commission on everything</li>
+    <li><strong>Tiger Brokers</strong> &mdash; Best for CPF/SRS investing</li>
+    <li><strong>Interactive Brokers (IBKR)</strong> &mdash; Cheapest for global ETFs</li>
+  </ul>
+</div>
+
+<div class="card card-blue">
+  <h3 style="color:var(--blue);">STEP 2: Deposit Money (Fund Account)</h3>
+  <p>Transfer money from your bank account to your brokerage account. This is like loading money onto a card before you shop.</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>Log into DBS/OCBC/UOB &rarr; Transfer to Moomoo's DBS bank account &rarr; Use FAST (instant) or PayNow &rarr; Money appears in Moomoo in minutes.</p>
+  </div>
+
+  <p style="margin-top:10px;"><strong>Minimum amounts:</strong></p>
+  <ul>
+    <li>Syfe: SGD 1</li>
+    <li>Moomoo: SGD 100+</li>
+    <li>Tiger: SGD 100+</li>
+    <li>IBKR: SGD 0 (no minimum)</li>
+  </ul>
+</div>
+</div>
+
+<div class="grid-2">
+<div class="card card-purple">
+  <h3 style="color:var(--purple);">STEP 3: Choose What to Buy</h3>
+  <p>You can buy <strong>individual stocks</strong> (risky, needs research) or <strong>ETFs</strong> (diversified, safer for beginners).</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p><strong>Option A (Safer):</strong> Buy CSPX ETF &mdash; instantly own 500 US companies (Apple, Microsoft, Nvidia, etc.) in one purchase.<br>
+    <strong>Option B (Riskier):</strong> Buy only Nvidia stock &mdash; all your money in one company.</p>
+  </div>
+
+  <div class="alert alert-info">&#128161; BEGINNER TIP: Start with ETFs. They spread your risk across hundreds of companies. Individual stocks are for when you understand a company well.</div>
+</div>
+
+<div class="card card-orange">
+  <h3 style="color:var(--orange);">STEP 4: Place Your Order</h3>
+  <p>Search for the stock/ETF ticker, choose quantity, select order type, and click BUY.</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>Open Moomoo &rarr; Search "CSPX" &rarr; Click BUY &rarr; Select "Limit Order" at $95 &rarr; Quantity: 10 shares &rarr; Total cost: $950 &rarr; Confirm &rarr; Done!</p>
+  </div>
+
+  <div class="alert alert-warning">&#9888; ALWAYS use Limit Orders, not Market Orders. Market orders can execute at bad prices during volatile times.</div>
+</div>
+</div>
+
+<div class="card card-green">
+  <h3 style="color:var(--green);">STEP 5: Monitor & Manage Your Portfolio</h3>
+  <p>Check your portfolio regularly (weekly, not every minute). Rebalance quarterly. Sell when your thesis changes, not when you feel scared.</p>
+
+  <div class="grid-3">
+    <div class="example">
+      <div class="example-label">GOOD HABIT</div>
+      <p>Check portfolio every Friday evening. Read 1-2 news articles. Note what's up and why.</p>
+    </div>
+    <div class="example">
+      <div class="example-label">BAD HABIT</div>
+      <p>Checking every 5 minutes. Panic selling on red days. FOMO buying on green days.</p>
+    </div>
+    <div class="example">
+      <div class="example-label">PRO HABIT</div>
+      <p>Maintain a trading journal. Write down WHY you bought and WHEN you plan to sell.</p>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 4: STOCKS DEEP DIVE -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="stocks">&#x1F3E2; SECTION 4: STOCKS &mdash; Complete Guide</h2>
+
+<div class="card card-gold">
+  <h3>What is a Stock?</h3>
+  <p>A <strong>stock</strong> (also called a <strong>share</strong> or <strong>equity</strong>) represents partial ownership of a company. When Apple has 15 billion shares and you own 10, you own 10/15,000,000,000 = 0.000000067% of Apple. If Apple makes $100 billion profit, your 10 shares get 0.000000067% of that = $0.0067 in earnings.</p>
+</div>
+
+<h3 class="sub-title">Types of Stocks</h3>
+<table>
+  <tr><th>TYPE</th><th>WHAT IT IS</th><th>EXAMPLES</th><th>RISK</th></tr>
+  <tr><td><strong>Blue Chip</strong></td><td>Large, stable, well-known companies with long track records. Pay dividends. Less volatile.</td><td>DBS, Apple, Microsoft, Reliance, HSBC</td><td><span class="badge badge-green">LOW-MED</span></td></tr>
+  <tr><td><strong>Growth Stock</strong></td><td>Companies growing revenue fast. Reinvest profits instead of paying dividends. Higher P/E ratios.</td><td>NVIDIA, Tesla, Amazon, TCS</td><td><span class="badge badge-orange">MEDIUM-HIGH</span></td></tr>
+  <tr><td><strong>Value Stock</strong></td><td>Companies trading below their "fair value". Often undervalued by market. Pay dividends.</td><td>Banking stocks, oil companies, old-economy names</td><td><span class="badge badge-green">LOW-MED</span></td></tr>
+  <tr><td><strong>Dividend Stock</strong></td><td>Companies that pay regular cash dividends. Income-focused. Ideal for passive income.</td><td>DBS (4.5%), Singtel (5.2%), REITs</td><td><span class="badge badge-green">LOW</span></td></tr>
+  <tr><td><strong>Penny Stock</strong></td><td>Very cheap stocks (usually under $1 or S$1). Extremely risky. Many go to zero.</td><td>Small-cap speculative names on SGX/NSE</td><td><span class="badge badge-red">VERY HIGH</span></td></tr>
+  <tr><td><strong>IPO Stock</strong></td><td>Newly listed companies. First time available to public. High volatility in early days.</td><td>Any company doing initial listing</td><td><span class="badge badge-orange">HIGH</span></td></tr>
+  <tr><td><strong>Cyclical Stock</strong></td><td>Moves with economic cycles. Does well in booms, poorly in recessions.</td><td>Airlines, hotels, oil companies, banks</td><td><span class="badge badge-orange">MEDIUM-HIGH</span></td></tr>
+  <tr><td><strong>Defensive Stock</strong></td><td>Stable regardless of economy. People need these even in recessions.</td><td>Utilities, healthcare, consumer staples, telecoms</td><td><span class="badge badge-green">LOW</span></td></tr>
+</table>
+
+<h3 class="sub-title">&#x2705; BUY NOW &mdash; September 2026</h3>
+<div class="card card-green">
+<table>
+  <tr><th>STOCK</th><th>MARKET</th><th>PRICE</th><th>WHY BUY NOW</th><th>TARGET</th><th>STOP LOSS</th></tr>
+  <tr><td><strong>NVDA</strong></td><td>US</td><td>$217</td><td>30% off ATH. AI capex cycle continues. Blackwell GPU demand. P/E compressed to 27x.</td><td>$250-260</td><td>$195</td></tr>
+  <tr><td><strong>AAPL</strong></td><td>US</td><td>$325</td><td>New CEO Ternus. iPhone 17 cycle. Services revenue growing. Strong balance sheet.</td><td>$350-370</td><td>$300</td></tr>
+  <tr><td><strong>GOOGL</strong></td><td>US</td><td>$347</td><td>Gemini AI dominance. YouTube + Cloud growth. Cheapest Mag7 at 25x P/E.</td><td>$380-400</td><td>$320</td></tr>
+  <tr><td><strong>AMZN</strong></td><td>US</td><td>$266</td><td>AWS cloud growth. Prime Day strong. Advertising business booming.</td><td>$290-310</td><td>$245</td></tr>
+  <tr><td><strong>DBS</strong></td><td>SG</td><td>S$46</td><td>ASEAN banking leader. 4.5% yield. MAS EQDP supports SG market. Strong NIM.</td><td>S$50-52</td><td>S$43</td></tr>
+  <tr><td><strong>Keppel DC REIT</strong></td><td>SG</td><td>S$2.40</td><td>AI data center demand structural. 4.2% yield. Occupancy 95%+.</td><td>S$2.70</td><td>S$2.20</td></tr>
+  <tr><td><strong>HDFC Bank</strong></td><td>India</td><td>Rs 1,800</td><td>Best Indian bank. 15%+ ROE. Credit growth 14%. Consistent compounder.</td><td>Rs 2,100</td><td>Rs 1,650</td></tr>
+  <tr><td><strong>TCS</strong></td><td>India</td><td>Rs 3,600</td><td>IT spending rising. AI deals pipeline strong. India IT sector leader.</td><td>Rs 4,000</td><td>Rs 3,300</td></tr>
+</table>
+</div>
+
+<h3 class="sub-title">&#x1F534; SELL / AVOID NOW</h3>
+<div class="card card-red">
+<table>
+  <tr><th>STOCK</th><th>MARKET</th><th>WHY AVOID</th><th>RISK</th></tr>
+  <tr><td><strong>Adani Enterprises</strong></td><td>India</td><td>Governance concerns. High debt. 20% YTD decline. Volatile.</td><td><span class="badge badge-red">HIGH</span></td></tr>
+  <tr><td><strong>Long-dated bonds</strong></td><td>US</td><td>30Y at 5.24% &mdash; may go higher if Fed hikes. Duration risk.</td><td><span class="badge badge-red">HIGH</span></td></tr>
+  <tr><td><strong>Unprofitable tech</strong></td><td>US</td><td>Rising rates = death for cash-burning companies.</td><td><span class="badge badge-red">HIGH</span></td></tr>
+  <tr><td><strong>Overleveraged companies</strong></td><td>Global</td><td>High debt + rising rates = higher interest costs = margin squeeze.</td><td><span class="badge badge-orange">MEDIUM-HIGH</span></td></tr>
+</table>
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 5: ETFs DEEP DIVE -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="etfs">&#x1F4E1; SECTION 5: ETFs &mdash; The Best Way to Start Investing</h2>
+
+<div class="card card-cyan">
+  <h3>What is an ETF?</h3>
+  <p>An <strong>ETF (Exchange-Traded Fund)</strong> is a basket of stocks/bonds that you can buy as a single unit, just like buying one share. It gives you instant <strong>diversification</strong> &mdash; instead of picking one stock, you own hundreds at once.</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; SIMPLE EXAMPLE</div>
+    <p>Instead of buying Apple ($325) + Microsoft ($490) + Nvidia ($217) + Amazon ($266) + Google ($347) separately = $1,645 total, you buy <strong>1 share of CSPX ETF</strong> for ~$95 and you instantly OWN all 500 companies in the S&P 500. That's the power of ETFs.</p>
+  </div>
+</div>
+
+<h3 class="sub-title">Best ETFs for Singapore Investors</h3>
+<table>
+  <tr><th>ETF</th><th>TICKER</th><th>WHAT IT HOLDS</th><th>WHY IT'S BEST</th><th>WHOM FOR</th></tr>
+  <tr>
+    <td><strong>iShares S&P 500 UCITS (Ireland)</strong></td>
+    <td><span class="badge badge-green">CSPX</span></td>
+    <td>500 biggest US companies</td>
+    <td>Ireland domicile = only 15% US dividend tax (vs 30% for VOO). No US estate tax.</td>
+    <td><span class="badge badge-green">BEST FOR SG</span></td>
+  </tr>
+  <tr>
+    <td><strong>Vanguard FTSE All-World UCITS (Ireland)</strong></td>
+    <td><span class="badge badge-green">VWRA</span></td>
+    <td>8,700+ stocks across 47 countries</td>
+    <td>Entire global stock market in ONE fund. 15% WHT. The ultimate one-fund portfolio.</td>
+    <td><span class="badge badge-green">BEST ALL-IN-ONE</span></td>
+  </tr>
+  <tr>
+    <td><strong>STI ETF</strong></td>
+    <td><span class="badge badge-blue">ES3</span></td>
+    <td>30 largest SG companies</td>
+    <td>SGD denominated. CPF-OA eligible. Dividend yield ~3%. No FX risk.</td>
+    <td><span class="badge badge-blue">CPF INVESTORS</span></td>
+  </tr>
+  <tr>
+    <td><strong>Vanguard S&P 500</strong></td>
+    <td>VOO</td>
+    <td>500 biggest US companies</td>
+    <td>Cheapest expense ratio 0.03%. But 30% US WHT for SG investors.</td>
+    <td><span class="badge badge-gold">OK (NOT BEST)</span></td>
+  </tr>
+  <tr>
+    <td><strong>iShares MSCI India</strong></td>
+    <td><span class="badge badge-orange">INDA</span></td>
+    <td>India largest companies</td>
+    <td>Best way to invest in India from SG. USD denominated.</td>
+    <td><span class="badge badge-orange">INDIA PLAY</span></td>
+  </tr>
+  <tr>
+    <td><strong>SPDR Gold Shares</strong></td>
+    <td><span class="badge badge-gold">GLD</span></td>
+    <td>Physical gold bars</td>
+    <td>Tracks gold price. Largest gold ETF. Highly liquid.</td>
+    <td><span class="badge badge-gold">GOLD PLAY</span></td>
+  </tr>
+  <tr>
+    <td><strong>Invesco QQQ</strong></td>
+    <td>QQQ</td>
+    <td>Top 100 Nasdaq tech stocks</td>
+    <td>Concentrated tech exposure. Higher risk/reward than S&P 500.</td>
+    <td><span class="badge badge-orange">TECH BULLS</span></td>
+  </tr>
+</table>
+
+<div class="alert alert-success">&#x2705; BEGINNER STRATEGY: Buy just CSPX + ES3 (or VWRA alone). This covers you across US + Singapore or the entire world. Set up monthly auto-buy (DCA). Done.</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 6: GOLD INVESTMENT -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="gold">&#x1F947; SECTION 6: GOLD &mdash; Complete Guide</h2>
+
+<div class="card card-gold">
+  <h3 style="color:var(--gold);">Why Invest in Gold?</h3>
+  <p>Gold is the world's oldest store of value. It acts as a <strong>hedge against inflation</strong>, <strong>currency devaluation</strong>, and <strong>geopolitical uncertainty</strong>. When stocks crash, gold often holds its value or rises.</p>
+  <p style="margin-top:10px;"><strong>Current gold price:</strong> $4,320/oz (down 30% from Jan 2026 ATH of $5,594)</p>
+  <p><strong>Analyst targets:</strong> JP Morgan: $6,000 (Q4), ING: $4,600, Bank of America: $5,000</p>
+</div>
+
+<h3 class="sub-title">Ways to Buy Gold in Singapore</h3>
+<table>
+  <tr><th>METHOD</th><th>HOW</th><th>MINIMUM</th><th>PROS</th><th>CONS</th></tr>
+  <tr>
+    <td><strong>Gold ETF (EASIEST)</strong></td>
+    <td>Buy GLD (US) or O87/CLG (SGX) via any broker</td>
+    <td>~$50 USD or SGD 10</td>
+    <td>Liquid, no storage, instant buy/sell</td>
+    <td>Management fees 0.3-0.4%/yr</td>
+  </tr>
+  <tr>
+    <td><strong>Physical Gold Bars</strong></td>
+    <td>Buy from UOB, GoldSilver.com.sg, Sik Shing Hong</td>
+    <td>~SGD 500 (1g bar)</td>
+    <td>Tangible, no counterparty risk</td>
+    <td>Storage, insurance, harder to sell small amounts</td>
+  </tr>
+  <tr>
+    <td><strong>Gold Mining Stocks</strong></td>
+    <td>Buy CNMC Goldmine (SGX:5TP), Newmont (NEM), Barrick (GOLD)</td>
+    <td>1 share (~SGD 1-100)</td>
+    <td>Dividends, leveraged to gold price</td>
+    <td>Company-specific risk, more volatile</td>
+  </tr>
+  <tr>
+    <td><strong>Bank Gold Account</strong></td>
+    <td>UOB Gold Passbook, OCBC Gold Account</td>
+    <td>~SGD 1,000</td>
+    <td>Convenient, reputable bank</td>
+    <td>Wider spreads vs market price</td>
+  </tr>
+  <tr>
+    <td><strong>Gold Structured Deposit</strong></td>
+    <td>DBS, UOB, OCBC bank branches</td>
+    <td>~SGD 10,000</td>
+    <td>Enhanced yield possible</td>
+    <td>Complex, capital at risk, early exit penalty</td>
+  </tr>
+</table>
+
+<h3 class="sub-title">Gold Price Forecast (Sep-Dec 2026)</h3>
+<table>
+  <tr><th>MONTH</th><th>RANGE</th><th>KEY DRIVER</th></tr>
+  <tr><td>September</td><td class="price-flat">$4,200 - $4,400</td><td>Hawkish Fed, strong dollar caps upside</td></tr>
+  <tr><td>October</td><td class="price-flat">$4,300 - $4,500</td><td>Iran ceasefire? Geopolitics key</td></tr>
+  <tr><td>November</td><td class="price-up">$4,400 - $4,700</td><td>Safe haven demand, uncertainty</td></tr>
+  <tr><td>December</td><td class="price-up">$4,500 - $4,800</td><td>Year-end positioning, JPM $6K target</td></tr>
+</table>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 7: BONDS -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="bonds">&#x1F3E6; SECTION 7: BONDS &mdash; Fixed Income Guide</h2>
+
+<div class="card card-blue">
+  <h3 style="color:var(--blue);">What is a Bond?</h3>
+  <p>A <strong>bond</strong> is like lending money to a government or company. They pay you <strong>interest</strong> (called <strong>yield</strong>) and return your money at a set date (<strong>maturity</strong>). Bonds are generally safer than stocks but offer lower returns.</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>You buy a US 10-Year Treasury Bond for $1,000 at 4.68% yield.<br>
+    &rarr; You receive $46.80 per year in interest (paid every 6 months = $23.40 each).<br>
+    &rarr; After 10 years, you get your $1,000 back.<br>
+    &rarr; Total earnings: $468 in interest over 10 years.</p>
+  </div>
+</div>
+
+<h3 class="sub-title">Types of Bonds</h3>
+<table>
+  <tr><th>BOND TYPE</th><th>WHO ISSUES</th><th>RISK</th><th>CURRENT YIELD</th><th>WHERE TO BUY</th></tr>
+  <tr><td><strong>US Treasury</strong></td><td>US Government</td><td><span class="badge badge-green">LOWEST</span></td><td>4.68% (10Y)</td><td>IBKR, Saxo, SGOV ETF</td></tr>
+  <tr><td><strong>Singapore Savings Bonds</strong></td><td>Singapore Govt</td><td><span class="badge badge-green">ZERO</span></td><td>2.8-3.0%</td><td>DBS/OCBC/UOB, FSMOne</td></tr>
+  <tr><td><strong>Corporate (Investment Grade)</strong></td><td>Large companies (Apple, Microsoft)</td><td><span class="badge badge-blue">LOW-MED</span></td><td>5.0-5.5%</td><td>LQD ETF, IBKR</td></tr>
+  <tr><td><strong>Corporate (High Yield / Junk)</strong></td><td>Riskier companies</td><td><span class="badge badge-orange">HIGH</span></td><td>7.0-9.0%</td><td>HYG ETF, JNK ETF</td></tr>
+  <tr><td><strong>Singapore Government Securities</strong></td><td>Singapore Govt</td><td><span class="badge badge-green">VERY LOW</span></td><td>3.0-3.2%</td><td>DBS/OCBC/UOB</td></tr>
+  <tr><td><strong>India Government Bond</strong></td><td>Indian Govt</td><td><span class="badge badge-blue">MEDIUM</span></td><td>7.1%</td><td>Via IBKR India segment</td></tr>
+</table>
+
+<div class="alert alert-info">&#128161; BOND STRATEGY: In current high-rate environment, short-term Treasuries (SGOV) offer ~4.5% "risk-free" return. Park cash here while deciding what stocks to buy.</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 8: MUTUAL FUNDS -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="mutual">&#x1F3F7; SECTION 8: MUTUAL FUNDS &amp; INDEX FUNDS</h2>
+
+<div class="card card-purple">
+  <h3 style="color:var(--purple);">What is a Mutual Fund?</h3>
+  <p>A <strong>mutual fund</strong> is a professionally managed pool of money from many investors. A fund manager picks stocks/bonds for you. You just put in money and they handle the rest.</p>
+
+  <p style="margin-top:10px;"><strong>ETF vs Mutual Fund:</strong></p>
+  <ul>
+    <li><strong>ETF:</strong> Traded like stocks (buy/sell anytime). Lower fees. You choose when to buy.</li>
+    <li><strong>Mutual Fund:</strong> Bought at end-of-day NAV price. Higher fees. Auto-invest option (RSP).</li>
+  </ul>
+</div>
+
+<h3 class="sub-title">Best Funds for SG Investors</h3>
+<table>
+  <tr><th>FUND</th><th>TYPE</th><th>PLATFORM</th><th>MINIMUM</th><th>ANNUAL FEE</th></tr>
+  <tr><td><strong>Endowus Flagship</strong></td><td>Robo-advisor (uses Dimensional/Low-cost index funds)</td><td>Endowus</td><td>SGD 1,000</td><td>0.25-0.60%</td></tr>
+  <tr><td><strong>StashAway</strong></td><td>Robo-advisor (automated portfolio)</td><td>StashAway</td><td>SGD 0</td><td>0.2-0.8%</td></tr>
+  <tr><td><strong>Syfe</strong></td><td>Robo + Brokerage (hybrid)</td><td>Syfe</td><td>SGD 1</td><td>0.35-0.65%</td></tr>
+  <tr><td><strong>FSMOne RSP</strong></td><td>Regular Savings Plan for ETFs/Funds</td><td>FSMOne</td><td>SGD 100/mo</td><td>0.5% per RSP</td></tr>
+  <tr><td><strong>POEMS RSP</strong></td><td>Regular Savings Plan</td><td>Phillip POEMS</td><td>SGD 100/mo</td><td>0.5% per RSP</td></tr>
+</table>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 9: MONTHLY OUTLOOK -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="outlook">&#x1F4C5; SECTION 9: MONTH-BY-MONTH MARKET OUTLOOK (Sep-Dec 2026)</h2>
+
+<div class="alert alert-danger">&#9888; REMEMBER: These are estimates, NOT guarantees. Markets can move in any direction. Use these as a framework for thinking, not as a crystal ball.</div>
+
+<!-- SEPTEMBER -->
+<div class="card card-red">
+  <h3 style="color:var(--red);">&#x1F342; SEPTEMBER 2026 &mdash; "September Blues + Fed Decision"</h3>
+  <p><strong>Key Event:</strong> FOMC meeting Sep 16-17 (65% probability of 25bps rate HIKE)</p>
+  <p><strong>Oil:</strong> Elevated ($85-95) due to US-Iran conflict</p>
+  <p><strong>Overall:</strong> Historically the WORST month for stocks. Expect volatility.</p>
+
+  <table>
+    <tr><th>MARKET</th><th>SEPTEMBER TARGET</th><th>STRATEGY</th></tr>
+    <tr><td>S&P 500</td><td class="price-down">7,400 - 7,700</td><td>Don't panic sell. Buy dips below 7,500.</td></tr>
+    <tr><td>Nasdaq</td><td class="price-down">25,000 - 26,500</td><td>Tech vulnerable to rate hike fears.</td></tr>
+    <tr><td>STI (SG)</td><td class="price-flat">4,600 - 4,850</td><td>Banks provide floor. REITs under pressure.</td></tr>
+    <tr><td>Nifty (India)</td><td class="price-down">23,500 - 25,000</td><td>Range-bound. FII outflows continue.</td></tr>
+    <tr><td>Gold</td><td class="price-down">$4,200 - $4,400</td><td>Dollar strength limits upside.</td></tr>
+    <tr><td>Oil</td><td class="price-up">$85 - $95</td><td>Iran tensions keep oil elevated.</td></tr>
+    <tr><td>Bitcoin</td><td class="price-flat">$75K - $82K</td><td>Consolidating before year-end move.</td></tr>
+  </table>
+</div>
+
+<!-- OCTOBER -->
+<div class="card card-orange">
+  <h3 style="color:var(--orange);">&#x1F341; OCTOBER 2026 &mdash; "Q3 Earnings Season"</h3>
+  <p><strong>Key Event:</strong> Q3 2026 earnings reports begin (banks first, then tech)</p>
+  <p><strong>Overall:</strong> Volatile. Strong earnings = recovery. Weak earnings = more pain.</p>
+
+  <table>
+    <tr><th>MARKET</th><th>OCTOBER TARGET</th><th>STRATEGY</th></tr>
+    <tr><td>S&P 500</td><td class="price-flat">7,500 - 7,900</td><td>Earnings-driven. Watch NVDA, AAPL results.</td></tr>
+    <tr><td>Nasdaq</td><td class="price-flat">25,500 - 27,500</td><td>Tech earnings critical for direction.</td></tr>
+    <tr><td>STI (SG)</td><td class="price-flat">4,700 - 4,950</td><td>DBS/OCBC Q3 results support.</td></tr>
+    <tr><td>Nifty (India)</td><td class="price-up">24,500 - 26,000</td><td>Q2 FY27 results. IT sector key.</td></tr>
+    <tr><td>Gold</td><td class="price-flat">$4,300 - $4,500</td><td>Depends on Iran ceasefire progress.</td></tr>
+  </table>
+</div>
+
+<!-- NOVEMBER -->
+<div class="card card-green">
+  <h3 style="color:var(--green);">&#x1F343; NOVEMBER 2026 &mdash; "Santa Claus Rally Begins?"</h3>
+  <p><strong>Key Event:</strong> Black Friday data, year-end window dressing starts</p>
+  <p><strong>Overall:</strong> Historically strong month. Year-end rally often begins here.</p>
+
+  <table>
+    <tr><th>MARKET</th><th>NOVEMBER TARGET</th><th>STRATEGY</th></tr>
+    <tr><td>S&P 500</td><td class="price-up">7,700 - 8,100</td><td>Seasonal rally. Add tech and growth.</td></tr>
+    <tr><td>Nasdaq</td><td class="price-up">26,500 - 28,500</td><td>Year-end institutional flows into tech.</td></tr>
+    <tr><td>STI (SG)</td><td class="price-up">4,800 - 5,100</td><td>Dividend stocks attract year-end flows.</td></tr>
+    <tr><td>Nifty (India)</td><td class="price-up">25,000 - 26,500</td><td>Diwali rally + FII return.</td></tr>
+    <tr><td>Gold</td><td class="price-up">$4,400 - $4,700</td><td>Safe haven + uncertainty bid.</td></tr>
+    <tr><td>Bitcoin</td><td class="price-up">$80K - $95K</td><td>Year-end institutional buying.</td></tr>
+  </table>
+</div>
+
+<!-- DECEMBER -->
+<div class="card card-gold">
+  <h3 style="color:var(--gold);">&#x1F384; DECEMBER 2026 &mdash; "Year-End Positioning"</h3>
+  <p><strong>Key Event:</strong> FOMC Dec meeting, holiday trading, year-end rebalancing</p>
+  <p><strong>Overall:</strong> Moderate bullish. Window dressing pushes prices higher.</p>
+
+  <table>
+    <tr><th>MARKET</th><th>DECEMBER TARGET</th><th>STRATEGY</th></tr>
+    <tr><td>S&P 500</td><td class="price-up">7,800 - 8,200</td><td>Year-end positioning. Consider profit-taking if at highs.</td></tr>
+    <tr><td>Nasdaq</td><td class="price-up">27,000 - 29,000</td><td>Tax-loss selling + rebound into new year.</td></tr>
+    <tr><td>STI (SG)</td><td class="price-up">4,900 - 5,200</td><td>Target hit. Review and rebalance.</td></tr>
+    <tr><td>Nifty (India)</td><td class="price-flat">24,700 - 26,500</td><td>Year-end consolidation.</td></tr>
+    <tr><td>Gold</td><td class="price-up">$4,500 - $4,800</td><td>Year-end safe haven. JPM target $6K in sight.</td></tr>
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 10: LIVE NEWS LINKS -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="news">&#x1F517; SECTION 10: DAILY NEWS &amp; LIVE DATA LINKS</h2>
+
+<p style="margin-bottom:20px;">Bookmark these links. Check them daily for real-time market updates:</p>
+
+<h3 class="sub-title">&#x1F1FA;&#x1F1F8; US Markets - Daily News</h3>
+<div class="grid-2">
+  <div>
+    <a href="https://finance.yahoo.com" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Yahoo Finance</div>
+      <div class="link-desc">Real-time quotes, charts, news, portfolio tracker. Best free all-rounder.</div>
+    </a>
+    <a href="https://www.cnbc.com/markets/" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; CNBC Markets</div>
+      <div class="link-desc">Breaking market news, live TV, expert analysis.</div>
+    </a>
+    <a href="https://www.marketwatch.com" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; MarketWatch</div>
+      <div class="link-desc">Real-time market data, personal finance, stock analysis.</div>
+    </a>
+    <a href="https://www.google.com/finance" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Google Finance</div>
+      <div class="link-desc">Quick lookups, portfolios, news. Clean and fast.</div>
+    </a>
+  </div>
+  <div>
+    <a href="https://www.reuters.com/markets/" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Reuters Markets</div>
+      <div class="link-desc">Global financial news, professional-grade reporting.</div>
+    </a>
+    <a href="https://www.bloomberg.com/markets" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Bloomberg Markets</div>
+      <div class="link-desc">Professional terminal quality data and analysis.</div>
+    </a>
+    <a href="https://www.tradingview.com" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; TradingView</div>
+      <div class="link-desc">Best charts, technical analysis, community ideas. Free tier available.</div>
+    </a>
+    <a href="https://www.investing.com" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Investing.com</div>
+      <div class="link-desc">All asset classes, economic calendar, portfolio tools.</div>
+    </a>
+  </div>
+</div>
+
+<h3 class="sub-title">&#x1F1F8;&#x1F1EC; Singapore Markets</h3>
+<div class="grid-2">
+  <div>
+    <a href="https://www.sgx.com/securities/equities" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; SGX Website</div>
+      <div class="link-desc">Official exchange. Real-time SGX data, indices, announcements.</div>
+    </a>
+    <a href="https://www.straitstimes.com/business/invest" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Straits Times - Invest</div>
+      <div class="link-desc">Singapore financial news and market analysis.</div>
+    </a>
+    <a href="https://blog.moneysmart.sg/invest/" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; MoneySmart Investing</div>
+      <div class="link-desc">SG-focused investment guides, broker comparisons, tips.</div>
+    </a>
+  </div>
+  <div>
+    <a href="https://sginvestors.io" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; SGInvestors.io</div>
+      <div class="link-desc">SGX stock data, analyst reports, price targets. Essential for SG stocks.</div>
+    </a>
+    <a href="https://www.theedgesingapore.com/investing" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; The Edge Singapore</div>
+      <div class="link-desc">SG business and investment news.</div>
+    </a>
+    <a href="https://growbeansprout.com" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Beansprout</div>
+      <div class="link-desc">SG-focused investment insights, REITs analysis, gold guide.</div>
+    </a>
+  </div>
+</div>
+
+<h3 class="sub-title">&#x1F1EE;&#x1F1F3; India Markets</h3>
+<div class="grid-2">
+  <div>
+    <a href="https://www.moneycontrol.com/markets/" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; MoneyControl</div>
+      <div class="link-desc">India's #1 financial site. NSE/BSE data, portfolio, analysis. ESSENTIAL.</div>
+    </a>
+    <a href="https://economictimes.indiatimes.com/markets" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Economic Times Markets</div>
+      <div class="link-desc">India's leading business newspaper. In-depth market coverage.</div>
+    </a>
+    <a href="https://www.livemint.com/market" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; LiveMint Markets</div>
+      <div class="link-desc">Professional market analysis, IPO coverage, sector reports.</div>
+    </a>
+  </div>
+  <div>
+    <a href="https://www.tickertape.in" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Tickertape</div>
+      <div class="link-desc">Stock screener, financial data, peer comparison for NSE/BSE.</div>
+    </a>
+    <a href="https://trendlyne.com" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Trendlyne</div>
+      <div class="link-desc">India stock screeners, technical analysis, FII/DII data.</div>
+    </a>
+    <a href="https://www.screener.in" class="link-card" target="_blank">
+      <div class="link-title">&#x1F4F0; Screener.in</div>
+      <div class="link-desc">Best free India stock screener. Financial data for all NSE/BSE stocks.</div>
+    </a>
+  </div>
+</div>
+
+<h3 class="sub-title">&#x1F4E1; Economic Calendars & Data</h3>
+<div class="grid-2">
+  <a href="https://www.forexfactory.com/calendar" class="link-card" target="_blank">
+    <div class="link-title">&#x1F4C5; Forex Factory Calendar</div>
+    <div class="link-desc">Best free economic calendar. Shows every major data release worldwide.</div>
+  </a>
+  <a href="https://www.investing.com/economic-calendar/" class="link-card" target="_blank">
+    <div class="link-title">&#x1F4C5; Investing.com Economic Calendar</div>
+    <div class="link-desc">Filter by country, importance, event type. Very comprehensive.</div>
+  </a>
+  <a href="https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html" class="link-card" target="_blank">
+    <div class="link-title">&#x1F4B5; CME FedWatch Tool</div>
+    <div class="link-desc">Real-time probability of Fed rate changes. THE most important tool.</div>
+  </a>
+  <a href="https://tradingeconomics.com/calendar" class="link-card" target="_blank">
+    <div class="link-title">&#x1F4CA; Trading Economics</div>
+    <div class="link-desc">Global macro data, forecasts, historical charts for every indicator.</div>
+  </a>
+</div>
+
+<h3 class="sub-title">&#x1F9E0; Learning & Education</h3>
+<div class="grid-2">
+  <a href="https://www.investopedia.com" class="link-card" target="_blank">
+    <div class="link-title">&#x1F4DA; Investopedia</div>
+    <div class="link-desc">WORLD'S BEST for learning investing. Every term defined. Free simulator. ESSENTIAL.</div>
+  </a>
+  <a href="https://www.khanacademy.org/economics-finance-domain" class="link-card" target="_blank">
+    <div class="link-title">&#x1F4DA; Khan Academy Finance</div>
+    <div class="link-desc">Free courses on stocks, bonds, valuation, macroeconomics.</div>
+  </a>
+  <a href="https://www.moomoo.com/sg/learn" class="link-card" target="_blank">
+    <div class="link-title">&#x1F4DA; Moomoo SG Learning Hub</div>
+    <div class="link-desc">Free courses, video tutorials, market analysis for beginners.</div>
+  </a>
+  <a href="https://www.tigerbrokers.com.sg/academy" class="link-card" target="_blank">
+    <div class="link-title">&#x1F4DA; Tiger Academy</div>
+    <div class="link-desc">Free investment courses, market commentary, webinars.</div>
+  </a>
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 11: STRATEGIES -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="strategy">&#x1F3AF; SECTION 11: TRADING STRATEGIES &mdash; From Beginner to Pro</h2>
+
+<div class="card card-green">
+  <h3 style="color:var(--green);">STRATEGY 1: Dollar Cost Averaging (DCA) &mdash; BEST FOR BEGINNERS</h3>
+  <p>Invest a <strong>fixed amount</strong> at <strong>regular intervals</strong> (e.g., every month), regardless of whether the market is up or down.</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>Every 1st of the month, invest SGD 500 into CSPX ETF:<br>
+    &bull; Sep: Buy at $95 &rarr; get 5.26 shares<br>
+    &bull; Oct: Buy at $88 (market dipped!) &rarr; get 5.68 shares<br>
+    &bull; Nov: Buy at $92 &rarr; get 5.43 shares<br>
+    &bull; Dec: Buy at $97 &rarr; get 5.15 shares<br><br>
+    <strong>Total:</strong> SGD 2,000 invested, 21.52 shares, average cost = $92.93 per share. You bought MORE shares when prices were LOW!</p>
+  </div>
+
+  <p><strong>Why it works:</strong> Removes emotion. No need to time the market. Historically outperforms trying to pick the "perfect" entry point.</p>
+  <p><strong>Best for:</strong> ETFs (CSPX, VWRA, ES3). Works for any market condition.</p>
+</div>
+
+<div class="card card-orange">
+  <h3 style="color:var(--orange);">STRATEGY 2: Buy the Dip (BTDF)</h3>
+  <p>Wait for the market to drop 5-10%, then buy quality stocks at a discount.</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>NVDA is at $236 (52-week high). You set alerts:<br>
+    &bull; Buy 1st tranche at $215 (10% drop)<br>
+    &bull; Buy 2nd tranche at $200 (15% drop)<br>
+    &bull; Buy 3rd tranche at $185 (22% drop)<br>
+    Stop loss at $170 (below 200-day moving average)</p>
+  </div>
+
+  <p><strong>Best for:</strong> Blue chip stocks (NVDA, AAPL, DBS, HDFC Bank). NOT for penny stocks.</p>
+</div>
+
+<div class="card card-blue">
+  <h3 style="color:var(--blue);">STRATEGY 3: Dividend Investing</h3>
+  <p>Build a portfolio of dividend-paying stocks for passive income.</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE PORTFOLIO (SGD 50,000)</div>
+    <p>DBS (S$46, 4.5% yield): SGD 15,000 &rarr; SGD 675/year<br>
+    OCBC (S$16.50, 5.0% yield): SGD 12,000 &rarr; SGD 600/year<br>
+    Singtel (S$3.80, 5.2% yield): SGD 10,000 &rarr; SGD 520/year<br>
+    SGX (S$10.50, 5.5% yield): SGD 8,000 &rarr; SGD 440/year<br>
+    Keppel DC REIT (S$2.40, 4.2% yield): SGD 5,000 &rarr; SGD 210/year<br>
+    <strong>Total annual dividend: SGD 2,445 (4.89% average yield)</strong></p>
+  </div>
+</div>
+
+<div class="card card-purple">
+  <h3 style="color:var(--purple);">STRATEGY 4: Sector Rotation</h3>
+  <p>Move money between sectors based on economic cycles.</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p><strong>Sep-Oct (Risk-off, oil up):</strong> Overweight Energy (XLE) + Defensives (XLV)<br>
+    <strong>Nov-Dec (Risk-on, year-end rally):</strong> Overweight Tech (XLK/QQQ) + Growth (VUG)</p>
+  </div>
+</div>
+
+<div class="card card-pink">
+  <h3 style="color:var(--pink);">STRATEGY 5: Options &mdash; ADVANCED</h3>
+  <p>Options give you the RIGHT (not obligation) to buy/sell stocks at a specific price. Use for income or hedging.</p>
+
+  <div class="example">
+    <div class="example-label">&#x1F44D; COVERED CALL EXAMPLE</div>
+    <p>You own 100 shares of NVDA at $217. Sell a $240 Call option for $5/share.<br>
+    &bull; You receive: $5 x 100 = $500 premium (yours to keep!)<br>
+    &bull; If NVDA stays below $240: You keep shares + $500. Free money.<br>
+    &bull; If NVDA goes above $240: Shares called away at $240. You profit $23/share + $500.<br>
+    &bull; Risk: If NVDA goes to $300, you miss out on gains above $240.</p>
+  </div>
+
+  <div class="alert alert-danger">&#9888; Options are complex. Start with paper trading on Moomoo/IBKR before using real money. Wrong options trades can lead to unlimited losses.</div>
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 12: PORTFOLIO ALLOCATIONS -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="risks">&#x1F3D7; SECTION 12: PORTFOLIO MODELS &amp; RISK MANAGEMENT</h2>
+
+<div class="grid-2">
+<div class="card card-green">
+  <h3 style="color:var(--green);">&#x1F6E1; CONSERVATIVE (Low Risk)</h3>
+  <table>
+    <tr><th>ALLOCATION</th><th>WHAT</th></tr>
+    <tr><td>40%</td><td>US ETFs (CSPX/VOO)</td></tr>
+    <tr><td>25%</td><td>SG Dividend Stocks (DBS, OCBC)</td></tr>
+    <tr><td>15%</td><td>Bonds (SGOV, Singapore Savings Bonds)</td></tr>
+    <tr><td>10%</td><td>Gold ETF (GLD/O87)</td></tr>
+    <tr><td>10%</td><td>Cash</td></tr>
+  </table>
+  <p style="margin-top:15px;"><strong>Expected Return:</strong> 6-10% per year<br>
+  <strong>Max Drawdown:</strong> -10% to -15%<br>
+  <strong>Best For:</strong> Retirees, conservative investors, emergency fund overflow</p>
+</div>
+
+<div class="card card-blue">
+  <h3 style="color:var(--blue);">&#x2696; BALANCED (Medium Risk)</h3>
+  <table>
+    <tr><th>ALLOCATION</th><th>WHAT</th></tr>
+    <tr><td>35%</td><td>US Tech + Growth (NVDA, AAPL, QQQ)</td></tr>
+    <tr><td>20%</td><td>SG Stocks (DBS, REITs)</td></tr>
+    <tr><td>15%</td><td>India ETFs (INDA, NIFTYBEES)</td></tr>
+    <tr><td>10%</td><td>Gold (GLD)</td></tr>
+    <tr><td>10%</td><td>Bonds (SGOV)</td></tr>
+    <tr><td>10%</td><td>Cash</td></tr>
+  </table>
+  <p style="margin-top:15px;"><strong>Expected Return:</strong> 10-15% per year<br>
+  <strong>Max Drawdown:</strong> -15% to -25%<br>
+  <strong>Best For:</strong> Working adults, 10+ year horizon</p>
+</div>
+</div>
+
+<div class="grid-2">
+<div class="card card-orange">
+  <h3 style="color:var(--orange);">&#x1F525; AGGRESSIVE (High Risk)</h3>
+  <table>
+    <tr><th>ALLOCATION</th><th>WHAT</th></tr>
+    <tr><td>40%</td><td>US Tech (NVDA, TSLA, AMD, META)</td></tr>
+    <tr><td>20%</td><td>India Growth (TCS, HDFC Bank, L&T)</td></tr>
+    <tr><td>15%</td><td>SG Growth (Keppel DC REIT, SGX)</td></tr>
+    <tr><td>10%</td><td>Gold (GLD)</td></tr>
+    <tr><td>10%</td><td>Bitcoin (BTC ETF or direct)</td></tr>
+    <tr><td>5%</td><td>Options/Speculative</td></tr>
+  </table>
+  <p style="margin-top:15px;"><strong>Expected Return:</strong> 15-25% per year (or -15% if wrong)<br>
+  <strong>Max Drawdown:</strong> -25% to -40%<br>
+  <strong>Best For:</strong> Young investors, high risk tolerance, 15+ year horizon</p>
+</div>
+
+<div class="card card-gold">
+  <h3 style="color:var(--gold);">&#x1F3AF; PRACTICE (Learning Mode)</h3>
+  <table>
+    <tr><th>ALLOCATION</th><th>WHAT</th></tr>
+    <tr><td>SGD 500</td><td>CSPX ETF (S&P 500 &mdash; US market)</td></tr>
+    <tr><td>SGD 500</td><td>DBS stock (SG market)</td></tr>
+    <tr><td>SGD 500</td><td>INDA ETF (India market)</td></tr>
+    <tr><td>SGD 500</td><td>Cash (reserve for dip buying)</td></tr>
+  </table>
+  <p style="margin-top:15px;"><strong>Purpose:</strong> Learn how 3 markets move<br>
+  <strong>Track:</strong> Every Friday, note prices and what happened<br>
+  <strong>Duration:</strong> 4 months (Sep-Dec 2026)<br>
+  <strong>Goal:</strong> Understand market dynamics before going bigger</p>
+</div>
+</div>
+
+<h3 class="sub-title">&#x26D4; RISK MANAGEMENT RULES</h3>
+<div class="card card-red">
+  <table>
+    <tr><th>RULE</th><th>GUIDELINE</th><th>WHY</th></tr>
+    <tr><td><strong>Position Sizing</strong></td><td>Max 5% of portfolio in any single stock</td><td>If it crashes, you lose max 5%, not everything</td></tr>
+    <tr><td><strong>Stop Loss</strong></td><td>Set -10% to -15% stop loss on every position</td><td>Limits downside. Protects against crashes.</td></tr>
+    <tr><td><strong>Diversification</strong></td><td>Max 40% in one country, max 30% in one sector</td><td>Don't put all eggs in one basket</td></tr>
+    <tr><td><strong>Cash Reserve</strong></td><td>Keep 20-30% cash during high volatility</td><td>Opportunity to buy dips. Sleep better.</td></tr>
+    <tr><td><strong>Monthly Review</strong></td><td>Check portfolio once per month (not daily)</td><td>Prevents emotional decisions</td></tr>
+    <tr><td><strong>No Leverage</strong></td><td>Avoid margin/borrowing to invest</td><td>Leverage amplifies losses. Can go to zero.</td></tr>
+    <tr><td><strong>Trading Journal</strong></td><td>Write down every trade: why bought, when to sell</td><td>Learns from mistakes. Builds discipline.</td></tr>
+    <tr><td><strong>Risk:Reward</strong></td><td>Minimum 2:1 reward-to-risk ratio</td><td>If risking $10, potential gain must be $20+</td></tr>
+  </table>
+</div>
+
+<h3 class="sub-title">&#x1F4C5; KEY DATES TO WATCH (Sep-Dec 2026)</h3>
+<div class="card card-cyan">
+  <table>
+    <tr><th>DATE</th><th>EVENT</th><th>IMPACT</th><th>WATCH</th></tr>
+    <tr><td>Sep 5</td><td>US Non-Farm Payrolls</td><td><span class="badge badge-red">CRITICAL</span></td><td>Job growth &rarr; Fed decision</td></tr>
+    <tr><td>Sep 11</td><td>US CPI Inflation</td><td><span class="badge badge-red">CRITICAL</span></td><td>Inflation trend &rarr; rate hike odds</td></tr>
+    <tr><td>Sep 16-17</td><td>FOMC Meeting + Decision</td><td><span class="badge badge-red">CRITICAL</span></td><td>65% hike probability</td></tr>
+    <tr><td>Sep 18</td><td>RBI Policy Decision (India)</td><td><span class="badge badge-orange">HIGH</span></td><td>Rate cut possible?</td></tr>
+    <tr><td>Oct 1-10</td><td>US Bank Earnings (JPM, GS, C)</td><td><span class="badge badge-orange">HIGH</span></td><td>Loan growth, trading revenue</td></tr>
+    <tr><td>Oct 13-17</td><td>US Tech Earnings (NVDA, MSFT, GOOG)</td><td><span class="badge badge-red">CRITICAL</span></td><td>AI capex, cloud growth</td></tr>
+    <tr><td>Oct 21</td><td>Tesla Q3 Earnings</td><td><span class="badge badge-orange">HIGH</span></td><td>FSD robotaxi, delivery numbers</td></tr>
+    <tr><td>Nov 6</td><td>US Non-Farm Payrolls</td><td><span class="badge badge-orange">HIGH</span></td><td>Labor market health</td></tr>
+    <tr><td>Nov 28</td><td>Black Friday</td><td><span class="badge badge-blue">MEDIUM</span></td><td>Consumer spending signal</td></tr>
+    <tr><td>Dec 10</td><td>US CPI Inflation</td><td><span class="badge badge-red">CRITICAL</span></td><td>Year-end inflation reading</td></tr>
+    <tr><td>Dec 16-17</td><td>FOMC Dec Meeting</td><td><span class="badge badge-red">CRITICAL</span></td><td>Year-end rate decision</td></tr>
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 13: 2027 OUTLOOK PREVIEW -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="2027">&#x1F4C8; SECTION 13: 2027 OUTLOOK PREVIEW &mdash; What Comes After 2026</h2>
+
+<div class="card card-purple">
+  <h3 style="color:var(--purple);">&#x1F52D; THE BIG QUESTIONS FOR 2027</h3>
+  <p>Use the last 4 months of 2026 to position for 2027. The decisions you make now (which markets, which assets, how much cash) will shape your returns for at least the next 12 months.</p>
+</div>
+
+<div class="card card-blue">
+  <h3 style="color:var(--blue);">&#x1F4B5; KEY THEMES EXPECTED IN 2027</h3>
+  <table>
+    <tr><th>THEME</th><th>WHY IT MATTERS</th><th>WATCH</th></tr>
+    <tr><td><strong>Peak Rates &amp; First Cuts</strong></td><td>If the Fed finishes hiking in 2026, 2027 could bring the first rate cuts &mdash; historically bullish for stocks and bonds.</td><td>Fed Funds Futures, Dec 2026 FOMC</td></tr>
+    <tr><td><strong>AI Capex Follow-Through</strong></td><td>Companies spent billions on AI in 2024-2026. 2027 is when we see if the <em>revenue</em> arrives.</td><td>NVDA, MSFT, GOOG, META earnings</td></tr>
+    <tr><td><strong>Gold at New Highs</strong></td><td>JP Morgan target $6,000/oz by Q4 2026. 2027 could see $6,500-$7,000 if geopolitical stress continues.</td><td>GLD, gold spot, central bank buying</td></tr>
+    <tr><td><strong>India's Structural Growth</strong></td><td>India remains one of the fastest-growing major economies. Nifty target for 2027: 27,000-29,000 range by many analysts.</td><td>RBI policy, monsoon, corporate earnings</td></tr>
+    <tr><td><strong>SG REIT Recovery</strong></td><td>If rates fall in 2027, high-yield SG REITs could re-rate higher as borrowing costs drop.</td><td>S-REIT index, 10Y SGS yield</td></tr>
+  </table>
+</div>
+
+<div class="card card-gold">
+  <h3 style="color:var(--gold);">&#x1F3EC; INDICATIVE 2027 TARGETS (EDUCATIONAL ESTIMATES)</h3>
+  <table>
+    <tr><th>ASSET</th><th>END-2026 LEVEL</th><th>CONSENSUS 2027 TARGET</th><th>DRIVER</th></tr>
+    <tr><td>S&amp;P 500</td><td>~7,900 (base case Dec)</td><td>8,400 - 9,000</td><td>Rate cuts + earnings growth</td></tr>
+    <tr><td>Gold</td><td>~$5,000 (base case Dec)</td><td>$5,700 - $7,000</td><td>Central bank buying, weak USD era</td></tr>
+    <tr><td>Nifty 50</td><td>~26,500 (base case Dec)</td><td>27,500 - 29,500</td><td>Economic growth, FII inflows</td></tr>
+    <tr><td>STI Index</td><td>~4,450 (base case Dec)</td><td>4,800 - 5,200</td><td>Rate cuts, REIT recovery, banks</td></tr>
+    <tr><td>Bitcoin</td><td>~$95,000 (base case Dec)</td><td>$110,000 - $150,000</td><td>Halving cycles, institutional adoption</td></tr>
+  </table>
+  <div class="alert alert-danger" style="margin-top:12px;">&#9888; These are EDUCATIONAL estimates only, NOT promises or predictions. Markets are unpredictable. Always invest with money you can afford to lose, and do your own research.</div>
+</div>
+
+<div class="card card-green">
+  <h3 style="color:var(--green);">&#x1F6E1; HOW TO POSITION FOR 2027 NOW (SEP-DEC 2026)</h3>
+  <table>
+    <tr><th>ACTION</th><th>WHEN</th><th>WHY</th></tr>
+    <tr><td>Build a 6-month emergency fund</td><td>Immediate</td><td>Before investing more, have 3-6 months of expenses in cash</td></tr>
+    <tr><td>Start DCA into global ETFs</td><td>Every month</td><td>Locks in average entry prices before any 2027 rally</td></tr>
+    <tr><td>Add a small gold position</td><td>On dips</td><td>Hedge against inflation and geopolitical shocks</td></tr>
+    <tr><td>Keep 10-20% cash reserve</td><td>Throughout</td><td>Ready to buy any major dips in Q1 2027</td></tr>
+    <tr><td>Review portfolio monthly</td><td>Each month</td><td>Track progress, rebalance, cut losers</td></tr>
+    <tr><td>Learn one new skill per month</td><td>Sep-Dec</td><td>Options, technical analysis, fundamental reading</td></tr>
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 14: OPTIONS TRADING TUTORIAL -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="options">&#x1F4C1; SECTION 14: OPTIONS TRADING &mdash; A Step-by-Step Tutorial</h2>
+
+<div class="card card-red">
+  <div class="alert alert-danger">&#9888; HIGH RISK WARNING: Options are complex and you can lose MORE than you invest. Only trade options after you fully understand them. Start on a paper account. This section is educational only, NOT financial advice.</div>
+</div>
+
+<h3 class="sub-title">&#x1F4DD; A. OPTIONS BASICS &mdash; THE FIVE THINGS YOU MUST KNOW</h3>
+<div class="card card-purple">
+  <table>
+    <tr><th>CONCEPT</th><th>PLAIN ENGLISH</th><th>EXAMPLE</th></tr>
+    <tr><td><strong>Call Option</strong></td><td>Gives you the RIGHT to BUY a stock at a set price before a date.</td><td>Buy a CALL on NVDA at $220 (strike) &mdash; you bet the price will go UP.</td></tr>
+    <tr><td><strong>Put Option</strong></td><td>Gives you the RIGHT to SELL a stock at a set price before a date.</td><td>Buy a PUT on NVDA at $200 &mdash; you bet the price will go DOWN.</td></tr>
+    <tr><td><strong>Strike Price</strong></td><td>The price at which you can buy/sell the stock.</td><td>$220 in the example above.</td></tr>
+    <tr><td><strong>Expiration Date</strong></td><td>The last day the option is valid.</td><td>3rd Friday of the month (standard).</td></tr>
+    <tr><td><strong>Premium</strong></td><td>The price you PAY to buy an option (cost).</td><td>$5 per share x 100 shares = $500 per contract.</td></tr>
+  </table>
+</div>
+
+<div class="card card-blue">
+  <h3 style="color:var(--blue);">&#x1F4A1; CRITICAL RULE: OPTIONS COME IN BLOCKS OF 100 SHARES</h3>
+  <p><strong>1 option contract = 100 shares</strong> of the underlying stock.</p>
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>NVDA premium is $5 per share for a call option.<br>
+    One contract costs: $5 &times; 100 shares = <strong>$500 premium</strong>.<br>
+    If NVDA rises and your option is worth $8 per share: you can sell it for $8 &times; 100 = $800. Profit = $300 (minus fees).</p>
+  </div>
+</div>
+
+<h3 class="sub-title">&#x1F3C6; B. FOUR MUST-KNOW OPTIONS STRATEGIES</h3>
+<div class="card card-green">
+  <h3 style="color:var(--green);">STRATEGY 1: Covered Call (Income) &mdash; LOW MEDIUM RISK</h3>
+  <p><strong>What:</strong> You OWN the stock, and you SELL a call option on it.</p>
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>You own 100 shares of DBS (cost S$46 each).<br>
+    You SELL a $50 call option, collecting $2 premium &times; 100 = <strong>S$200 income</strong>.<br>
+    &bull; If DBS stays under $50: You keep $200 + your shares.<br>
+    &bull; If DBS goes above $50: Your shares are sold at $50. Profit = ($50-$46) x 100 = $400 + $200 premium.</p>
+  </div>
+  <p><strong>Risk:</strong> Miss out on gains above the strike price. <strong>Best for:</strong> Generating monthly income on stocks you own.</p>
+</div>
+
+<div class="card card-orange">
+  <h3 style="color:var(--orange);">STRATEGY 2: Cash-Secured Put (Buying on Discount) &mdash; MEDIUM RISK</h3>
+  <p><strong>What:</strong> You SELL a put option, getting paid to agree to buy a stock at a discount.</p>
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>NVDA is $217. You want to buy at $200.<br>
+    You SELL a $200 put, collecting $4 premium &times; 100 = <strong>$400 income</strong>.<br>
+    &bull; If NVDA stays above $200: You keep $400, no obligation.<br>
+    &bull; If NVDA drops below $200: You buy 100 shares at $200 (which you wanted!) and keep the $400.</p>
+  </div>
+  <p><strong>Risk:</strong> Stock could keep falling, forcing you to buy at $200 when it's at $180. <strong>Requires:</strong> Cash to cover the purchase.</p>
+</div>
+
+<div class="card card-pink">
+  <h3 style="color:var(--pink);">STRATEGY 3: Long Call (Speculation) &mdash; HIGH RISK</h3>
+  <p><strong>What:</strong> You BUY a call, betting the stock will rise before expiration.</p>
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>You buy 1 NVDA $220 call for $5 premium ($500 total).<br>
+    &bull; NVDA rises to $250 before expiry: Your call is now worth $30 &times; 100 = $3,000. Profit = $2,500 (500%!).<br>
+    &bull; NVDA stays below $220: Your option expires worthless. You LOSE the full $500.</p>
+  </div>
+  <p><strong>Risk:</strong> You can lose 100% of the premium. <strong>Time decay</strong> works AGAINST you (options lose value each day).</p>
+</div>
+
+<div class="card card-gold">
+  <h3 style="color:var(--gold);">STRATEGY 4: Protective Put (Insurance) &mdash; LOW RISK</h3>
+  <p><strong>What:</strong> You OWN a stock and BUY a put to insure against a crash.</p>
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>You own 100 shares of AAPL at $210.<br>
+    You BUY a $190 put for $3 &times; 100 = <strong>$300 insurance</strong>.<br>
+    &bull; If AAPL crashes to $150: Your put lets you sell at $190. Loss capped at $20/share instead of $60.<br>
+    &bull; If AAPL rises: Put expires worthless. You only lost the $300 premium (premium = cost of peace of mind).</p>
+  </div>
+</div>
+
+<h3 class="sub-title">&#x26A0; C. OPTIONS RISKS &amp; PITFALLS</h3>
+<div class="card card-red">
+  <table>
+    <tr><th>PITFALL</th><th>WHAT HAPPENS</th><th>HOW TO AVOID</th></tr>
+    <tr><td><strong>Time Decay</strong></td><td>Options lose value every single day as expiration nears.</td><td>Buy options with 30+ days left, avoid day-of-expiry.</td></tr>
+    <tr><td><strong>Buying too late</strong></td><td>Premium drops fast in final weeks.</td><td>Take profit early, don't wait for the last day.</td></tr>
+    <tr><td><strong>100% Loss</strong></td><td>Options can expire worthless &mdash; you lose everything paid.</td><td>Only use money you can afford to lose entirely.</td></tr>
+    <tr><td><strong>Naked Options</strong></td><td>Selling options without owning the stock can lead to huge losses.</td><td>Never sell naked calls/puts as a beginner.</td></tr>
+    <tr><td><strong>Overtrading</strong></td><td>Fees and spreads eat into small profits.</td><td>Trade few, high-conviction setups.</td></tr>
+  </table>
+</div>
+
+<div class="grid-2">
+<div class="card card-blue">
+  <h3 style="color:var(--blue);">&#x1F4B0; A SIMPLE RULE OF THUMB</h3>
+  <p>As a beginner, limit options to <strong>1-2% of your total portfolio</strong>. Use covered calls and cash-secured puts only. Avoid buying naked calls/puts with more than a few hundred dollars.</p>
+</div>
+<div class="card card-cyan">
+  <h3 style="color:var(--cyan);">&#x1F4A1; FOUR QUESTIONS BEFORE EVERY OPTIONS TRADE</h3>
+  <p>&bull; Can I afford to lose 100% of this premium?<br>
+  &bull; Do I understand what makes it go up or down?<br>
+  &bull; Have I checked the expiration and strike?<br>
+  &bull; Would I be fine if it expires worthless?</p>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 15: TECHNICAL ANALYSIS & CHART READING -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="ta">&#x1F4C9; SECTION 15: TECHNICAL ANALYSIS &amp; CHART READING</h2>
+
+<div class="card card-cyan">
+  <h3 style="color:var(--cyan);">&#x1F4A1; WHAT IS TECHNICAL ANALYSIS?</h3>
+  <p>Technical analysis studies <strong>price charts and volume</strong> to predict future price movement. Unlike fundamental analysis (studying company financials), technical analysis assumes all information is already reflected in the price. It's about reading <em>market psychology</em> through charts.</p>
+</div>
+
+<h3 class="sub-title">&#x1F4CE; A. THE THREE BASIC CHART TYPES</h3>
+<div class="grid-2">
+<div class="card card-green">
+  <h3 style="color:var(--green);">LINE CHART</h3>
+  <p>Connects closing prices with a line. Simplest view of price trend over time.</p>
+  <p><strong>Use for:</strong> Long-term trend overview (months/years).</p>
+</div>
+<div class="card card-blue">
+  <h3 style="color:var(--blue);">BAR CHART</h3>
+  <p>Each bar shows open, high, low, and close for a period. More detail than a line chart.</p>
+  <p><strong>Use for:</strong> Daily/weekly analysis of price range.</p>
+</div>
+</div>
+<div class="grid-2">
+<div class="card card-orange">
+  <h3 style="color:var(--orange);">CANDLESTICK CHART (MOST POPULAR)</h3>
+  <p>Each "candle" shows the open, high, low, and close. Green/white candle = price went UP. Red/black candle = price went DOWN.</p>
+  <p><strong>Use for:</strong> Most traders. Shows market emotion clearly.</p>
+</div>
+<div class="card card-purple">
+  <h3 style="color:var(--purple);">HOW TO READ A CANDLE</h3>
+  <p><strong>Body</strong> = range between open and close.<br>
+  <strong>Wicks (shadows)</strong> = the highest and lowest prices touched.<br>
+  <strong>Long lower wick</strong> = buyers stepped in (bullish signal).<br>
+  <strong>Long upper wick</strong> = sellers pushed price down (bearish signal).</p>
+</div>
+</div>
+
+<h3 class="sub-title">&#x1F4CF; B. THE FOUR ESSENTIAL INDICATORS</h3>
+<div class="card card-green">
+  <h3 style="color:var(--green);">1. MOVING AVERAGES (MA) &mdash; Trend Direction</h3>
+  <p><strong>What:</strong> Averages of past prices, smoothed into a line. Two key ones:</p>
+  <p>&bull; <strong>50-day MA (short-term):</strong> If price is ABOVE it, short-term trend is up.<br>
+  &bull; <strong>200-day MA (long-term):</strong> If price is ABOVE it, long-term trend is up.</p>
+  <div class="example">
+    <div class="example-label">&#x1F44D; GOLDEN CROSS vs DEATH CROSS</div>
+    <p><strong>Golden Cross:</strong> 50-day MA crosses ABOVE the 200-day MA &rarr; BULLISH signal.<br>
+    <strong>Death Cross:</strong> 50-day MA crosses BELOW the 200-day MA &rarr; BEARISH signal.</p>
+  </div>
+</div>
+
+<div class="card card-blue">
+  <h3 style="color:var(--blue);">2. RELATIVE STRENGTH INDEX (RSI) &mdash; Overbought/Oversold</h3>
+  <p>Measures momentum on a scale of <strong>0 to 100</strong>.</p>
+  <p>&bull; <strong>RSI above 70</strong> = OVERBOUGHT. Price may pull back (near a top).<br>
+  &bull; <strong>RSI below 30</strong> = OVERSOLD. Price may bounce (near a bottom).<br>
+  &bull; <strong>RSI around 50</strong> = Neutral, no clear signal.</p>
+  <div class="example">
+    <div class="example-label">&#x1F44D; USE IT</div>
+    <p>NVDA RSI hits 75 &rarr; consider taking some profit or waiting for a pullback before buying. RSI hits 28 &rarr; watch for a bounce, a possible dip-buy entry.</p>
+  </div>
+</div>
+
+<div class="card card-purple">
+  <h3 style="color:var(--purple);">3. SUPPORT &amp; RESISTANCE &mdash; Price Floors and Ceilings</h3>
+  <p>&bull; <strong>Support:</strong> A price level where buyers repeatedly step in (a "floor").<br>
+  &bull; <strong>Resistance:</strong> A price level where sellers repeatedly step in (a "ceiling").</p>
+  <div class="example">
+    <div class="example-label">&#x1F44D; EXAMPLE</div>
+    <p>NVDA keeps bouncing off $200 (support) and stalling at $240 (resistance).<br>
+    &bull; Break ABOVE $240 &rarr; could run higher (new upward move).<br>
+    &bull; Break BELOW $200 &rarr; warns of a deeper drop.</p>
+  </div>
+</div>
+
+<div class="card card-cyan">
+  <h3 style="color:var(--cyan);">4. VOLUME &mdash; Confirming Moves</h3>
+  <p><strong>Volume</strong> = how many shares traded. It confirms whether a price move is "real".</p>
+  <p>&bull; Price rises WITH high volume &rarr; strong, genuine bullish move.<br>
+  &bull; Price rises WITH low volume &rarr; weak move, may not last.<br>
+  &bull; Price drops WITH high volume &rarr; strong selling, be cautious.</p>
+</div>
+
+<h3 class="sub-title">&#x1F3AF; C. A SIMPLE BEGINNER CHART-READING CHECKLIST</h3>
+<div class="card card-gold">
+  <table>
+    <tr><th>STEP</th><th>WHAT TO CHECK</th></tr>
+    <tr><td>1</td><td>Is the price ABOVE or BELOW the 200-day moving average? (Trend up or down?)</td></tr>
+    <tr><td>2</td><td>Is the 50-day MA above or below the 200-day MA? (Golden cross or death cross?)</td></tr>
+    <tr><td>3</td><td>What is the RSI? (Over 70 = hot, under 30 = cold.)</td></tr>
+    <tr><td>4</td><td>Where is the nearest support and resistance? (Set your entry and stop-loss there.)</td></tr>
+    <tr><td>5</td><td>Is today's move on high or low volume? (Real or fake move?)</td></tr>
+    <tr><td>6</td><td>Combine 2+ signals before acting. NEVER rely on just ONE indicator.</td></tr>
+  </table>
+  <p style="margin-top:12px;"><strong>Remember:</strong> Technical analysis is a <em>probability tool</em>, not a crystal ball. It improves odds; it does not guarantee outcomes.</p>
+</div>
+
+<div class="card card-red">
+  <h3 style="color:var(--red);">&#x1F50D; FREE TOOLS TO PRACTICE CHART READING</h3>
+  <table>
+    <tr><th>TOOL</th><th>LINK</th><th>WHY</th></tr>
+    <tr><td>TradingView</td><td>tradingview.com</td><td>Best free charts, all indicators, SG timezone friendly</td></tr>
+    <tr><td>Moomoo/Tiger charting</td><td>In-app</td><td>Built-in indicators on your broker</td></tr>
+    <tr><td>Investing.com Technicals</td><td>investing.com</td><td>Automated "strong buy/sell" technical summaries</td></tr>
+    <tr><td>Finviz</td><td>finviz.com</td><td>Free stock screeners with technical filters</td></tr>
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- ================================================================ -->
+<!-- SECTION 16: PAPER TRADING PRACTICE GUIDE -->
+<!-- ================================================================ -->
+<h2 class="section-title" id="paper">&#x1F4DD; SECTION 16: PAPER TRADING &mdash; Practice Before Real Money</h2>
+
+<div class="card card-cyan">
+  <h3 style="color:var(--cyan);">&#x1F4A1; WHY PAPER TRADE FIRST?</h3>
+  <p>Paper trading lets you practice buy/sell decisions with <strong>fake money</strong> in real market conditions. It builds skill and discipline <strong>without any financial risk</strong>. Even professionals paper trade new strategies before risking capital.</p>
+</div>
+
+<h3 class="sub-title">&#x1F4C5; A. YOUR 4-MONTH PAPER TRADING PLAN (SEP-DEC 2026)</h3>
+<div class="card card-blue">
+  <table>
+    <tr><th>MONTH</th><th>WHAT TO PRACTICE</th><th>GOAL</th></tr>
+    <tr><td><strong>September</strong></td><td>Buy/sell basic stocks &amp; ETFs. Learn the order screen.</td><td>Understand order types: market vs limit vs stop.</td></tr>
+    <tr><td><strong>October</strong></td><td>Track 3 stocks + 2 ETFs. Set stop-losses. Practice the 6-point chart checklist.</td><td>Learn to cut losses without emotion.</td></tr>
+    <tr><td><strong>November</strong></td><td>Try one covered call and one cash-secured put (paper).</td><td>Understand how options income works.</td></tr>
+    <tr><td><strong>December</strong></td><td>Review your paper portfolio. Write a trading journal.</td><td>See what worked, refine your strategy.</td></tr>
+  </table>
+</div>
+
+<div class="card card-green">
+  <h3 style="color:var(--green);">&#x1F3AF; PAPER TRADING 30-DAY CHALLENGE</h3>
+  <p>Set up a fake portfolio of SGD 10,000. For 30 days:</p>
+  <p>&bull; Make at least 1 trade per week.<br>
+  &bull; Before each trade, write: <em>Why am I buying? Where is my stop-loss? What is my target?</em><br>
+  &bull; At the end of the week, review all trades in your journal.<br>
+  &bull; Aim to learn, NOT to make profit. Losing fake money is a lesson, not a mistake.</p>
+</div>
+
+<div class="grid-2">
+<div class="card card-orange">
+  <h3 style="color:var(--orange);">&#x1F4F1; TRADING JOURNAL TEMPLATE</h3>
+  <table>
+    <tr><th>FIELD</th><th>WHAT TO WRITE</th></tr>
+    <tr><td>Date</td><td>When you made the trade</td></tr>
+    <tr><td>Asset</td><td>Stock/ETF name + ticker</td></tr>
+    <tr><td>Buy Price</td><td>What you paid</td></tr>
+    <tr><td>Sell Price</td><td>What you sold at</td></tr>
+    <tr><td>Why Bought</td><td>Your reason (be specific)</td></tr>
+    <tr><td>Where Stop-Loss</td><td>Your exit if wrong</td></tr>
+    <tr><td>Target</td><td>Your profit goal</td></tr>
+    <tr><td>Result</td><td>Win/loss + in $</td></tr>
+    <tr><td>Lesson</td><td>What you learned</td></tr>
+  </table>
+</div>
+
+<div class="card card-purple">
+  <h3 style="color:var(--purple);">&#x1F4D6; HOW TO KEEP YOUR JOURNAL</h3>
+  <p><strong>Option 1:</strong> Free spreadsheet (Excel / Google Sheets).<br>
+  <strong>Option 2:</strong> Notebook (hand-written works too).<br>
+  <strong>Option 3:</strong> Free apps like TradingJournal or TraderVue (small cost).</p>
+  <p style="margin-top:10px;">The KEY is consistency, not the tool. A 5-minute daily entry is enough.</p>
+</div>
+</div>
+
+<div class="card card-gold">
+  <h3 style="color:var(--gold);">&#x1F31F; WHEN TO TRANSITION FROM PAPER TO REAL MONEY</h3>
+  <p>Move to real money when you can check ALL of these boxes:</p>
+  <p>&bull; You've paper traded for at least 2 consecutive months.<br>
+  &bull; You can explain 3 different order types.<br>
+  &bull; You set a stop-loss on EVERY trade without being asked.<br>
+  &bull; Your paper journal shows you follow your rules, even on losing weeks.<br>
+  &bull; You're calm about a 10% paper loss (can handle real drawdowns).</p>
+  <p style="margin-top:10px;">When you start with REAL money, begin SMALL: SGD 500 or less. Only use money you can afford to lose.</p>
+</div>
+
+<div class="card card-red">
+  <h3 style="color:var(--red);">&#x1F50D; BEST PLATFORMS FOR PAPER TRADING</h3>
+  <table>
+    <tr><th>PLATFORM</th><th>FREE?</th><th>GOOD FOR</th><th>NOTE</th></tr>
+    <tr><td>Moomoo Paper Trading</td><td>Yes</td><td>US + SG stocks, options</td><td>Built into the app, easy for beginners</td></tr>
+    <tr><td>Tiger Brokers Paper</td><td>Yes</td><td>SG + US + HK + India access</td><td>Good demo funds included</td></tr>
+    <tr><td>Thinkorswim PaperMoney</td><td>Yes</td><td>Advanced options</td><td>Best free options simulator</td></tr>
+    <tr><td>TradingView Paper</td><td>Yes</td><td>Charts + simulated trading</td><td>Great for technical analysis practice</td></tr>
+    <tr><td>Interactive Brokers Paper</td><td>Yes</td><td>Global markets, professional grade</td><td>Paper account in the IBKR portal</td></tr>
+  </table>
+</div>
+
+<div class="card card-cyan">
+  <h3 style="color:var(--cyan);">&#x1F3C1; BONUS: DAILY 15-MINUTE ROUTINE TO MASTER TRADING</h3>
+  <p>&bull; <strong>Minutes 1-5:</strong> Check overnight US close + SG market open.<br>
+  &bull; <strong>Minutes 6-10:</strong> Look at your 3 watchlist stocks on TradingView (RSI, MA, support/resistance).<br>
+  &bull; <strong>Minutes 11-13:</strong> Read 2-3 <strong>news headlines</strong> (see Section 10 links).<br>
+  &bull; <strong>Minutes 14-15:</strong> Write 2-3 lines in your trading journal.</p>
+  <p style="margin-top:10px;">Do this daily for 4 months and you'll be more disciplined than most retail traders.</p>
+</div>
+
+<hr class="divider">
+
+<!-- FOOTER -->
+<div class="footer">
+  <h3 style="color:var(--gold);">&#x1F4D6; Complete Trading Master Guide 2026</h3>
+  <p style="margin-top:10px;">Singapore + USA + India Markets | Sep - Dec 2026</p>
+  <p style="margin-top:5px; color:var(--red);">&#9888; NOT FINANCIAL ADVICE &mdash; For educational purposes only. All investments carry risk. Do your own research.</p>
+  <p style="margin-top:10px; color:#555;">Created: 2 September 2026 | Data: Yahoo Finance, CNBC, Reuters, TradingEconomics, MoneySmart, SGInvestors, MoneyControl India</p>
+  <p style="margin-top:5px; color:#444;">Bookmarks: Yahoo Finance | TradingView | CNBC | SGX | MoneyControl | Investing.com | CME FedWatch | Investopedia</p>
+</div>
+
+</div><!-- end .section -->
+</body>
+</html>
