@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "AI Knowledge Hub",
+    "slug": "ai-knowledge-hub",
+    "version": "1.0.0",
+    "orientation": "default",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0b1020",
+    "scheme": "aikh",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "ios": {
+      "bundleIdentifier": "com.aiknowledgehub.mobile",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSExceptionDomains": {
+            "localhost": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            }
+          }
+        }
+      }
+    },
+    "android": {
+      "package": "com.aiknowledgehub.mobile",
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "backgroundColor": "#0b1020"
+      }
+    },
+    "extra": {
+      "defaultApiUrl": "http://localhost:9000"
+    },
+    "plugins": [
+      "expo-status-bar"
+    ]
+  }
+}

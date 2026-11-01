@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Using VS Code for This Course — AI Engineering: Zero to Production</title>
+<link rel="canonical" href="https://ai.studybydoing.in/vscode-setup">
+<meta name="description" content="One place to learn the exact setup you&#x27;ll use for every chapter, lab, and project: how to open the course, run Python and the build labs, manage virtual…" data-seo="1">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://ai.studybydoing.in/vscode-setup">
+<meta property="og:title" content="Using VS Code for This Course — AI Engineering: Zero to Production">
+<meta property="og:description" content="One place to learn the exact setup you&#x27;ll use for every chapter, lab, and project: how to open the course, run Python and the build labs, manage virtual…">
+<meta property="og:site_name" content="AI Engineering: Zero to Production">
+<meta name="twitter:card" content="summary">
+<link rel="stylesheet" href="assets/course.css?v=44">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<script>(function(){try{var c=null;var u=/[?&]navc=([01])(?:&|$)/.exec(location.search);if(u)c=u[1];if(c===null){try{c=localStorage.getItem("llmcourse.navCollapsed");}catch(e){}}if(c===null){var m=/(?:^|\s)navc=([01])(?:\s|$)/.exec(window.name||"");if(m)c=m[1];}var col=c===null?(window.innerWidth<=940):(c==="1");if(col)document.documentElement.classList.add("nav-collapsed-init");}catch(e){}})();</script>
+<style>
+  .fileref{font-size:12px;color:var(--muted);margin:0 0 4px;font-weight:600}
+  .keys kbd{margin:0 1px}
+</style>
+<script type="application/ld+json" data-jsonld="1">{"@context":"https://schema.org","@graph":[{"@type":"LearningResource","name":"Using VS Code for This Course","description":"One place to learn the exact setup you'll use for every chapter, lab, and project: how to open the course, run Python and the build labs, manage virtual…","url":"https://ai.studybydoing.in/vscode-setup","inLanguage":"en","isAccessibleForFree":true,"learningResourceType":"lesson","educationalLevel":"beginner to advanced","dateModified":"2026-09-13","isPartOf":{"@type":"Course","name":"AI Engineering: Zero to Production","url":"https://ai.studybydoing.in/"},"provider":{"@type":"EducationalOrganization","name":"AI Engineering: Zero to Production","url":"https://ai.studybydoing.in/","sameAs":["https://ai.studybydoing.in/"]},"publisher":{"@type":"EducationalOrganization","name":"AI Engineering: Zero to Production","url":"https://ai.studybydoing.in/","sameAs":["https://ai.studybydoing.in/"]}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://ai.studybydoing.in/"},{"@type":"ListItem","position":2,"name":"Using VS Code for This Course","item":"https://ai.studybydoing.in/vscode-setup"}]}]}</script>
+</head>
+<body>
+<div id="brandFixed"><a class="bf-home" href="/" aria-label="AI Engineering: Zero to Production — home" title="Home"><svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="aeLg-fixed" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f6bed"/><stop offset="1" stop-color="#0e9bb5"/></linearGradient></defs><rect x="4" y="4" width="56" height="56" rx="15" fill="url(#aeLg-fixed)"/><path d="M18 24 l9 8 -9 8" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="32" y1="42" x2="46" y2="42" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/></svg><span class="bf-txt"><b>AI Engineering</b><span>Zero to Production</span></span></a><span class="bf-links"><a href="/">Home</a><span class="sep">·</span><a href="about">About</a><span class="sep">·</span><a href="mailto:support@studybydoing.in">Contact</a></span></div>
+<div class="wrap">
+
+<nav class="side">
+  <div class="brand"><svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="aeLg-brand-logo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f6bed"/><stop offset="1" stop-color="#0e9bb5"/></linearGradient></defs><rect x="4" y="4" width="56" height="56" rx="15" fill="url(#aeLg-brand-logo)"/><path d="M18 24 l9 8 -9 8" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="32" y1="42" x2="46" y2="42" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/></svg><div><b>AI Engineering</b><span>Zero to Production</span></div></div>
+  <a class="home" href="/">← Course home</a>
+  <a class="home" href="python" style="color:var(--green)">🐍 Complete LLM Engineering</a>
+  <div class="part"><span class="gi">🧰</span> Getting Started</div>
+  <ul>
+    <li><a class="active" href="vscode-setup"><span class="n">▸</span>Using VS Code for this course</a></li>
+    <li><a href="playground"><span class="n">▶</span>Python Playground</a></li>
+  </ul>
+  <div class="part"><span class="gi">🐍</span> Python Fundamentals</div>
+  <ul>
+    <li><a href="py1-basics"><span class="n">P1</span>Python basics</a></li>
+    <li><a href="py2-data"><span class="n">P2</span>Data &amp; structures</a></li>
+    <li><a href="py3-structure"><span class="n">P3</span>Functions &amp; OOP</a></li>
+    <li><a href="py4-advanced"><span class="n">P4</span>Advanced for agents</a></li>
+    <li><a href="py5-expert"><span class="n">P5</span>Expert Python</a></li>
+    <li><a href="py6-realworld"><span class="n">P6</span>Real-world engineering</a></li>
+    <li><a href="py7-cpython-internals"><span class="n">P7</span>CPython internals &amp; the GIL</a></li>
+    <li><a href="py8-object-model"><span class="n">P8</span>The object model &amp; metaclasses</a></li>
+    <li><a href="py9-functional-recursion"><span class="n">P9</span>Functional &amp; recursion theory</a></li>
+    <li><a href="py10-computational-thinking"><span class="n">P10</span>Computational thinking &amp; correctness</a></li>
+  </ul>
+  <div class="part"><span class="gi">🧮</span> Data Structures &amp; Algorithms</div>
+  <ul>
+    <li><a href="ds1-complexity"><span class="n">D1</span>Complexity &amp; arrays</a></li>
+    <li><a href="ds2-linear"><span class="n">D2</span>Stacks, queues &amp; lists</a></li>
+    <li><a href="ds3-hashing"><span class="n">D3</span>Hashing &amp; recursion</a></li>
+    <li><a href="ds4-trees"><span class="n">D4</span>Trees &amp; heaps</a></li>
+    <li><a href="ds5-graphs"><span class="n">D5</span>Graphs</a></li>
+    <li><a href="ds6-sorting"><span class="n">D6</span>Sorting &amp; searching</a></li>
+    <li><a href="ds8-linkedlist"><span class="n">D7</span>Linked list patterns</a></li>
+    <li><a href="ds7-interview-patterns"><span class="n">D8</span>Big Tech DSA patterns</a></li>
+    <li><a href="ds9-divide-conquer"><span class="n">D9</span>Divide &amp; conquer + Master theorem</a></li>
+    <li><a href="ds10-dp-foundations"><span class="n">D10</span>Dynamic programming I</a></li>
+    <li><a href="ds11-dp-advanced"><span class="n">D11</span>Dynamic programming II</a></li>
+    <li><a href="ds12-greedy"><span class="n">D12</span>Greedy algorithms</a></li>
+    <li><a href="ds13-backtracking"><span class="n">D13</span>Backtracking &amp; branch-and-bound</a></li>
+    <li><a href="ds14-advanced-graphs"><span class="n">D14</span>Advanced graphs &amp; flows</a></li>
+    <li><a href="ds15-string-algorithms"><span class="n">D15</span>String algorithms</a></li>
+    <li><a href="ds16-complexity-theory"><span class="n">D16</span>Complexity theory &amp; NP</a></li>
+  </ul>
+  <div class="part"><span class="gi">📐</span> System Design</div>
+  <ul>
+    <li><a href="sd1-sql-queries"><span class="n">SD1</span>SQL &amp; queries</a></li>
+    <li><a href="sd2-schema-design"><span class="n">SD2</span>Schema design &amp; normalization</a></li>
+    <li><a href="sd3-ood-solid"><span class="n">SD3</span>OOD, UML &amp; SOLID</a></li>
+    <li><a href="sd4-design-patterns"><span class="n">SD4</span>Design patterns</a></li>
+    <li><a href="sd5-hld-architecture"><span class="n">SD5</span>HLD: architecture &amp; caching</a></li>
+    <li><a href="sd6-scalability"><span class="n">SD6</span>Scalability &amp; CAP</a></li>
+    <li><a href="sd7-scalable-infra"><span class="n">SD7</span>Sharding, hashing &amp; queues</a></li>
+    <li><a href="sd8-operating-systems"><span class="n">SD8</span>Operating systems</a></li>
+    <li><a href="sd9-os-memory-concurrency"><span class="n">SD9</span>Memory &amp; concurrency</a></li>
+    <li><a href="sd10-computer-networks"><span class="n">SD10</span>Computer networks</a></li>
+    <li><a href="sd11-dbms-internals"><span class="n">SD11</span>DBMS internals</a></li>
+    <li><a href="sd12-distributed-systems"><span class="n">SD12</span>Distributed systems theory</a></li>
+    <li><a href="proj-sd-casestudy"><span class="n">SDP</span>Project · Design a system</a></li>
+  </ul>
+    <div class="part"><span class="gi">🧑‍💻</span> Developer Foundations</div>
+  <ul>
+    <li><a href="df1-command-line"><span class="n">DF1</span>The command line</a></li>
+    <li><a href="df2-git-basics"><span class="n">DF2</span>Git basics</a></li>
+    <li><a href="df3-git-collab"><span class="n">DF3</span>Git collaboration</a></li>
+    <li><a href="df4-how-web-works"><span class="n">DF4</span>How the web works</a></li>
+    <li><a href="df5-environments"><span class="n">DF5</span>Environments &amp; packaging</a></li>
+    <li><a href="df6-number-systems"><span class="n">DF6</span>Number systems &amp; representation</a></li>
+    <li><a href="df7-boolean-logic"><span class="n">DF7</span>Boolean algebra &amp; digital logic</a></li>
+    <li><a href="df8-computer-organization"><span class="n">DF8</span>Computer organization</a></li>
+    <li><a href="df9-compilers-automata"><span class="n">DF9</span>Compilers, interpreters &amp; automata</a></li>
+    <li><a href="proj-df-setup"><span class="n">DFP</span>Project · Pro dev setup</a></li>
+  </ul>
+    <div class="part"><span class="gi">🐳</span> Containers &amp; Deployment</div>
+  <ul>
+    <li><a href="cd1-why-containers"><span class="n">CD1</span>Why containers + first Dockerfile</a></li>
+    <li><a href="cd2-images-layers"><span class="n">CD2</span>Images, layers &amp; best practices</a></li>
+    <li><a href="cd3-compose"><span class="n">CD3</span>Multi-service with Compose</a></li>
+    <li><a href="cd4-deploy"><span class="n">CD4</span>Deploy to the cloud</a></li>
+    <li><a href="cd5-cicd"><span class="n">CD5</span>CI/CD pipelines</a></li>
+    <li><a href="cd6-security"><span class="n">CD6</span>Security &amp; supply chain</a></li>
+    <li><a href="cd7-advanced-builds"><span class="n">CD7</span>Advanced builds &amp; multi-arch</a></li>
+    <li><a href="cd8-internals-debug"><span class="n">CD8</span>Internals &amp; debugging</a></li>
+    <li><a href="proj-cd-ship"><span class="n">CDP</span>Project · Ship a real app</a></li>
+  </ul>
+    <div class="part"><span class="gi">☸️</span> Kubernetes Orchestration</div>
+  <ul>
+    <li><a href="k8s1-why-orchestration"><span class="n">K1</span>Why orchestration</a></li>
+    <li><a href="k8s2-core-objects"><span class="n">K2</span>Pods, Deployments &amp; Services</a></li>
+    <li><a href="k8s3-config-scaling"><span class="n">K3</span>Config, health &amp; autoscaling</a></li>
+    <li><a href="k8s4-networking-storage"><span class="n">K4</span>Networking, Ingress &amp; storage</a></li>
+    <li><a href="k8s5-eks-production"><span class="n">K5</span>Managed K8s on EKS</a></li>
+    <li><a href="k8s6-gitops-helm"><span class="n">K6</span>Helm &amp; GitOps (Argo CD)</a></li>
+    <li><a href="k8s7-ai-on-k8s"><span class="n">K7</span>AI &amp; Kubernetes together</a></li>
+    <li><a href="k8s8-observability"><span class="n">K8</span>Observability &amp; SLOs</a></li>
+    <li><a href="k8s9-security-policy"><span class="n">K9</span>Security, RBAC &amp; policy</a></li>
+    <li><a href="k8s10-progressive-mesh"><span class="n">K10</span>Progressive delivery &amp; mesh</a></li>
+    <li><a href="k8s11-operators-crds"><span class="n">K11</span>Operators &amp; CRDs</a></li>
+    <li><a href="k8s12-prod-ops-dr"><span class="n">K12</span>Production ops, DR &amp; cost</a></li>
+    <li><a href="proj-k8s-deploy"><span class="n">KP</span>Project · Ship LLM app to K8s</a></li>
+  </ul>
+  <div class="part"><span class="gi">⚙️</span> Advanced AI Engineering</div>
+  <ul>
+    <li><a href="ae1-mechanics"><span class="n">A1</span>Dynamic Python mechanics</a></li>
+    <li><a href="ae2-memory-concurrency"><span class="n">A2</span>Memory &amp; concurrency/GIL</a></li>
+    <li><a href="ae3-async-streaming"><span class="n">A3</span>Async &amp; streaming</a></li>
+    <li><a href="ae4-numerical-tensors"><span class="n">A4</span>Numerical &amp; tensors</a></li>
+    <li><a href="ae5-strings-parsing"><span class="n">A5</span>Strings, tokens &amp; parsing</a></li>
+    <li><a href="ae6-validation-resiliency"><span class="n">A6</span>Validation &amp; resiliency</a></li>
+    <li><a href="ae7-vectordb-frameworks"><span class="n">A7</span>Vector DBs &amp; frameworks</a></li>
+    <li><a href="ae8-mlops"><span class="n">A8</span>MLOps &amp; deployment</a></li>
+    <li><a href="ae9-bigtech-ai"><span class="n">A9</span>Big Tech AI-engineering patterns</a></li>
+    <li><a href="ae10-linear-algebra"><span class="n">A10</span>Linear algebra for AI</a></li>
+    <li><a href="ae11-probability-stats"><span class="n">A11</span>Probability &amp; statistics</a></li>
+    <li><a href="ae12-information-theory"><span class="n">A12</span>Information theory &amp; optimization</a></li>
+  </ul>
+  <div class="part"><span class="gi">🧠</span> Foundations &amp; Concepts</div>
+  <ul>
+    <li><a href="ch00-foundations"><span class="n">0</span>Agentic AI foundations</a></li>
+    <li><a href="roadmap"><span class="n">→</span>Learning roadmap</a></li>
+    <li><a href="ai-curriculum"><span class="n">☰</span>Full curriculum</a></li>
+  </ul>
+  <div class="part"><span class="gi">💬</span> Prompting &amp; LLM Basics</div>
+  <ul>
+    <li><a href="ch01-setup"><span class="n">1</span>Environment &amp; first call</a></li>
+    <li><a href="ch02-prompting"><span class="n">2</span>Prompting &amp; structured output</a></li>
+  </ul>
+  <div class="part"><span class="gi">🧲</span> Retrieval (RAG)</div>
+  <ul>
+    <li><a href="ch03-rag"><span class="n">3</span>Build RAG from scratch</a></li>
+    <li><a href="rag1-foundations"><span class="n">3.1</span>RAG foundations</a></li>
+    <li><a href="rag2-retrieval"><span class="n">3.2</span>Retrieval that works</a></li>
+    <li><a href="rag3-quality"><span class="n">3.3</span>Retrieval quality &amp; re-ranking</a></li>
+    <li><a href="rag4-scale"><span class="n">3.4</span>RAG at scale</a></li>
+    <li><a href="rag5-production"><span class="n">3.5</span>Production RAG systems</a></li>
+  </ul>
+  <div class="part"><span class="gi">🤖</span> Agents &amp; Tools</div>
+  <ul>
+    <li><a href="ch04-agents"><span class="n">4</span>Build an agent</a></li>
+    <li><a href="agt1-foundations"><span class="n">4.1</span>Agent &amp; tool foundations</a></li>
+    <li><a href="agt2-patterns"><span class="n">4.2</span>Agent patterns (ReAct, plan)</a></li>
+    <li><a href="agt3-tooling"><span class="n">4.3</span>Robust tools &amp; structured I/O</a></li>
+    <li><a href="agt4-reliability"><span class="n">4.4</span>Reliable, observable agents</a></li>
+    <li><a href="agt5-production"><span class="n">4.5</span>Production agent systems</a></li>
+  </ul>
+  <div class="part"><span class="gi">🛡️</span> Evaluation &amp; Production</div>
+  <ul>
+    <li><a href="ch05-evaluation"><span class="n">5</span>Evaluation &amp; testing</a></li>
+    <li><a href="ch06-production"><span class="n">6</span>Production hardening</a></li>
+  </ul>
+  <div class="part"><span class="gi">🏗️</span> FDE &amp; Capstone</div>
+  <ul>
+    <li><a href="ch07-fde"><span class="n">7</span>The FDE method</a></li>
+    <li><a href="ch08-devops-agent"><span class="n">8</span>AI DevOps Engineer</a></li>
+    <li><a href="ch08a-build-setup"><span class="n">8a</span>Build: setup, schema, mock</a></li>
+    <li><a href="ch08b-build-loop"><span class="n">8b</span>Build: tools + agent loop</a></li>
+    <li><a href="ch08c-build-safety"><span class="n">8c</span>Build: RAG + safety gate</a></li>
+    <li><a href="ch08d-build-evals"><span class="n">8d</span>Build: evals + go real</a></li>
+  </ul>
+    <div class="part"><span class="gi">🎓</span> Specialized Topics</div>
+  <ul>
+    <li><a href="xt1-security"><span class="n">T1</span>LLM security &amp; safety</a></li>
+    <li><a href="xt2-multimodal"><span class="n">T2</span>Multimodal AI</a></li>
+    <li><a href="xt3-mcp"><span class="n">T3</span>Model Context Protocol</a></li>
+    <li><a href="xt4-finetuning"><span class="n">T4</span>Fine-tune vs RAG vs prompt</a></li>
+    <li><a href="xt5-sql"><span class="n">T5</span>SQL &amp; databases</a></li>
+  </ul>
+  <div class="part"><span class="gi">🅰️</span> Claude &amp; Anthropic</div>
+  <ul>
+    <li><a href="cl1-intro"><span class="n">C1</span>Meet Claude &amp; the models</a></li>
+    <li><a href="cl2-api"><span class="n">C2</span>The Anthropic API</a></li>
+    <li><a href="cl3-claude-code"><span class="n">C3</span>Claude Code &amp; agentic dev</a></li>
+    <li><a href="cl4-mcp"><span class="n">C4</span>Claude with MCP</a></li>
+  </ul>
+      <div class="part"><span class="gi">🧰</span> Anthropic API in Practice</div>
+  <ul>
+    <li><a href="ap1-batches"><span class="n">AP1</span>Message Batches API</a></li>
+    <li><a href="ap2-caching"><span class="n">AP2</span>Prompt caching, hands-on</a></li>
+    <li><a href="ap3-files-vision"><span class="n">AP3</span>Files API, vision &amp; PDF</a></li>
+    <li><a href="ap4-tokens-usage"><span class="n">AP4</span>Token counting &amp; usage</a></li>
+    <li><a href="ap5-server-tools"><span class="n">AP5</span>Server-side tools</a></li>
+    <li><a href="ap6-run-anywhere"><span class="n">AP6</span>Run Claude anywhere</a></li>
+    <li><a href="ap7-agent-sdk"><span class="n">AP7</span>The Claude Agent SDK</a></li>
+    <li><a href="ap8-parameters"><span class="n">AP8</span>Request parameters, in full</a></li>
+    <li><a href="ap9-prompting-migration"><span class="n">AP9</span>Prompting Claude &amp; migration</a></li>
+    <li><a href="proj-ap-pipeline"><span class="n">APP</span>Project · Batch pipeline</a></li>
+  </ul>
+  <div class="part"><span class="gi">🅰️</span> Anthropic Skills</div>
+  <ul>
+    <li><a href="ak1-claude-code-in-action"><span class="n">K1</span>Claude Code in Action</a></li>
+    <li><a href="ak2-claude-code-automation"><span class="n">K2</span>Claude Code automation</a></li>
+    <li><a href="ak3-claude-cowork"><span class="n">K3</span>Claude Cowork</a></li>
+    <li><a href="ak4-agent-skills"><span class="n">K4</span>Agent Skills</a></li>
+    <li><a href="ak5-subagents"><span class="n">K5</span>Subagents</a></li>
+    <li><a href="ak6-mcp-advanced"><span class="n">K6</span>MCP advanced</a></li>
+    <li><a href="ak7-claude-vertex-gcp"><span class="n">K7</span>Claude on Vertex / GCP</a></li>
+    <li><a href="ak8-ai-fluency"><span class="n">K8</span>AI Fluency</a></li>
+    <li><a href="proj-ak-workbench"><span class="n">KP</span>Project · Agent workbench</a></li>
+  </ul>
+  <div class="part"><span class="gi">🧩</span> No-Code Agentic AI</div>
+  <ul>
+    <li><a href="nc1-n8n"><span class="n">N1</span>Agentic workflows with n8n</a></li>
+    <li><a href="nc2-zapier"><span class="n">N2</span>Automation with Zapier</a></li>
+    <li><a href="nc3-make"><span class="n">N3</span>Building with Make</a></li>
+    <li><a href="nc4-flowise"><span class="n">N4</span>No-code agents with Flowise</a></li>
+  </ul>
+  <div class="part"><span class="gi">⛓️</span> LangChain &amp; LangGraph</div>
+  <ul>
+    <li><a href="lg1-foundations"><span class="n">L1</span>Agent architectures</a></li>
+    <li><a href="lg2-langchain-core"><span class="n">L2</span>LangChain Core</a></li>
+    <li><a href="lg3-langchain-agents"><span class="n">L3</span>LangChain agents &amp; tools</a></li>
+    <li><a href="lg4-langgraph-state"><span class="n">L4</span>LangGraph state &amp; routing</a></li>
+    <li><a href="lg5-langgraph-cycles"><span class="n">L5</span>Cycles, HITL &amp; persistence</a></li>
+  </ul>
+  <div class="part"><span class="gi">👥</span> Multi-Agent Orchestration</div>
+  <ul>
+    <li><a href="ma1-crewai"><span class="n">M1</span>CrewAI</a></li>
+    <li><a href="ma2-autogen"><span class="n">M2</span>Microsoft AutoGen</a></li>
+    <li><a href="ma3-agentic-rag"><span class="n">M3</span>Agentic RAG &amp; GraphRAG</a></li>
+    <li><a href="ma4-deep-agents"><span class="n">M4</span>Deep Agents</a></li>
+    <li><a href="ma5-multiagent-rag-pipeline"><span class="n">M5</span>Multi-agent RAG pipelines</a></li>
+  </ul>
+  <div class="part"><span class="gi">📦</span> MLOps &amp; LLMOps</div>
+  <ul>
+    <li><a href="op1-foundations"><span class="n">O1</span>MLOps &amp; LLMOps foundations</a></li>
+    <li><a href="op2-infra"><span class="n">O2</span>Infra, tooling &amp; stack</a></li>
+    <li><a href="op3-deploy-scale"><span class="n">O3</span>Deploy, containerize &amp; scale</a></li>
+    <li><a href="op4-monitoring-governance"><span class="n">O4</span>Monitoring &amp; governance</a></li>
+  </ul>
+  <div class="part"><span class="gi">✨</span> AI-Assisted Development</div>
+  <ul>
+    <li><a href="ad1-vibe-coding"><span class="n">V1</span>Vibe coding fundamentals</a></li>
+    <li><a href="ad2-cursor"><span class="n">V2</span>Cursor AI</a></li>
+    <li><a href="ad3-antigravity"><span class="n">V3</span>Google Antigravity</a></li>
+    <li><a href="ad4-amazon-q"><span class="n">V4</span>Amazon Q Developer</a></li>
+    <li><a href="ad5-copilot"><span class="n">V5</span>GitHub Copilot</a></li>
+  </ul>
+  <div class="part"><span class="gi">🔗</span> Interoperability &amp; Agent Ops</div>
+  <ul>
+    <li><a href="io1-mcp-ecosystem"><span class="n">I1</span>MCP ecosystem integrations</a></li>
+    <li><a href="io2-a2a"><span class="n">I2</span>A2A protocol</a></li>
+    <li><a href="io3-acp-anp"><span class="n">I3</span>ACP &amp; ANP</a></li>
+    <li><a href="io4-langsmith"><span class="n">I4</span>Tracing with LangSmith</a></li>
+    <li><a href="io5-guardrails"><span class="n">I5</span>Guardrails — NeMo &amp; Guardrails AI</a></li>
+  </ul>
+  <div class="part"><span class="gi">📊</span> Data &amp; App Building</div>
+  <ul>
+    <li><a href="da1-numpy-pandas"><span class="n">B1</span>NumPy &amp; Pandas</a></li>
+    <li><a href="da2-viz"><span class="n">B2</span>Matplotlib &amp; Seaborn</a></li>
+    <li><a href="da3-fastapi"><span class="n">B3</span>AI backends with FastAPI</a></li>
+    <li><a href="da4-streamlit-gradio"><span class="n">B4</span>Streamlit &amp; Gradio</a></li>
+  </ul>
+  <div class="part"><span class="gi">🎛️</span> Prompt &amp; Context Engineering</div>
+  <ul>
+    <li><a href="pe1-advanced-prompting"><span class="n">E1</span>Advanced prompting</a></li>
+    <li><a href="pe2-context-engineering"><span class="n">E2</span>Context engineering</a></li>
+    <li><a href="pe3-prompt-optimization-dspy"><span class="n">E3</span>Prompt optimization &amp; DSPy</a></li>
+    <li><a href="pe4-llms-apis-oss"><span class="n">E4</span>Working with LLMs &amp; OSS</a></li>
+  </ul>
+  <div class="part"><span class="gi">🔤</span> NLP &amp; Transformers</div>
+  <ul>
+    <li><a href="nl1-foundations"><span class="n">K1</span>NLP foundations</a></li>
+    <li><a href="nl2-representation"><span class="n">K2</span>Text representation</a></li>
+    <li><a href="nl3-classification"><span class="n">K3</span>Text classification</a></li>
+    <li><a href="nl4-neural-seq"><span class="n">K4</span>Neural sequence models</a></li>
+    <li><a href="nl5-transformers"><span class="n">K5</span>Transformers → LLMs</a></li>
+  </ul>
+    <div class="part"><span class="gi">☁️</span> AWS AI Automation</div>
+  <ul>
+    <li><a href="aws1-foundations"><span class="n">W1</span>AWS AI foundations</a></li>
+    <li><a href="aws2-bedrock-basics"><span class="n">W2</span>Bedrock &amp; Claude</a></li>
+    <li><a href="aws3-bedrock-tooluse"><span class="n">W3</span>Tool use &amp; structured out</a></li>
+    <li><a href="aws4-bedrock-kb-rag"><span class="n">W4</span>Knowledge Bases (RAG)</a></li>
+    <li><a href="aws5-bedrock-agents"><span class="n">W5</span>Bedrock Agents</a></li>
+    <li><a href="aws6-guardrails"><span class="n">W6</span>Guardrails</a></li>
+    <li><a href="aws7-iac-bedrock"><span class="n">W7</span>IaC: Terraform &amp; CDK</a></li>
+    <li><a href="aws8-sagemaker-deploy"><span class="n">W8</span>SageMaker deploy</a></li>
+    <li><a href="aws9-sagemaker-pipelines"><span class="n">W9</span>SageMaker pipelines</a></li>
+    <li><a href="aws10-docs-textract-comprehend"><span class="n">W10</span>Textract &amp; Comprehend</a></li>
+    <li><a href="aws11-media-vision-speech"><span class="n">W11</span>Vision &amp; speech</a></li>
+    <li><a href="aws12-kendra-q"><span class="n">W12</span>Kendra &amp; Amazon Q</a></li>
+    <li><a href="aws13-serverless-orchestration"><span class="n">W13</span>Serverless orchestration</a></li>
+    <li><a href="aws14-observability-cost-governance"><span class="n">W14</span>Observability &amp; cost</a></li>
+    <li><a href="aws15-eks-ai-ml"><span class="n">W15</span>AI/ML on EKS</a></li>
+    <li><a href="proj-aws-docintel"><span class="n">PA</span>Project · Doc intelligence</a></li>
+    <li><a href="proj-aws-support-agent"><span class="n">PB</span>Project · Support agent</a></li>
+    <li><a href="proj-aws-rag-platform"><span class="n">PC</span>Project · RAG platform</a></li>
+  </ul>
+    
+      <div class="part"><span class="gi">🎙️</span> Frontier Agent Capabilities</div>
+  <ul>
+    <li><a href="fa1-voice-realtime"><span class="n">FA1</span>Voice &amp; realtime agents</a></li>
+    <li><a href="fa2-computer-use"><span class="n">FA2</span>Computer use &amp; browsers</a></li>
+    <li><a href="fa3-reasoning-models"><span class="n">FA3</span>Reasoning &amp; test-time compute</a></li>
+    <li><a href="fa4-agent-memory"><span class="n">FA4</span>Long-term agent memory</a></li>
+    <li><a href="fa5-rag-eval"><span class="n">FA5</span>RAG evaluation</a></li>
+    <li><a href="fa6-advanced-retrieval"><span class="n">FA6</span>Advanced retrieval</a></li>
+    <li><a href="fa7-agent-sdks"><span class="n">FA7</span>Modern agent SDKs</a></li>
+    <li><a href="proj-fa-voice-agent"><span class="n">FAP</span>Project · Voice agent</a></li>
+  </ul>
+    <div class="part"><span class="gi">🧬</span> ML Systems Internals</div>
+  <ul>
+    <li><a href="ms1-gpu-memory"><span class="n">MS1</span>GPU memory &amp; the model</a></li>
+    <li><a href="ms2-distributed-training"><span class="n">MS2</span>Distributed training</a></li>
+    <li><a href="ms3-attention-kernels"><span class="n">MS3</span>Attention &amp; GPU kernels</a></li>
+    <li><a href="ms4-multi-gpu-serving"><span class="n">MS4</span>Multi-GPU serving</a></li>
+    <li><a href="ms5-throughput-econ"><span class="n">MS5</span>Throughput economics</a></li>
+    <li><a href="proj-ms-serving"><span class="n">MSP</span>Project · Serve at scale</a></li>
+  </ul>
+      <div class="part"><span class="gi">🔬</span> Research &amp; Frontier Eng</div>
+  <ul>
+    <li><a href="rf1-gpu-kernels-triton"><span class="n">RF1</span>Custom GPU kernels &amp; Triton</a></li>
+    <li><a href="rf2-rlhf-dpo-from-scratch"><span class="n">RF2</span>RLHF &amp; DPO from scratch</a></li>
+    <li><a href="rf3-distributed-training"><span class="n">RF3</span>Distributed training at scale</a></li>
+    <li><a href="rf4-novel-agent-arch"><span class="n">RF4</span>Novel agent architectures</a></li>
+    <li><a href="rf5-eval-interpretability"><span class="n">RF5</span>Advanced eval &amp; interpretability</a></li>
+  </ul>
+  <div class="part"><span class="gi">🧩</span> Advanced Challenges</div>
+  <ul>
+    <li><a href="ac1-debug-rag"><span class="n">AC1</span>Debug a broken RAG</a></li>
+    <li><a href="ac2-debug-agent"><span class="n">AC2</span>Debug a broken agent</a></li>
+    <li><a href="ac3-design-constraints"><span class="n">AC3</span>Design under constraints</a></li>
+    <li><a href="ac4-postmortem"><span class="n">AC4</span>Incident post-mortem</a></li>
+    <li><a href="ac5-tradeoff-defense"><span class="n">AC5</span>Defend a tradeoff</a></li>
+    <li><a href="proj-ac-audit"><span class="n">ACP</span>Project · Audit &amp; harden</a></li>
+  </ul>
+  <div class="part"><span class="gi">⚡</span> Inference &amp; Cost</div>
+  <ul>
+    <li><a href="ic1-foundations"><span class="n">IC1</span>Latency, throughput &amp; cost</a></li>
+    <li><a href="ic2-quantization"><span class="n">IC2</span>Quantization</a></li>
+    <li><a href="ic3-kv-cache"><span class="n">IC3</span>KV-cache &amp; attention</a></li>
+    <li><a href="ic4-batching"><span class="n">IC4</span>Batching &amp; scheduling</a></li>
+    <li><a href="ic5-speculative"><span class="n">IC5</span>Speculative decoding</a></li>
+    <li><a href="ic6-serving"><span class="n">IC6</span>Serving engines</a></li>
+    <li><a href="proj-ic-optimize"><span class="n">ICP</span>Project · Optimize a service</a></li>
+  </ul>
+    <div class="part"><span class="gi">🎚️</span> Fine-tuning</div>
+  <ul>
+    <li><a href="ft1-when-why"><span class="n">FT1</span>When &amp; why</a></li>
+    <li><a href="ft2-data"><span class="n">FT2</span>Dataset preparation</a></li>
+    <li><a href="ft3-lora-qlora"><span class="n">FT3</span>LoRA &amp; QLoRA</a></li>
+    <li><a href="ft4-full-vs-peft"><span class="n">FT4</span>Full vs PEFT</a></li>
+    <li><a href="ft5-dpo-rlhf"><span class="n">FT5</span>DPO &amp; preference tuning</a></li>
+    <li><a href="ft6-eval-serve"><span class="n">FT6</span>Evaluate &amp; serve</a></li>
+    <li><a href="proj-ft-adapter"><span class="n">FTP</span>Project · Tune an adapter</a></li>
+  </ul>
+    <div class="part"><span class="gi">🖥️</span> Local &amp; Open Models</div>
+  <ul>
+    <li><a href="lm1-landscape"><span class="n">LM1</span>Open-weight landscape</a></li>
+    <li><a href="lm2-ollama"><span class="n">LM2</span>Local dev with Ollama</a></li>
+    <li><a href="lm3-vllm-serving"><span class="n">LM3</span>Production serving</a></li>
+    <li><a href="lm4-quantized-local"><span class="n">LM4</span>Quantized local inference</a></li>
+    <li><a href="lm5-economics"><span class="n">LM5</span>API vs self-host</a></li>
+    <li><a href="proj-lm-selfhost"><span class="n">LMP</span>Project · Self-host a model</a></li>
+  </ul>
+    <div class="part"><span class="gi">🚨</span> Safety &amp; Red-teaming</div>
+  <ul>
+    <li><a href="rt1-threat-model"><span class="n">RT1</span>Threat model</a></li>
+    <li><a href="rt2-redteam-manual"><span class="n">RT2</span>Manual red-teaming</a></li>
+    <li><a href="rt3-redteam-auto"><span class="n">RT3</span>Automated red-teaming</a></li>
+    <li><a href="rt4-defenses"><span class="n">RT4</span>Layered defenses</a></li>
+    <li><a href="rt5-governance"><span class="n">RT5</span>Governance &amp; compliance</a></li>
+    <li><a href="proj-rt-audit"><span class="n">RTP</span>Project · Red-team an agent</a></li>
+  </ul>
+    
+    <div class="part"><span class="gi">🎯</span> Career &amp; Interview Prep</div>
+  <ul>
+    <li><a href="cr1-resume-portfolio"><span class="n">CR1</span>Resume &amp; portfolio</a></li>
+    <li><a href="cr2-behavioral"><span class="n">CR2</span>Behavioral &amp; STAR</a></li>
+    <li><a href="cr3-coding-interview"><span class="n">CR3</span>The coding interview</a></li>
+    <li><a href="cr4-systemdesign-interview"><span class="n">CR4</span>System-design interview</a></li>
+    <li><a href="cr5-offer-negotiation"><span class="n">CR5</span>Offers &amp; negotiation</a></li>
+    <li><a href="proj-cr-launch"><span class="n">CRP</span>Project · Land &amp; grow</a></li>
+  </ul>
+      <div class="part"><span class="gi">🏢</span> Enterprise &amp; Leadership</div>
+  <ul>
+    <li><a href="el1-governance-compliance"><span class="n">EL1</span>AI governance &amp; compliance</a></li>
+    <li><a href="el2-buy-vs-build"><span class="n">EL2</span>Buy vs build &amp; model selection</a></li>
+    <li><a href="el3-finops-ai"><span class="n">EL3</span>FinOps for AI at scale</a></li>
+    <li><a href="el4-org-rollout"><span class="n">EL4</span>Rolling agents into an org</a></li>
+    <li><a href="el5-enterprise-security"><span class="n">EL5</span>Security, privacy &amp; procurement</a></li>
+    <li><a href="el6-exec-communication"><span class="n">EL6</span>Executive &amp; board communication</a></li>
+    <li><a href="proj-el-governance"><span class="n">ELP</span>Project · Governance &amp; rollout plan</a></li>
+  </ul>
+  <div class="part"><span class="gi">🚀</span> Projects</div>
+  <ul>
+    <li><a href="projects"><span class="n">★</span>All projects</a></li>
+    <li><a href="proj-support"><span class="n">P1</span>Customer Support Agent</a></li>
+    <li><a href="proj-coding"><span class="n">P2</span>Coding &amp; Code-Review</a></li>
+    <li><a href="proj-docintel"><span class="n">P3</span>Document Intelligence</a></li>
+    <li><a href="proj-analyst"><span class="n">P4</span>Data Analyst Agent</a></li>
+    <li><a href="proj-research"><span class="n">P5</span>Deep Research Agent</a></li>
+    <li><a href="proj-docrag"><span class="n">P6</span>Document Intelligence + RAG</a></li>
+    <li><a href="proj-content"><span class="n">P7</span>Content Assistant</a></li>
+    <li><a href="proj-semantic"><span class="n">P8</span>Semantic Search Engine</a></li>
+    <li><a href="proj-agentic-rag"><span class="n">P9</span>Agentic RAG Assistant</a></li>
+    <li><a href="proj-nocode"><span class="n">P10</span>No-Code Automation Agent</a></li>
+    <li><a href="proj-mcp-server"><span class="n">P11</span>Custom MCP Server</a></li>
+    <li><a href="proj-research-crew"><span class="n">P12</span>Multi-Agent Research Crew</a></li>
+    <li><a href="proj-support-guardrails"><span class="n">P13</span>Support with Guardrails</a></li>
+    <li><a href="proj-observability"><span class="n">P14</span>Multi-Agent + Observability</a></li>
+    <li><a href="proj-end-to-end"><span class="n">P15</span>End-to-End Agentic System</a></li>
+  </ul>
+  <div class="part"><span class="gi">🏛️</span> Case Studies &amp; Architectures</div>
+  <ul>
+    <li><a href="cs1-agents-vs-workflows"><span class="n">CS1</span>Agents vs workflows</a></li>
+    <li><a href="cs2-support-triage"><span class="n">CS2</span>Case · support triage</a></li>
+    <li><a href="cs3-compliance-doc-agent"><span class="n">CS3</span>Case · compliance docs</a></li>
+    <li><a href="cs4-healthcare-rag"><span class="n">CS4</span>Case · healthcare RAG</a></li>
+    <li><a href="cs5-scale-war-stories"><span class="n">CS5</span>Scale &amp; cost war-stories</a></li>
+    <li><a href="cs6-safety-constitutional"><span class="n">CS6</span>Safety &amp; constitutional AI</a></li>
+    <li><a href="proj-cs-reference"><span class="n">CSP</span>Project · Reference design</a></li>
+    <li><a href="cs7-regulated-industry"><span class="n">CS7</span>Case · regulated industry</a></li>
+    <li><a href="cs8-legacy-retrofit"><span class="n">CS8</span>Case · legacy AI retrofit</a></li>
+    <li><a href="cs9-platform-rollout"><span class="n">CS9</span>Case · multi-team platform</a></li>
+    <li><a href="proj-ent-regulated"><span class="n">ENP</span>Project · Regulated-industry build</a></li>
+  </ul>
+  
+    <div class="part"><span class="gi">✅</span> Software Testing</div>
+  <ul>
+    <li><a href="tq1-why-test"><span class="n">TQ1</span>Why test + first pytest</a></li>
+    <li><a href="tq2-unit-testing"><span class="n">TQ2</span>Unit testing</a></li>
+    <li><a href="tq3-fixtures-mocking"><span class="n">TQ3</span>Fixtures &amp; mocking</a></li>
+    <li><a href="tq4-tdd"><span class="n">TQ4</span>Test-driven development</a></li>
+    <li><a href="tq5-integration-ci"><span class="n">TQ5</span>Integration &amp; CI</a></li>
+    <li><a href="tq6-testing-theory"><span class="n">TQ6</span>Testing theory &amp; coverage</a></li>
+    <li><a href="tq7-property-mutation-fuzz"><span class="n">TQ7</span>Property-based, mutation &amp; fuzzing</a></li>
+    <li><a href="tq8-test-doubles-nonfunctional"><span class="n">TQ8</span>Test doubles &amp; non-functional testing</a></li>
+    <li><a href="proj-tq-suite"><span class="n">TQP</span>Project · Test a real module</a></li>
+  </ul>
+  <div class="part"><span class="gi">📚</span> Reference</div>
+  <ul>
+    <li><a href="cheatsheet"><span class="n">★</span>Cheat sheet</a></li>
+    <li><a href="glossary"><span class="n">A–Z</span>Glossary</a></li>
+  </ul>
+</nav>
+
+<main>
+<header class="ch">
+  <div class="eyebrow">Getting Started · Your workspace</div>
+  <h1>Using VS Code for This Course</h1>
+  <p class="lede">One place to learn the exact setup you'll use for every chapter, lab, and project: how to open the course, run Python and the build labs, manage virtual environments, keep API keys safe, and use the <b>Claude / Anthropic VS Code extension</b> as your AI pair-programmer. Do this once and every later step just works.</p>
+  <div class="facts"><span>⏱️ ~30 min</span><span>🧰 one-time setup</span><span>💻 VS Code + Python 3.10+</span><span>⚙️ copy-paste config</span><span>🎯 Start here</span></div>
+</header>
+
+<div class="callout note"><span class="lbl">Why this page is first</span>Every chapter's labs and all 15 projects assume you can open a terminal, activate a virtual environment, and run <code>python</code> / <code>pytest</code>. This page sets that up once. If you've never used VS Code, follow it top to bottom; if you have, skim the environment and extension sections — those trip people up most.</div>
+
+<div class="objectives">
+  <h4>By the end of this page you will</h4>
+  <ul>
+    <li>Have VS Code, the Python extension, and the Anthropic extension installed and working.</li>
+    <li>Know how to open a project folder and use the integrated terminal.</li>
+    <li>Create and activate a per-project virtual environment — and know why the terminal prompt changes.</li>
+    <li>Install all course dependencies into that venv from <code>code/requirements.txt</code> in one command.</li>
+    <li>Store your API key safely (never in code) and confirm it's picked up.</li>
+    <li>Use the Anthropic extension to explain, generate, and debug code as you work through the course.</li>
+    <li>Pin the interpreter with a <code>.vscode/settings.json</code> so it's remembered, and (macOS/Linux) auto-activate the venv by folder.</li>
+    <li>Recognise and fix the classic traps: wrong interpreter, the <code>.code-workspace</code> override, and cloud-sync + venv problems.</li>
+  </ul>
+</div>
+
+<h2 id="install">1 · Install VS Code and the extensions</h2>
+<p>You need three things: the editor and two extensions. Install in this order.</p>
+<div class="codewarn">Example code for learning &mdash; review, test, and adapt it before running against real or production systems. Commands can create, change, or delete resources. See the <a href="terms">Terms &amp; Disclaimer</a>.</div>
+<div class="lab">
+<span class="tag">1 · Install</span>
+<ol class="steps">
+  <li><b>VS Code</b> — download from <code>code.visualstudio.com</code> and install for your OS.</li>
+  <li><b>Python extension</b> (Microsoft) — open the Extensions view (<span class="keys"><kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd></span>), search <b>"Python"</b>, install the one by <i>Microsoft</i>. This gives you interpreter selection, the run button, and test integration.</li>
+  <li><b>Anthropic extension</b> — in the same Extensions view, search <b>"Claude"</b> / <b>"Anthropic"</b> and install the official extension. This is your in-editor AI assistant (you've already configured it — the next sections show how to use it for the course).</li>
+</ol>
+</div>
+<div class="callout tip"><span class="lbl">Optional but handy</span>Also install <b>"Jupyter"</b> (Microsoft) if you like running code in notebook cells, and <b>"Even Better TOML" / "YAML"</b> for editing config files. None are required for the course.</div>
+
+<h2 id="open">2 · Open the course / a project folder</h2>
+<p>VS Code works on a <b>folder</b> (your "workspace"), not loose files. Always open the folder that contains the code you're working on.</p>
+<div class="lab">
+<span class="tag">2 · Open a folder</span>
+<ol class="steps">
+  <li><b>File → Open Folder…</b> and pick your working directory (for a project lab, the project folder you create — e.g. <code>content-assistant/</code>).</li>
+  <li>Or from a terminal already in that folder: <code>code .</code> (the dot means "this folder").</li>
+  <li>The <b>Explorer</b> panel on the left now lists your files. Click one to edit it.</li>
+</ol>
+</div>
+<div class="callout warn"><span class="lbl">Open the project folder, not its parent</span>The build labs run commands like <code>python -m pytest tests/</code> that assume you're <i>inside</i> the project folder. If imports fail with <code>ModuleNotFoundError</code>, you almost certainly opened the wrong folder or your terminal is one level up. Open the exact project folder.</p></div>
+
+<h2 id="terminal">3 · The integrated terminal</h2>
+<p>Everything the labs ask you to "run in your terminal" happens in VS Code's built-in terminal — no separate app needed.</p>
+<div class="lab">
+<span class="tag">3 · Open the terminal</span>
+<ol class="steps">
+  <li>Open it with <b>Terminal → New Terminal</b>, or the shortcut <span class="keys"><kbd>Ctrl</kbd>+<kbd>`</kbd></span> (the backtick key, top-left).</li>
+  <li>It opens <i>already inside your workspace folder</i> — so <code>pwd</code> shows the folder you opened.</li>
+  <li>Type the lab's commands here and press Enter. Output appears inline.</li>
+</ol>
+</div>
+<div class="callout note"><span class="lbl">About that <code>(env-name)</code> at the start of your prompt</span>If your prompt looks like <code>(agents) you@machine project %</code>, the text in parentheses is the <b>active Python environment</b>. It's not an error — it just tells you which environment your <code>python</code>/<code>pip</code> commands will use. You want it to say your project's <code>.venv</code> (next section), not a leftover global one. To leave an environment: run <code>conda deactivate</code> (conda) or <code>deactivate</code> (venv).</div>
+
+<h2 id="venv">4 · Virtual environments — the step people skip</h2>
+<p>A <b>virtual environment</b> (venv) is a private package folder for one project, so installing something for the Content Assistant doesn't collide with another project. Every build lab starts by creating one. Here's the whole lifecycle.</p>
+<div class="lab">
+<span class="tag">4 · Create &amp; activate a venv</span>
+<pre><span class="fname">terminal — macOS / Linux</span><code>python3 -m venv .venv          <span class="tok-c"># create it (once per project)</span>
+source .venv/bin/activate       <span class="tok-c"># activate it (each new terminal)</span></code></pre>
+<pre><span class="fname">terminal — Windows (PowerShell)</span><code>py -m venv .venv
+.venv\Scripts\Activate.ps1</code></pre>
+<pre class="out"><code>(.venv) you@machine content-assistant %      # prompt now shows (.venv) — success</code></pre>
+</div>
+<div class="walk"><span class="wl">▶ How this works</span>
+<p>This is the whole life of a <b>virtual environment</b> (venv) — a private package folder for one project so its libraries never clash with another project's. Pick the block for <i>your</i> operating system; the commands do the same two things.</p>
+<ol>
+    <li><code>python3 -m venv .venv</code> (Windows: <code>py -m venv .venv</code>) <b>creates</b> the environment in a hidden folder called <code>.venv</code>. You do this <b>once</b> per project — the folder then just sits there.</li>
+    <li><code>source .venv/bin/activate</code> (Windows: <code>.venv\Scripts\Activate.ps1</code>) <b>turns it on</b> for the current terminal. You repeat this <i>every time</i> you open a new terminal — activation does not stick.</li>
+    <li>After activating, <code>python</code> and <code>pip</code> point <i>into</i> <code>.venv</code>, so anything you install lands there and nowhere else.</li>
+</ol>
+<p><b>What the output means:</b> Your prompt gains a <code>(.venv)</code> prefix, e.g. <code>(.venv) you@machine content-assistant %</code>. That prefix is your proof the environment is active — no prefix means you're back on the system Python.</p>
+<p class="try"><b>Try this:</b> Run <code>which python</code> (Windows: <code>where python</code>) before and after activating. Before, it points at a system path; after, it points inside <code>.venv</code>. That is exactly what changed.</p>
+</div>
+
+<div class="callout danger"><span class="lbl">The #1 cause of "it worked yesterday"</span>The <code>(.venv)</code> only lasts for the terminal window it was activated in. Close the terminal (or open a new one) and you must run the <code>activate</code> line again — otherwise <code>python</code>/<code>pip</code> use the wrong environment and your installed packages "disappear". If a lab command suddenly can't find a package, check your prompt shows <code>(.venv)</code> first.</div>
+<div class="callout tip"><span class="lbl">Point VS Code at the venv too</span>So the editor's run button and test panel use the same environment: open the Command Palette (<span class="keys"><kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></span>) → <b>Python: Select Interpreter</b> → choose the one whose path contains <code>.venv</code>. VS Code then auto-activates it in new terminals. If you saw <code>(agents)</code> auto-appear, it's because a different interpreter was selected here — switch it to your project's <code>.venv</code>.</div>
+
+<h2 id="deps">4b · Install the course dependencies</h2>
+<p>With the venv <b>activated</b> (<code>(.venv)</code> showing in your prompt), install the packages the labs use. The course ships a single <b>requirements file</b> — one command installs everything, so no lesson surprises you with a missing module.</p>
+<div class="lab">
+<span class="tag">4b · Install everything at once</span>
+<pre><span class="fname">terminal — inside your activated venv</span><code>cd path/to/llm-course/code       <span class="tok-c"># where requirements.txt lives</span>
+pip install -r requirements.txt   <span class="tok-c"># installs all course + AWS libraries</span></code></pre>
+<pre class="out"><code>Successfully installed anthropic boto3 sagemaker langgraph crewai ... </code></pre>
+</div>
+<div class="walk"><span class="wl">▶ How this works</span>
+<p>With the venv <b>active</b> (<code>(.venv)</code> showing), this installs every library the course uses in one shot, reading the list from a <b>requirements file</b> — so no lesson later fails on a missing module.</p>
+<ol>
+    <li><code>cd path/to/llm-course/code</code> moves you into the folder that contains <code>requirements.txt</code>. The <code>cd</code> ("change directory") step matters because the next command looks for that file in the <i>current</i> folder.</li>
+    <li><code>pip install -r requirements.txt</code> tells <code>pip</code> to read the file (<code>-r</code> = "from this requirements list") and download every library named in it into your active venv.</li>
+</ol>
+<p><b>What the output means:</b> A stream of downloads ending in <code>Successfully installed anthropic boto3 …</code>. Each name is one library now available to <code>import</code> in your code.</p>
+<p class="try"><b>Try this:</b> If you only need a couple of libraries for one chapter, you can skip the big file and run e.g. <code>pip install anthropic</code> on its own — same command, just one package.</p>
+</div>
+
+<p>That file lives at <code>llm-course/code/requirements.txt</code> and pins the third-party libraries used across the course. What you get, grouped by where it's used:</p>
+<table>
+<tr><th>Library</th><th>Used in</th></tr>
+<tr><td><code>anthropic</code></td><td>Claude &amp; Anthropic chapters (the SDK)</td></tr>
+<tr><td><code>boto3</code></td><td>All AWS AI Automation chapters (W1–W14) — the AWS SDK</td></tr>
+<tr><td><code>sagemaker</code></td><td>AWS W8–W9 (SageMaker deploy &amp; pipelines)</td></tr>
+<tr><td><code>aws-cdk-lib</code>, <code>constructs</code></td><td>AWS W7 &amp; the CDK projects (infrastructure as code)</td></tr>
+<tr><td><code>langchain-core</code>, <code>langchain-anthropic</code>, <code>langgraph</code>, <code>langsmith</code></td><td>LangChain &amp; LangGraph chapters</td></tr>
+<tr><td><code>crewai</code>, <code>autogen-agentchat</code></td><td>Multi-agent orchestration chapters</td></tr>
+<tr><td><code>dspy</code></td><td>Prompt-optimization chapter</td></tr>
+<tr><td><code>mcp</code></td><td>MCP server project</td></tr>
+<tr><td><code>numpy</code>, <code>pandas</code>, <code>matplotlib</code>, <code>seaborn</code>, <code>scikit-learn</code></td><td>Data &amp; app-building, NLP chapters</td></tr>
+<tr><td><code>pydantic</code>, <code>pytest</code></td><td>Structured output &amp; testing, used throughout</td></tr>
+</table>
+<div class="callout tip"><span class="lbl">Install only what a lesson needs</span>The full file is convenient, but heavy (SageMaker and CrewAI pull in a lot). If you're only doing, say, the Bedrock chapters, <code>pip install boto3</code> is enough. Each lesson's <code>▶ Runnable companion</code> folder has its own README naming just the packages that lesson needs.</div>
+<div class="callout danger"><span class="lbl">Install <i>into</i> the venv, not globally</span>If your prompt does not show <code>(.venv)</code>, <code>pip install</code> puts packages in the wrong place and VS Code won't find them — the classic "boto3 is not recognized" symptom. Activate first (section 4), confirm <code>(.venv)</code>, then install.</div>
+<div class="callout note"><span class="lbl">AWS libraries need AWS credentials to <i>run</i></span>Installing <code>boto3</code> makes the import resolve so you can read and edit the AWS labs. Actually <i>calling</i> AWS (Bedrock, S3, …) additionally needs <code>aws configure</code> credentials and, for Bedrock, model access enabled in your region — see <a href="aws1-foundations">W1 · AWS AI foundations</a>.</div>
+
+<h2 id="run">5 · Running code and tests</h2>
+<p>Two ways to run — pick whichever you like; the labs show terminal commands because they're unambiguous.</p>
+<table>
+  <tr><th>Task</th><th>Terminal (used in the labs)</th><th>VS Code UI</th></tr>
+  <tr><td>Run a script</td><td><code>python engine.py</code></td><td>Open the file → click the ▷ <b>Run</b> button (top-right)</td></tr>
+  <tr><td>Run the tests</td><td><code>python -m pytest tests/ -v</code></td><td>Open the <b>Testing</b> panel (flask icon) → Run All</td></tr>
+  <tr><td>Install a package</td><td><code>pip install pytest</code></td><td>—</td></tr>
+  <tr><td>Stop a running program</td><td><span class="keys"><kbd>Ctrl</kbd>+<kbd>C</kbd></span> in the terminal</td><td>—</td></tr>
+</table>
+<div class="callout tip"><span class="lbl">Every lab's offline tests need no API key</span>Across the course, the <code>pytest</code> suites are designed to pass with <b>no API key</b> (they use mocks/stubs). So you can run them immediately after <code>pip install pytest</code> — a great way to confirm your environment is healthy before wiring in a real key.</div>
+
+<h2 id="keys">6 · API keys, the safe way</h2>
+<p>When a lab's optional "go live" step needs the real Claude API, it reads your key from an <b>environment variable</b> — never from code you might commit.</p>
+<div class="lab">
+<span class="tag">6 · Set your key for the session</span>
+<pre><span class="fname">terminal — macOS / Linux</span><code>export ANTHROPIC_API_KEY="sk-ant-your-key-here"</code></pre>
+<pre><span class="fname">terminal — Windows (PowerShell)</span><code>$env:ANTHROPIC_API_KEY="sk-ant-your-key-here"</code></pre>
+<p>Confirm it's set (should print your key):</p>
+<pre><span class="fname">terminal</span><code>echo $ANTHROPIC_API_KEY        <span class="tok-c"># Windows: echo $env:ANTHROPIC_API_KEY</span></code></pre>
+</div>
+<div class="walk"><span class="wl">▶ How this works</span>
+<p>An <b>API key</b> is your private password for the Claude API. You store it in an <b>environment variable</b> — a named value the shell holds in memory — so your code can read it <i>without</i> the key ever being written into a file you might share or commit.</p>
+<ol>
+    <li><code>export ANTHROPIC_API_KEY="sk-ant-…"</code> (Windows PowerShell: <code>$env:ANTHROPIC_API_KEY="sk-ant-…"</code>) puts your key into that named variable for the current terminal session.</li>
+    <li><code>echo $ANTHROPIC_API_KEY</code> (Windows: <code>echo $env:ANTHROPIC_API_KEY</code>) prints the value back so you can confirm it was set. <code>echo</code> just means "print this to the screen".</li>
+    <li>The Anthropic SDK looks for this exact variable name automatically, so your Python code never has to contain the key itself.</li>
+</ol>
+<p><b>What the output means:</b> The <code>echo</code> line should print your key (starting <code>sk-ant-</code>). If it prints a blank line, the variable isn't set — re-run the <code>export</code> line in <i>this same</i> terminal.</p>
+<p class="try"><b>Try this:</b> Open a brand-new terminal and run the <code>echo</code> again — it will be blank, because <code>export</code> only lasts for the terminal you ran it in. That's why the tip below shows how to make it stick.</p>
+</div>
+
+<div class="callout danger"><span class="lbl">Never put a key in your code or commit it</span>Don't paste <code>sk-ant-…</code> into a <code>.py</code> file. Use the environment variable above, or a <code>.env</code> file that is listed in <code>.gitignore</code>. The Anthropic SDK reads <code>ANTHROPIC_API_KEY</code> from the environment automatically, so you never reference the key value in code. If a key is ever committed, rotate it immediately in the Anthropic Console.</div>
+<div class="callout tip"><span class="lbl">Make it stick across terminals</span>The <code>export</code> above lasts only for that terminal. To set it for every new terminal, add the line to your shell profile (<code>~/.zshrc</code> on modern macOS, <code>~/.bashrc</code> on Linux) — but only on a machine you control, and never in a file inside a git repo.</div>
+
+<h2 id="anthropic">7 · Using the Anthropic extension for the course</h2>
+<p>You've configured the Claude / Anthropic extension — here's how to actually use it as you learn. It's an AI pair-programmer living in the editor: it can read your open files, explain code, generate it, and help debug.</p>
+<table>
+  <tr><th>When you're…</th><th>Ask the extension to…</th></tr>
+  <tr><td>Reading a lab's code file</td><td>"Explain this file line by line" — great for the schema/validator and agent-loop code.</td></tr>
+  <tr><td>Stuck on a failing test</td><td>Paste the error and ask "why does this test fail and how do I fix it?"</td></tr>
+  <tr><td>Extending a project</td><td>"Add a new field to this Pydantic model and update the validator" — then run the tests.</td></tr>
+  <tr><td>Understanding an error</td><td>Select the traceback → ask "what does this mean?" It maps to the labs' troubleshooting tables.</td></tr>
+  <tr><td>Learning a concept</td><td>"Explain what a virtual environment is and why this lab uses one."</td></tr>
+</table>
+<div class="lab">
+<span class="tag">7 · A good first prompt</span>
+<ol class="steps">
+  <li>Open any lab's code file (say <code>engine.py</code>).</li>
+  <li>Open the extension's chat panel (from the Activity Bar icon or the Command Palette).</li>
+  <li>Ask: <i>"Explain what this file does and how I'd run it, assuming I'm new to Python."</i></li>
+  <li>Then try: <i>"I ran the tests and got <code>ModuleNotFoundError</code> — what's wrong?"</i> and compare its answer to the lab's Troubleshooting table.</li>
+</ol>
+</div>
+<div class="callout warn"><span class="lbl">Learn with it, don't just copy from it</span>The extension will happily write whole files. For a course, the value is in <i>understanding</i> — ask it to explain <b>why</b>, have it review code <i>you</i> wrote, and always run the tests to verify its suggestions. This is exactly the AI-assisted-development discipline the course covers later (see the <a href="ad1-vibe-coding">Vibe coding</a> and <a href="ad5-copilot">Copilot</a> chapters).</div>
+<div class="callout note"><span class="lbl">Extension vs. the API you'll build with</span>Two different things that both use Claude: the <b>extension</b> is a tool that helps <i>you</i> write the course's code in the editor; the <b>Anthropic API/SDK</b> is what the course teaches you to <i>call from your own programs</i> (Chapter 1 onward). You'll use the extension to build the apps, and those apps will call the API themselves.</div>
+
+<h2 id="workflow">8 · Your per-lab workflow (memorize this)</h2>
+<p>Every project lab follows the same rhythm. Once this is muscle memory, the whole course is smooth:</p>
+<div class="lab">
+<span class="tag">8 · The loop</span>
+<pre class="out"><code>1. Open the project folder in VS Code        (File -> Open Folder)
+2. Open a terminal                           (Ctrl + `)
+3. Activate the venv                         source .venv/bin/activate
+   -> confirm the prompt shows (.venv)
+4. Create files by pasting the lab's blocks  (Explorer -> New File)
+5. Run it                                    python <file>.py
+6. Run the tests                             python -m pytest tests/ -v
+7. (optional) set the key + go live          export ANTHROPIC_API_KEY=...
+8. Ask the Anthropic extension when stuck
+</code></pre>
+</div>
+<div class="walk"><span class="wl">▶ How this works</span>
+<p>This is not code to run — it's the <b>rhythm every lab follows</b>, listed in order. Read it as a checklist you repeat for each project until it's muscle memory.</p>
+<ol>
+    <li>Steps 1–2 get you set up: open the project <b>folder</b> (not a loose file) and open the integrated <b>terminal</b>.</li>
+    <li>Step 3 <b>activates the venv</b> — and the crucial confirmation is that your prompt now shows <code>(.venv)</code>. If it doesn't, stop and fix that before continuing.</li>
+    <li>Steps 4–6 are the actual work: create the lab's files, <b>run</b> the script with <code>python &lt;file&gt;.py</code>, then <b>run the tests</b> with <code>python -m pytest tests/ -v</code>.</li>
+    <li>Steps 7–8 are optional: set your API key to "go live", and ask the Anthropic extension whenever you're stuck.</li>
+</ol>
+<p class="try"><b>Try this:</b> The two lines that trip up beginners are steps 3 and 6. If a command "can't find" a package, you almost always skipped step 3 (activation).</p>
+</div>
+
+
+<h2 id="autoconfig">9 · Make it automatic — pin the interpreter with a settings file</h2>
+<p>The steps above work, but you can make VS Code <b>remember</b> the interpreter and testing config for a folder so you don't re-select it each time. VS Code reads a per-folder file at <code>.vscode/settings.json</code> inside your project folder. Create it once.</p>
+<div class="lab">
+<span class="tag">9 · Create .vscode/settings.json</span>
+<p>In your project folder, create a folder named <code>.vscode</code>, and inside it a file <code>settings.json</code>. Replace the interpreter path with <i>your</i> venv's Python (run <code>which python</code> while the venv is active to get it):</p>
+<p class="fileref">&lt;your-project&gt;/.vscode/settings.json</p>
+<pre><span class="fname">.vscode/settings.json</span><code>{
+  <span class="tok-s">"python.defaultInterpreterPath"</span>: <span class="tok-s">"/ABSOLUTE/PATH/TO/.venv/bin/python"</span>,
+  <span class="tok-s">"python.terminal.activateEnvironment"</span>: <span class="tok-k">true</span>,
+  <span class="tok-s">"python.testing.pytestEnabled"</span>: <span class="tok-k">true</span>,
+  <span class="tok-s">"python.testing.pytestArgs"</span>: [<span class="tok-s">"."</span>],
+  <span class="tok-s">"terminal.integrated.cwd"</span>: <span class="tok-s">"${workspaceFolder}"</span>,
+  <span class="tok-s">"python.analysis.extraPaths"</span>: [
+    <span class="tok-s">"/ABSOLUTE/PATH/TO/.venv/lib/python3.13/site-packages"</span>
+  ]
+}</code></pre>
+</div>
+<div class="walk"><span class="wl">▶ How this works</span>
+<p>This is a <b>configuration file</b>, not a program — VS Code reads it automatically for this folder. It's written in <b>JSON</b>: a set of <code>"name": value</code> pairs inside curly braces, separated by commas. It saves you re-selecting the interpreter every time.</p>
+<ol>
+    <li><code>"python.defaultInterpreterPath"</code> points VS Code at <i>your</i> venv's Python. Replace the <code>/ABSOLUTE/PATH/TO/.venv/bin/python</code> placeholder with the real path (run <code>which python</code> while the venv is active to get it).</li>
+    <li><code>"python.terminal.activateEnvironment": true</code> makes new terminals turn the venv on for you.</li>
+    <li><code>"python.testing.pytestEnabled"</code> plus <code>"python.testing.pytestArgs": ["."]</code> wire up the Testing panel to find and run your <code>pytest</code> suite in the current folder.</li>
+    <li><code>"python.analysis.extraPaths"</code> tells the code checker where the installed packages live, which clears the red underline under your <code>import</code> lines.</li>
+</ol>
+<p><b>What the output means:</b> No visible output — VS Code silently uses these settings. You'll notice the effect: the correct interpreter is pre-selected and the red squiggles under imports disappear.</p>
+<p class="try"><b>Try this:</b> After saving, run <b>Developer: Reload Window</b> from the Command Palette so VS Code re-reads the file. JSON is picky — a missing comma or a stray trailing comma will make it ignore the whole file.</p>
+</div>
+
+<table>
+  <tr><th>Setting</th><th>What it does</th></tr>
+  <tr><td><code>python.defaultInterpreterPath</code></td><td>Selects your venv automatically (no "Enter interpreter path" each time)</td></tr>
+  <tr><td><code>python.terminal.activateEnvironment</code></td><td>Auto-activates the venv in new terminals</td></tr>
+  <tr><td><code>python.testing.pytestEnabled</code> + <code>pytestArgs</code></td><td>Wires up the Testing panel to run your <code>pytest</code> suite</td></tr>
+  <tr><td><code>python.analysis.extraPaths</code></td><td>Tells Pylance where the packages are, so <code>import</code>s resolve (kills the red underline)</td></tr>
+</table>
+<div class="callout tip"><span class="lbl">Optional: force the ▷ Run button too</span>The Run/Debug button uses VS Code's selected interpreter, which can differ from your terminal. To force it onto your venv, add <code>.vscode/launch.json</code>:
+<pre><span class="fname">.vscode/launch.json</span><code>{
+  <span class="tok-s">"version"</span>: <span class="tok-s">"0.2.0"</span>,
+  <span class="tok-s">"configurations"</span>: [{
+    <span class="tok-s">"name"</span>: <span class="tok-s">"Python: Current File (my venv)"</span>,
+    <span class="tok-s">"type"</span>: <span class="tok-s">"debugpy"</span>, <span class="tok-s">"request"</span>: <span class="tok-s">"launch"</span>,
+    <span class="tok-s">"program"</span>: <span class="tok-s">"${file}"</span>, <span class="tok-s">"console"</span>: <span class="tok-s">"integratedTerminal"</span>,
+    <span class="tok-s">"python"</span>: <span class="tok-s">"/ABSOLUTE/PATH/TO/.venv/bin/python"</span>,
+    <span class="tok-s">"cwd"</span>: <span class="tok-s">"${workspaceFolder}"</span>
+  }]
+}</code></pre>
+After creating either file, run <b>Developer: Reload Window</b> (<span class="keys"><kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></span>) so VS Code re-reads it.</div>
+<div class="walk"><span class="wl">▶ How this works</span>
+<p>The green ▷ <b>Run</b> button uses VS Code's <i>selected</i> interpreter, which can differ from the one your terminal activated. This optional file forces the Run/Debug button onto your venv so both agree.</p>
+<ol>
+    <li><code>"name"</code> is just the label you'll see in the Run menu — call it anything.</li>
+    <li><code>"program": "${file}"</code> means "run whichever file is currently open". <code>${file}</code> is a VS Code variable it fills in for you.</li>
+    <li><code>"python"</code> is the important line: point it at your venv's Python (the same <code>/ABSOLUTE/PATH/TO/.venv/bin/python</code>) so the button never uses a different one.</li>
+    <li><code>"cwd": "${workspaceFolder}"</code> runs the file from the folder you opened, so relative paths behave like they do in the terminal.</li>
+</ol>
+<p class="try"><b>Try this:</b> Reload the window, then click ▷. If a script that worked in the terminal now also works from the button, this file did its job.</p>
+</div>
+
+<div class="callout danger"><span class="lbl">⚠️ The multi-root workspace trap (this bites people hard)</span>If you opened a <b><code>.code-workspace</code> file</b> (a multi-folder workspace) instead of a single folder, its <code>"settings"</code> block <b>overrides every folder's <code>.vscode/settings.json</code></b>. Symptom: you set the interpreter per-folder but VS Code keeps auto-selecting some <i>other</i> venv it found in a sibling folder (you'll see its name, e.g. <code>(some-old-env)</code>, in the terminal). Fix: put the Python settings in the <b>workspace file itself</b>:
+<pre><span class="fname">Your.code-workspace</span><code>{
+  <span class="tok-s">"folders"</span>: [ <span class="tok-c">/* ... */</span> ],
+  <span class="tok-s">"settings"</span>: {
+    <span class="tok-s">"python.defaultInterpreterPath"</span>: <span class="tok-s">"/ABSOLUTE/PATH/TO/.venv/bin/python"</span>,
+    <span class="tok-s">"python.terminal.activateEnvironment"</span>: <span class="tok-k">false</span>
+  }
+}</code></pre>
+To find out if you're in a workspace: the Explorer title shows "<b>WORKSPACE</b>" and File menu has "Save Workspace As". If you just want one folder, use <b>File → Open Folder</b> instead of opening a <code>.code-workspace</code>.</div>
+<div class="walk"><span class="wl">▶ How this works</span>
+<p>A <b>multi-root workspace</b> is a single <code>.code-workspace</code> file that groups several folders. Its own <code>"settings"</code> block <b>beats</b> every folder's <code>.vscode/settings.json</code> — which is why a per-folder interpreter can be silently ignored. The fix is to set Python <i>here</i> instead.</p>
+<ol>
+    <li><code>"folders"</code> lists the folders in the workspace — the <code>/* ... */</code> is just a placeholder comment for whatever's already there; leave it as-is.</li>
+    <li>The <code>"settings"</code> block is the override. Putting <code>"python.defaultInterpreterPath"</code> here makes it win over any folder-level file.</li>
+    <li><code>"python.terminal.activateEnvironment": false</code> is set to <code>false</code> on purpose here — in a workspace you often let the shell hook (section 10) handle activation instead, avoiding a fight between the two.</li>
+</ol>
+<p class="try"><b>Try this:</b> Not sure you're even in a workspace? The Explorer title shows "<b>WORKSPACE</b>" and the File menu offers "Save Workspace As". If so, edit <i>this</i> file, not the folder's.</p>
+</div>
+
+
+<h2 id="autoenv">10 · Auto-activate the venv by folder (macOS/Linux, zsh)</h2>
+<p>Here's the most convenient setup: make the venv activate <b>automatically whenever any terminal enters your project folder</b> — in VS Code <i>and</i> the system Terminal — with nothing to type. This is a shell hook, added once to <code>~/.zshrc</code>. It's more reliable than VS Code's auto-activation because it targets one specific venv and folder, so a stale environment can never sneak back in.</p>
+<div class="lab">
+<span class="tag">10 · Add the hook to ~/.zshrc</span>
+<p>Open <code>~/.zshrc</code> (<code>code ~/.zshrc</code>) and paste this at the bottom. Replace the two paths with your project folder and your venv:</p>
+<pre><span class="fname">~/.zshrc</span><code><span class="tok-c"># --- auto-activate the course venv inside my project folder ---</span>
+my_course_venv() {
+  <span class="tok-k">local</span> proj=<span class="tok-s">"/ABSOLUTE/PATH/TO/your-project-folder"</span>
+  <span class="tok-k">local</span> venv=<span class="tok-s">"/ABSOLUTE/PATH/TO/.venv"</span>
+  <span class="tok-k">if</span> [[ <span class="tok-s">"$PWD"</span> == <span class="tok-s">"$proj"</span>* ]]; <span class="tok-k">then</span>
+    [[ <span class="tok-s">"$VIRTUAL_ENV"</span> != <span class="tok-s">"$venv"</span> &amp;&amp; -f <span class="tok-s">"$venv/bin/activate"</span> ]] &amp;&amp; source <span class="tok-s">"$venv/bin/activate"</span>
+  <span class="tok-k">elif</span> [[ -n <span class="tok-s">"$VIRTUAL_ENV"</span> &amp;&amp; <span class="tok-s">"$VIRTUAL_ENV"</span> == <span class="tok-s">"$venv"</span> ]]; <span class="tok-k">then</span>
+    deactivate 2&gt;/dev/null
+  <span class="tok-k">fi</span>
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook chpwd my_course_venv   <span class="tok-c"># run on every directory change</span>
+my_course_venv                       <span class="tok-c"># and once when the shell starts</span>
+<span class="tok-c"># --- end ---</span></code></pre>
+</div>
+<div class="walk"><span class="wl">▶ How this works</span>
+<p>This is a small <b>shell function</b> you paste once into <code>~/.zshrc</code> (the file zsh runs at startup). It makes your venv switch on the moment any terminal enters your project folder, and off when you leave — with nothing to type. macOS/Linux only.</p>
+<ol>
+    <li><code>my_course_venv()</code> defines the function. The two <code>local</code> lines set <code>proj</code> (your project folder) and <code>venv</code> (your venv) — replace both placeholder paths with your real ones.</li>
+    <li>The <code>if [[ "$PWD" == "$proj"* ]]</code> test asks "is the current folder (<code>$PWD</code>) inside my project?" The trailing <code>*</code> means subfolders count too. If yes and the venv isn't already on, it runs <code>source …/activate</code>.</li>
+    <li>The <code>elif</code> branch handles leaving: if you've stepped out of the project but the course venv is still on, it runs <code>deactivate</code> to turn it off.</li>
+    <li><code>add-zsh-hook chpwd my_course_venv</code> tells zsh to call the function on every directory change (<code>chpwd</code>), and the bare <code>my_course_venv</code> line runs it once when the shell first opens.</li>
+</ol>
+<p><b>What the output means:</b> Enter the folder → prompt shows <code>(.venv)</code>; leave it → the prefix disappears. It behaves the same in VS Code's terminal, Terminal.app, and iTerm, because they all read <code>~/.zshrc</code>.</p>
+<p class="try"><b>Try this:</b> To use it in a terminal you already have open (without restarting), run <code>source ~/.zshrc</code>, then <code>cd</code> into and out of your project and watch the prompt change.</p>
+</div>
+
+<div class="callout tip"><span class="lbl">How it behaves</span>Enter the folder (or a subfolder) → venv activates, prompt shows <code>(.venv)</code>. Leave it → it deactivates. It works in every zsh terminal on the machine (VS Code, Terminal.app, iTerm) because <code>~/.zshrc</code> is read by them all. To apply it to your current terminal without reopening: <code>source ~/.zshrc</code>. On <b>Windows</b>, this shell hook doesn't apply — rely on the <code>.vscode/settings.json</code> from §9 instead, or activate manually.</div>
+<div class="callout warn"><span class="lbl">Keep the venv out of cloud-synced folders</span>If your code lives in OneDrive / Dropbox / iCloud, do <b>not</b> put the <code>.venv</code> there — thousands of package files will thrash the sync and can corrupt the environment. Keep <b>code in the synced folder</b> and the <b>venv in a local path</b> (e.g. your home directory), and point the settings/hook at that local venv. That's the split this course's author uses.</div>
+
+<h2 id="verify">11 · Verify the whole setup</h2>
+<p>Create this one-line check in your project folder and run it — it confirms the SDK imports in the environment VS Code is using, and needs <b>no API key</b>.</p>
+<div class="lab">
+<span class="tag">11 · check_setup.py</span>
+<p class="fileref">&lt;your-project&gt;/check_setup.py</p>
+<pre><span class="fname">check_setup.py</span><code><span class="tok-k">from</span> anthropic <span class="tok-k">import</span> Anthropic
+<span class="tok-k">import</span> anthropic, sys
+print(<span class="tok-s">"anthropic version:"</span>, anthropic.__version__)
+print(<span class="tok-s">"python:"</span>, sys.executable)
+print(<span class="tok-s">"import OK — you can build the labs here."</span>)</code></pre>
+<pre><span class="fname">terminal</span><code>python check_setup.py</code></pre>
+<pre class="out"><code>anthropic version: 1.x.x
+python: /ABSOLUTE/PATH/TO/.venv/bin/python
+import OK — you can build the labs here.</code></pre>
+</div>
+<div class="walk"><span class="wl">▶ How this works</span>
+<p>This tiny script is a <b>health check</b>: it proves the Anthropic library is installed in the exact Python that VS Code and your terminal are using. It needs <b>no API key</b> — it only imports and prints, it doesn't call the API.</p>
+<ol>
+    <li><code>from anthropic import Anthropic</code> and <code>import anthropic</code> load the library. If the venv is wrong or the install failed, this line errors immediately with <code>ModuleNotFoundError</code> — which is itself a useful signal.</li>
+    <li><code>print("anthropic version:", anthropic.__version__)</code> shows which version got installed.</li>
+    <li><code>print("python:", sys.executable)</code> prints the full path of the Python actually running the script — this is the line that tells you whether you're in the right venv.</li>
+    <li>Run it with <code>python check_setup.py</code> from your activated venv.</li>
+</ol>
+<p><b>What the output means:</b> A version number, a <code>python:</code> path that should end in <code>.venv/bin/python</code>, and <code>import OK</code>. If the path is a system Python (like <code>/usr/bin</code>), the wrong interpreter is active — revisit sections 4 and 9.</p>
+<p class="try"><b>Try this:</b> Deliberately run it <i>without</i> activating the venv. You'll likely get <code>ModuleNotFoundError</code> or a system <code>python:</code> path — a clear picture of what "wrong environment" looks like.</p>
+</div>
+
+<div class="callout tip"><span class="lbl">The one check that tells you everything</span>If the printed <code>python:</code> path is your <code>.venv</code> and you see <b>import OK</b>, your environment is correct — any remaining red underline in the editor is just a stale cache, cleared by <b>Developer: Reload Window</b>. If the path is a <i>system</i> Python (e.g. <code>/usr/bin</code> or <code>/opt/homebrew</code>), the wrong interpreter is active — revisit §4 (activate) and §9 (settings).</div>
+
+<h2 id="trouble">Troubleshooting — VS Code specifics</h2>
+<div class="callout warn"><span class="lbl">⚠️ Common VS Code / environment issues</span>
+<table>
+  <tr><th>What you see</th><th>What it means &amp; the fix</th></tr>
+  <tr><td><code>(agents)</code> or another env auto-appears in the terminal</td><td>VS Code selected that interpreter, or your shell profile activates it. Run <b>Python: Select Interpreter</b> → pick your <code>.venv</code>; or <code>conda deactivate</code> / <code>deactivate</code>.</td></tr>
+  <tr><td><code>ModuleNotFoundError</code> right after installing</td><td>The venv isn't active (no <code>(.venv)</code> in prompt) or you're in the wrong folder. Activate it and run from the project folder.</td></tr>
+  <tr><td>The ▷ Run button uses the wrong Python</td><td><b>Python: Select Interpreter</b> and choose the <code>.venv</code> one; reopen the terminal.</td></tr>
+  <tr><td><code>command not found: python3</code></td><td>Python isn't installed or not on PATH. Install from python.org; on Windows use <code>py</code>.</td></tr>
+  <tr><td>Terminal opens in the wrong directory</td><td>You opened a parent folder. <b>Open Folder</b> on the exact project folder, or <code>cd</code> into it.</td></tr>
+  <tr><td>Activate script blocked on Windows</td><td>PowerShell execution policy — run <code>Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code> once, then re-activate.</td></tr>
+  <tr><td>You set the interpreter per-folder but VS Code keeps picking a different venv</td><td>You have a <code>.code-workspace</code> open — its settings override folder settings. Put the interpreter in the workspace file's <code>"settings"</code> block (§9 danger note), or open a single folder instead.</td></tr>
+  <tr><td>A stale env (e.g. <code>(agents)</code>) auto-activates and its <code>python</code> is "command not found"</td><td>VS Code auto-selected a broken/old venv it found in a parent folder. Set the correct interpreter in the workspace/folder settings and set <code>python.terminal.activateEnvironment</code> appropriately; that env's Python was moved/deleted, so stop pointing at it.</td></tr>
+  <tr><td>Import works in the terminal but the ▷ Run button fails</td><td>The button uses the selected interpreter, not the terminal's venv. Add the <code>launch.json</code> from §9, or select the venv interpreter — then Reload Window.</td></tr>
+  <tr><td>Two folders with the same name (one has the venv, one doesn't)</td><td>Confirm which folder VS Code actually has open (Explorer title). Put the code + <code>.vscode</code> config in the folder you truly open, and point it at wherever the <code>.venv</code> really lives.</td></tr>
+  <tr><td>Red underline persists after fixing the interpreter</td><td>Stale Pylance cache — <b>Developer: Reload Window</b>. Confirm with §11: if <code>check_setup.py</code> prints <code>import OK</code>, the code is fine.</td></tr>
+</table></div>
+
+<div class="checkpoint" id="checkpoint">
+  <h4>✓ You're ready for the course when…</h4>
+  <ul>
+    <li>VS Code, the Python extension, and the Anthropic extension are installed.</li>
+    <li>You can open a folder, open the terminal, and see it start in that folder.</li>
+    <li>You can create a venv, activate it, and see <code>(.venv)</code> in your prompt.</li>
+    <li>You can run <code>python file.py</code> and <code>python -m pytest tests/ -v</code>.</li>
+    <li>Your API key is set as an environment variable, never in code.</li>
+    <li>You've asked the Anthropic extension to explain a file.</li>
+    <li>(Optional) A <code>.vscode/settings.json</code> pins the interpreter, and/or a <code>~/.zshrc</code> hook auto-activates the venv by folder.</li>
+    <li><code>check_setup.py</code> prints <code>import OK</code> with your <code>.venv</code> path (§11).</li>
+  </ul>
+</div>
+
+<div class="callout note"><span class="lbl">Next</span>That's the whole workspace setup. Head to <a href="/">the course home</a> to pick your path, or jump straight into <a href="ch01-setup">Chapter 1 · Environment &amp; your first API call</a>, which builds on exactly this setup. Every <a href="projects">project</a> uses the per-lab workflow above.</div>
+
+<div class="pager">
+  <a class="prev" href="/"><div class="dir">← Course home</div><span class="ttl">Course home</span></a>
+  <a class="next" href="py1-basics"><div class="dir">Next →</div><span class="ttl">P1 · Basics</span></a>
+</div>
+<div class="copyftr">&copy; 2026 studybydoing.in &middot; AI Engineering: Zero to Production &middot; All rights reserved. &middot; <a href="about" style="color:var(--muted);text-decoration:underline">About</a> &middot; <a href="privacy" style="color:var(--muted);text-decoration:underline">Privacy Policy</a> &middot; <a href="terms" style="color:var(--muted);text-decoration:underline">Terms</a> &middot; <a href="mailto:support@studybydoing.in" style="color:var(--muted);text-decoration:underline">Contact</a></div>
+<div class="discftr">Educational content, provided <b>as-is</b> and without warranty. Code samples are examples &mdash; review, test, and adapt them before using in production. See the <a href="terms">Terms of Use &amp; Disclaimer</a>. Use at your own risk.</div>
+</main>
+</div>
+<script src="assets/nav.js?v=29" defer></script>
+<script src="assets/protect.js?v=1" defer></script>
+<script src="assets/copybtn.js?v=2" defer></script>
+<script src="assets/svgfit.js?v=1" defer></script>
+<div class="wm"><svg class="wm-logo" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="aeLg-wm-logo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f6bed"/><stop offset="1" stop-color="#0e9bb5"/></linearGradient></defs><rect x="4" y="4" width="56" height="56" rx="15" fill="url(#aeLg-wm-logo)"/><path d="M18 24 l9 8 -9 8" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="32" y1="42" x2="46" y2="42" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/></svg>&copy; studybydoing.in</div>
+<aside class="adrail" aria-label="Advertisement">
+  <div class="adlabel">Advertisement</div>
+  <!-- AFTER ADSENSE APPROVAL: replace the .adbox below with your ad unit, e.g.
+  <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX" data-ad-format="auto" data-full-width-responsive="true"></ins>
+  <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+  and add the AdSense loader script to <head>. -->
+  <div class="adbox">Ad space</div>
+</aside>
+</body>
+</html>

@@ -1,0 +1,1343 @@
+<!-- ===================== ETL TECH STACK: MASTER GUIDE 2026 ===================== -->
+<div class="etl-master-guide" id="etl-master-guide">
+  <div style="background: linear-gradient(135deg, #1a1a3e, #0d0d2b); border: 2px solid #ffcc00; border-radius: 12px; padding: 30px; margin-bottom: 30px;">
+    <h1 style="color: #ffcc00; font-size: 2em; margin-bottom: 10px;">&#128202; ETL TECH STACK: MASTER GUIDE 2026</h1>
+    <p style="color: #aaa; font-size: 1em;">Apache Kafka, Flink, Spark, Airflow, Dagster, dbt, Snowflake, Databricks, Fivetran, Airbyte</p>
+  </div>
+
+  <!-- ===================== PART 1: TOOL COMPARISON MATRIX ===================== -->
+  <div style="background: rgba(255,204,0,0.05); border: 1px solid rgba(255,204,0,0.2); border-radius: 10px; padding: 25px; margin-bottom: 30px;">
+    <h2 style="color: #ffcc00;">&#128200; PART 1: TOOL COMPARISON MATRIX</h2>
+    
+    <div style="overflow-x: auto; margin-top: 15px;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="background: rgba(255,204,0,0.2);">
+          <th style="padding: 10px; text-align: left; color: #ffcc00;">Tool</th>
+          <th style="padding: 10px; text-align: left; color: #ffcc00;">Category</th>
+          <th style="padding: 10px; text-align: left; color: #ffcc00;">What It Does</th>
+          <th style="padding: 10px; text-align: left; color: #ffcc00;">Salary USD</th>
+        </tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ffcc00; font-weight: bold;">Kafka</td><td style="padding: 10px; color: #ccc;">Streaming</td><td style="padding: 10px; color: #ccc;">Real-time data transport</td><td style="padding: 10px; color: #00ff88;">$120K-$180K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ff6600; font-weight: bold;">Flink</td><td style="padding: 10px; color: #ccc;">Stream Processing</td><td style="padding: 10px; color: #ccc;">Real-time computation</td><td style="padding: 10px; color: #00ff88;">$125K-$185K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #e87722; font-weight: bold;">Spark</td><td style="padding: 10px; color: #ccc;">Batch+Stream</td><td style="padding: 10px; color: #ccc;">Distributed processing</td><td style="padding: 10px; color: #00ff88;">$115K-$175K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #00a0df; font-weight: bold;">Airflow</td><td style="padding: 10px; color: #ccc;">Orchestration</td><td style="padding: 10px; color: #ccc;">Schedule & manage pipelines</td><td style="padding: 10px; color: #00ff88;">$110K-$165K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #0ea5e9; font-weight: bold;">Dagster</td><td style="padding: 10px; color: #ccc;">Orchestration</td><td style="padding: 10px; color: #ccc;">Asset-based orchestration</td><td style="padding: 10px; color: #00ff88;">$110K-$160K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ff7b7b; font-weight: bold;">dbt</td><td style="padding: 10px; color: #ccc;">Transformation</td><td style="padding: 10px; color: #ccc;">SQL-based transforms</td><td style="padding: 10px; color: #00ff88;">$110K-$165K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #29b5e8; font-weight: bold;">Snowflake</td><td style="padding: 10px; color: #ccc;">Warehouse</td><td style="padding: 10px; color: #ccc;">Cloud data warehouse</td><td style="padding: 10px; color: #00ff88;">$115K-$175K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ff3621; font-weight: bold;">Databricks</td><td style="padding: 10px; color: #ccc;">Lakehouse</td><td style="padding: 10px; color: #ccc;">Unified data + AI platform</td><td style="padding: 10px; color: #00ff88;">$120K-$185K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #006bff; font-weight: bold;">Fivetran</td><td style="padding: 10px; color: #ccc;">Ingestion (ELT)</td><td style="padding: 10px; color: #ccc;">Managed data ingestion</td><td style="padding: 10px; color: #00ff88;">$105K-$160K</td></tr>
+        <tr><td style="padding: 10px; color: #006bff; font-weight: bold;">Airbyte</td><td style="padding: 10px; color: #ccc;">Ingestion (ELT)</td><td style="padding: 10px; color: #ccc;">Open-source connectors</td><td style="padding: 10px; color: #00ff88;">$100K-$155K</td></tr>
+      </table>
+    </div>
+
+    <div style="margin-top: 20px; padding: 15px; background: rgba(0,255,136,0.1); border-radius: 8px;">
+      <h4 style="color: #00ff88;">&#127919; KEY DIFFERENCES AT A GLANCE</h4>
+      <ul style="color: #ccc; line-height: 1.8;">
+        <li><strong style="color: #ffcc00;">Kafka vs Flink:</strong> Kafka TRANSPORTS data, Flink PROCESSES/computes on it</li>
+        <li><strong style="color: #ff6600;">Spark vs Flink:</strong> Spark = BATCH dominant, Flink = STREAM dominant</li>
+        <li><strong style="color: #00a0df;">Airflow vs Dagster:</strong> Airflow = task-based, Dagster = asset-based</li>
+        <li><strong style="color: #ff7b7b;">dbt vs Spark SQL:</strong> dbt = lightweight transforms, Spark = heavy compute</li>
+        <li><strong style="color: #29b5e8;">Snowflake vs Databricks:</strong> Snowflake = warehouse, Databricks = lakehouse</li>
+        <li><strong style="color: #006bff;">Fivetran vs Airbyte:</strong> Fivetran = managed/paid, Airbyte = open-source/free</li>
+      </ul>
+    </div>
+
+    <div style="margin-top: 15px; padding: 15px; background: rgba(123,47,247,0.1); border-radius: 8px;">
+      <h4 style="color: #7b2ff7;">&#128176; SALARY RANKING BY COMBINATION</h4>
+      <ul style="color: #ccc; line-height: 1.8;">
+        <li><span style="color: #00ff88; font-weight: bold;">VERY HIGH:</span> Kafka + Flink + Spark + Databricks = <strong>$140K-$200K+</strong> (US Senior)</li>
+        <li><span style="color: #00d4ff; font-weight: bold;">HIGH:</span> Snowflake + dbt + Airflow + Fivetran = <strong>$125K-$180K+</strong> (US Senior)</li>
+        <li><span style="color: #ffaa55; font-weight: bold;">GROWING:</span> Dagster + Airbyte + dbt = <strong>$110K-$160K+</strong> (US Senior)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===================== PART 2: APACHE KAFKA ===================== -->
+  <div class="jd-card" id="part2-kafka" style="border-left: 4px solid #ffcc00; margin-bottom: 30px;">
+    <div class="jd-header" style="background: linear-gradient(90deg, #ffcc0022, #ffcc0005);">
+      <div class="jd-title" style="color: #ffcc00;">&#128293; PART 2: APACHE KAFKA - Complete Guide</div>
+      <div class="jd-company">Category: Streaming | Salary: $120K-$180K (US Senior)</div>
+    </div>
+    <div class="jd-card-body">
+      <div class="jd-block">
+        <h4 style="color: #ffcc00;">WHAT IS KAFKA?</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>Distributed event streaming platform (NOT a database)</li>
+          <li>Publish-subscribe messaging system</li>
+          <li>Stores streams of events in topics (append-only log)</li>
+          <li>Created by LinkedIn, now Apache Foundation</li>
+          <li>Used by: Netflix, Uber, LinkedIn, Spotify, Airbnb, Twitter</li>
+        </ul>
+      </div>
+      
+      <div class="jd-block">
+        <h4 style="color: #ffcc00;">WHY VERY HIGH SALARY? $120K-$180K</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>Real-time = hardest skill in data engineering</li>
+          <li>Only 10-15% of data engineers know Kafka deeply</li>
+          <li>Powers fraud detection, recommendations, IoT, trading</li>
+        </ul>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ffcc00;">CORE CONCEPTS</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+          <div style="background: rgba(255,204,0,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ffcc00;">Architecture</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>Broker:</strong> Server that stores data</li>
+              <li><strong>Topic:</strong> Logical channel for messages</li>
+              <li><strong>Partition:</strong> Parallelism unit within topic</li>
+              <li><strong>Replica:</strong> Fault tolerance across brokers</li>
+              <li><strong>Consumer Group:</strong> Load balancing</li>
+              <li><strong>Offset:</strong> Unique ID per message</li>
+              <li><strong>KRaft:</strong> New coordination (no ZooKeeper)</li>
+            </ul>
+          </div>
+          <div style="background: rgba(255,204,0,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ffcc00;">Producer Concepts</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Partitioning: Key-based, Round-robin, Custom</li>
+              <li>Batching: Linger.ms, Batch.size</li>
+              <li>Acks: 0, 1, all (exactly-once)</li>
+              <li>Idempotent producer</li>
+              <li>Compression: Snappy, LZ4, Gzip</li>
+            </ul>
+          </div>
+          <div style="background: rgba(255,204,0,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ffcc00;">Consumer Concepts</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Consumer group coordination</li>
+              <li>Offset management (auto vs manual)</li>
+              <li>Rebalancing on join/leave</li>
+              <li>Max poll interval</li>
+              <li>Dead letter queue</li>
+            </ul>
+          </div>
+          <div style="background: rgba(255,204,0,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ffcc00;">Kafka Connect & Streams</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Source connectors: JDBC, Debezium CDC, S3</li>
+              <li>Sink connectors: Elasticsearch, JDBC, Snowflake</li>
+              <li>Single Message Transform (SMT)</li>
+              <li>Kafka Streams: Client-side processing</li>
+              <li>ksqlDB: SQL interface</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ffcc00;">SQL/QUERY EXAMPLES (ksqlDB)</h4>
+        <div style="background: #0d0d2b; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto;">
+          <pre style="color: #00ff88; margin: 0; white-space: pre-wrap;">
+-- Create a stream from topic
+CREATE STREAM orders_stream (
+  order_id VARCHAR KEY,
+  customer_id VARCHAR,
+  amount DOUBLE,
+  region VARCHAR,
+  event_time TIMESTAMP
+) WITH (
+  KAFKA_TOPIC = 'orders',
+  VALUE_FORMAT = 'AVRO',
+  TIMESTAMP = 'event_time'
+);
+
+-- Filter: High-value orders only
+CREATE STREAM high_value_orders AS
+SELECT * FROM orders_stream
+WHERE amount > 5000;
+
+-- Aggregation: Orders per region per hour
+CREATE TABLE region_hourly AS
+SELECT region,
+       WINDOWSTART AS window_start,
+       COUNT(*) AS order_count,
+       SUM(amount) AS total_amount
+FROM orders_stream
+WINDOW TUMBLING (SIZE 1 HOUR)
+GROUP BY region;
+
+-- Join: Enrich with customer data
+SELECT o.order_id, o.amount, c.customer_name, c.segment
+FROM orders_stream o
+JOIN customers_table c
+ON o.customer_id = c.customer_id;
+
+-- Push query: Real-time monitoring
+SELECT region, COUNT(*) AS order_count
+FROM orders_stream
+WINDOW TUMBLING (SIZE 1 MINUTE)
+GROUP BY region
+EMIT CHANGES;
+          </pre>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ffcc00;">PYTHON EXAMPLES</h4>
+        <div style="background: #0d0d2b; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto;">
+          <pre style="color: #ffcc00; margin: 0; white-space: pre-wrap;">
+# Producer (confluent-kafka)
+from confluent_kafka import Producer
+import json
+
+producer = Producer({'bootstrap.servers': 'localhost:9092'})
+
+def delivery_report(err, msg):
+    if err:
+        print(f"Delivery failed: {err}")
+
+producer.produce(
+    topic='orders',
+    key='order_001',
+    value=json.dumps({
+        'order_id': 'order_001',
+        'customer_id': 'cust_123',
+        'amount': 7500.00,
+        'region': 'APAC'
+    }),
+    callback=delivery_report
+)
+producer.flush()
+
+# Consumer (confluent-kafka)
+from confluent_kafka import Consumer
+import json
+
+consumer = Consumer({
+    'bootstrap.servers': 'localhost:9092',
+    'group.id': 'order-processor',
+    'auto.offset.reset': 'earliest'
+})
+consumer.subscribe(['orders'])
+
+while True:
+    msg = consumer.poll(1.0)
+    if msg is None: continue
+    if msg.error(): continue
+    data = json.loads(msg.value().decode('utf-8'))
+    print(f"Processing order: {data['order_id']}")
+    consumer.commit(msg)
+          </pre>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ffcc00;">END-TO-END PROJECT: Real-time Order Pipeline</h4>
+        <div class="dp-flow" style="margin: 15px 0;">
+          <div class="dp-flow-item" style="background: rgba(255,204,0,0.2);">PostgreSQL (CDC)</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(255,204,0,0.2);">Debezium Connector</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(255,204,0,0.2);">Kafka Topics</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(255,102,0,0.2);">Kafka Streams/Flink</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(41,181,232,0.2);">Snowflake</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(0,160,223,0.2);">Dashboard</div>
+        </div>
+        <p style="color: #aaa; font-size: 0.9em;">Duration: 4-6 weeks | Tools: Kafka + Debezium + Kafka Streams + Snowflake + Grafana</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 3: APACHE FLINK ===================== -->
+  <div class="jd-card" id="part3-flink" style="border-left: 4px solid #ff6600; margin-bottom: 30px;">
+    <div class="jd-header" style="background: linear-gradient(90deg, #ff660022, #ff660005);">
+      <div class="jd-title" style="color: #ff6600;">&#9889; PART 3: APACHE FLINK - Complete Guide</div>
+      <div class="jd-company">Category: Stream Processing | Salary: $125K-$185K (US Senior)</div>
+    </div>
+    <div class="jd-card-body">
+      <div class="jd-block">
+        <h4 style="color: #ff6600;">WHAT IS FLINK?</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>Distributed stream processing framework</li>
+          <li>TRUE stream processing (processes row-by-row, NOT micro-batch)</li>
+          <li>Created by Berlin TU, now Apache Foundation</li>
+          <li>Used by: Uber, Netflix, Alibaba, Lyft, Stripe</li>
+        </ul>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ff6600;">FLINK vs KAFKA STREAMS vs SPARK STREAMING</h4>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: rgba(255,102,0,0.2);">
+              <th style="padding: 8px; text-align: left; color: #ff6600;">Feature</th>
+              <th style="padding: 8px; text-align: left; color: #ff6600;">Kafka Streams</th>
+              <th style="padding: 8px; text-align: left; color: #ff6600;">Flink</th>
+              <th style="padding: 8px; text-align: left; color: #ff6600;">Spark Streaming</th>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 8px; color: #ccc;">Type</td><td style="padding: 8px; color: #ccc;">Client library</td><td style="padding: 8px; color: #ccc;">Cluster framework</td><td style="padding: 8px; color: #ccc;">Micro-batch</td></tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 8px; color: #ccc;">Latency</td><td style="padding: 8px; color: #ccc;">Low</td><td style="padding: 8px; color: #00ff88;">Very Low (ms)</td><td style="padding: 8px; color: #ccc;">Medium (seconds)</td></tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 8px; color: #ccc;">State</td><td style="padding: 8px; color: #ccc;">Good</td><td style="padding: 8px; color: #00ff88;">Excellent</td><td style="padding: 8px; color: #ccc;">Limited</td></tr>
+            <tr><td style="padding: 8px; color: #ccc;">Complexity</td><td style="padding: 8px; color: #ccc;">Medium</td><td style="padding: 8px; color: #ccc;">High</td><td style="padding: 8px; color: #ccc;">Medium</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ff6600;">CORE CONCEPTS</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+          <div style="background: rgba(255,102,0,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ff6600;">Architecture</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>JobManager:</strong> Coordinates the job</li>
+              <li><strong>TaskManager:</strong> Executes tasks</li>
+              <li><strong>Job Graph:</strong> DAG of operators</li>
+              <li><strong>Checkpointing:</strong> State snapshots</li>
+              <li><strong>Watermarks:</strong> Event time progress</li>
+            </ul>
+          </div>
+          <div style="background: rgba(255,102,0,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ff6600;">Windowing & Time</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Event Time vs Processing Time</li>
+              <li>Tumbling Window</li>
+              <li>Sliding Window</li>
+              <li>Session Window</li>
+              <li>Watermarks for late data</li>
+            </ul>
+          </div>
+          <div style="background: rgba(255,102,0,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ff6600;">State Management</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Keyed State</li>
+              <li>Operator State</li>
+              <li>RocksDB State Backend</li>
+              <li>Savepoints</li>
+              <li>Exactly-once semantics</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ff6600;">SQL/QUERY EXAMPLES (Flink SQL)</h4>
+        <div style="background: #0d0d2b; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto;">
+          <pre style="color: #ff6600; margin: 0; white-space: pre-wrap;">
+-- Create Kafka source table
+CREATE TABLE orders (
+  order_id STRING,
+  customer_id STRING,
+  amount DECIMAL(10,2),
+  region STRING,
+  order_time TIMESTAMP(3),
+  WATERMARK FOR order_time AS order_time - INTERVAL '5' SECOND
+) WITH (
+  'connector' = 'kafka',
+  'topic' = 'orders',
+  'properties.bootstrap.servers' = 'localhost:9092',
+  'format' = 'avro'
+);
+
+-- Windowed aggregation: Revenue per region per 5 minutes
+SELECT
+  region,
+  TUMBLE_START(order_time, INTERVAL '5' MINUTE) AS window_start,
+  COUNT(*) AS order_count,
+  SUM(amount) AS total_revenue
+FROM orders
+GROUP BY region, TUMBLE(order_time, INTERVAL '5' MINUTE);
+
+-- Session window: Group by customer activity
+SELECT
+  customer_id,
+  SESSION_START(order_time, INTERVAL '30' MINUTE) AS session_start,
+  SESSION_END(order_time, INTERVAL '30' MINUTE) AS session_end,
+  COUNT(*) AS order_count,
+  SUM(amount) AS session_total
+FROM orders
+GROUP BY customer_id, SESSION(order_time, INTERVAL '30' MINUTE);
+
+-- Top-N: Top 5 regions by revenue per hour
+SELECT * FROM (
+  SELECT
+    region,
+    TUMBLE_START(order_time, INTERVAL '1' HOUR) AS window_start,
+    SUM(amount) AS total_revenue,
+    ROW_NUMBER() OVER (
+      PARTITION BY TUMBLE_START(order_time, INTERVAL '1' HOUR)
+      ORDER BY SUM(amount) DESC
+    ) AS row_num
+  FROM orders
+  GROUP BY region, TUMBLE(order_time, INTERVAL '1' HOUR)
+) WHERE row_num <= 5;
+
+-- CDC merge: Upsert into warehouse
+MERGE INTO orders_snowflake AS target
+USING orders AS source
+ON target.order_id = source.order_id
+WHEN MATCHED THEN UPDATE SET amount = source.amount
+WHEN NOT MATCHED THEN INSERT VALUES (
+  source.order_id, source.customer_id, source.amount, source.region
+);
+          </pre>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ff6600;">END-TO-END PROJECT: Fraud Detection Pipeline</h4>
+        <div class="dp-flow" style="margin: 15px 0;">
+          <div class="dp-flow-item" style="background: rgba(255,102,0,0.2);">Transaction Stream</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(255,102,0,0.2);">Kafka</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(255,102,0,0.2);">Flink (Pattern Detection)</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(255,85,119,0.2);">Fraud Alerts</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(0,160,223,0.2);">Redis + Dashboard</div>
+        </div>
+        <p style="color: #aaa; font-size: 0.9em;">Duration: 6-8 weeks | Tools: Kafka + Flink + Schema Registry + Snowflake + Redis + Grafana</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 4: APACHE SPARK ===================== -->
+  <div class="jd-card" id="part4-spark" style="border-left: 4px solid #e87722; margin-bottom: 30px;">
+    <div class="jd-header" style="background: linear-gradient(90deg, #e8772222, #e8772205);">
+      <div class="jd-title" style="color: #e87722;">&#9889; PART 4: APACHE SPARK - Complete Guide</div>
+      <div class="jd-company">Category: Batch+Stream Processing | Salary: $115K-$175K (US Senior)</div>
+    </div>
+    <div class="jd-card-body">
+      <div class="jd-block">
+        <h4 style="color: #e87722;">WHAT IS SPARK?</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>Unified analytics engine for large-scale data processing</li>
+          <li>BATCH processing dominant (also supports streaming)</li>
+          <li>Created at UC Berkeley, now Apache Foundation</li>
+          <li>Used by: Netflix, Uber, Apple, Airbnb, NASA</li>
+          <li>90% of big data jobs require Spark</li>
+        </ul>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #e87722;">CORE CONCEPTS</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+          <div style="background: rgba(232,119,34,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #e87722;">Architecture</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>Driver:</strong> Coordinates the job</li>
+              <li><strong>Executor:</strong> Process data on workers</li>
+              <li><strong>Cluster Manager:</strong> YARN, K8s</li>
+              <li><strong>RDD:</strong> Low-level API</li>
+              <li><strong>DataFrame:</strong> High-level SQL API</li>
+              <li><strong>SparkSession:</strong> Entry point</li>
+            </ul>
+          </div>
+          <div style="background: rgba(232,119,34,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #e87722;">Performance</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Catalyst Optimizer</li>
+              <li>Tungsten Memory</li>
+              <li>AQE (Adaptive Query Exec)</li>
+              <li>Broadcast joins</li>
+              <li>Partitioning strategies</li>
+            </ul>
+          </div>
+          <div style="background: rgba(232,119,34,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #e87722;">Data Sources</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Parquet, ORC, Avro</li>
+              <li>Delta Lake (ACID)</li>
+              <li>Iceberg (time travel)</li>
+              <li>Hudi (incremental)</li>
+              <li>JDBC, Kafka, Files</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #e87722;">PYSPARK EXAMPLES</h4>
+        <div style="background: #0d0d2b; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto;">
+          <pre style="color: #e87722; margin: 0; white-space: pre-wrap;">
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, sum, count, avg
+
+spark = SparkSession.builder \
+    .appName("OrderAnalytics") \
+    .config("spark.sql.shuffle.partitions", "200") \
+    .config("spark.sql.adaptive.enabled", "true") \
+    .getOrCreate()
+
+# Read from Delta Lake
+df = spark.read.format("delta").load("/data/orders")
+
+# Transformations
+result = df \
+    .filter(col("amount") > 1000) \
+    .groupBy("region") \
+    .agg(
+        count("*").alias("order_count"),
+        sum("amount").alias("total_revenue"),
+        avg("amount").alias("avg_order_value")
+    )
+
+# Write to Snowflake
+result.write \
+    .format("snowflake") \
+    .option("url", "https://account.snowflakecomputing.com") \
+    .option("db", "analytics") \
+    .option("table", "region_revenue") \
+    .mode("overwrite") \
+    .save()
+
+# Structured Streaming from Kafka
+streaming_df = spark \
+    .readStream \
+    .format("kafka") \
+    .option("kafka.bootstrap.servers", "localhost:9092") \
+    .option("subscribe", "orders") \
+    .load()
+
+windowed = streaming_df \
+    .withWatermark("order_time", "10 minutes") \
+    .groupBy(window("order_time", "5 minutes"), "region") \
+    .agg(sum("amount").alias("total_revenue"))
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 5: APACHE AIRFLOW ===================== -->
+  <div class="jd-card" id="part5-airflow" style="border-left: 4px solid #00a0df; margin-bottom: 30px;">
+    <div class="jd-header" style="background: linear-gradient(90deg, #00a0df22, #00a0df05);">
+      <div class="jd-title" style="color: #00a0df;">&#128640; PART 5: APACHE AIRFLOW - Complete Guide</div>
+      <div class="jd-company">Category: Orchestration | Salary: $110K-$165K (US Senior)</div>
+    </div>
+    <div class="jd-card-body">
+      <div class="jd-block">
+        <h4 style="color: #00a0df;">WHAT IS AIRFLOW?</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>Workflow orchestration platform</li>
+          <li>Schedule, monitor, and manage data pipelines</li>
+          <li>Created by Airbnb, now Apache Foundation</li>
+          <li>Used by: 80%+ of data teams globally</li>
+          <li>743+ job postings in 90 days</li>
+        </ul>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #00a0df;">AIRFLOW vs DAGSTER vs PREFECT</h4>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: rgba(0,160,223,0.2);">
+              <th style="padding: 8px; text-align: left; color: #00a0df;">Feature</th>
+              <th style="padding: 8px; text-align: left; color: #00a0df;">Airflow</th>
+              <th style="padding: 8px; text-align: left; color: #0ea5e9;">Dagster</th>
+              <th style="padding: 8px; text-align: left; color: #7b2ff7;">Prefect</th>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 8px; color: #ccc;">Paradigm</td><td style="padding: 8px; color: #ccc;">Task-based</td><td style="padding: 8px; color: #0ea5e9;">Asset-based</td><td style="padding: 8px; color: #ccc;">Flow-based</td></tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 8px; color: #ccc;">Job Postings</td><td style="padding: 8px; color: #00ff88;">743+</td><td style="padding: 8px; color: #ccc;">300+</td><td style="padding: 8px; color: #ccc;">200+</td></tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 8px; color: #ccc;">Learning Curve</td><td style="padding: 8px; color: #ccc;">Medium</td><td style="padding: 8px; color: #ccc;">Medium-High</td><td style="padding: 8px; color: #ccc;">Medium</td></tr>
+            <tr><td style="padding: 8px; color: #ccc;">Community</td><td style="padding: 8px; color: #00ff88;">Massive</td><td style="padding: 8px; color: #ccc;">Growing</td><td style="padding: 8px; color: #ccc;">Moderate</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #00a0df;">CORE CONCEPTS</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+          <div style="background: rgba(0,160,223,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #00a0df;">DAGs & Tasks</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>DAG:</strong> Directed Acyclic Graph</li>
+              <li><strong>Task:</strong> Unit of work</li>
+              <li><strong>Operator:</strong> Task template</li>
+              <li><strong>TaskFlow:</strong> @task decorator</li>
+              <li><strong>Dependencies:</strong> set_upstream()</li>
+            </ul>
+          </div>
+          <div style="background: rgba(0,160,223,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #00a0df;">Executors</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>LocalExecutor:</strong> Dev/testing</li>
+              <li><strong>CeleryExecutor:</strong> Distributed</li>
+              <li><strong>KubernetesExecutor:</strong> Auto-scale</li>
+              <li><strong>MWAA:</strong> AWS managed</li>
+              <li><strong>Composer:</strong> GCP managed</li>
+            </ul>
+          </div>
+          <div style="background: rgba(0,160,223,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #00a0df;">Connections & Hooks</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>Hooks:</strong> External system interface</li>
+              <li><strong>Connections:</strong> Stored credentials</li>
+              <li><strong>Variables:</strong> Global key-value</li>
+              <li><strong>XCom:</strong> Task communication</li>
+              <li><strong>Sensors:</strong> Wait for condition</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #00a0df;">PYTHON EXAMPLES (Airflow DAG)</h4>
+        <div style="background: #0d0d2b; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto;">
+          <pre style="color: #00a0df; margin: 0; white-space: pre-wrap;">
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
+from datetime import datetime, timedelta
+
+default_args = {
+    'owner': 'data-engineering',
+    'retries': 3,
+    'retry_delay': timedelta(minutes=5),
+    'email_on_failure': True,
+}
+
+with DAG(
+    dag_id='daily_order_pipeline',
+    default_args=default_args,
+    schedule_interval='0 6 * * *',
+    start_date=datetime(2026, 1, 1),
+    catchup=False,
+) as dag:
+
+    extract = PythonOperator(
+        task_id='extract_orders',
+        python_callable=extract_orders_function,
+    )
+
+    transform = PythonOperator(
+        task_id='transform_orders',
+        python_callable=transform_orders_function,
+    )
+
+    load = SnowflakeOperator(
+        task_id='load_to_snowflake',
+        snowflake_conn_id='snowflake_default',
+        sql="COPY INTO orders FROM @orders_stage FILE_FORMAT = (TYPE = PARQUET);",
+        warehouse='COMPUTE_WH',
+        database='ANALYTICS',
+    )
+
+    extract >> transform >> load
+
+# TaskFlow API (Airflow 2.0+)
+@dag(schedule_interval='@daily', start_date=datetime(2026, 1, 1))
+def order_pipeline():
+
+    @task()
+    def extract_orders():
+        import pandas as pd
+        return pd.read_sql("SELECT * FROM orders", conn).to_dict('records')
+
+    @task()
+    def transform_orders(raw_orders: list):
+        import pandas as pd
+        df = pd.DataFrame(raw_orders)
+        df['revenue'] = df['amount'] * df['quantity']
+        return df.to_dict('records')
+
+    @task()
+    def load_orders(transformed: list):
+        import pandas as pd
+        pd.DataFrame(transformed).to_sql('orders', engine, if_exists='replace')
+
+    raw = extract_orders()
+    transformed = transform_orders(raw)
+    load_orders(transformed)
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 6: DAGSTER ===================== -->
+  <div class="jd-card" id="part6-dagster" style="border-left: 4px solid #0ea5e9; margin-bottom: 30px;">
+    <div class="jd-header" style="background: linear-gradient(90deg, #0ea5e922, #0ea5e905);">
+      <div class="jd-title" style="color: #0ea5e9;">&#128230; PART 6: DAGSTER - Complete Guide</div>
+      <div class="jd-company">Category: Modern Orchestration | Salary: $110K-$160K (US Senior)</div>
+    </div>
+    <div class="jd-card-body">
+      <div class="jd-block">
+        <h4 style="color: #0ea5e9;">WHAT IS DAGSTER?</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>Modern data orchestration platform</li>
+          <li>Asset-based (define what to produce, not how)</li>
+          <li>Created by Dagster Labs, open source</li>
+          <li>FASTEST GROWING orchestration tool in 2026</li>
+        </ul>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #0ea5e9;">CORE CONCEPTS</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+          <div style="background: rgba(14,165,233,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #0ea5e9;">Assets</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>Asset:</strong> Data object to produce</li>
+              <li><strong>Software-defined asset:</strong> Python function</li>
+              <li><strong>Asset key:</strong> Unique identifier</li>
+              <li><strong>Dependencies:</strong> Via function params</li>
+              <li><strong>Asset groups:</strong> Organize assets</li>
+            </ul>
+          </div>
+          <div style="background: rgba(14,165,233,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #0ea5e9;">IO Managers</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Handle reading/writing assets</li>
+              <li>FileIOManager</li>
+              <li>S3IOManager</li>
+              <li>DatabaseIOManager</li>
+              <li>Custom IO Manager</li>
+            </ul>
+          </div>
+          <div style="background: rgba(14,165,233,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #0ea5e9;">Resources</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>External system connections</li>
+              <li>Built-in: Snowflake, S3</li>
+              <li>Configurable via YAML</li>
+              <li>Type-safe with Pydantic</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #0ea5e9;">PYTHON EXAMPLES (Dagster)</h4>
+        <div style="background: #0d0d2b; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto;">
+          <pre style="color: #0ea5e9; margin: 0; white-space: pre-wrap;">
+from dagster import asset, AssetIn, Definitions
+import pandas as pd
+
+@asset(
+    name="orders_cleaned",
+    group_name="transformations",
+    io_manager_key="snowflake_io_manager",
+)
+def orders_cleaned(orders_raw: pd.DataFrame) -> pd.DataFrame:
+    """Clean and deduplicate raw orders."""
+    df = orders_raw.drop_duplicates(subset=["order_id"])
+    df = df[df["amount"] > 0]
+    return df
+
+@asset(
+    name="revenue_by_region",
+    deps=[AssetIn("orders_cleaned"), AssetIn("customers")],
+)
+def revenue_by_region(
+    orders_cleaned: pd.DataFrame,
+    customers: pd.DataFrame,
+) -> pd.DataFrame:
+    """Aggregate revenue by region."""
+    merged = orders_cleaned.merge(customers, on="customer_id")
+    return merged.groupby("region").agg(
+        total_revenue=("amount", "sum"),
+        order_count=("order_id", "count"),
+    ).reset_index()
+
+# Partitioned asset
+from dagster import DailyPartitionsDefinition
+
+daily_partitions = DailyPartitionsDefinition(start_date="2026-01-01")
+
+@asset(partition_def=daily_partitions)
+def orders_partitioned(context):
+    partition_date = context.partition_config["partition_date"]
+    return pd.read_sql(
+        f"SELECT * FROM orders WHERE date = '{partition_date}'", engine
+    )
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 7: dbt ===================== -->
+  <div class="jd-card" id="part7-dbt" style="border-left: 4px solid #ff7b7b; margin-bottom: 30px;">
+    <div class="jd-header" style="background: linear-gradient(90deg, #ff7b7b22, #ff7b7b05);">
+      <div class="jd-title" style="color: #ff7b7b;">&#128296; PART 7: dbt (Data Build Tool) - Complete Guide</div>
+      <div class="jd-company">Category: SQL Transformation | Salary: $110K-$165K (US Senior)</div>
+    </div>
+    <div class="jd-card-body">
+      <div class="jd-block">
+        <h4 style="color: #ff7b7b;">WHAT IS dbt?</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>SQL-based data transformation tool</li>
+          <li>Turns SQL into modular, tested, documented models</li>
+          <li>THE STANDARD for analytics engineering</li>
+          <li>Every modern data team uses dbt</li>
+        </ul>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ff7b7b;">CORE CONCEPTS</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+          <div style="background: rgba(255,123,123,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ff7b7b;">Models & Materializations</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>Model:</strong> SQL SELECT statement</li>
+              <li><strong>View:</strong> Default, no storage</li>
+              <li><strong>Table:</strong> Full refresh</li>
+              <li><strong>Incremental:</strong> New/changed rows</li>
+              <li><strong>Ephemeral:</strong> CTE, not persisted</li>
+            </ul>
+          </div>
+          <div style="background: rgba(255,123,123,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ff7b7b;">Testing</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Unique</li>
+              <li>Not Null</li>
+              <li>Accepted Values</li>
+              <li>Referential Integrity</li>
+              <li>Custom Tests</li>
+            </ul>
+          </div>
+          <div style="background: rgba(255,123,123,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ff7b7b;">Structure</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>staging/</li>
+              <li>intermediate/</li>
+              <li>marts/</li>
+              <li>macros/</li>
+              <li>snapshots/</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ff7b7b;">SQL EXAMPLES (dbt)</h4>
+        <div style="background: #0d0d2b; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto;">
+          <pre style="color: #ff7b7b; margin: 0; white-space: pre-wrap;">
+-- models/staging/stg_orders.sql
+WITH source AS (
+    SELECT * FROM {{ source('raw', 'orders') }}
+),
+renamed AS (
+    SELECT
+        id AS order_id,
+        customer_id,
+        amount,
+        status,
+        created_at AS order_date
+    FROM source
+)
+SELECT * FROM renamed
+
+-- models/marts/fct_orders.sql
+WITH orders AS (
+    SELECT * FROM {{ ref('stg_orders') }}
+),
+customers AS (
+    SELECT * FROM {{ ref('stg_customers') }}
+)
+SELECT
+    o.order_id,
+    o.customer_id,
+    c.customer_name,
+    o.amount,
+    o.status,
+    o.order_date,
+    CASE
+        WHEN o.amount > 10000 THEN 'Enterprise'
+        WHEN o.amount > 1000 THEN 'Mid-Market'
+        ELSE 'SMB'
+    END AS customer_tier
+FROM orders o
+LEFT JOIN customers c ON o.customer_id = c.customer_id
+
+-- schema.yml (testing)
+version: 2
+models:
+  - name: fct_orders
+    columns:
+      - name: order_id
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        tests:
+          - relationships:
+              to: ref('stg_customers')
+              field: customer_id
+
+-- Incremental model
+{{ config(materialized='incremental', unique_key='order_id') }}
+WITH source AS (
+    SELECT * FROM {{ source('raw', 'orders') }}
+    {% if is_incremental() %}
+    WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
+    {% endif %}
+)
+SELECT * FROM source
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 8: SNOWFLAKE ===================== -->
+  <div class="jd-card" id="part8-snowflake" style="border-left: 4px solid #29b5e8; margin-bottom: 30px;">
+    <div class="jd-header" style="background: linear-gradient(90deg, #29b5e822, #29b5e805);">
+      <div class="jd-title" style="color: #29b5e8;">&#10052;&#65039; PART 8: SNOWFLAKE - Complete Guide</div>
+      <div class="jd-company">Category: Cloud Warehouse | Salary: $115K-$175K (US Senior)</div>
+    </div>
+    <div class="jd-card-body">
+      <div class="jd-block">
+        <h4 style="color: #29b5e8;">WHAT IS SNOWFLAKE?</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>Cloud data warehouse (SaaS, fully managed)</li>
+          <li>Separates compute from storage</li>
+          <li>Used by: 80%+ Fortune 500 companies</li>
+          <li>THE most in-demand warehouse in 2026</li>
+        </ul>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #29b5e8;">CORE CONCEPTS</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+          <div style="background: rgba(41,181,232,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #29b5e8;">Architecture</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>Virtual Warehouse:</strong> Compute cluster</li>
+              <li><strong>Micro-partitions:</strong> Auto data chunking</li>
+              <li><strong>Time Travel:</strong> Query history</li>
+              <li><strong>Zero-copy Clone:</strong> Instant copies</li>
+              <li><strong>Secure Sharing:</strong> Cross-account</li>
+            </ul>
+          </div>
+          <div style="background: rgba(41,181,232,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #29b5e8;">Features</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>Snowpipe:</strong> Auto-ingest</li>
+              <li><strong>Streams:</strong> CDC tracking</li>
+              <li><strong>Tasks:</strong> Scheduled SQL</li>
+              <li><strong>Dynamic Tables:</strong> Auto-refresh</li>
+              <li><strong>Snowpark:</strong> Python/Java UDFs</li>
+            </ul>
+          </div>
+          <div style="background: rgba(41,181,232,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #29b5e8;">Security</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>RBAC</li>
+              <li>Column masking</li>
+              <li>Row access policies</li>
+              <li>Data tagging</li>
+              <li>Audit logging</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #29b5e8;">SQL EXAMPLES (Snowflake)</h4>
+        <div style="background: #0d0d2b; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto;">
+          <pre style="color: #29b5e8; margin: 0; white-space: pre-wrap;">
+-- Create Snowpipe (auto-ingest)
+CREATE OR REPLACE PIPE orders_pipe
+  AUTO_INGEST = TRUE
+AS
+  COPY INTO orders
+  FROM @orders_stage
+  FILE_FORMAT = (TYPE = PARQUET);
+
+-- Time Travel
+SELECT * FROM orders
+AT (TIMESTAMP => '2026-01-15 10:30:00'::TIMESTAMP);
+
+-- Zero-copy Clone
+CREATE TABLE orders_clone CLONE orders;
+
+-- Streams and Tasks (CDC)
+CREATE STREAM orders_stream ON TABLE orders;
+
+CREATE TASK process_orders
+  WAREHOUSE = compute_wh
+  SCHEDULE = '5 MINUTE'
+  WHEN SYSTEM$STREAM_HAS_DATA('orders_stream')
+AS
+  MERGE INTO target_table target
+  USING orders_stream source
+  ON target.order_id = source.order_id
+  WHEN MATCHED THEN UPDATE SET amount = source.amount
+  WHEN NOT MATCHED THEN INSERT VALUES (
+    source.order_id, source.amount, source.region
+  );
+
+-- Dynamic Tables (auto-refresh)
+CREATE DYNAMIC TABLE revenue_by_region
+  TARGET_LAG = '5 MINUTE'
+AS
+  SELECT region, SUM(amount) AS total_revenue
+  FROM orders GROUP BY 1;
+
+-- Column-level masking
+CREATE MASKING POLICY email_mask
+  AS (val VARCHAR) RETURNS VARCHAR ->
+  CASE
+    WHEN CURRENT_ROLE() IN ('ADMIN') THEN val
+    ELSE '***MASKED***'
+  END;
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 9: DATABRICKS ===================== -->
+  <div class="jd-card" id="part9-databricks" style="border-left: 4px solid #ff3621; margin-bottom: 30px;">
+    <div class="jd-header" style="background: linear-gradient(90deg, #ff362122, #ff362105);">
+      <div class="jd-title" style="color: #ff3621;">&#128300; PART 9: DATABRICKS - Complete Guide</div>
+      <div class="jd-company">Category: Lakehouse Platform | Salary: $120K-$185K (US Senior)</div>
+    </div>
+    <div class="jd-card-body">
+      <div class="jd-block">
+        <h4 style="color: #ff3621;">WHAT IS DATABRICKS?</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>Unified data + AI platform (Lakehouse architecture)</li>
+          <li>Built on Apache Spark</li>
+          <li>Created by creators of Spark, Delta Lake, MLflow</li>
+          <li>PRE-IPO company (stock expected 2026)</li>
+          <li>840+ open roles globally</li>
+        </ul>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ff3621;">CORE CONCEPTS</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+          <div style="background: rgba(255,54,33,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ff3621;">Lakehouse Architecture</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>Bronze:</strong> Raw data</li>
+              <li><strong>Silver:</strong> Cleaned, deduped</li>
+              <li><strong>Gold:</strong> Business aggregations</li>
+              <li><strong>Delta Lake:</strong> ACID on lakes</li>
+              <li><strong>Unity Catalog:</strong> Governance</li>
+            </ul>
+          </div>
+          <div style="background: rgba(255,54,33,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ff3621;">Delta Lake</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>ACID Transactions</li>
+              <li>Time Travel</li>
+              <li>Schema Evolution</li>
+              <li>Z-Ordering</li>
+              <li>Liquid Clustering</li>
+            </ul>
+          </div>
+          <div style="background: rgba(255,54,33,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #ff3621;">ML & AI</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>MLflow</li>
+              <li>Feature Store</li>
+              <li>Model Serving</li>
+              <li>Mosaic AI</li>
+              <li>AutoML</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #ff3621;">PYTHON EXAMPLES (Databricks)</h4>
+        <div style="background: #0d0d2b; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto;">
+          <pre style="color: #ff3621; margin: 0; white-space: pre-wrap;">
+# Delta Lake operations
+df = spark.read.format("delta").load("/data/orders")
+
+# Write with merge
+from delta.tables import DeltaTable
+delta_table = DeltaTable.forPath(spark, "/data/orders")
+
+delta_table.alias("target").merge(
+    source=new_data.alias("source"),
+    condition="target.order_id = source.order_id"
+).whenMatchedUpdateAll() \
+ .whenNotMatchedInsertAll() \
+ .execute()
+
+# Time Travel
+spark.read.format("delta").option("versionAsOf", 5).load("/data/orders")
+
+# Delta Live Tables
+import dlt
+
+@dlt.table
+def raw_orders():
+    return spark.read.format("cloud_files") \
+        .option("cloudFiles.format", "parquet") \
+        .load("/data/orders")
+
+@dlt.table
+def clean_orders():
+    return dlt.read("raw_orders") \
+        .filter(col("order_id").isNotNull())
+
+# MLflow integration
+import mlflow
+with mlflow.start_run(run_name="order_model"):
+    mlflow.log_param("algorithm", "random_forest")
+    mlflow.log_metric("accuracy", 0.95)
+    mlflow.spark.log_model(model, "model")
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 10: FIVETRAN ===================== -->
+  <div class="jd-card" id="part10-fivetran" style="border-left: 4px solid #006bff; margin-bottom: 30px;">
+    <div class="jd-header" style="background: linear-gradient(90deg, #006bff22, #006bff05);">
+      <div class="jd-title" style="color: #006bff;">&#128666; PART 10: FIVETRAN - Complete Guide</div>
+      <div class="jd-company">Category: Managed ELT | Salary: $105K-$160K (US Senior)</div>
+    </div>
+    <div class="jd-card-body">
+      <div class="jd-block">
+        <h4 style="color: #006bff;">WHAT IS FIVETRAN?</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>Managed data ingestion platform (ELT)</li>
+          <li>750+ pre-built connectors</li>
+          <li>Fully managed, zero maintenance</li>
+          <li>THE standard for data ingestion</li>
+        </ul>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #006bff;">FIVETRAN vs AIRBYTE</h4>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: rgba(0,107,255,0.2);">
+              <th style="padding: 8px; text-align: left; color: #006bff;">Feature</th>
+              <th style="padding: 8px; text-align: left; color: #006bff;">Fivetran</th>
+              <th style="padding: 8px; text-align: left; color: #00ff88;">Airbyte</th>
+            </tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 8px; color: #ccc;">Type</td><td style="padding: 8px; color: #ccc;">Managed (SaaS)</td><td style="padding: 8px; color: #ccc;">Open Source</td></tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 8px; color: #ccc;">Connectors</td><td style="padding: 8px; color: #00ff88;">750+</td><td style="padding: 8px; color: #ccc;">350+</td></tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 8px; color: #ccc;">Maintenance</td><td style="padding: 8px; color: #00ff88;">Zero</td><td style="padding: 8px; color: #ccc;">Some</td></tr>
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 8px; color: #ccc;">Cost</td><td style="padding: 8px; color: #ccc;">Expensive at scale</td><td style="padding: 8px; color: #00ff88;">Cheaper at scale</td></tr>
+            <tr><td style="padding: 8px; color: #ccc;">Setup</td><td style="padding: 8px; color: #00ff88;">Hours</td><td style="padding: 8px; color: #ccc;">Days</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #006bff;">END-TO-END PROJECT</h4>
+        <div class="dp-flow" style="margin: 15px 0;">
+          <div class="dp-flow-item" style="background: rgba(0,107,255,0.2);">Sources</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(0,107,255,0.2);">Fivetran (750+ connectors)</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(41,181,232,0.2);">Snowflake (raw)</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(255,123,123,0.2);">dbt (transforms)</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(0,160,223,0.2);">Analytics</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 11: AIRBYTE ===================== -->
+  <div class="jd-card" id="part11-airbyte" style="border-left: 4px solid #006bff; margin-bottom: 30px;">
+    <div class="jd-header" style="background: linear-gradient(90deg, #006bff22, #006bff05);">
+      <div class="jd-title" style="color: #006bff;">&#128640; PART 11: AIRBYTE - Complete Guide</div>
+      <div class="jd-company">Category: Open-Source ELT | Salary: $100K-$155K (US Senior)</div>
+    </div>
+    <div class="jd-card-body">
+      <div class="jd-block">
+        <h4 style="color: #006bff;">WHAT IS AIRBYTE?</h4>
+        <ul style="color: #ccc; line-height: 1.8;">
+          <li>Open-source data integration platform</li>
+          <li>ELT tool with 350+ connectors</li>
+          <li>Self-hosted or cloud</li>
+          <li>FASTEST GROWING ingestion tool</li>
+        </ul>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #006bff;">CORE CONCEPTS</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+          <div style="background: rgba(0,107,255,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #006bff;">Architecture</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li><strong>Source:</strong> Where data comes from</li>
+              <li><strong>Destination:</strong> Where data goes</li>
+              <li><strong>Connector:</strong> Pre-built integration</li>
+              <li><strong>Connection:</strong> Source to destination link</li>
+              <li><strong>Sync:</strong> Data movement</li>
+            </ul>
+          </div>
+          <div style="background: rgba(0,107,255,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #006bff;">Sync Modes</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Full Refresh Overwrite</li>
+              <li>Full Refresh Append</li>
+              <li>Incremental + Cursor</li>
+              <li>Incremental + Dedup</li>
+              <li>CDC (Change Data Capture)</li>
+            </ul>
+          </div>
+          <div style="background: rgba(0,107,255,0.1); padding: 15px; border-radius: 8px;">
+            <h5 style="color: #006bff;">Deployment</h5>
+            <ul style="color: #ccc; font-size: 0.9em;">
+              <li>Docker Compose (local)</li>
+              <li>Kubernetes (production)</li>
+              <li>Cloud (managed)</li>
+              <li>Self-Hosted</li>
+              <li>Hybrid</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="jd-block">
+        <h4 style="color: #006bff;">END-TO-END PROJECT</h4>
+        <div class="dp-flow" style="margin: 15px 0;">
+          <div class="dp-flow-item" style="background: rgba(0,107,255,0.2);">PostgreSQL + MongoDB + APIs</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(0,107,255,0.2);">Airbyte (Self-hosted)</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(41,181,232,0.2);">Snowflake (raw)</div>
+          <div class="dp-flow-arrow">&rarr;</div>
+          <div class="dp-flow-item" style="background: rgba(255,123,123,0.2);">dbt (transforms)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 12: END-TO-END STACK ===================== -->
+  <div id="part12-stack" style="background: rgba(16,163,127,0.05); border: 1px solid rgba(16,163,127,0.2); border-radius: 10px; padding: 25px; margin-bottom: 30px;">
+    <h2 style="color: #10a37f;">&#127959; PART 12: END-TO-END STACK ARCHITECTURE</h2>
+    
+    <h3 style="color: #00d4ff; margin-top: 20px;">The Complete Modern Data Stack (2026)</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+      <div style="background: rgba(0,107,255,0.1); padding: 15px; border-radius: 8px; text-align: center;">
+        <h4 style="color: #006bff;">Layer 1: Ingestion</h4>
+        <p style="color: #ccc; font-size: 0.9em;">Fivetran or Airbyte</p>
+      </div>
+      <div style="background: rgba(41,181,232,0.1); padding: 15px; border-radius: 8px; text-align: center;">
+        <h4 style="color: #29b5e8;">Layer 2: Storage</h4>
+        <p style="color: #ccc; font-size: 0.9em;">Snowflake or Databricks</p>
+      </div>
+      <div style="background: rgba(255,123,123,0.1); padding: 15px; border-radius: 8px; text-align: center;">
+        <h4 style="color: #ff7b7b;">Layer 3: Transform</h4>
+        <p style="color: #ccc; font-size: 0.9em;">dbt</p>
+      </div>
+      <div style="background: rgba(0,160,223,0.1); padding: 15px; border-radius: 8px; text-align: center;">
+        <h4 style="color: #00a0df;">Layer 4: Orchestrate</h4>
+        <p style="color: #ccc; font-size: 0.9em;">Airflow or Dagster</p>
+      </div>
+      <div style="background: rgba(255,204,0,0.1); padding: 15px; border-radius: 8px; text-align: center;">
+        <h4 style="color: #ffcc00;">Layer 5: Stream</h4>
+        <p style="color: #ccc; font-size: 0.9em;">Kafka + Flink</p>
+      </div>
+      <div style="background: rgba(123,47,247,0.1); padding: 15px; border-radius: 8px; text-align: center;">
+        <h4 style="color: #7b2ff7;">Layer 6: ML/AI</h4>
+        <p style="color: #ccc; font-size: 0.9em;">MLflow + Feature Store</p>
+      </div>
+    </div>
+
+    <h3 style="color: #ffaa55; margin-top: 25px;">Recommended Stacks by Use Case</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
+      <div style="background: rgba(0,255,136,0.1); padding: 15px; border-radius: 8px;">
+        <h4 style="color: #00ff88;">Analytics Startup</h4>
+        <p style="color: #ccc; font-size: 0.9em;"><strong>Fivetran -> Snowflake -> dbt -> Airflow</strong></p>
+        <p style="color: #aaa; font-size: 0.85em;">Cost: $5K-$15K/month | Team: 2-3 engineers</p>
+      </div>
+      <div style="background: rgba(0,212,255,0.1); padding: 15px; border-radius: 8px;">
+        <h4 style="color: #00d4ff;">Enterprise Platform</h4>
+        <p style="color: #ccc; font-size: 0.9em;"><strong>Fivetran -> Snowflake -> dbt -> Dagster + Kafka/Flink</strong></p>
+        <p style="color: #aaa; font-size: 0.85em;">Cost: $50K-$200K/month | Team: 10-20 engineers</p>
+      </div>
+      <div style="background: rgba(123,47,247,0.1); padding: 15px; border-radius: 8px;">
+        <h4 style="color: #7b2ff7;">ML/AI Company</h4>
+        <p style="color: #ccc; font-size: 0.9em;"><strong>Airbyte -> Databricks -> dbt -> Dagster + MLflow</strong></p>
+        <p style="color: #aaa; font-size: 0.85em;">Cost: $20K-$50K/month | Team: 5-10 engineers</p>
+      </div>
+      <div style="background: rgba(255,85,119,0.1); padding: 15px; border-radius: 8px;">
+        <h4 style="color: #ff5577;">Real-Time Fraud</h4>
+        <p style="color: #ccc; font-size: 0.9em;"><strong>Kafka -> Flink -> Databricks + Redis + Grafana</strong></p>
+        <p style="color: #aaa; font-size: 0.85em;">Cost: $30K-$100K/month | Team: 5-10 engineers</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PART 13: SALARY & JOB ROLES ===================== -->
+  <div id="part13-salary" style="background: rgba(123,47,247,0.05); border: 1px solid rgba(123,47,247,0.2); border-radius: 10px; padding: 25px; margin-bottom: 30px;">
+    <h2 style="color: #7b2ff7;">&#128176; PART 13: SALARY COMPARISON & JOB ROLES</h2>
+    
+    <div style="overflow-x: auto; margin-top: 15px;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="background: rgba(123,47,247,0.2);">
+          <th style="padding: 10px; text-align: left; color: #7b2ff7;">Tool</th>
+          <th style="padding: 10px; text-align: left; color: #7b2ff7;">Junior</th>
+          <th style="padding: 10px; text-align: left; color: #7b2ff7;">Mid</th>
+          <th style="padding: 10px; text-align: left; color: #7b2ff7;">Senior</th>
+          <th style="padding: 10px; text-align: left; color: #7b2ff7;">Lead/Principal</th>
+        </tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ffcc00;">Kafka</td><td style="padding: 10px; color: #ccc;">$95K-$115K</td><td style="padding: 10px; color: #ccc;">$115K-$150K</td><td style="padding: 10px; color: #00ff88;">$145K-$180K</td><td style="padding: 10px; color: #00ff88;">$180K-$250K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ff6600;">Flink</td><td style="padding: 10px; color: #ccc;">$100K-$120K</td><td style="padding: 10px; color: #ccc;">$120K-$155K</td><td style="padding: 10px; color: #00ff88;">$150K-$185K</td><td style="padding: 10px; color: #00ff88;">$185K-$260K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #e87722;">Spark</td><td style="padding: 10px; color: #ccc;">$90K-$110K</td><td style="padding: 10px; color: #ccc;">$110K-$145K</td><td style="padding: 10px; color: #00ff88;">$140K-$175K</td><td style="padding: 10px; color: #00ff88;">$175K-$240K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #00a0df;">Airflow</td><td style="padding: 10px; color: #ccc;">$85K-$105K</td><td style="padding: 10px; color: #ccc;">$105K-$135K</td><td style="padding: 10px; color: #00ff88;">$135K-$165K</td><td style="padding: 10px; color: #00ff88;">$165K-$230K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #0ea5e9;">Dagster</td><td style="padding: 10px; color: #ccc;">$85K-$105K</td><td style="padding: 10px; color: #ccc;">$105K-$135K</td><td style="padding: 10px; color: #00ff88;">$135K-$160K</td><td style="padding: 10px; color: #00ff88;">$160K-$220K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ff7b7b;">dbt</td><td style="padding: 10px; color: #ccc;">$85K-$105K</td><td style="padding: 10px; color: #ccc;">$105K-$135K</td><td style="padding: 10px; color: #00ff88;">$135K-$165K</td><td style="padding: 10px; color: #00ff88;">$165K-$230K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #29b5e8;">Snowflake</td><td style="padding: 10px; color: #ccc;">$90K-$110K</td><td style="padding: 10px; color: #ccc;">$110K-$145K</td><td style="padding: 10px; color: #00ff88;">$145K-$175K</td><td style="padding: 10px; color: #00ff88;">$175K-$250K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ff3621;">Databricks</td><td style="padding: 10px; color: #ccc;">$95K-$115K</td><td style="padding: 10px; color: #ccc;">$115K-$150K</td><td style="padding: 10px; color: #00ff88;">$150K-$185K</td><td style="padding: 10px; color: #00ff88;">$185K-$260K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #006bff;">Fivetran</td><td style="padding: 10px; color: #ccc;">$80K-$100K</td><td style="padding: 10px; color: #ccc;">$100K-$130K</td><td style="padding: 10px; color: #00ff88;">$130K-$160K</td><td style="padding: 10px; color: #00ff88;">$160K-$220K</td></tr>
+        <tr><td style="padding: 10px; color: #006bff;">Airbyte</td><td style="padding: 10px; color: #ccc;">$80K-$100K</td><td style="padding: 10px; color: #ccc;">$100K-$125K</td><td style="padding: 10px; color: #00ff88;">$125K-$155K</td><td style="padding: 10px; color: #00ff88;">$155K-$210K</td></tr>
+      </table>
+    </div>
+
+    <h3 style="color: #ffaa55; margin-top: 25px;">Combination Salary (US Senior)</h3>
+    <div style="overflow-x: auto; margin-top: 10px;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="background: rgba(255,170,85,0.2);">
+          <th style="padding: 10px; text-align: left; color: #ffaa55;">Combination</th>
+          <th style="padding: 10px; text-align: left; color: #ffaa55;">Salary Range</th>
+        </tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">Databricks + Flink + Spark</td><td style="padding: 10px; color: #00ff88; font-weight: bold;">$150K-$200K+</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">Kafka + Flink + Spark</td><td style="padding: 10px; color: #00ff88; font-weight: bold;">$150K-$200K+</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">Snowflake + dbt + Airflow</td><td style="padding: 10px; color: #00d4ff; font-weight: bold;">$130K-$180K+</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">Snowflake + Databricks + dbt</td><td style="padding: 10px; color: #00d4ff; font-weight: bold;">$140K-$190K+</td></tr>
+        <tr><td style="padding: 10px; color: #ccc;">Airbyte + Databricks + Dagster</td><td style="padding: 10px; color: #00d4ff; font-weight: bold;">$125K-$175K+</td></tr>
+      </table>
+    </div>
+
+    <h3 style="color: #00ff88; margin-top: 25px;">Top Job Titles (2026)</h3>
+    <div style="overflow-x: auto; margin-top: 10px;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="background: rgba(0,255,136,0.2);">
+          <th style="padding: 10px; text-align: left; color: #00ff88;">Title</th>
+          <th style="padding: 10px; text-align: left; color: #00ff88;">Tools Required</th>
+          <th style="padding: 10px; text-align: left; color: #00ff88;">Salary</th>
+        </tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">Senior Data Engineer</td><td style="padding: 10px; color: #ccc;">Snowflake + dbt + Spark</td><td style="padding: 10px; color: #00ff88;">$140K-$180K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">Streaming Data Engineer</td><td style="padding: 10px; color: #ccc;">Kafka + Flink + Spark</td><td style="padding: 10px; color: #00ff88;">$150K-$200K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">Databricks Engineer</td><td style="padding: 10px; color: #ccc;">Databricks + Spark + Delta</td><td style="padding: 10px; color: #00ff88;">$145K-$195K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">Data Platform Architect</td><td style="padding: 10px; color: #ccc;">All tools</td><td style="padding: 10px; color: #00ff88;">$180K-$280K</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">Analytics Engineer</td><td style="padding: 10px; color: #ccc;">dbt + Snowflake</td><td style="padding: 10px; color: #00ff88;">$120K-$165K</td></tr>
+        <tr><td style="padding: 10px; color: #ccc;">Lead Data Engineer</td><td style="padding: 10px; color: #ccc;">All tools + leadership</td><td style="padding: 10px; color: #00ff88;">$170K-$250K</td></tr>
+      </table>
+    </div>
+
+    <h3 style="color: #ff5577; margin-top: 25px;">Certification Value</h3>
+    <div style="overflow-x: auto; margin-top: 10px;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="background: rgba(255,85,119,0.2);">
+          <th style="padding: 10px; text-align: left; color: #ff5577;">Certification</th>
+          <th style="padding: 10px; text-align: left; color: #ff5577;">Salary Bump</th>
+          <th style="padding: 10px; text-align: left; color: #ff5577;">Difficulty</th>
+          <th style="padding: 10px; text-align: left; color: #ff5577;">Time</th>
+        </tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">SnowPro Core</td><td style="padding: 10px; color: #00ff88;">+10-15%</td><td style="padding: 10px; color: #ccc;">Medium</td><td style="padding: 10px; color: #ccc;">2-4 weeks</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">dbt Analytics Engineering</td><td style="padding: 10px; color: #00ff88;">+10-15%</td><td style="padding: 10px; color: #ccc;">Easy</td><td style="padding: 10px; color: #ccc;">1-2 weeks</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">Databricks Certified Engineer</td><td style="padding: 10px; color: #00ff88;">+10-15%</td><td style="padding: 10px; color: #ccc;">Medium</td><td style="padding: 10px; color: #ccc;">2-4 weeks</td></tr>
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);"><td style="padding: 10px; color: #ccc;">AWS Data Analytics Specialty</td><td style="padding: 10px; color: #00ff88;">+10-15%</td><td style="padding: 10px; color: #ccc;">Medium</td><td style="padding: 10px; color: #ccc;">4-6 weeks</td></tr>
+        <tr><td style="padding: 10px; color: #ccc;">Google Professional Data Engineer</td><td style="padding: 10px; color: #00ff88;">+10-15%</td><td style="padding: 10px; color: #ccc;">Medium</td><td style="padding: 10px; color: #ccc;">4-6 weeks</td></tr>
+      </table>
+    </div>
+  </div>
+
+</div>
+<!-- ===================== ETL TECH STACK: MASTER GUIDE 2026 END ===================== -->
