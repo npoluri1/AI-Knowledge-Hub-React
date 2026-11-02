@@ -49,7 +49,7 @@ const TOPICS = [
   [/learn|basic|beginner|what is|glossary|term|concept/, 'study'],
   [/stock|share|equit|compan|blue chip|growth/, 'candles'],
 ]
-const FALLBACK = ['dashboard', 'screen', 'laptopChart', 'paperChart', 'growth', 'candles2']
+export const FALLBACK = ['dashboard', 'screen', 'laptopChart', 'paperChart', 'growth', 'candles2']
 
 export function photoKey(text) {
   const t = (text || '').toLowerCase()

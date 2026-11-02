@@ -9,14 +9,16 @@ import TaxSavingFunds from './TaxSavingFunds';
 import TradingTerminal from './TradingTerminal';
 import TradingAcademy from './TradingAcademy';
 import InvestmentUniverse from './InvestmentUniverse';
+import PlainEnglish from './PlainEnglish';
 import TradingPhotos, { SECTION_PHOTO, photoUrl } from './TradingPhotos';
-const SIDEBAR_PHOTO = { ...SECTION_PHOTO, terminal: 'screen', academy: 'trader', universe: 'portfolio' };
+const SIDEBAR_PHOTO = { ...SECTION_PHOTO, terminal: 'screen', plain: 'study', academy: 'trader', universe: 'portfolio' };
 import './TradingPage.css';
 import './TradingNewSections.css';
 import { useLang } from '../i18n';
 
 const SECTIONS = [
   { id: 'terminal', icon: '🖥️', label: 'Real-Time Terminal & Forecast', color: '#ef4444' },
+  { id: 'plain', icon: '🗣️', label: 'Trading in Plain English', color: '#ffd24a' },
   { id: 'academy', icon: '🧭', label: 'Trading Academy (8 stages)', color: '#2ee6a8' },
   { id: 'universe', icon: '🧺', label: 'Every Way to Invest', color: '#3987e5' },
   { id: 'basics', icon: '🎓', label: 'Trading Basics', color: '#ffd24a' },
@@ -2536,6 +2538,7 @@ export default function TradingPage() {
   const renderContent = () => {
     switch (activeSection) {
       case 'terminal': return <TradingTerminal />;
+      case 'plain': return <PlainEnglish />;
       case 'academy': return <TradingAcademy />;
       case 'universe': return <InvestmentUniverse />;
       case 'basics': return <TradingBasics />;
