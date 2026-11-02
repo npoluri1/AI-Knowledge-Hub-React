@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import './VideoHub.css'
+import VideoStudio from './VideoStudio'
 import COUNTRIES_FULL from '../countriesFull.json'
 import { LANGUAGES as LANGUAGES_FULL, useLang } from '../i18n'
 import {
@@ -729,11 +730,18 @@ export default function VideoHub() {
     <div className="vh-page">
       <Link to="/" className="back-link">← Back to Home</Link>
 
+      <VideoStudio />
+
+      <div className="vh-tools-head" id="vh-tools">
+        <span>🧰</span>
+        <div><h2>Advanced tools</h2><p>Every market &amp; language, any date range up to 5 years, paste any link, and your download library.</p></div>
+      </div>
+
       <div className="vh-hero">
         <div className="vh-hero-glow" />
         <div className="vh-hero-top">
           <div>
-            <h1>🎬 {t('AI Tech-Stack Video Hub')}</h1>
+            <h1>🎛️ {t('AI Tech-Stack Video Hub')} — deep search</h1>
             <p>
               Short + long videos across all 44 AI tech-stack topics — AI, ML, AI Agents, Python, FastAPI, ReactJS,
               NextJS, RAG, MCP, LangChain, LangGraph, VectorDB, CrewAI, AutoGen, LoRA, MLOps, Embeddings, LLMs,

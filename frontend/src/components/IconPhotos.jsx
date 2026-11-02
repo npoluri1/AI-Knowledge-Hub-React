@@ -53,7 +53,7 @@ const EMOJI = {
 const FALLBACK = [P.aiAbstract, P.codeScreen, P.circuit, P.analytics, P.blueprint, P.cubes, P.aiGen, P.laptopTech]
 
 const EMOJI_ONLY = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[‍️⃣#*0-9])+$/u
-const SKIP = '.route-guide, .pulse, .tx, .xs, .sbx, .eh, .lib-tile, .lib-dcover, .bs, .olb-hero, .as-hero, .as-group h2, .libh, .nx-panel, button, select, option, input, a.back-link, .photo-icon'
+const SKIP = '.route-guide, .pulse, .tx, .vs, .xs, .sbx, .eh, .lib-tile, .lib-dcover, .bs, .olb-hero, .as-hero, .as-group h2, .libh, .nx-panel, button, select, option, input, a.back-link, .photo-icon'
 const CARD = '[class*="card"], [class*="tile"], [class*="item"], [class*="section"], [class*="header"], [class*="head"], article, li'
 
 function photoFor(el, emoji) {
