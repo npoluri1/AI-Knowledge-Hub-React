@@ -77,6 +77,9 @@ const CommoditiesDashboard = lazyRetry(() => import('./pages/CommoditiesDashboar
 const NeemKaroliBabaPage = lazyRetry(() => import('./pages/NeemKaroliBabaPage'))
 const MortalAppsFullPage = lazyRetry(() => import('./pages/MortalAppsFullPage'))
 const StudyByDoingView = lazyRetry(() => import('./pages/StudyByDoingView'))
+const SbdSection = lazyRetry(() => import('./pages/SbdSection'))
+const SbdFlashcards = lazyRetry(() => import('./pages/SbdFlashcards'))
+const SbdProjects = lazyRetry(() => import('./pages/SbdProjects'))
 const StudyByDoingReader = lazyRetry(() => import('./pages/StudyByDoingReader'))
 const StudyByDoingResources = lazyRetry(() => import('./pages/StudyByDoingResources'))
 const EuropeSettlementBlueprint = lazyRetry(() => import('./pages/EuropeSettlementBlueprint'))
@@ -153,6 +156,9 @@ export default function App() {
         <Route path="/commodities" element={<CommoditiesDashboard />} />
         <Route path="/neem-karoli-baba" element={<NeemKaroliBabaPage />} />
         <Route path="/study-by-doing" element={<StudyByDoingView />} />
+        <Route path="/study-by-doing/study/:sectionId" element={<SbdSection />} />
+        <Route path="/study-by-doing/flashcards" element={<SbdFlashcards />} />
+        <Route path="/study-by-doing/projects" element={<SbdProjects />} />
         <Route path="/study-by-doing/resources" element={<StudyByDoingResources />} />
         <Route path="/europe-settlement" element={<EuropeSettlementBlueprint />} />
         <Route path="/study-by-doing/:slug" element={<StudyByDoingReader />} />
