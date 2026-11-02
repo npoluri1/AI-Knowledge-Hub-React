@@ -8,6 +8,7 @@ import CcarfPrep from '../components/CcarfPrep'
 import ClaudeCertGuide from '../components/ClaudeCertGuide'
 import ClaudeCertCurriculum from '../components/ClaudeCertCurriculum'
 import ClaudeCertHub from '../components/ClaudeCertHub'
+import EnterpriseAiHandbook from '../components/EnterpriseAiHandbook'
 import { useLang } from '../i18n'
 import './AiStackScreen.css'
 import './ClaudeCertView.css'
@@ -68,6 +69,8 @@ export default function ClaudeCertView() {
           Claude/AI tool ecosystem you'll be working with (68 tools, one reference).
         </p>
       </div>
+
+      <EnterpriseAiHandbook />
 
       <div className="cc-grid">
         <section className="cc-card cc-pricing">

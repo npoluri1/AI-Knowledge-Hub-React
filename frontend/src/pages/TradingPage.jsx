@@ -6,11 +6,19 @@ import DailyTrading from './DailyTrading';
 import CountryTradingHub from './CountryTradingHub';
 import GlobalInvestmentResearch from './GlobalInvestmentResearch';
 import TaxSavingFunds from './TaxSavingFunds';
+import TradingTerminal from './TradingTerminal';
+import TradingAcademy from './TradingAcademy';
+import InvestmentUniverse from './InvestmentUniverse';
+import TradingPhotos, { SECTION_PHOTO, photoUrl } from './TradingPhotos';
+const SIDEBAR_PHOTO = { ...SECTION_PHOTO, terminal: 'screen', academy: 'trader', universe: 'portfolio' };
 import './TradingPage.css';
 import './TradingNewSections.css';
 import { useLang } from '../i18n';
 
 const SECTIONS = [
+  { id: 'terminal', icon: '🖥️', label: 'Real-Time Terminal & Forecast', color: '#ef4444' },
+  { id: 'academy', icon: '🧭', label: 'Trading Academy (8 stages)', color: '#2ee6a8' },
+  { id: 'universe', icon: '🧺', label: 'Every Way to Invest', color: '#3987e5' },
   { id: 'basics', icon: '🎓', label: 'Trading Basics', color: '#ffd24a' },
   { id: 'research', icon: '🌐', label: 'Global Research Workbook', color: '#10b981' },
   { id: 'taxsaving', icon: '💸', label: 'Tax-Saving & Retirement Funds', color: '#22c55e' },
@@ -2521,12 +2529,15 @@ function StockCompare() {
 /* ═══════════════ MAIN PAGE ═══════════════ */
 export default function TradingPage() {
   const { t } = useLang();
-  const [activeSection, setActiveSection] = useState('basics');
+  const [activeSection, setActiveSection] = useState(() => { try { return localStorage.getItem('tp.section') || 'terminal'; } catch { return 'terminal'; } });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const renderContent = () => {
     switch (activeSection) {
+      case 'terminal': return <TradingTerminal />;
+      case 'academy': return <TradingAcademy />;
+      case 'universe': return <InvestmentUniverse />;
       case 'basics': return <TradingBasics />;
       case 'research': return <GlobalInvestmentResearch />;
       case 'taxsaving': return <TaxSavingFunds />;
@@ -2572,12 +2583,12 @@ export default function TradingPage() {
           <h1 className="tp-hero-title">Complete Trading & Investing<br /><span className="tp-hero-accent">From Zero to Confident Investor</span></h1>
           <p className="tp-hero-sub">Stocks, Bonds, ETFs, Crypto, Forex, Options, Futures, Commodities — everything explained in plain English with real examples for SG, US, India, HK, Japan, Korea, UK, Europe & Australia markets.</p>
           <div className="tp-hero-stats">
-            <div className="tp-hero-stat"><div className="tp-hero-stat-val">29</div><div className="tp-hero-stat-label">{t('Sections')}</div></div>
+            <div className="tp-hero-stat"><div className="tp-hero-stat-val">{SECTIONS.length}</div><div className="tp-hero-stat-label">{t('Sections')}</div></div>
             <div className="tp-hero-stat"><div className="tp-hero-stat-val">500+</div><div className="tp-hero-stat-label">{t('Topics')}</div></div>
             <div className="tp-hero-stat"><div className="tp-hero-stat-val">250+</div><div className="tp-hero-stat-label">{t('Examples')}</div></div>
             <div className="tp-hero-stat"><div className="tp-hero-stat-val">10+</div><div className="tp-hero-stat-label">{t('Markets')}</div></div>
           </div>
-          <div className="tp-warning">⚠️ NOT FINANCIAL ADVICE — For educational purposes only. | Data as of Sep 2026</div>
+          <div className="tp-warning">⚠️ NOT FINANCIAL ADVICE — For educational purposes only. | Live quotes refresh every 15–60s</div>
         </div>
       </div>
 
@@ -2595,9 +2606,9 @@ export default function TradingPage() {
             <button className="tp-sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>{sidebarOpen ? '◀' : '▶'}</button>
           </div>
           {SECTIONS.map(sec => (
-            <div key={sec.id} className={`tp-sidebar-item ${activeSection === sec.id ? 'active' : ''}`} onClick={() => { setActiveSection(sec.id); setMobileMenuOpen(false); }}>
+            <div key={sec.id} className={`tp-sidebar-item ${activeSection === sec.id ? 'active' : ''}`} onClick={() => { setActiveSection(sec.id); setMobileMenuOpen(false); try { localStorage.setItem('tp.section', sec.id); } catch { /* storage unavailable */ } }}>
               <div className="tp-sidebar-item-main">
-                <span className="tp-sidebar-icon">{sec.icon}</span>
+                <span className="tp-sidebar-icon photo-icon" data-pi="1" data-emoji={sec.icon} style={{ '--pi': `url("${photoUrl(SIDEBAR_PHOTO[sec.id] || 'dashboard', 160, 160)}")`, '--pi-size': '34px', '--pi-badge': '13px' }}>{sec.icon}</span>
                 <span className="tp-sidebar-label">{sec.label}</span>
                 <span className="tp-sidebar-arrow">›</span>
               </div>
@@ -2610,6 +2621,7 @@ export default function TradingPage() {
 
         {/* Main Content */}
         <main className="tp-main-content" key={activeSection}>
+          <TradingPhotos section={activeSection} />
           {renderContent()}
         </main>
       </div>
@@ -2617,7 +2629,7 @@ export default function TradingPage() {
       {/* Footer */}
       <div className="tp-footer">
         <p>Trading Master Hub — Educational Content Only</p>
-        <p className="tp-muted">Built with ❤️ | Your Platforms: Moomoo SG + Zerodha Kite | Data as of Sep 2026</p>
+        <p className="tp-muted">Built with ❤️ | Your Platforms: Moomoo SG + Zerodha Kite | Live data via Yahoo Finance (may be delayed)</p>
       </div>
     </div>
   );

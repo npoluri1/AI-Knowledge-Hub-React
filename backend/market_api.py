@@ -295,3 +295,44 @@ def get_market_indices():
             q["name"] = idx["name"]
         q["indexCountry"] = idx["country"]
     return {"indices": quotes}
+
+
+# ── Price history (OHLCV) for charts, indicators and forecasts ────────────
+_hist_cache: dict[str, dict] = {}
+_HIST_RANGES = {
+    "1d": ("1d", "5m"), "5d": ("5d", "30m"), "1mo": ("1mo", "1d"), "3mo": ("3mo", "1d"),
+    "6mo": ("6mo", "1d"), "1y": ("1y", "1d"), "2y": ("2y", "1d"), "5y": ("5y", "1wk"), "10y": ("10y", "1mo"),
+}
+
+
+@router.get("/history")
+def get_history(symbol: str = Query(..., description="Ticker symbol"),
+                range: str = Query("1y", description="1d,5d,1mo,3mo,6mo,1y,2y,5y,10y")):
+    """OHLCV candles for one symbol. Cached 60s (intraday) / 10 min (daily+)."""
+    period, interval = _HIST_RANGES.get(range, _HIST_RANGES["1y"])
+    key = f"{symbol}|{period}|{interval}"
+    ttl = 60 if interval.endswith("m") else 600
+    hit = _hist_cache.get(key)
+    if hit and time.time() - hit["ts"] < ttl:
+        return hit["data"]
+    try:
+        df = yf.Ticker(symbol).history(period=period, interval=interval, auto_adjust=False)
+        candles = []
+        for idx, row in df.iterrows():
+            c = _safe_float(row.get("Close"))
+            if c is None:
+                continue
+            candles.append({
+                "t": int(idx.timestamp() * 1000),
+                "o": _safe_float(row.get("Open")), "h": _safe_float(row.get("High")),
+                "l": _safe_float(row.get("Low")), "c": c,
+                "v": int(row.get("Volume") or 0),
+            })
+        data = {"symbol": symbol, "range": range, "interval": interval, "candles": candles,
+                "fetchedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        if candles:
+            _hist_cache[key] = {"data": data, "ts": time.time()}
+        return data
+    except Exception as e:
+        print(f"[market_api] history error {symbol}: {e}")
+        return JSONResponse({"symbol": symbol, "candles": [], "error": str(e)[:200]}, status_code=502)
