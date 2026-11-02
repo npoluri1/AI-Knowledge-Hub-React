@@ -23,6 +23,12 @@ const REFRESH_MS = 5 * 60 * 1000
 const SOCIAL_TAG = { rag: 'retrievalaugmentedgeneration', mcp: 'modelcontextprotocol', ml: 'machinelearning', llms: 'llm', agents: 'aiagents', multi_agents: 'multiagent', iot: 'iot', chips: 'aichips', quantum: 'quantumcomputing', governance: 'aigovernance', embeddings: 'embeddings', prompting: 'promptengineering', fine_tuning: 'finetuning', vectordb: 'vectordatabase', agi: 'agi', asi: 'superintelligence' }
 // keep social posts that are clearly about tech (search indexes can return off-topic posts)
 const TECH = /\b(ai|a\.i\.|llm|gpt|chatgpt|claude|gemini|openai|anthropic|agent|agentic|model|neural|machine|deep|data|code|coding|python|javascript|react|next|api|dev|developer|program|software|tech|cloud|automation|automate|rag|retriev|vector|embedding|prompt|langchain|langgraph|crewai|autogen|mcp|fine.?tun|lora|mlops|quantum|chip|gpu|nvidia|robot|iot|startup|tool|app|build)/i
+const relevant = it => {
+  const t = `${it.title || ''}`.replace(/\s+on (tiktok|instagram|facebook|x)\b.*$/i, '').trim()
+  if (t.split(/\s+/).length < 4) return true // generic title ("name on TikTok") — trust the hashtag search
+  return TECH.test(`${it.title} ${it.channel || ''}`)
+}
+const CACHE_KEY = t => `vs.cache.${t}`
 const PRIO = ['ai', 'agents', 'llms', 'rag', 'python', 'mcp', 'langchain', 'reactjs']
 
 const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v) } catch { return d } }
@@ -98,8 +104,8 @@ export default function VideoStudio() {
     ORDER.forEach(k => {
       calls[k]().then(d => {
         if (run !== runRef.current) return
-        const items = (d?.items || []).map(it => ({ ...it, platform: it.platform || k, title: decode(it.title) })).filter(it => k === 'youtube' || TECH.test(`${it.title} ${it.channel || ''}`))
-        setData(prev => ({ ...prev, [k]: items }))
+        const items = (d?.items || []).map(it => ({ ...it, platform: it.platform || k, title: decode(it.title) })).filter(it => k === 'youtube' || relevant(it))
+        setData(prev => { const next = { ...prev, [k]: items }; if (items.length) lsSet(CACHE_KEY(topic), { at: Date.now(), data: next }); return next })
         setStatus(prev => ({ ...prev, [k]: items.length ? 'ok' : 'empty' }))
         setUpdated(Date.now())
         if (k === 'youtube') prefetch(topic, start, end)
@@ -107,7 +113,11 @@ export default function VideoStudio() {
     })
   }, [topic, tag, prefetch])
 
-  useEffect(() => { setData({}); setCurrent(null); setPlaying(false); setVisible(24); load() }, [load])
+  useEffect(() => {
+    const cached = lsGet(CACHE_KEY(topic), null)
+    setData(cached?.data || {}); setUpdated(cached?.at || 0)
+    setCurrent(null); setPlaying(false); setVisible(24); load()
+  }, [load, topic])
   useEffect(() => { if (!auto) return undefined; const i = setInterval(load, REFRESH_MS); return () => clearInterval(i) }, [auto, load])
 
   const all = useMemo(() => {
