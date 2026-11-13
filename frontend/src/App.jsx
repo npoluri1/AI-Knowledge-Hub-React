@@ -9,6 +9,7 @@ import Home from './pages/Home'
 const ChapterView = lazyRetry(() => import('./pages/ChapterView'))
 const DeepDiveView = lazyRetry(() => import('./pages/DeepDiveView'))
 const ImagesGallery = lazyRetry(() => import('./pages/ImagesGallery'))
+const AppScreens = lazyRetry(() => import('./pages/AppScreens'))
 const FileReferenceView = lazyRetry(() => import('./pages/FileReferenceView'))
 const JobsView = lazyRetry(() => import('./pages/JobsView'))
 const KnowledgeBaseView = lazyRetry(() => import('./pages/KnowledgeBaseView'))
@@ -95,6 +96,7 @@ export default function App() {
         <Route path="/chapter/:id" element={<ChapterView />} />
         <Route path="/deep-dive/:id" element={<DeepDiveView />} />
         <Route path="/images" element={<ImagesGallery />} />
+        <Route path="/screens" element={<AppScreens />} />
         <Route path="/files" element={<FileReferenceView />} />
         <Route path="/jobs" element={<JobsView />} />
         <Route path="/knowledge" element={<KnowledgeBaseView />} />

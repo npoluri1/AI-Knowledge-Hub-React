@@ -481,15 +481,6 @@ const STRINGS = {
   'AI Tools & Agents Catalog': {
     es: 'Catálogo de Herramientas y Agentes de IA', fr: 'Catalogue des outils et agents IA', de: 'Katalog für KI-Tools & Agenten', pt: 'Catálogo de ferramentas e agentes de IA', hi: 'AI टूल्स और एजेंट कैटलॉग', te: 'AI సాధనాలు & ఏజెంట్ల కేటలాగ్',
   },
-  'AI TechStack Reference': {
-    es: 'Referencia del Stack Tecnológico de IA', fr: 'Référence de la pile technologique IA', de: 'KI-Techstack-Referenz', pt: 'Referência da stack tecnológica de IA', hi: 'AI टेकस्टैक संदर्भ', te: 'AI టెక్స్టాక్ రిఫరెన్స్',
-  },
-  'Book Catalog': {
-    es: 'Catálogo de Libros', fr: 'Catalogue de livres', de: 'Buchkatalog', pt: 'Catálogo de livros', hi: 'पुस्तक कैटलॉग', te: 'పుస్తక కేటలాగ్',
-  },
-  'Free (Public Domain)': {
-    es: 'Gratis (Dominio público)', fr: 'Gratuit (domaine public)', de: 'Gratis (Public Domain)', pt: 'Gratuitos (domínio público)', hi: 'मुफ़्त (सार्वजनिक डोमेन)', te: 'ఉచిత (పబ్లిక్ డొమైన్)',
-  },
   'Premium': {
     es: 'Premium', fr: 'Premium', de: 'Premium', pt: 'Premium', hi: 'प्रीमियम', te: 'ప్రీమియం',
   },

@@ -74,6 +74,24 @@ export default defineConfig({
       '/api': 'http://localhost:9000'
     }
   },
+  // Extra scan source: the LinkedIn AI TechStack image library.
+  // Served through the backend proxy at /api/raw/linkedin_ai_techstack_images/<file>
+  // (proxy, not static copy) so the ~1.7 GB folder never blocks the build and
+  // stays in sync with what the backend scans. Used by menuVisuals.js and the
+  // Images Gallery page (public/images too, which is already a built-in source).
+  // Subfolder: /Build Your Own Inference Engine_ From Scratch to _7__files
+  extraSources: [
+    {
+      dir: 'D:/WorkSpace/LinkedIn_AI_TechStack_Images',
+      url: '/api/raw/linkedin_ai_techstack_images',
+      slug: 'linkedin_ai_techstack_images',
+      label: 'LinkedIn AI TechStack Images',
+      kind: 'extra',
+      subPaths: [
+        'Build Your Own Inference Engine_ From Scratch to _7__files',
+      ],
+    },
+  ],
   preview: {
     port: 5273,
     strictPort: true,

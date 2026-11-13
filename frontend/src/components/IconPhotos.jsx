@@ -1,56 +1,12 @@
 import React from 'react'
 import { useLocation } from 'react-router-dom'
-import { P, U } from '../data/menuVisuals'
+import { U } from '../data/menuVisuals'
+import { TOPICS, EMOJI, FALLBACK } from '../data/photoTopics'
 import './IconPhotos.css'
 
 // Turns emoji icons inside page content into photo tiles that match their
 // card's topic (emoji stays as a corner badge). Works on every page without
 // per-page edits: it reads the nearest card/section heading to pick a photo.
-
-const TOPICS = [
-  [/python|pandas|numpy|django|flask/, P.pythonNote],
-  [/quantum|qubit/, P.equations],
-  [/robot|humanoid|drone/, P.robot],
-  [/agent|autonom|crew|langgraph|multi-agent/, P.robotHand],
-  [/chip|semiconductor|gpu|hardware|silicon|fpga|cuda/, P.circuit],
-  [/secur|guard|compliance|risk|privacy|threat|cyber|grc|audit/, P.cyber],
-  [/trading|stock|market|financ|invest|crypto|commodit|money|wealth|bank/, P.stockChart],
-  [/news|headline|press|media/, P.newspapers],
-  [/book|read|librar|novel|literat/, P.libraryShelves],
-  [/job|career|hiring|interview|resume|salary|recruit/, P.team],
-  [/design|architect|blueprint|pattern|system/, P.blueprint],
-  [/data|etl|analytic|warehouse|lake|sql|bi\b|dashboard|metric/, P.analytics],
-  [/cloud|aws|azure|gcp|serverless/, P.earthNight],
-  [/deploy|devops|docker|kubernetes|k8s|infra|server|mlops|ops/, P.serverRacks],
-  [/api|integrat|mcp|connector|webhook|gateway/, P.cubes],
-  [/react|frontend|web|css|html|javascript|typescript|ui\b/, P.reactCode],
-  [/video|youtube|tiktok|film|stream/, P.videoEdit],
-  [/chat|message|whatsapp|telegram|slack|email|communicat|voice/, P.phoneMessages],
-  [/social|linkedin|instagram|facebook|twitter/, P.socialApps],
-  [/image|vision|photo|gallery|diffusion|art/, P.aiRender],
-  [/rag|vector|retriev|embedding|search|knowledge/, P.library],
-  [/test|qa|debug|eval/, P.laptopDev],
-  [/learn|course|tutorial|study|lesson|quiz|exam|cert|prep|guide/, P.studyDesk],
-  [/code|program|develop|software|engineer|tool/, P.codeScreen],
-  [/europe|travel|country|visa|relocat|city/, P.europe],
-  [/world|global|international/, P.worldMap],
-  [/wisdom|spirit|meditat|calm|mind|baba|devotion|peace/, P.lakeCalm],
-  [/project|idea|startup|build/, P.whiteboard],
-  [/llm|gpt|claude|gemini|model|neural|ml\b|machine learning|ai\b|artificial/, P.aiAbstract],
-]
-
-const EMOJI = {
-  '🐍': P.pythonNote, '🤖': P.robot, '🧠': P.aiAbstract, '📚': P.libraryShelves, '📖': P.bookTitles, '📊': P.analytics,
-  '📈': P.stockChart, '💹': P.stockChart, '💰': P.stockChart, '🛡️': P.cyber, '🔒': P.security, '🔐': P.security,
-  '☁️': P.earthNight, '🚀': P.laptopTech, '⚡': P.circuit, '🔌': P.cubes, '🔗': P.cables, '💻': P.codeScreen,
-  '🧑‍💻': P.laptopDev, '🛠️': P.laptopCode, '🔧': P.laptopCode, '⚙️': P.serverRacks, '🐳': P.serverRacks, '📦': P.codeDark,
-  '🌐': P.worldMap, '🌍': P.worldMap, '🗺️': P.worldMap, '📡': P.earthNight, '📰': P.newspapers, '🎬': P.videoEdit,
-  '🎥': P.videoEdit, '💬': P.phoneMessages, '📱': P.socialApps, '🎓': P.studyDesk, '📝': P.studying, '🧪': P.laptopDev,
-  '🔬': P.circuit, '⚛️': P.equations, '🏗️': P.blueprint, '🏛️': P.architecture, '🎨': P.aiRender, '🖼️': P.aiRender,
-  '💼': P.team, '👥': P.officeTeam, '🏭': P.officeModern, '🏥': P.lakeCalm, '🙏': P.lakeCalm, '🕉️': P.lakeCalm,
-  '🔍': P.library, '🗂️': P.cardCatalog, '📂': P.cardCatalog, '📁': P.cardCatalog, '🎯': P.whiteboard, '💡': P.whiteboard,
-}
-const FALLBACK = [P.aiAbstract, P.codeScreen, P.circuit, P.analytics, P.blueprint, P.cubes, P.aiGen, P.laptopTech]
 
 const EMOJI_ONLY = /^(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[‍️⃣#*0-9])+$/u
 const SKIP = '.route-guide, .pulse, .tx, .vs, .xs, .sbx, .eh, .lib-tile, .lib-dcover, .bs, .olb-hero, .as-hero, .as-group h2, .libh, .nx-panel, button, select, option, input, a.back-link, .photo-icon'

@@ -28,6 +28,7 @@ export const P = {
 
 export const MENU_VISUALS = {
   '/': [P.aiAbstract, 'Your AI engineering home base'],
+  '/screens': [P.pcSetup, 'Every screen on iPhone, iPad, MacBook, iMac and Mac Pro'],
   '/images': [P.aiRender, 'Diagrams, screenshots and visual references'],
   '/files': [P.cardCatalog, 'Every source file behind the hub'],
   '/knowledge': [P.blueprint, 'Architecture patterns and system decisions'],
@@ -70,6 +71,16 @@ export const MENU_VISUALS = {
   '/study-by-doing/resources': [P.teamLaptops, '697 learning resources'],
   '/europe-settlement': [P.europe, 'Your blueprint for moving to Europe'],
   '/mortalapps-hub': [P.equations, 'System design, agents, quantum and more'],
+  // The LinkedIn AI TechStack image library (local photos you pointed at).
+  // Served by the backend from D:/WorkSpace/LinkedIn_AI_TechStack_Images
+  // (via the /api/raw/linkedin_ai_techstack_images proxy route in vite.config.js).
+  // Update the manifest on demand with the fetch scripts below; it is never
+  // pulled into the build automatically, so the 1.7 GB folder cannot block a
+  // production build or VS Code (see vite.config.js).
+  '/linked-ai-techstack-images': [
+    'linkedin_ai_techstack_images',
+    'LinkedIn AI TechStack image library · 1674+ photos, incl. the Build Your Own Inference Engine sub-folder'
+  ],
 }
 
 const CHAPTER_VISUALS = {

@@ -1,49 +1,43 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import ChatWidget from './ChatWidget'
+import SiteFooter from './SiteFooter'
 import RouteExperienceBanner from './RouteExperienceBanner'
 import LatestPulse from './LatestPulse'
 import IconPhotos from './IconPhotos'
+import SidebarPhotos from './SidebarPhotos'
+import DeviceFrame from './DeviceFrame'
+import { useDevice } from '../hooks/useDevice'
 import { LANGUAGES, useLang } from '../i18n'
 import { CHAPTERS, DEEP_DIVES } from '../data/appData'
-import BOOKS from '../data/booksData'
-import { LINKEDIN_POSTS } from '../data/linkedinPostsCollection'
+import { MENU, GROUP_THEME, DOCK, groupMenu } from '../data/menuData'
 import './NexusNav.css'
 import { menuImage, menuTagline } from '../data/menuVisuals'
 
+// ---------------------------------------------------------------------------
+// Sidebar navigation — hierarchy, not a flat list.
+//
+// Rows of the UI
+//  1.  Header row   — logo mark, brand name + tagline, current-screen card.
+//  2.  Filter row   — global search input + jump-to-section chips.
+//  3.  Groups row   — one visual group per menu category. Each group shows
+//                      its colour, a leading icon, the section title, and the
+//                      number of items it contains.
+//  4.  Footer row   — "Chapters · N" zone label, then the current-device
+//                      preview card so users always know which screen they
+//                      are looking at.
+// ---------------------------------------------------------------------------
+
 const CHAPTER_GROUPS = [
-  {
-    label: 'Models & Inference',
-    ids: ['llm-models', 'fine-tuning-local'],
-  },
-  {
-    label: 'Core AI Systems',
-    ids: ['rag-pipeline', 'vector-databases', 'ai-agents', 'prompt-engineering'],
-  },
-  {
-    label: 'Development Stack',
-    ids: ['python-for-ai', 'fastapi-ai-services', 'langchain-llamaindex', 'react-ai-frontend'],
-  },
-  {
-    label: 'Emerging & Future Tech',
-    ids: ['quantum-computing', 'robotics-ai', 'ai-semiconductor'],
-  },
-  {
-    label: 'Enterprise & Governance',
-    ids: ['system-design', 'grc-compliance', 'observability-evals', 'security-guardrails', 'enterprise-integration'],
-  },
-  {
-    label: 'Tools & Resources',
-    ids: ['tools-catalog', 'project-ideas', 'career-resources', 'ai-news-market'],
-  },
-  {
-    label: 'Projects & Architecture',
-    ids: ['comprehensive-guide', 'e2e-project', 'ai-agent-architecture'],
-  },
+  { label: 'Models & Inference', ids: ['llm-models', 'fine-tuning-local'] },
+  { label: 'Core AI Systems', ids: ['rag-pipeline', 'vector-databases', 'ai-agents', 'prompt-engineering'] },
+  { label: 'Development Stack', ids: ['python-for-ai', 'fastapi-ai-services', 'langchain-llamaindex', 'react-ai-frontend'] },
+  { label: 'Emerging & Future Tech', ids: ['quantum-computing', 'robotics-ai', 'ai-semiconductor'] },
+  { label: 'Enterprise & Governance', ids: ['system-design', 'grc-compliance', 'observability-evals', 'security-guardrails', 'enterprise-integration'] },
+  { label: 'Tools & Resources', ids: ['tools-catalog', 'project-ideas', 'career-resources', 'ai-news-market'] },
+  { label: 'Projects & Architecture', ids: ['comprehensive-guide', 'e2e-project', 'ai-agent-architecture'] },
 ]
 
-// Chapter + deep-dive groups, shaped like primary menu groups so the sidebar
-// renders (and filters) every section with one code path.
 function buildSidebarCategories(chapters, deepDives) {
   const chapterMap = Object.fromEntries(chapters.map(c => [c.id, c]))
   const groups = CHAPTER_GROUPS.map(g => ({
@@ -65,109 +59,41 @@ function buildSidebarCategories(chapters, deepDives) {
   return groups.filter(g => g.items.length)
 }
 
-// Primary sidebar menu — labels flow through the app-wide language layer, so
-// switching the interface language re-labels every menu automatically.
-export const MENU = [
-  { to: '/', icon: '🏠', key: 'Home', exact: true },
-  { to: '/images', icon: '🖼️', key: 'Images Gallery', exact: true },
-  { to: '/files', icon: '📂', key: 'File Reference', exact: true },
-  { to: '/knowledge', icon: '📐', key: 'Knowledge Base', exact: true },
-  { to: '/jobs', icon: '💼', key: 'AI Jobs', exact: true, paren: '996' },
-  { to: '/edureka', icon: '📚', key: 'Edureka AI Docs', exact: true },
-  { to: '/ai-news', icon: '📡', key: 'AI News Dashboard', exact: true },
-  { to: '/live-news', icon: '🔴', key: 'Live News Fetcher', exact: true },
-  { to: '/ai-tools', icon: '🤖', key: 'AI Tools Catalog', exact: true },
-  { to: '/github-repos', icon: '📦', key: 'GitHub Repos', exact: true },
-  { to: '/tools', icon: '🛠️', key: 'delphitools', exact: true },
-  { to: '/open-alternatives', icon: '🔓', key: 'Open Alternatives', exact: true },
-  { to: '/integrations', icon: '🔌', key: 'Integrations', exact: true },
-  { to: '/books', icon: '📚', key: 'Book Catalog', exact: true, paren: () => `(${BOOKS.length.toLocaleString()})` },
-  { to: '/playbook', icon: '📖', key: 'AI Engineering Playbook', paren: '(70)' },
-  { to: '/rapid-fire', icon: '⚡', key: 'Rapid Fire Playbook' },
-  { to: '/ai-stack', icon: '🧠', key: 'AI Stack', paren: '(68)' },
-  { to: '/claude-cert', icon: '📜', key: 'Claude Certification' },
-  { to: '/snowflake', icon: '❄️', key: 'Snowflake Guide' },
-  { to: '/etl-guide', icon: '📊', key: 'ETL & Data Eng Guide' },
-  { to: '/ai-jobs-global', icon: '🌍', key: 'AI Jobs Global', paren: '(2,585+)' },
-  { to: '/projects', icon: '🗂️', key: 'All Projects' },
-  { to: '/linked-posts', icon: '🔗', key: 'AI LinkedIn Posts', paren: () => `(${LINKEDIN_POSTS.length})` },
-  { to: '/video-hub', icon: '🎬', key: 'AI Video Hub', paren: '(YouTube · IG · TikTok · FB)' },
-  { to: '/design-space', icon: '🏗️', key: 'AI Design Space', paren: '(1,258)' },
-  { to: '/learn', icon: '🎓', key: 'AI Prep · Learning Hub', paren: '(1,200+)' },
-  { to: '/python-masterhub', icon: '🐍', key: 'Python MasterHub', paren: '(885)' },
-  { to: '/ai-techstack-ref', icon: '🏗️', key: 'AI TechStack Reference' },
-  { to: '/reference-library', icon: '📖', key: 'Reference Library' },
-  { to: '/ai-tech-blogs', icon: '🌐', key: 'AI Blogs & Market Demand' },
-  { to: '/ai-python-masterhub-pages', icon: '📘', key: 'AI-Python HTML Guides', paren: '(43)' },
-  { to: '/ai-chatbots', icon: '🤖', key: 'AI Chatbots Global', paren: '(1,100+)' },
-  { to: '/ai-agents', icon: '🧠', key: 'AI Agents Global', paren: '(375,000+)' },
-  { to: '/communication-channels', icon: '📡', key: 'Communication Channels', paren: '(120+)' },
-  { to: '/technologies', icon: '📚', key: 'Technologies & Tutorials', paren: '(1000+)' },
-  { to: '/python-tutorials', icon: '🐍', key: 'Python Tutorials', paren: '(56)' },
-  { to: '/python-tech-hub', icon: '📦', key: 'Python Tech Hub' },
-  { to: '/trading', icon: '📈', key: 'Trading Guides' },
-  { to: '/neem-karoli-baba', icon: '🙏', key: 'Neem Karoli Baba Wisdom' },
-  { to: '/study-by-doing', icon: '🎯', key: 'Study By Doing — AI Course Map' },
-  { to: '/study-by-doing/resources', icon: '🌐', key: 'Study By Doing — 697 Resources' },
-  { to: '/europe-settlement', icon: '🇪🇺', key: 'Europe Settlement Blueprint' },
-  {
-    to: '/mortalapps-hub',
-    icon: '📚',
-    key: 'MortalApps Hub',
-    match: p => p.startsWith('/mortalapps-hub') || p.startsWith('/system-design') || p.startsWith('/python-code') || p.startsWith('/ai-agents-guide') || p.startsWith('/ai-infrastructure') || p.startsWith('/quantum-computing') || p.startsWith('/semiconductors'),
-  },
-]
-
-// Visual grouping for the primary menu (keeps 45+ links scannable).
-export const MENU_GROUPS = [
-  { label: 'Overview', paths: ['/', '/images', '/files', '/knowledge', '/edureka'] },
-  { label: 'Learn & Guides', paths: ['/learn', '/playbook', '/rapid-fire', '/ai-stack', '/claude-cert', '/snowflake', '/etl-guide', '/python-masterhub', '/python-tutorials', '/python-tech-hub', '/technologies', '/ai-python-masterhub-pages', '/study-by-doing', '/study-by-doing/resources', '/ai-techstack-ref', '/reference-library', '/mortalapps-hub'] },
-  { label: 'News & Catalogs', paths: ['/ai-news', '/live-news', '/ai-tools', '/github-repos', '/tools', '/open-alternatives', '/integrations', '/books', '/linked-posts', '/video-hub', '/ai-tech-blogs'] },
-  { label: 'Careers & Projects', paths: ['/jobs', '/ai-jobs-global', '/projects'] },
-  { label: 'Global Directories', paths: ['/design-space', '/ai-chatbots', '/ai-agents', '/communication-channels'] },
-  { label: 'Life & Finance', paths: ['/trading', '/neem-karoli-baba', '/europe-settlement'] },
-]
-
-function groupMenu(menu) {
-  const byPath = new Map(menu.map(m => [m.to, m]))
-  const used = new Set()
-  const groups = MENU_GROUPS.map(g => ({
-    label: g.label,
-    items: g.paths.map(p => byPath.get(p)).filter(Boolean).map(m => { used.add(m.to); return m }),
-  }))
-  const rest = menu.filter(m => !used.has(m.to))
-  if (rest.length) groups.push({ label: 'More', items: rest })
-  return groups.filter(g => g.items.length)
-}
-
 const cleanParen = v => String(v).replace(/^\(+|\)+$/g, '')
-
-// Each section owns a hue — headers, icon tiles, the active glow bar and the
-// jump chips all derive from it, so every menu reads as its own "zone".
-export const GROUP_THEME = {
-  'Overview': { hue: '#79d9f2', glyph: '◈' },
-  'Learn & Guides': { hue: '#c2a5ff', glyph: '✦' },
-  'News & Catalogs': { hue: '#f7d47d', glyph: '◉' },
-  'Careers & Projects': { hue: '#9be7b4', glyph: '▲' },
-  'Global Directories': { hue: '#ffabc3', glyph: '✺' },
-  'Life & Finance': { hue: '#75e2d1', glyph: '❖' },
-  'More': { hue: '#aebbd5', glyph: '•' },
-  'Deep Dives': { hue: '#ff94ad', glyph: '⬢' },
-}
 const CHAPTER_HUES = ['#8fb3ff', '#7ee0c3', '#ffc58f', '#d9a6ff', '#ff9fb8', '#9fd8ff', '#c6e88f', '#ffd98f']
-
-// Phone bottom tab bar — the four most-used destinations + the full menu.
-const DOCK = [
-  { to: '/', icon: '🏠', key: 'Home', exact: true },
-  { to: '/learn', icon: '🎓', key: 'Learn' },
-  { to: '/ai-news', icon: '📡', key: 'News' },
-  { to: '/jobs', icon: '💼', key: 'Jobs' },
-]
 
 const LS_COLLAPSED = 'nx.collapsedGroups'
 const LS_RAIL = 'nx.railPref'
+const LS_COLOR = 'nx.sidebarColor'
 const lsGet = (k, fallback) => { try { const v = localStorage.getItem(k); return v == null ? fallback : JSON.parse(v) } catch { return fallback } }
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* storage unavailable */ } }
+
+// Built-in palette. First entry is the default: "auto" = follow the page theme.
+// The rest are static brand colours (Stream, Rose, Amber, Green, Rust, White, Black).
+const PALETTES = [
+  { id: 'auto',  label: 'System', css: 'var(--text-primary) / 92%' },
+  { id: 'white', label: 'White',  css: '#ffffff / 92%' },
+  { id: 'black', label: 'Black',  css: '#1a1a1a / 92%' },
+  { id: 'cyan',  label: 'Stream', css: '#22d3ee / 92%' },
+  { id: 'rose',  label: 'Rose',   css: '#f472b6 / 92%' },
+  { id: 'amber', label: 'Amber',  css: '#fbbf24 / 92%' },
+  { id: 'green', label: 'Green',  css: '#34d399 / 92%' },
+  { id: 'rust',  label: 'Rust',   css: '#ea580c / 92%' },
+]
+
+// Turn a palette entry into the tokens Layout/JSX consume.
+const paletteToTokens = id => {
+  const p = PALETTES.find(p => p.id === id) || PALETTES[0]
+  const def = (p.css || '#79d9f2 / 92%').split(' / ')
+  const col = def[0] || '#79d9f2'
+  const op = def[1] || '92%'
+  return {
+    hue: col,
+    text: op.replace('%', '') > 88 ? '#0a1020' : '#ffffff',
+    swatch: col,
+    ui: col,
+  }
+}
 
 function useMedia(query) {
   const get = () => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(query).matches : false)
@@ -203,11 +129,15 @@ export default function Layout({ children }) {
   const [navQuery, setNavQuery] = React.useState('')
   const [collapsed, setCollapsed] = React.useState(() => new Set(lsGet(LS_COLLAPSED, [])))
   const [railPref, setRailPref] = React.useState(() => lsGet(LS_RAIL, null))
+  const [colorPref, setColorPref] = React.useState(() => lsGet(LS_COLOR, 'auto'));
+  const col = React.useMemo(() => paletteToTokens(colorPref), [colorPref]);
   const isPhone = useMedia('(max-width: 768px)')
   const isTablet = useMedia('(min-width: 769px) and (max-width: 1180px)')
+  const device = useDevice()
   const navScrollRef = React.useRef(null)
   const canHover = useMedia('(hover: hover) and (pointer: fine)')
   const [peek, setPeek] = React.useState(null)
+  const [colorOpen, setColorOpen] = React.useState(false)
 
   // iPad-class widths default to the compact icon rail; desktops default to
   // the full panel. An explicit toggle wins on every device.
@@ -260,6 +190,19 @@ export default function Layout({ children }) {
   // Close the phone sheet on navigation and on Escape.
   React.useEffect(() => { setMenuOpen(false); setPeek(null) }, [loc.pathname])
   React.useEffect(() => {
+    if (loc.hash) {
+      const id = decodeURIComponent(loc.hash.slice(1))
+      const raf = requestAnimationFrame(() => {
+        const el = document.getElementById(id)
+        if (el) el.scrollIntoView({ block: 'start' })
+        else window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+      })
+      return () => cancelAnimationFrame(raf)
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    return undefined
+  }, [loc.key, loc.pathname, loc.hash])
+  React.useEffect(() => {
     if (!menuOpen) return undefined
     const onKey = e => { if (e.key === 'Escape') setMenuOpen(false) }
     window.addEventListener('keydown', onKey)
@@ -306,7 +249,6 @@ export default function Layout({ children }) {
           <span className="nx-glyph" aria-hidden="true">{g.glyph}</span>
           <span className="nx-group-label">{t(g.label)}</span>
           <span className="nx-group-count">{nq ? `${g.shown.length}/${g.items.length}` : g.items.length}</span>
-          <span className="nx-chev" aria-hidden="true">›</span>
         </button>
         <div className="nx-group-body">
           <div className="nx-group-items">
@@ -416,19 +358,35 @@ export default function Layout({ children }) {
         {menuOpen && <button type="button" className="sidebar-scrim nx-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
         <aside className={`sidebar nx-sidebar ${menuOpen ? 'open' : ''} ${rail ? 'is-rail' : ''}`} aria-label="Primary navigation">
           <div className="nx-panel">
-            <div className="nx-sheet-handle" aria-hidden="true" />
+            {/* Row 1 — brand + current screen */}
             <div className="nx-top">
               <div className="nx-brand">
                 <span className="nx-brand-mark" aria-hidden="true">✦</span>
-                <div className="nx-brand-text"><strong>{t('Explore Hub')}</strong><span>{t('Learn · build · ship')}</span></div>
-                {isPhone ? (
-                  <button type="button" className="nx-icon-btn" onClick={() => setMenuOpen(false)} aria-label="Close navigation">✕</button>
-                ) : (
-                  <button type="button" className="nx-icon-btn nx-rail-btn" onClick={toggleRail} title={rail ? 'Expand sidebar' : 'Collapse to icon rail'} aria-label={rail ? 'Expand sidebar' : 'Collapse to icon rail'}>
-                    {rail ? '»' : '«'}
-                  </button>
-                )}
+                <div className="nx-brand-text">
+                  <strong>{t('Explore Hub')}</strong>
+                  <span>{t('Learn · build · ship')}</span>
+                </div>                {isPhone ? (                  <button type="button" className="nx-icon-btn" onClick={() => setMenuOpen(false)} aria-label="Close navigation">✕</button>                ) : (                  <>                    <button type="button" className="nx-icon-btn nx-rail-btn" onClick={toggleRail} title={rail ? 'Expand sidebar' : 'Collapse to icon rail'} aria-label={rail ? 'Expand sidebar' : 'Collapse to icon rail'}>                      {rail ? '»' : '«'}                    </button>                    <div className="nx-color-select" onClick={() => setColorPref(p => p === colorPref ? 'auto' : p)} title="Change sidebar colour">                      <span className="nx-color-label">                        <span className="nx-color-swatch" style={{ background: col.swatch }} aria-hidden="true" />                        <span className="nx-color-label-text">{t(colorPref === 'auto' ? 'System' : PALETTES.find(p => p.id === colorPref)?.label || 'Palette')}</span>                      </span>                      <button type="button" className="nx-color-pick-btn" aria-label="Pick sidebar colour" onClick={e => { e.stopPropagation(); setColorPref(p => p === colorPref ? 'auto' : p); setColorOpen(true); }}>                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>                      </button>                    </div>                    <div className={`nx-color-pop ${colorOpen ? 'open' : ''}`} style={{ '--g': col.hue }}>{PALETTES.map(p => (                        <button key={p.id} type="button" className={`nx-color-opt ${p.id === colorPref ? 'on' : ''}`} style={{ '--g': p.css.split(' / ')[0] || '#79d9f2' }} onClick={() => { setColorPref(p.id); setColorOpen(false); }}>                          <span className="nx-chk" style={{ background: p.css.split(' / ')[0] || '#79d9f2' }} aria-hidden="true" />                          <span className="nx-color-opt-inner">                            <span className="nx-c-title">{t(p.label)}</span>                            <span className="nx-c-sub">{p.css.split(' / ')[1] || '92%'} contrast</span>                          </span>                        </button>                      ))}                    </div>                  </>                )}              </div>
+              <div className="nx-device">
+                <DeviceFrame
+                  device={device.id}
+                  size="xs"
+                  image={menuImage(loc.pathname, 360, 220)}
+                  title={t('Current screen')}
+                  tagline={device.note}
+                  icon="✦"
+                  caption={false}
+                />
+                <div className="nx-device-meta">
+                  <span className="nx-device-kicker">{t('Previewing on')}</span>
+                  <strong>{device.icon} {device.label}</strong>
+                  <span>{device.note}</span>
+                  <Link to="/screens" className="nx-device-link" onClick={() => setMenuOpen(false)}>{t('All screens')} →</Link>
+                </div>
               </div>
+            </div>
+
+            {/* Row 2 — search + jump chips */}
+            <div className="nx-search-row">
               <div className="nx-search">
                 <span className="nx-search-icon" aria-hidden="true">⌕</span>
                 <input
@@ -459,6 +417,8 @@ export default function Layout({ children }) {
                 </div>
               )}
             </div>
+
+            {/* Row 3 — section groups */}
             <div className="nx-scroll" ref={navScrollRef} onScroll={() => peek && setPeek(null)}>
               {mainSections.map(renderSection)}
               {chapterSections.length > 0 && (
@@ -473,14 +433,22 @@ export default function Layout({ children }) {
           <div
             className="nx-peek"
             aria-hidden="true"
-            style={{ top: Math.max(70, Math.min(peek.top - 24, window.innerHeight - 260)), left: peek.left + 14, '--g': peek.hue }}
+            style={{ top: Math.max(70, Math.min(peek.top - 24, window.innerHeight - 360)), left: peek.left + 14, '--g': peek.hue }}
           >
-            <div className="nx-peek-img" style={{ backgroundImage: `url("${menuImage(peek.to, 560, 300)}")` }}>
-              <span>{peek.icon}</span>
-            </div>
+            <DeviceFrame
+              device={device.id}
+              size="sm"
+              image={menuImage(peek.to, 640, 400)}
+              title={peek.label}
+              tagline={menuTagline(peek.to)}
+              icon={peek.icon}
+              caption={false}
+            />
             <div className="nx-peek-body">
+              <span className="nx-peek-device">{device.icon} {device.label} · {device.note}</span>
               <b>{peek.label}</b>
               {menuTagline(peek.to) && <span>{menuTagline(peek.to)}</span>}
+              <span className="nx-peek-open">{t('Open screen')} →</span>
               {peek.paren && <em>{peek.paren}</em>}
             </div>
           </div>
@@ -489,6 +457,7 @@ export default function Layout({ children }) {
           <RouteExperienceBanner />
           <LatestPulse />
           <IconPhotos />
+          <SidebarPhotos />
           {children}
         </main>
       </div>
@@ -507,9 +476,7 @@ export default function Layout({ children }) {
           <span className="nx-dock-label">{t('Menu')}</span>
         </button>
       </nav>
-      <footer className="app-footer">
-        <strong>{t('AI Knowledge Hub')} v2.0</strong> &mdash; {chapters.length} {t('Chapters')} &middot; {deepDives.length} {t('Deep Dives')} &middot; 50+ {t('Code Examples')} &middot; 12 {t('Architecture Diagrams')} &mdash; React + FastAPI
-      </footer>
+      <SiteFooter chapters={chapters.length} deepDives={deepDives.length} />
       <ChatWidget />
     </>
   )

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { MENU, MENU_GROUPS, GROUP_THEME } from './Layout'
+import { MENU, MENU_GROUPS, GROUP_THEME } from '../data/menuData'
 import { menuImage, menuTagline } from '../data/menuVisuals'
 import { useLang } from '../i18n'
 import './ExploreSections.css'
